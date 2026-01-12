@@ -1,0 +1,5 @@
+[tool.wsd]
+check_dirs = []  # No source directories to check (codeless project)
+
+[tool.uv]
+dev-dependencies = []  # Minimal deps for WSD operation
