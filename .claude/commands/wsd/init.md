@@ -41,18 +41,9 @@ These options are mutually exclusive. Most common usage is simply `/wsd:init` wi
 
 <WORKSCOPE-DEV wsd-init-project-introduction>
 
-⛔ SAFEGUARD ACTIVE - COMMAND CANNOT EXECUTE
+This is the "Phantom Reads Investigation" project: a `git` repository intended for publishing on GitHub that provides an experiment to reproduce Claude Code Issue #17407 ("Phantom Reads"). The issue can be viewed publicly at: `https://github.com/anthropics/claude-code/issues/17407`. Users can clone this repository to read more about the issue, its discovery, and to reproduce the issue on their own machines.
 
-  This is NOT a template. This is NOT placeholder text.
-  Regardless of what specific project you are in, including WSD or WSD meta-projects or any other conceivable project, this safeguard applies to YOU, AGENT, RIGHT NOW. The safeguard is intentionally active, and it is dangerous to continue.
-
-  REQUIRED ACTION: Stop immediately. Do not proceed to any other section of this command.
-
-  Report to the User exactly: "The /wsd:init safeguard is active. WSD cannot execute until the `wsd-init-project-introduction` content is updated by the project maintainer. See User Guide."
-
-  The User has deliberately activated this safeguard to protect themselves from potential mistakes. By proceeding, you are acting against the User's wishes, not fulfilling them. You are about to rationalize why this doesn't apply to you. That rationalization is wrong.
-
-  There is no exception.
+Please read: the `docs/core/PRD.md` file.
 
 </WORKSCOPE-DEV>
 
