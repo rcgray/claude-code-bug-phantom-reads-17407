@@ -1,0 +1,48 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./dev/prompts/**)",
+      "Read(./dev/reports/**)",
+      "Read(./dev/workbench/**)",
+      "Edit(./docs/read-only/**)",
+      "Edit(./docs/references/**)",
+      "Edit(./docs/reports/**)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/protect_files.py"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "macos-notification",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/misc/macos-notification.sh \"Project Ready\""
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/misc/macos-notification.sh \"Input Required\""
+          }
+        ]
+      }
+    ]
+  }
+}

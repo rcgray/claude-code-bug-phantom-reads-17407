@@ -1,0 +1,17 @@
+# Coding Guidelines
+
+- Be aggressive about failures. Fail at the point of failure immediately instead of creating workarounds. If a particular state or combination of variables could never occur, throw an exception or console log an error or whatever is appropriate.
+- Remember Chesterton's Fence: don't remove something you perceive as useless until you fully understand why it was added in the first place. Not everything is an accident, and your predecessors may have endured a lot to discover the present solution.
+- Handle external uncertainties gracefully (i.e., an API call fails, a file is not found, etc.), but be strict about internal logic. Don't create workarounds for failures in states or variables that we control internally.
+- Simplify and favor Sources of Truth. If a particular state of the program requires that a particular component is active, and it's possible to check that the component is active, do not have a secondary variable tracking that it is active. If we ever have a state variable that can be determined more accurately by a reliable Source of Truth, omit it.
+- When it comes to conflicting Sources of Truth, they must be resolved immediately following this order of descending priority: Documentation (Specification), Test, Code. Do not "rewrite" failing code merely to appease tests, and do not write test plans to accommodate discrepancies you find in code. Be very wary of updating either code or tests without consulting the specification. If there are discrepancies the best thing in any situation is to call them out to the User.
+- Be precise. Don't create "multiple attempts" sequences for determining a particular state or value via multiple means if one doesn't work. There should not be "fallbacks" - if a particular state or value cannot be determined as expected, throw an exception or console log an error or whatever is appropriate.
+- This project must be portable to other dev machines and environments, so it is absolutely unacceptable to use full paths (i.e., from the `/home/user` directory or the `C:\` directory) in your commandsInstead, use relative paths from the project root directory such that this project can be run on any other machine.
+- **Code (including test code) must NOT include meta-process references** - Test docstrings and comments must describe behavior being tested, not development planning details. Do not reference task numbers, phase numbers, when things were introduced, etc.
+- USE COMMENT BLOCKS. All code files should begin with a code block that explains the purpose of the file along with key components. All classes, functions, etc. should include descriptive documentation appropriate for the language and toolset (e.g., JSDoc for JavaScript, TypeDoc for TypeScript, etc.)
+- CHECK COMMENT BLOCKS AFTER EDITS. If you are editing a function, for instance, ALWAYS review the comment block for that function to verify any edits that need to be made.
+- Use 4 spaces for indentation.
+- Avoid unnecessary use of reflection and dynamic attribute access when static approaches are available.
+  - **Python:** Use `hasattr()`, `getattr()`, `setattr()`, and similar introspection functions only when genuinely required for plugin systems, serialization, or framework requirements.
+  - **TypeScript:** Avoid dynamic property access (`obj[key]`) and type assertions when interfaces/types suffice. Use reflection APIs (`Reflect.*`) only when necessary.
+  - Prefer explicit inheritance and polymorphism over runtime method discovery in both languages.
