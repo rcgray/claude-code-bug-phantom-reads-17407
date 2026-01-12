@@ -1,5 +1,12 @@
 {
   "permissions": {
+    "allow": [
+      "SlashCommand(/wsd:boot)",
+      "Bash(bash scripts/init_work_journal.sh:*)",
+      "SlashCommand(/wsd:onboard)",
+      "WebFetch(domain:github.com)",
+      "Bash(cat:*)"
+    ],
     "deny": [
       "Read(./.env)",
       "Read(./dev/prompts/**)",
