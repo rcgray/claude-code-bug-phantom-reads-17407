@@ -92,27 +92,6 @@ Occasionally, there are workscopes that perform an audit, an investigation, or a
 
 7. **[Requires Completed Workscope from Step 5]** (May be run in parallel with steps 6, 8-9): Consult @agent-rule-enforcer to review your COMPLETED work for rule compliance. Provide your Workscope ID and a summary of what was completed. The Rule-Enforcer has complete instructions in its definition and will perform rules and standards compliance review. Continue to work with the Rule-Enforcer until they are satisfied. If a significant rule violation is discovered, or _especially_ if the Rule-Enforcer is demanding changes outside of your workscope, halt and immediately escalate to the User. Otherwise, append the Rule-Enforcer's full report to your Work Journal before moving on to the next step.
 
-8. **[Requires Completed Workscope from Step 5]** (May be run in parallel with steps 6-7, 9): Consult @agent-test-guardian to review your COMPLETED work for test coverage and regressions. Provide:
-   - Your Workscope ID
-   - Summary of what was completed
-   - **MANDATORY IFF CONTEXT**: Check the ticket/feature's **"## In-Flight Failures (IFF)"** section and your Situational Awareness. State whether IFFs are expected:
-     - "Tests are expected to PASS - no IFFs." (normal case, or IFF section is empty/absent)
-     - "IFFs EXPECTED per ticket IFF section: [quote or summarize the documented IFFs]. I am executing Phase X; IFFs are from Phase Y changes, resolution in Phase Z."
-
-   The Test-Guardian will run the test suite. Remind Test-Guardian: (1) no git commands that modify repository state, (2) do NOT fix tests that are IFFs because these are scheduled for a future phase.
-
-   **If IFFs are expected**: Test-Guardian will report all failures without fixing IFFs. You must then CATEGORIZE each failure by comparing against the ticket's IFF section:
-   - **INTRODUCED**: Caused by your workscope's changes (you must fix these)
-   - **IFF (DOCUMENTED)**: Listed in ticket's IFF section (do not fix - already tracked)
-   - **IFF (NEW)**: In-flight from earlier phases but NOT yet in ticket's IFF section (do not fix - report to User for IFF section update)
-   - **PRE-EXISTING**: Existed before this ticket began (rare - escalate to User)
-
-   Present a categorization table to the User showing each failure, its category, and reasoning. If any **IFF (NEW)** failures are discovered, request that the User explicitly confirm them, and you may add them the ticket's IFF section for future workscopes.
-
-   Validate the Test Results Report (Proof of Work) included in the Test-Guardian's response and include it in your Work Journal. If there are any blocking issues that need to be addressed, halt and immediately escalate to the User. Otherwise, append the Test-Guardian's full report (including your categorization table if applicable) to your Work Journal before moving on to the next step.
-
-9. **[Requires Completed Workscope from Step 5]** (May be run in parallel with steps 6-8): Consult @agent-health-inspector to review your COMPLETED work for code quality. Provide your Workscope ID and a summary of what was completed. The Health-Inspector has complete instructions in its definition and will run the comprehensive health check. Continue to work with the Health-Inspector until they are satisfied. You may need to make additional changes to your code to address any issues they raise. Validate the Health Check Report (Proof of Work) included in the Health-Inspector's response and include it in your Work Journal. If there are any difficulties with our test automation framework, or health issues (security, etc.) that are complicated or require larger refactor or design changes, halt and immediately escalate to the User. Otherwise, append the Health-Inspector's full report to your Work Journal before moving on to the next step.
-
 </WORKSCOPE-DEV>
 
 **DO NOT RUN QA YOURSELF**: If an agent is found to be unavailable, try them again (this has been happening lately with our AI harness) and escalate to the User if the second attempt fails.
