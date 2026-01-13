@@ -5,7 +5,10 @@
       "Bash(bash scripts/init_work_journal.sh:*)",
       "SlashCommand(/wsd:onboard)",
       "WebFetch(domain:github.com)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Skill(wsd:boot)",
+      "Skill(wsd:onboard)",
+      "WebFetch(domain:docs.anthropic.com)"
     ],
     "deny": [
       "Read(./.env)",
@@ -25,6 +28,17 @@
           {
             "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/protect_files.py"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/detect_phantom_read.py"
           }
         ]
       }

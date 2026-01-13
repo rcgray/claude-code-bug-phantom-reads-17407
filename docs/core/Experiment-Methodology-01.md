@@ -220,3 +220,72 @@ The analysis tools in this repository can supplement manual trials by programmat
 - GitHub Issue: https://github.com/anthropics/claude-code/issues/17407
 - PRD: `docs/core/PRD.md`
 - Analysis Tools: `scripts/` (see PRD for specifications)
+
+---
+
+## Addendum: Revised Understanding (2026-01-13)
+
+Subsequent investigation has revealed that the original findings require significant revision. This addendum documents what we now understand differently.
+
+### Two Distinct Error Mechanisms
+
+The original investigation conflated two different phantom read mechanisms that manifest differently across Claude Code versions:
+
+**Era 1: `[Old tool result content cleared]` (versions 2.0.59 and earlier)**
+
+In earlier builds, phantom reads manifest as tool results being cleared from context before the agent can process them. Agents report seeing messages like:
+```
+[Old tool result content cleared]
+```
+
+This appears to be a context management issue where Read results are discarded, possibly due to context window pressure.
+
+**Era 2: `<persisted-output>` (versions 2.0.60 and later)**
+
+Starting with build 2.0.60, the error mechanism changed. Read results that exceed a size threshold are persisted to disk, returning:
+```
+<persisted-output>Tool result saved to: /path/to/file.txt
+
+Use Read to view</persisted-output>
+```
+
+The agent fails to recognize this as a prompt to issue a follow-up Read, proceeding without the content.
+
+### No Safe Build Exists
+
+The original investigation concluded that versions 2.0.58 and earlier were unaffected. **This conclusion was incorrect.**
+
+Subsequent testing confirmed that version 2.0.58 CAN experience phantom reads via the Era 1 mechanism (`[Old tool result content cleared]`). The original trials may have been fortunate, or the failure rate in 2.0.58 may be lower than in later versions, but the issue exists.
+
+**Revised understanding**: There is no known "safe" version of Claude Code. All tested versions from 2.0.54 through 2.1.6 have exhibited phantom read behavior under certain conditions.
+
+### Revised Version Transition
+
+| Era | Versions | Error Mechanism |
+|-----|----------|-----------------|
+| 1 | 2.0.54 - 2.0.59 | `[Old tool result content cleared]` |
+| 2 | 2.0.60 - present | `<persisted-output>` |
+
+The transition between eras occurs at the 2.0.59/2.0.60 boundary, not the 2.0.58/2.0.59 boundary as originally reported.
+
+### Mitigation Observations
+
+User Agents report that `grep` operations appear more reliable than `Read` operations. One agent noted:
+
+> "Despite not following the persisted-output instructions, my analysis wasn't completely blind because... my Grep calls returned actual content snippets."
+
+This suggests that Grep results may be handled differently than Read results, possibly bypassing the mechanisms that cause phantom reads.
+
+### Implications for Analysis Tools
+
+Any programmatic detection tool must account for BOTH error mechanisms:
+1. Detect `<persisted-output>` markers without follow-up reads (Era 2)
+2. Detect `[Old tool result content cleared]` messages (Era 1)
+
+### Status of This Document
+
+This document (`Experiment-Methodology-01.md`) represents the original investigation methodology and findings as understood at the time of the initial report. It is preserved for historical reference.
+
+For the current understanding of the phantom reads phenomenon, including the two-era model and ongoing investigation, see:
+- `docs/core/Investigation-Journal.md` - Running log of discoveries
+- `docs/core/PRD.md` - Updated project requirements

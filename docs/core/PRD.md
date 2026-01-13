@@ -4,13 +4,18 @@
 
 This project provides a reproducible demonstration of the "Phantom Reads" bug in Claude Code (Issue #17407). The repository serves as both documentation of the issue and a practical tool for other users to verify its occurrence on their own systems.
 
-The Phantom Reads bug causes Claude Code to believe it has successfully read file contents when it has not. When file read operations return `<persisted-output>` responses (indicating results were saved to disk due to size), Claude proceeds as if it received the actual content, operating on incomplete or non-existent information without awareness of the gap.
+The Phantom Reads bug causes Claude Code to believe it has successfully read file contents when it has not. The bug manifests through two distinct mechanisms depending on Claude Code version: in older versions (2.0.59 and earlier), read results are cleared from context with `[Old tool result content cleared]` messages; in newer versions (2.0.60 and later), large read results return `<persisted-output>` markers that the agent fails to follow up on. In both cases, Claude proceeds as if it received the actual content, operating on incomplete or non-existent information without awareness of the gap.
 
 ## Product Vision
 
 ### Core Problem
 
-Starting with Claude Code version 2.0.59 (released 2025-11-29), a regression was introduced that causes the AI assistant to fail to recognize when file read operations return `<persisted-output>` markers instead of actual file content. Rather than making follow-up read requests to retrieve the persisted content, Claude proceeds with its task, potentially confabulating information about files it never actually read.
+Claude Code exhibits a bug where file read operations fail silently, leaving the AI assistant believing it has read file contents when it has not. The bug manifests differently across versions:
+
+- **Era 1 (versions 2.0.59 and earlier)**: Read results are cleared from context, replaced with `[Old tool result content cleared]` messages. The agent proceeds without the content.
+- **Era 2 (versions 2.0.60 and later)**: Large read results are persisted to disk, returning `<persisted-output>` markers. The agent fails to issue follow-up reads to retrieve the persisted content.
+
+In both cases, Claude proceeds with its task, potentially confabulating information about files it never actually read. No "safe" version has been identified—all tested versions from 2.0.54 through 2.1.6 have exhibited phantom read behavior under certain conditions.
 
 This bug is particularly insidious because:
 
@@ -56,8 +61,9 @@ The experiment leverages the Workscope-Dev (WSD) framework already present in th
 
 Python scripts in `scripts/` that:
 - Parse Claude Code session `.jsonl` files
-- Identify Read tool invocations that returned `<persisted-output>` responses
-- Detect whether follow-up reads were made to retrieve persisted content
+- Identify Read tool invocations that returned phantom read indicators:
+  - Era 2: `<persisted-output>` responses without follow-up reads
+  - Era 1: `[Old tool result content cleared]` messages
 - Report phantom read occurrences with file paths and conversation context
 
 These tools provide objective, programmatic detection that does not rely on the AI's self-assessment of whether it experienced phantom reads.
@@ -78,20 +84,16 @@ The AI is expected to recognize this marker and issue a follow-up Read command t
 
 ### Version History
 
-Testing across Claude Code versions revealed a clear regression boundary:
+Testing across Claude Code versions revealed two distinct eras of phantom read behavior:
 
-| Version | Release Date | Trials | Failures | Notes |
-|---------|--------------|--------|----------|-------|
-| 2.0.54 | 2025-11-10 | 4 | 0 | No issues observed |
-| 2.0.56 | 2025-11-26 | 4 | 0 | No issues observed |
-| 2.0.58 | 2025-11-28 | 4 | 0 | Last known good version |
-| 2.0.59 | 2025-11-29 | 4 | 2 | **Regression introduced** |
-| 2.0.60 | 2025-11-30 | 4 | 4 | 100% failure rate |
-| 2.0.62 | 2025-12-02 | 2 | 1 | Issue persists |
-| 2.0.76 | 2025-12-23 | 2 | 2 | Issue persists |
-| 2.1.2 | 2026-01-08 | 2 | 1 | Issue persists |
+| Era | Versions | Error Mechanism | Notes |
+|-----|----------|-----------------|-------|
+| 1 | 2.0.54 - 2.0.59 | `[Old tool result content cleared]` | Context clearing mechanism |
+| 2 | 2.0.60 - 2.1.6+ | `<persisted-output>` | Disk persistence mechanism |
 
-The 2.0.58 to 2.0.59 boundary represents a clear regression point, with zero failures observed in versions 2.0.58 and earlier, and consistent failures in 2.0.59 and later.
+**Important**: The original investigation incorrectly concluded that versions 2.0.58 and earlier were unaffected. Subsequent testing confirmed that ALL tested versions can exhibit phantom reads—the mechanism simply differs between eras.
+
+The transition from Era 1 to Era 2 occurs at the 2.0.59/2.0.60 boundary, suggesting a change in how Claude Code handles large tool results around that release.
 
 ### Trigger Conditions
 
@@ -105,51 +107,62 @@ The exact conditions that determine whether a specific read becomes a phantom re
 
 ## Experiment Methodology
 
-The original investigation followed a systematic protocol to test multiple Claude Code versions and identify the regression boundary. The full methodology, including step-by-step instructions, results analysis, and discussion of limitations, is documented in:
+The original investigation followed a systematic protocol to test multiple Claude Code versions and identify version boundaries. The full methodology from the original investigation is preserved in:
 
-**[Experiment-Methodology.md](Experiment-Methodology.md)**
+**[Experiment-Methodology-01.md](Experiment-Methodology-01.md)** (historical document with addendum)
 
 ### Summary
 
-The investigation used a self-report methodology: trigger multi-file read operations via `/wsd:init --custom` followed by `/refine-plan`, then prompt the agent to report whether any phantom reads occurred. Results were recorded as Success (no phantom reads) or Failure (phantom reads confirmed).
+The investigation used a self-report methodology: trigger multi-file read operations via `/wsd:init --custom` followed by `/refine-plan`, then prompt the agent to report whether any phantom reads occurred.
 
-Key findings:
-- **Pre-2.0.59**: 0 failures across 12 trials (versions 2.0.54, 2.0.56, 2.0.58)
-- **Post-2.0.59**: 13 failures across 18 trials (versions 2.0.59 through 2.1.2)
-- **Regression boundary**: Version 2.0.59 (released 2025-11-29)
+**Original findings** (later revised):
+- Pre-2.0.59 versions appeared unaffected
+- Post-2.0.59 versions showed consistent failures
+
+**Revised understanding**:
+- ALL tested versions can exhibit phantom reads
+- Era 1 (2.0.59 and earlier): `[Old tool result content cleared]` mechanism
+- Era 2 (2.0.60 and later): `<persisted-output>` mechanism
+- The original investigation likely conflated the two mechanisms
+
+For ongoing investigation notes, see `Investigation-Journal.md`.
 
 ### Limitations
 
-The self-report methodology has inherent limitations (model incentives, introspection accuracy, non-determinism). The analysis tools in this repository address these limitations by examining session logs programmatically, removing the model from the detection loop.
+The self-report methodology has inherent limitations (model incentives, introspection accuracy, non-determinism). Additionally, the original investigation failed to distinguish between the two phantom read mechanisms, leading to incorrect conclusions about "safe" versions. The analysis tools in this repository address these limitations by examining session logs programmatically, removing the model from the detection loop.
 
 ## Architecture Overview
 
 ### Repository Structure
 
 ```
-├── README.md                    # User-facing documentation
+├── README.md                        # User-facing documentation
 ├── docs/
 │   ├── core/
-│   │   ├── PRD.md              # This document (internal)
-│   │   ├── Action-Plan.md      # Implementation checkboxlist
-│   │   └── Design-Decisions.md # Project design rationale
-│   ├── read-only/              # WSD standards (read triggers)
+│   │   ├── PRD.md                  # This document (internal)
+│   │   ├── Action-Plan.md          # Implementation checkboxlist
+│   │   ├── Design-Decisions.md     # Project design rationale
+│   │   ├── Investigation-Journal.md # Running log of discoveries
+│   │   └── Experiment-Methodology-01.md # Original methodology (historical)
+│   ├── read-only/                  # WSD standards (read triggers)
 │   ├── tickets/
-│   │   └── open/               # WPD targets for /refine-plan
-│   └── workbench/              # Working documents
+│   │   └── open/                   # WPD targets for /refine-plan
+│   └── workbench/                  # Working documents
+├── dev/
+│   └── misc/                       # Session samples (good/bad cases by version)
 ├── scripts/
 │   ├── archive_claude_sessions.py  # Session archival utility
 │   └── analyze_phantom_reads.py    # Phantom read detector (to build)
 └── .claude/
     └── commands/
-        └── refine-plan.md      # Trigger command
+        └── refine-plan.md          # Trigger command
 ```
 
 ### Key Components
 
 **Trigger Mechanism**: The `/refine-plan` command executed against a ticket in `docs/tickets/open/`. This command prompts deep investigation across multiple documentation files, creating the multi-file read pattern associated with phantom reads.
 
-**Detection Mechanism**: Python scripts that parse `.jsonl` session files from `~/.claude/projects/`, identify `<persisted-output>` responses, and determine whether follow-up reads occurred.
+**Detection Mechanism**: Python scripts that parse `.jsonl` session files from `~/.claude/projects/`, identifying both Era 1 (`[Old tool result content cleared]`) and Era 2 (`<persisted-output>`) phantom read indicators.
 
 **Documentation**: README.md serves as the public-facing explanation; PRD.md and related docs/ files serve internal development purposes.
 
