@@ -1,0 +1,58 @@
+The file /Users/gray/Projects/claude-bug/dev/journal/archive/Journal-Workscope-20260112-204511.md has been updated. Here's the result of running `cat -n` on a snippet of the edited file:
+     1→# Work Journal - 2026-01-12 20:45
+     2→## Workscope ID: Workscope-20260112-204511
+     3→
+     4→## Initialization Phase
+     5→
+     6→**Status:** Custom workscope initialization (`--custom` flag)
+     7→
+     8→### System Files Read
+     9→1. `docs/core/PRD.md` - Project requirements document
+    10→2. `docs/read-only/Agent-System.md` - Elite team model, workflows, proof of work requirements
+    11→3. `docs/read-only/Agent-Rules.md` - Strict rules including SOLID, forbidden edits, model quirks
+    12→4. `docs/core/Design-Decisions.md` - 12 project-specific design philosophies
+    13→5. `docs/read-only/Documentation-System.md` - Document lifecycle and placement
+    14→6. `docs/read-only/Checkboxlist-System.md` - Five checkbox states, Phase 0 blocking, parent-child relationships
+    15→7. `docs/read-only/Workscope-System.md` - Immutable workscope files, DFS algorithm
+    16→
+    17→### Project-Bootstrapper Onboarding
+    18→
+    19→**Files I Must Read (Universal Standards):**
+    20→1. `docs/read-only/standards/Coding-Standards.md` ✓ READ
+    21→2. `docs/read-only/standards/Specification-Maintenance-Standards.md` ✓ READ
+    22→3. `docs/read-only/standards/Process-Integrity-Standards.md` ✓ READ
+    23→
+    24→**Language-Specific Standards (to read based on workscope):**
+    25→- Python: `Python-Standards.md`, `Python-Test-Environment-Isolation-Standards.md`, `Python-Testing-Configuration-Variables-Standards.md`
+    26→- TypeScript: `TypeScript-Standards.md`, `TypeScript-Test-Environment-Isolation-Standards.md`, `TypeScript-Testing-Configuration-Variables-Standards.md`
+    27→
+    28→**Other Standards (if relevant):**
+    29→- `Environment-and-Config-Variable-Standards.md`
+    30→- `Data-Structure-Documentation-Standards.md`
+    31→
+    32→### Critical Rules Summary
+    33→
+    34→**Most Frequently Violated Rules:**
+    35→1. **Rule 5.1** - NO BACKWARD COMPATIBILITY (app has not shipped)
+    36→2. **Rule 3.4** - NO META-COMMENTARY IN SHIPPING CODE (no phase numbers, task references in source)
+    37→3. **Rule 3.11** - File protection workaround (copy to workbench if write denied)
+    38→4. **Rule 6.1** - WSD Runtime vs Dogfood (all code changes go in `source/`, never edit root `wsd.py` or `scripts/`)
+    39→5. **Rule 4.4** - FORBIDDEN file write commands (`cat >> file << EOF` is FORBIDDEN)
+    40→
+    41→**Key Project Context:**
+    42→- WSD Runtime (shipping product) = `source/` directory
+    43→- WSD Development (this repo) = uses WSD to develop itself
+    44→- Dogfood files at root are READ-ONLY for agents
+    45→- Path resolution in `source/scripts/` is correct for deployed location, not development location
+    46→
+    47→**Quality Gates:**
+    48→- Test-Guardian: Must show test summary output
+    49→- Health-Inspector: Must show health check summary table
+    50→- Documentation-Steward: Verifies spec compliance
+    51→- Rule-Enforcer: Verifies standards compliance
+    52→- Rule 3.12: Reject incomplete reports without proof of work
+    53→
+    54→### Status
+    55→Awaiting custom workscope assignment from User.
+    56→
+    57→

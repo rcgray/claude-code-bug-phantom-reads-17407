@@ -1,0 +1,7 @@
+2084:    .wsdkeep candidates evaluated using _directory_needs_wsdkeep() after regular
+2566:            needs_wsdkeep = _directory_needs_wsdkeep(target_dir)
+3088:def _directory_needs_wsdkeep(target_dir: Path) -> bool:
+4482:            if not _directory_needs_wsdkeep(target_directory):
+5018:            if _directory_needs_wsdkeep(target_directory):
+5033:            if not _directory_needs_wsdkeep(target_directory):
+5049:            if not _directory_needs_wsdkeep(target_directory):

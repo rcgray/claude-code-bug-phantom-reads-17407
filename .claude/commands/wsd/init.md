@@ -43,7 +43,10 @@ These options are mutually exclusive. Most common usage is simply `/wsd:init` wi
 
 This is the "Phantom Reads Investigation" project: a `git` repository intended for publishing on GitHub that provides an experiment to reproduce Claude Code Issue #17407 ("Phantom Reads"). The issue can be viewed publicly at: `https://github.com/anthropics/claude-code/issues/17407`. Users can clone this repository to read more about the issue, its discovery, and to reproduce the issue on their own machines.
 
-Please read: the `docs/core/PRD.md` file.
+Please read:
+- `docs/core/PRD.md`
+- `docs/core/Experiment-Methodology.md`
+- `docs/core/Action-Plan.md`
 
 </WORKSCOPE-DEV>
 

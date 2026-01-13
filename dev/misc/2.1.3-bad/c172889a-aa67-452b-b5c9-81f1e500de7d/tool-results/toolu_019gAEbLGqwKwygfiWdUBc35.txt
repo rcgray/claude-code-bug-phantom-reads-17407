@@ -1,0 +1,751 @@
+     1→#!/usr/bin/env python
+     2→"""Pre-Staging Script for WSD Development.
+     3→
+     4→This script validates and updates source/wsd.json with file hashes, executable
+     5→lists, and version bumps before staging operations. It consolidates wsd.json
+     6→management that was previously split between an agent command and the staging
+     7→script, moving these operations earlier in the release pipeline so changes are
+     8→tracked in the WSD Development repository.
+     9→
+    10→This script is a WSD Development tool and is NOT part of the WSD Runtime.
+    11→It operates ON source/ but is not distributed with the runtime.
+    12→
+    13→Usage:
+    14→    uv run dev/scripts/pre_staging.py              # Run pre-staging
+    15→    uv run dev/scripts/pre_staging.py --dry-run    # Preview without making changes
+    16→    uv run dev/scripts/pre_staging.py --verbose    # Show detailed progress
+    17→"""
+    18→
+    19→import argparse
+    20→import copy
+    21→import json
+    22→import stat
+    23→import sys
+    24→from dataclasses import dataclass
+    25→from pathlib import Path
+    26→from typing import Any
+    27→
+    28→
+    29→# Add source/scripts to path for importing wsd_utils
+    30→sys.path.insert(0, str(Path(__file__).parent.parent.parent / "source" / "scripts"))
+    31→from wsd_utils import WsdCollectionError, calculate_file_hash, collect_wsd_files
+    32→
+    33→
+    34→def get_project_root() -> Path:
+    35→    """Get the project root directory.
+    36→
+    37→    The script is located at dev/scripts/pre_staging.py, so the project root
+    38→    is two directories up from the script's location.
+    39→
+    40→    Returns:
+    41→        Absolute path to the project root directory.
+    42→    """
+    43→    script_dir = Path(__file__).parent.resolve()
+    44→    return script_dir.parent.parent
+    45→
+    46→
+    47→def get_source_dir(project_root: Path) -> Path:
+    48→    """Get the source directory path.
+    49→
+    50→    Args:
+    51→        project_root: Path to the project root directory.
+    52→
+    53→    Returns:
+    54→        Path to the source/ directory within the project.
+    55→    """
+    56→    return project_root / "source"
+    57→
+    58→
+    59→def load_wsd_json(source_dir: Path) -> dict[str, Any]:
+    60→    """Load wsd.json from source directory.
+    61→
+    62→    Reads and parses the existing wsd.json file from the source directory.
+    63→    This function provides the foundation for all pre-staging operations.
+    64→
+    65→    Args:
+    66→        source_dir: Path to the source/ directory containing wsd.json.
+    67→
+    68→    Returns:
+    69→        Parsed wsd.json contents as a dictionary.
+    70→
+    71→    Raises:
+    72→        SystemExit: If wsd.json does not exist or cannot be parsed.
+    73→    """
+    74→    wsd_json_path = source_dir / "wsd.json"
+    75→
+    76→    if not wsd_json_path.exists():
+    77→        raise SystemExit(
+    78→            f"ERROR: source/wsd.json does not exist: {wsd_json_path}\n"
+    79→            "Cannot run pre-staging without an existing wsd.json file."
+    80→        )
+    81→
+    82→    try:
+    83→        with wsd_json_path.open(encoding="utf-8") as f:
+    84→            data: dict[str, Any] = json.load(f)
+    85→            return data
+    86→    except json.JSONDecodeError as e:
+    87→        raise SystemExit(f"ERROR: Failed to parse source/wsd.json\nJSON decode error: {e}") from e
+    88→    except OSError as e:
+    89→        raise SystemExit(f"ERROR: Cannot read source/wsd.json: {e}") from e
+    90→
+    91→
+    92→def write_wsd_json(source_dir: Path, wsd_json: dict[str, Any]) -> None:
+    93→    """Write updated wsd.json to source directory.
+    94→
+    95→    Writes the wsd.json file with proper formatting: 2-space indentation
+    96→    and a trailing newline for consistency with project conventions.
+    97→
+    98→    Args:
+    99→        source_dir: Path to the source/ directory.
+   100→        wsd_json: Updated wsd.json contents to write.
+   101→
+   102→    Raises:
+   103→        SystemExit: If wsd.json cannot be written.
+   104→    """
+   105→    wsd_json_path = source_dir / "wsd.json"
+   106→
+   107→    try:
+   108→        with wsd_json_path.open("w", encoding="utf-8") as f:
+   109→            json.dump(wsd_json, f, indent=2)
+   110→            f.write("\n")
+   111→    except OSError as e:
+   112→        raise SystemExit(f"ERROR: Cannot write source/wsd.json: {e}") from e
+   113→
+   114→
+   115→def validate_no_overwrite_exists(
+   116→    wsd_json: dict[str, Any],
+   117→    files: list[Path],
+   118→    verbose: bool = False,
+   119→) -> None:
+   120→    """Validate all no_overwrite entries exist in collected files.
+   121→
+   122→    Checks that each file path in the no_overwrite array exists in the
+   123→    collected files list. Missing entries are automatically removed from
+   124→    the array with a warning logged.
+   125→
+   126→    Args:
+   127→        wsd_json: The wsd.json dictionary to validate and modify in place.
+   128→        files: List of collected file paths relative to source directory.
+   129→        verbose: If True, log individual validation operations.
+   130→
+   131→    Returns:
+   132→        None. Modifies wsd_json in place by removing non-existent entries.
+   133→    """
+   134→    no_overwrite = set(wsd_json.get("no_overwrite", []))
+   135→    if not no_overwrite:
+   136→        return
+   137→
+   138→    file_paths = {str(f) for f in files}
+   139→    missing = no_overwrite - file_paths
+   140→
+   141→    if missing:
+   142→        wsd_json["no_overwrite"] = [f for f in wsd_json["no_overwrite"] if f not in missing]
+   143→        print(f"WARNING: Removed {len(missing)} missing files from no_overwrite: {sorted(missing)}")
+   144→    elif verbose:
+   145→        print(f"  no_overwrite: {len(no_overwrite)} entries validated")
+   146→
+   147→
+   148→def validate_installation_only_exists(
+   149→    wsd_json: dict[str, Any],
+   150→    verbose: bool = False,
+   151→) -> None:
+   152→    """Validate installation_only array without modification.
+   153→
+   154→    The installation_only array is manually managed and may contain files that
+   155→    don't exist yet (build-time generated files). This function only validates
+   156→    that the array is present and well-formed, without adding or removing entries.
+   157→
+   158→    Args:
+   159→        wsd_json: The wsd.json dictionary to validate (not modified).
+   160→        verbose: If True, log validation status.
+   161→
+   162→    Returns:
+   163→        None. Does not modify wsd_json.
+   164→    """
+   165→    installation_only = wsd_json.get("installation_only", [])
+   166→
+   167→    if verbose:
+   168→        print(f"  installation_only: {len(installation_only)} entries (manual management only)")
+   169→
+   170→
+   171→def validate_executable_exists(
+   172→    wsd_json: dict[str, Any],
+   173→    files: list[Path],
+   174→    verbose: bool = False,
+   175→) -> None:
+   176→    """Validate all executable entries exist in collected files.
+   177→
+   178→    Checks that each file path in the executable array exists in the
+   179→    collected files list. Missing entries are automatically removed from
+   180→    the array with a warning logged.
+   181→
+   182→    Note: This validation is performed before sync_executable_list() which
+   183→    will regenerate the executable array from actual file permissions.
+   184→
+   185→    Args:
+   186→        wsd_json: The wsd.json dictionary to validate and modify in place.
+   187→        files: List of collected file paths relative to source directory.
+   188→        verbose: If True, log individual validation operations.
+   189→
+   190→    Returns:
+   191→        None. Modifies wsd_json in place by removing non-existent entries.
+   192→    """
+   193→    executable = set(wsd_json.get("executable", []))
+   194→    if not executable:
+   195→        return
+   196→
+   197→    file_paths = {str(f) for f in files}
+   198→    missing = executable - file_paths
+   199→
+   200→    if missing:
+   201→        wsd_json["executable"] = [f for f in wsd_json["executable"] if f not in missing]
+   202→        print(f"WARNING: Removed {len(missing)} missing files from executable: {sorted(missing)}")
+   203→    elif verbose:
+   204→        print(f"  executable: {len(executable)} entries validated")
+   205→
+   206→
+   207→def validate_manifest_exclusivity(wsd_json: dict[str, Any]) -> None:
+   208→    """Validate that installation_only and file_hashes are mutually exclusive.
+   209→
+   210→    Ensures no file paths appear in both the installation_only list and
+   211→    file_hashes dictionary keys. These fields represent semantically opposite
+   212→    destinations: installation_only files are NOT copied to user projects,
+   213→    while file_hashes files ARE copied with hash verification.
+   214→
+   215→    Args:
+   216→        wsd_json: The wsd.json dictionary to validate.
+   217→
+   218→    Raises:
+   219→        SystemExit: If any files appear in both installation_only and file_hashes,
+   220→                   with a message listing all conflicting files.
+   221→    """
+   222→    installation_only = set(wsd_json.get("installation_only", []))
+   223→    file_hashes = set(wsd_json.get("file_hashes", {}).keys())
+   224→
+   225→    overlap = installation_only & file_hashes
+   226→    if overlap:
+   227→        print("ERROR: Files cannot appear in both installation_only and file_hashes:")
+   228→        for path in sorted(overlap):
+   229→            print(f"  - {path}")
+   230→        print("\nRemove duplicates from installation_only or file_hashes.")
+   231→        sys.exit(1)
+   232→
+   233→
+   234→def sync_executable_list(
+   235→    files: list[Path],
+   236→    source_dir: Path,
+   237→    verbose: bool = False,
+   238→) -> list[str]:
+   239→    """Build executable list from actual file permissions.
+   240→
+   241→    Scans all collected files and detects those with executable permissions
+   242→    set. A file is considered executable if ANY executable bit is set
+   243→    (user, group, or other).
+   244→
+   245→    Args:
+   246→        files: List of collected file paths relative to source directory.
+   247→        source_dir: Path to the source/ directory for permission checks.
+   248→        verbose: If True, log individual executable detection operations.
+   249→
+   250→    Returns:
+   251→        Sorted list of relative paths for files with +x bit set.
+   252→    """
+   253→    executable: list[str] = []
+   254→
+   255→    for relative_path in files:
+   256→        file_path = source_dir / relative_path
+   257→        try:
+   258→            mode = file_path.stat().st_mode
+   259→            if mode & (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH):
+   260→                executable.append(str(relative_path))
+   261→                if verbose:
+   262→                    print(f"  Detected executable: {relative_path}")
+   263→        except OSError:
+   264→            continue
+   265→
+   266→    return sorted(executable)
+   267→
+   268→
+   269→def generate_file_hashes(
+   270→    files: list[Path],
+   271→    source_dir: Path,
+   272→    installation_only: set[str],
+   273→    verbose: bool = False,
+   274→) -> dict[str, str]:
+   275→    """Generate SHA-256 hashes for all files except installation_only.
+   276→
+   277→    Calculates content hashes for WSD Runtime files, excluding files that
+   278→    are listed in the installation_only array (these are not copied during
+   279→    installation and don't need hashes).
+   280→
+   281→    Args:
+   282→        files: List of collected file paths relative to source directory.
+   283→        source_dir: Path to the source/ directory for file access.
+   284→        installation_only: Set of file paths to exclude from hashing.
+   285→        verbose: If True, log individual hash operations.
+   286→
+   287→    Returns:
+   288→        Dictionary mapping relative paths (with forward slashes) to hash strings
+   289→        in format 'sha256:<hex_digest>'.
+   290→    """
+   291→    file_hashes: dict[str, str] = {}
+   292→
+   293→    for relative_path in files:
+   294→        # Convert to forward-slash path for cross-platform consistency
+   295→        path_str = str(relative_path).replace("\\", "/")
+   296→
+   297→        # Skip files in installation_only
+   298→        if path_str in installation_only:
+   299→            if verbose:
+   300→                print(f"  Skipping (installation_only): {path_str}")
+   301→            continue
+   302→
+   303→        file_path = source_dir / relative_path
+   304→        file_hashes[path_str] = calculate_file_hash(file_path)
+   305→
+   306→        if verbose:
+   307→            print(f"  Hashed: {path_str}")
+   308→
+   309→    return file_hashes
+   310→
+   311→
+   312→def has_changes(original: dict[str, Any], current: dict[str, Any]) -> bool:
+   313→    """Detect if any tracked fields have changed.
+   314→
+   315→    Compares the original and current wsd.json states to determine if
+   316→    any changes were made that should trigger a version increment.
+   317→
+   318→    Args:
+   319→        original: Original wsd.json state before modifications.
+   320→        current: Current wsd.json state after modifications.
+   321→
+   322→    Returns:
+   323→        True if any tracked field differs, False if identical.
+   324→    """
+   325→    # Compare file_hashes dictionaries
+   326→    if original.get("file_hashes", {}) != current.get("file_hashes", {}):
+   327→        return True
+   328→
+   329→    # Compare executable arrays (sorted for order-independent comparison)
+   330→    if sorted(original.get("executable", [])) != sorted(current.get("executable", [])):
+   331→        return True
+   332→
+   333→    # Compare no_overwrite arrays
+   334→    if sorted(original.get("no_overwrite", [])) != sorted(current.get("no_overwrite", [])):
+   335→        return True
+   336→
+   337→    # Compare installation_only arrays
+   338→    return sorted(original.get("installation_only", [])) != sorted(
+   339→        current.get("installation_only", [])
+   340→    )
+   341→
+   342→
+   343→def increment_patch_version(version: str) -> str:
+   344→    """Increment the patch version component.
+   345→
+   346→    Takes a semantic version string (X.Y.Z) and increments the patch
+   347→    component (Z) by 1.
+   348→
+   349→    Args:
+   350→        version: Semantic version string in format 'X.Y.Z'.
+   351→
+   352→    Returns:
+   353→        New version string with incremented patch version.
+   354→    """
+   355→    parts = version.split(".")
+   356→    parts[2] = str(int(parts[2]) + 1)
+   357→    return ".".join(parts)
+   358→
+   359→
+   360→@dataclass
+   361→class ChangeStatistics:
+   362→    """Statistics about changes detected during pre-staging.
+   363→
+   364→    Attributes:
+   365→        hash_total: Total number of files hashed.
+   366→        hash_changed: Number of files with changed hashes.
+   367→        hash_added: Number of new files added to hashes.
+   368→        hash_removed: Number of files removed from hashes.
+   369→        exec_total: Total number of executable files.
+   370→        exec_added: Number of files added to executable list.
+   371→        exec_removed: Number of files removed from executable list.
+   372→        no_overwrite_total: Total number of no_overwrite entries.
+   373→        no_overwrite_removed: Number of entries removed from no_overwrite.
+   374→        installation_only_total: Total number of installation_only entries.
+   375→        installation_only_removed: Number of entries removed from installation_only.
+   376→    """
+   377→
+   378→    hash_total: int = 0
+   379→    hash_changed: int = 0
+   380→    hash_added: int = 0
+   381→    hash_removed: int = 0
+   382→    exec_total: int = 0
+   383→    exec_added: int = 0
+   384→    exec_removed: int = 0
+   385→    no_overwrite_total: int = 0
+   386→    no_overwrite_removed: int = 0
+   387→    installation_only_total: int = 0
+   388→    installation_only_removed: int = 0
+   389→
+   390→
+   391→def compute_change_statistics(
+   392→    original: dict[str, Any], current: dict[str, Any]
+   393→) -> ChangeStatistics:
+   394→    """Compute detailed statistics about changes between original and current state.
+   395→
+   396→    Analyzes the differences between the original wsd.json state and the
+   397→    current state to produce actionable statistics for the summary report.
+   398→
+   399→    Args:
+   400→        original: Original wsd.json state before modifications.
+   401→        current: Current wsd.json state after modifications.
+   402→
+   403→    Returns:
+   404→        ChangeStatistics dataclass with all computed change counts.
+   405→    """
+   406→    stats = ChangeStatistics()
+   407→
+   408→    # Hash statistics
+   409→    orig_hashes = original.get("file_hashes", {})
+   410→    curr_hashes = current.get("file_hashes", {})
+   411→
+   412→    stats.hash_total = len(curr_hashes)
+   413→    orig_keys = set(orig_hashes.keys())
+   414→    curr_keys = set(curr_hashes.keys())
+   415→
+   416→    stats.hash_added = len(curr_keys - orig_keys)
+   417→    stats.hash_removed = len(orig_keys - curr_keys)
+   418→
+   419→    # Count changed hashes (files present in both with different values)
+   420→    common_keys = orig_keys & curr_keys
+   421→    stats.hash_changed = sum(1 for key in common_keys if orig_hashes[key] != curr_hashes[key])
+   422→
+   423→    # Executable statistics
+   424→    orig_exec = set(original.get("executable", []))
+   425→    curr_exec = set(current.get("executable", []))
+   426→
+   427→    stats.exec_total = len(curr_exec)
+   428→    stats.exec_added = len(curr_exec - orig_exec)
+   429→    stats.exec_removed = len(orig_exec - curr_exec)
+   430→
+   431→    # no_overwrite statistics
+   432→    orig_no_overwrite = set(original.get("no_overwrite", []))
+   433→    curr_no_overwrite = set(current.get("no_overwrite", []))
+   434→
+   435→    stats.no_overwrite_total = len(curr_no_overwrite)
+   436→    stats.no_overwrite_removed = len(orig_no_overwrite - curr_no_overwrite)
+   437→
+   438→    # installation_only statistics
+   439→    orig_install_only = set(original.get("installation_only", []))
+   440→    curr_install_only = set(current.get("installation_only", []))
+   441→
+   442→    stats.installation_only_total = len(curr_install_only)
+   443→    stats.installation_only_removed = len(orig_install_only - curr_install_only)
+   444→
+   445→    return stats
+   446→
+   447→
+   448→def _format_file_hashes_line(stats: ChangeStatistics, dry_run: bool) -> str:
+   449→    """Format file hashes status line.
+   450→
+   451→    Args:
+   452→        stats: Change statistics containing hash counts.
+   453→        dry_run: Whether in dry-run mode (changes output format).
+   454→
+   455→    Returns:
+   456→        Formatted string for file hashes status.
+   457→    """
+   458→    if dry_run:
+   459→        # Dry-run mode: show only change counts, no total
+   460→        return (
+   461→            f"  File hashes: {stats.hash_changed} files changed, "
+   462→            f"{stats.hash_added} added, {stats.hash_removed} removed"
+   463→        )
+   464→    # Normal mode: show total with change breakdown
+   465→    return (
+   466→        f"  File hashes: {stats.hash_total} files hashed "
+   467→        f"({stats.hash_changed} changed, {stats.hash_added} added, "
+   468→        f"{stats.hash_removed} removed)"
+   469→    )
+   470→
+   471→
+   472→def _format_executable_line(stats: ChangeStatistics, dry_run: bool) -> str:
+   473→    """Format executable files status line.
+   474→
+   475→    Args:
+   476→        stats: Change statistics containing executable counts.
+   477→        dry_run: Whether in dry-run mode (changes output format).
+   478→
+   479→    Returns:
+   480→        Formatted string for executable status.
+   481→    """
+   482→    if dry_run:
+   483→        # Dry-run mode: use "No changes" text if unchanged
+   484→        if stats.exec_added == 0 and stats.exec_removed == 0:
+   485→            return "  Executable: No changes"
+   486→        return f"  Executable: {stats.exec_added} added, {stats.exec_removed} removed"
+   487→    # Normal mode: always show counts
+   488→    return (
+   489→        f"  Executable: {stats.exec_total} files "
+   490→        f"({stats.exec_added} added, {stats.exec_removed} removed)"
+   491→    )
+   492→
+   493→
+   494→def _format_no_overwrite_line(stats: ChangeStatistics, dry_run: bool) -> str:
+   495→    """Format no_overwrite status line.
+   496→
+   497→    Args:
+   498→        stats: Change statistics containing no_overwrite counts.
+   499→        dry_run: Whether in dry-run mode (changes output format).
+   500→
+   501→    Returns:
+   502→        Formatted string for no_overwrite status.
+   503→    """
+   504→    if dry_run:
+   505→        # Dry-run mode: use "No changes" text if unchanged
+   506→        if stats.no_overwrite_removed == 0:
+   507→            return "  no_overwrite: No changes"
+   508→        return f"  no_overwrite: {stats.no_overwrite_removed} removed"
+   509→    # Normal mode: always show count
+   510→    return (
+   511→        f"  no_overwrite: {stats.no_overwrite_total} files ({stats.no_overwrite_removed} removed)"
+   512→    )
+   513→
+   514→
+   515→def _format_installation_only_line(stats: ChangeStatistics, dry_run: bool) -> str:
+   516→    """Format installation_only status line.
+   517→
+   518→    Args:
+   519→        stats: Change statistics containing installation_only counts.
+   520→        dry_run: Whether in dry-run mode (changes output format).
+   521→
+   522→    Returns:
+   523→        Formatted string for installation_only status.
+   524→    """
+   525→    if dry_run:
+   526→        # Dry-run mode: use "No changes" text if unchanged
+   527→        if stats.installation_only_removed == 0:
+   528→            return "  installation_only: No changes"
+   529→        return f"  installation_only: {stats.installation_only_removed} removed"
+   530→    # Normal mode: always show count
+   531→    return (
+   532→        f"  installation_only: {stats.installation_only_total} files "
+   533→        f"({stats.installation_only_removed} removed)"
+   534→    )
+   535→
+   536→
+   537→def _format_footer(dry_run: bool, changes_detected: bool) -> str:
+   538→    """Format footer message.
+   539→
+   540→    Args:
+   541→        dry_run: Whether in dry-run mode.
+   542→        changes_detected: Whether changes were detected.
+   543→
+   544→    Returns:
+   545→        Formatted footer message.
+   546→    """
+   547→    if dry_run:
+   548→        if changes_detected:
+   549→            return "\nNo changes written. Run without --dry-run to apply."
+   550→        return "\nNo changes to write."
+   551→    if changes_detected:
+   552→        return "\nUpdated source/wsd.json"
+   553→    return "\nNo changes to write."
+   554→
+   555→
+   556→def generate_summary_report(
+   557→    old_version: str,
+   558→    new_version: str,
+   559→    stats: ChangeStatistics,
+   560→    changes_detected: bool,
+   561→    dry_run: bool,
+   562→) -> None:
+   563→    """Generate and print the summary report for pre-staging operations.
+   564→
+   565→    Produces formatted output showing version changes and detailed statistics
+   566→    about file hashes, executables, and metadata arrays. Output format differs
+   567→    between normal mode and dry-run mode.
+   568→
+   569→    Args:
+   570→        old_version: Version string before any changes.
+   571→        new_version: Version string after changes (may be same as old if no changes).
+   572→        stats: ChangeStatistics with all computed change counts.
+   573→        changes_detected: Whether any changes were detected.
+   574→        dry_run: If True, format output for dry-run preview mode.
+   575→    """
+   576→    # Header
+   577→    if dry_run:
+   578→        header = "\n=== Pre-Staging Preview (Dry Run) ==="
+   579→    else:
+   580→        header = "\n=== Pre-Staging Complete ==="
+   581→    print(header)
+   582→
+   583→    # Version line
+   584→    if changes_detected:
+   585→        action = "would bump" if dry_run else "patch bump"
+   586→        print(f"Version: {old_version} -> {new_version} ({action} due to changes)")
+   587→    else:
+   588→        print(f"Version: {old_version} (no changes)")
+   589→
+   590→    # Changes section
+   591→    section_header = "Changes detected:" if dry_run else "Changes:"
+   592→    print(f"\n{section_header}")
+   593→
+   594→    # Print all status lines
+   595→    print(_format_file_hashes_line(stats, dry_run))
+   596→    print(_format_executable_line(stats, dry_run))
+   597→    print(_format_no_overwrite_line(stats, dry_run))
+   598→    print(_format_installation_only_line(stats, dry_run))
+   599→
+   600→    # Footer
+   601→    print(_format_footer(dry_run, changes_detected))
+   602→
+   603→
+   604→def parse_args() -> argparse.Namespace:
+   605→    """Parse command-line arguments.
+   606→
+   607→    Returns:
+   608→        Parsed arguments namespace with dry_run and verbose attributes.
+   609→    """
+   610→    parser = argparse.ArgumentParser(
+   611→        description="Pre-staging script for validating and updating source/wsd.json.",
+   612→        formatter_class=argparse.RawDescriptionHelpFormatter,
+   613→        epilog="""
+   614→Examples:
+   615→  uv run dev/scripts/pre_staging.py              # Run pre-staging
+   616→  uv run dev/scripts/pre_staging.py --dry-run    # Preview without making changes
+   617→  uv run dev/scripts/pre_staging.py --verbose    # Show detailed progress
+   618→        """,
+   619→    )
+   620→
+   621→    parser.add_argument(
+   622→        "--dry-run",
+   623→        action="store_true",
+   624→        help="Preview changes without writing to source/wsd.json.",
+   625→    )
+   626→
+   627→    parser.add_argument(
+   628→        "--verbose",
+   629→        action="store_true",
+   630→        help="Display detailed progress including individual file operations.",
+   631→    )
+   632→
+   633→    return parser.parse_args()
+   634→
+   635→
+   636→def _log_verbose(message: str, verbose: bool) -> None:
+   637→    """Print a message if verbose mode is enabled.
+   638→
+   639→    Args:
+   640→        message: The message to print.
+   641→        verbose: If True, print the message; otherwise, do nothing.
+   642→    """
+   643→    if verbose:
+   644→        print(message)
+   645→
+   646→
+   647→def main() -> None:
+   648→    """Main entry point for the pre-staging script.
+   649→
+   650→    Orchestrates the pre-staging workflow:
+   651→    1. Parse command-line arguments
+   652→    2. Determine source directory
+   653→    3. Load existing wsd.json
+   654→    4. Create deep copy for change detection
+   655→    5. Collect valid files from source directory
+   656→    6. Validate metadata arrays (no_overwrite, installation_only, executable)
+   657→    7. Sync executable list from actual file permissions
+   658→    8. Generate file hashes (excluding installation_only files)
+   659→    9. Detect changes and increment version if needed
+   660→    10. Write updated wsd.json (unless dry-run)
+   661→    """
+   662→    args = parse_args()
+   663→    verbose = args.verbose
+   664→
+   665→    # Get directory paths
+   666→    project_root = get_project_root()
+   667→    source_dir = get_source_dir(project_root)
+   668→
+   669→    # Display mode
+   670→    mode = "DRY RUN" if args.dry_run else "PRE-STAGING"
+   671→    print(f"=== WSD Pre-Staging ({mode}) ===")
+   672→    print(f"Source: {source_dir}")
+   673→
+   674→    # Load current wsd.json
+   675→    _log_verbose("\nLoading wsd.json...", verbose)
+   676→    wsd_json = load_wsd_json(source_dir)
+   677→
+   678→    # Create deep copy for change detection
+   679→    original_state = copy.deepcopy(wsd_json)
+   680→
+   681→    _log_verbose(f"  Version: {wsd_json.get('version', 'unknown')}", verbose)
+   682→    _log_verbose("  Loaded successfully", verbose)
+   683→
+   684→    # Collect valid files from source directory
+   685→    _log_verbose("\nCollecting files...", verbose)
+   686→    try:
+   687→        files = collect_wsd_files(source_dir)
+   688→    except WsdCollectionError as e:
+   689→        raise SystemExit(f"ERROR: {e.message}: {e.path}") from e
+   690→
+   691→    _log_verbose(f"  Collected {len(files)} files", verbose)
+   692→
+   693→    # Validate metadata arrays
+   694→    _log_verbose("\nValidating metadata arrays...", verbose)
+   695→    validate_no_overwrite_exists(wsd_json, files, verbose)
+   696→    validate_installation_only_exists(wsd_json, verbose)
+   697→    validate_executable_exists(wsd_json, files, verbose)
+   698→
+   699→    # Sync executable list from actual file permissions
+   700→    _log_verbose("\nSynchronizing executable list...", verbose)
+   701→    wsd_json["executable"] = sync_executable_list(files, source_dir, verbose)
+   702→    _log_verbose(f"  Synced {len(wsd_json['executable'])} executable files", verbose)
+   703→
+   704→    # Generate file hashes (excluding installation_only files)
+   705→    _log_verbose("\nGenerating file hashes...", verbose)
+   706→    installation_only = set(wsd_json.get("installation_only", []))
+   707→    wsd_json["file_hashes"] = generate_file_hashes(files, source_dir, installation_only, verbose)
+   708→    _log_verbose(f"  Generated {len(wsd_json['file_hashes'])} file hashes", verbose)
+   709→
+   710→    # Validate mutual exclusivity between installation_only and file_hashes
+   711→    _log_verbose("\nValidating manifest exclusivity...", verbose)
+   712→    validate_manifest_exclusivity(wsd_json)
+   713→    _log_verbose("  Validation passed", verbose)
+   714→
+   715→    # Detect changes and increment version if needed
+   716→    changes_detected = has_changes(original_state, wsd_json)
+   717→    old_version = wsd_json.get("version", "0.0.0")
+   718→
+   719→    if changes_detected:
+   720→        new_version = increment_patch_version(old_version)
+   721→        wsd_json["version"] = new_version
+   722→        _log_verbose(f"\nVersion bump: {old_version} -> {new_version}", verbose)
+   723→    else:
+   724→        new_version = old_version
+   725→
+   726→    # Write updated wsd.json (unless dry-run or no changes)
+   727→    if changes_detected and not args.dry_run:
+   728→        _log_verbose("\nWriting updated wsd.json...", verbose)
+   729→        write_wsd_json(source_dir, wsd_json)
+   730→
+   731→    # Compute statistics and generate summary report
+   732→    stats = compute_change_statistics(original_state, wsd_json)
+   733→    generate_summary_report(old_version, new_version, stats, changes_detected, args.dry_run)
+   734→
+   735→
+   736→if __name__ == "__main__":
+   737→    try:
+   738→        main()
+   739→    except KeyboardInterrupt:
+   740→        print("\n\nPre-staging interrupted by user.", file=sys.stderr)
+   741→        sys.exit(1)
+   742→    except SystemExit:
+   743→        raise
+   744→    except Exception as e:
+   745→        print(f"\nUnexpected error during pre-staging: {e}", file=sys.stderr)
+   746→        sys.exit(1)
+   747→
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>

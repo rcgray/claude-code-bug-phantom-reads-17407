@@ -1,0 +1,204 @@
+     1→#!/usr/bin/env python
+     2→"""Workscope-Dev Runner (wsd.py) - Unified task runner for all Workscope-Dev projects.
+     3→
+     4→This script provides a consistent command-line interface across Python, TypeScript,
+     5→JavaScript, and mixed-language projects. Commands like `ws test`, `ws lint`, and
+     6→`ws format` work identically regardless of the underlying technology stack, with
+     7→the runner transparently mapping to appropriate tools.
+     8→
+     9→Core Philosophy:
+    10→- Command homogenization: Same commands work everywhere
+    11→- Project type auto-detection: No manual configuration needed
+    12→- Universal coverage: 29 commands covering common development tasks
+    13→- Workscope-Dev integration: Core workflow commands always available
+    14→
+    15→Usage:
+    16→    ./wsd.py <command> [args...]
+    17→    python wsd.py <command> [args...]
+    18→
+    19→Script-Level Flags:
+    20→    --help, -h      Display all available commands and exit
+    21→    --version, -V   Display WSD version and exit
+    22→
+    23→Examples:
+    24→    ./wsd.py test           # Runs pytest or jest based on project type
+    25→    ./wsd.py lint           # Runs ruff or eslint based on project type
+    26→    ./wsd.py health         # Runs Workscope-Dev health check
+    27→    ./wsd.py health:clean   # Health check with fresh cache (deterministic)
+    28→    ./wsd.py                # Shows all available commands
+    29→    ./wsd.py --version      # Shows WSD version
+    30→
+    31→For shell convenience, create an alias:
+    32→    alias wsd='./wsd.py'
+    33→"""
+    34→
+    35→import datetime
+    36→import errno
+    37→import json
+    38→import logging
+    39→import os
+    40→import re
+    41→import shutil
+    42→import subprocess
+    43→import sys
+    44→from dataclasses import dataclass
+    45→from pathlib import Path
+    46→from typing import Any, NoReturn
+    47→
+    48→
+    49→# Import language detection utilities from scripts directory
+    50→_scripts_dir = Path(__file__).parent / "scripts"
+    51→sys.path.insert(0, str(_scripts_dir))
+    52→from wsd_utils import (  # noqa: E402
+    53→    WsdCollectionError,
+    54→    _is_binary_file,
+    55→    calculate_file_hash,
+    56→    collect_wsd_files,
+    57→    detect_package_manager,
+    58→    detect_project_languages,
+    59→)
+    60→
+    61→
+    62→# Configure logging for tag preservation warnings and verbose output
+    63→logger = logging.getLogger(__name__)
+    64→
+    65→# Global verbose flag for detailed operation logging
+    66→_verbose_mode = False
+    67→
+    68→
+    69→def set_verbose_mode(enabled: bool) -> None:
+    70→    """Enable or disable verbose output mode.
+    71→
+    72→    When verbose mode is enabled, detailed operation logging is printed
+    73→    to stderr to help users troubleshoot installation and update issues.
+    74→
+    75→    Args:
+    76→        enabled: True to enable verbose output, False to disable
+    77→    """
+    78→    global _verbose_mode  # noqa: PLW0603
+    79→    _verbose_mode = enabled
+    80→    if enabled:
+    81→        # Configure logging to show INFO level messages
+    82→        logging.basicConfig(
+    83→            level=logging.INFO,
+    84→            format="[VERBOSE] %(message)s",
+    85→            stream=sys.stderr,
+    86→        )
+    87→
+    88→
+    89→def verbose_log(message: str) -> None:
+    90→    """Log a message if verbose mode is enabled.
+    91→
+    92→    Prints detailed operation information to stderr when verbose mode
+    93→    is active. Messages are prefixed with [VERBOSE] for easy filtering.
+    94→
+    95→    Args:
+    96→        message: The message to log
+    97→    """
+    98→    if _verbose_mode:
+    99→        print(f"[VERBOSE] {message}", file=sys.stderr)
+   100→
+   101→
+   102→# Type alias for command structures
+   103→Command = list[str] | list[list[str]]
+   104→
+   105→
+   106→def cmd(*args: str) -> list[str]:
+   107→    """Build a command array from arguments.
+   108→
+   109→    Args:
+   110→        *args: Command components as strings
+   111→
+   112→    Returns:
+   113→        list[str]: Command array suitable for subprocess.run()
+   114→    """
+   115→    return list(args)
+   116→
+   117→
+   118→def lang_cmd(python_cmd: list[str], node_cmd: list[str]) -> list[str]:
+   119→    """Return appropriate command based on detected project type.
+   120→
+   121→    This function enables command homogenization by selecting the
+   122→    language-appropriate implementation at runtime. Uses detect_project_languages()
+   123→    internally, prioritizing Node.js languages when multiple languages detected.
+   124→
+   125→    Args:
+   126→        python_cmd: Command to use for Python projects.
+   127→        node_cmd: Command to use for Node.js projects (TypeScript and JavaScript).
+   128→
+   129→    Returns:
+   130→        Command array for the detected project type, or warning message if no
+   131→        languages detected. Node.js languages take priority in multi-language projects.
+   132→    """
+   133→    languages = detect_project_languages()
+   134→
+   135→    # Node.js languages (TypeScript/JavaScript) take priority in multi-language projects
+   136→    if "typescript" in languages or "javascript" in languages:
+   137→        return node_cmd
+   138→    if "python" in languages:
+   139→        return python_cmd
+   140→    # No languages detected - return helpful warning
+   141→    warning = "⚠️  No languages detected. Add pyproject.toml or package.json to enable task runner."
+   142→    return cmd("echo", warning)
+   143→
+   144→
+   145→def multi_lang_cmd(
+   146→    python_cmd: list[str] | None = None, node_cmd: list[str] | None = None
+   147→) -> list[list[str]]:
+   148→    """Return commands for all detected project languages.
+   149→
+   150→    This function enables multi-language command execution by returning
+   151→    commands for each detected language in the project. Commands execute
+   152→    sequentially (Python first, then Node.js) with fail-fast behavior.
+   153→
+   154→    Args:
+   155→        python_cmd: Command to use for Python. None to skip Python even if detected.
+   156→        node_cmd: Command to use for Node.js projects (TypeScript and JavaScript).
+   157→                  None to skip Node.js languages even if detected.
+   158→
+   159→    Returns:
+   160→        List of command arrays, one per detected language. Returns warning command
+   161→        if no languages detected or all language commands are None. Empty list never
+   162→        returned - always at least one command (may be warning message).
+   163→    """
+   164→    languages = detect_project_languages()
+   165→    commands = []
+   166→
+   167→    # Build commands for detected languages (Python first, then Node.js)
+   168→    if "python" in languages and python_cmd is not None:
+   169→        commands.append(python_cmd)
+   170→
+   171→    # Both TypeScript and JavaScript use the same Node.js tooling
+   172→    if ("typescript" in languages or "javascript" in languages) and node_cmd is not None:
+   173→        commands.append(node_cmd)
+   174→
+   175→    # No valid commands - return warning
+   176→    if not commands:
+   177→        warning = (
+   178→            "⚠️  No languages detected. Add pyproject.toml or package.json to enable task runner."
+   179→        )
+   180→        commands.append(cmd("echo", warning))
+   181→
+   182→    return commands
+   183→
+   184→
+   185→def execute_multi_lang_task(
+   186→    _task_name: str, commands: list[list[str]], extra_args: list[str]
+   187→) -> int:
+   188→    """Execute commands for multiple languages sequentially with fail-fast behavior.
+   189→
+   190→    Validates that all command components are strings before execution. If any
+   191→    command contains None (indicating a missing package manager), prints an error
+   192→    with installation instructions and returns exit code 1.
+   193→
+   194→    Args:
+   195→        _task_name: Name of the task being executed (reserved for future use)
+   196→        commands: List of commands to execute (one per language)
+   197→        extra_args: Additional arguments to forward to each command
+   198→
+   199→    Returns:
+   200→        int: Exit code - 0 for success, 1 for missing package manager,
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>

@@ -58,20 +58,7 @@ If Phase 2 validation shows insufficient trigger complexity, create a dummy proj
 
 Design and implement Python scripts to programmatically detect phantom reads in Claude Code session logs.
 
-- [ ] **4.1** - Design analysis tool architecture
-  - [ ] **4.1.1** - Document session `.jsonl` file format and relevant fields
-  - [ ] **4.1.2** - Define detection algorithm for identifying `<persisted-output>` without follow-up reads
-  - [ ] **4.1.3** - Define output format for phantom read reports
-- [ ] **4.2** - Implement phantom read detector
-  - [ ] **4.2.1** - Create `scripts/analyze_phantom_reads.py` with core detection logic
-  - [ ] **4.2.2** - Implement session file discovery (reference `archive_claude_sessions.py` patterns)
-  - [ ] **4.2.3** - Implement `<persisted-output>` response detection
-  - [ ] **4.2.4** - Implement follow-up read tracking to identify unfollowed persisted outputs
-  - [ ] **4.2.5** - Implement reporting output with file paths and conversation context
-- [ ] **4.3** - Test analysis tool
-  - [ ] **4.3.1** - Test against session logs from Phase 2/3 trials where phantom reads occurred
-  - [ ] **4.3.2** - Verify tool correctly identifies known phantom read instances
-  - [ ] **4.3.3** - Test against clean session logs to verify no false positives
+- [ ] **4.1** - Create analysis scripts feature (see `docs/features/session-analysis-scripts/Session-Analysis-Scripts-Overview.md`)
 
 
 ## Phase 5: Experiment Execution

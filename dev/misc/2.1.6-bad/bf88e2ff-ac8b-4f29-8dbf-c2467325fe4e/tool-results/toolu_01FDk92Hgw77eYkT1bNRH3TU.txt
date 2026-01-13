@@ -1,0 +1,144 @@
+     1→# Process Integrity Standards
+     2→
+     3→**Last Updated:** 2025-08-25
+     4→**Managed By:** Inspector Agent
+     5→**Purpose:** Ensure development tools and automation maintain accuracy and transparency
+     6→
+     7→## Core Principle
+     8→
+     9→**Automation Fidelity**: All automated development tools (health checks, CI scripts, convenience wrappers) MUST produce functionally equivalent results to running the underlying tools directly, unless explicitly documented exceptions are approved by the user.
+    10→
+    11→## Standards
+    12→
+    13→### 1. Tool Accuracy Requirements
+    14→
+    15→**1.1 Direct Equivalence**
+    16→- Automated tools must match the exit codes of their underlying tools
+    17→- Output filtering or interpretation requires explicit approval
+    18→- Default behavior must be complete pass-through of tool results
+    19→
+    20→**1.2 Transparency Mandate**
+    21→- Users must be able to understand what tools are actually doing
+    22→- Any filtering, processing, or interpretation must be clearly documented
+    23→- Tools must not silently suppress errors or warnings
+    24→
+    25→**1.3 Exception Approval Process**
+    26→- All exceptions to direct equivalence must be explicitly approved by the user
+    27→- Exceptions must include clear justification and review schedule
+    28→- No "emergency" or undocumented exceptions are permitted
+    29→
+    30→### 2. Approved Exceptions
+    31→
+    32→This section documents all approved deviations from direct tool equivalence:
+    33→
+    34→#### 2.1 Future Exceptions
+    35→
+    36→*No other exceptions approved other than those listed below (2.2+).*
+    37→
+    38→*Process for requesting new exceptions:*
+    39→1. Submit detailed justification including:
+    40→   - Why the underlying tool's behavior needs modification
+    41→   - Exact nature of the filtering/interpretation needed
+    42→   - Risk assessment of potential masked issues
+    43→2. Require explicit user approval before implementation
+    44→3. Include review schedule and expiration criteria
+    45→
+    46→#### 2.2 Health Check Script
+    47→
+    48→- Active exceptions to health script are recorded in `docs/read-only/Health-Check-Exceptions.md`
+    49→
+    50→### 3. Audit Schedule
+    51→
+    52→**Periodic Audits:** Inspector agent should be invoked:
+    53→- After any changes to automation scripts or tools
+    54→- Monthly during active development periods
+    55→- When discrepancies are suspected between tools and automation
+    56→- Before major releases or milestones
+    57→
+    58→**Audit Checklist:**
+    59→- [ ] Compare health check results to direct tool execution
+    60→- [ ] Verify all approved exceptions are still necessary
+    61→- [ ] Check for unauthorized filtering or suppression
+    62→- [ ] Validate documentation accuracy
+    63→- [ ] Test edge cases and error scenarios
+    64→
+    65→### 4. Tool Integrity Verification Commands
+    66→
+    67→The following commands verify tool integrity by comparing automated vs direct execution:
+    68→
+    69→#### 4.1 Health Check vs Direct Tools
+    70→
+    71→**Python Example:**
+    72→```bash
+    73→# Health check version
+    74→python scripts/health_check.py
+    75→
+    76→# Direct equivalent tests
+    77→uv run mypy src/
+    78→uv run ruff check src/ tests/
+    79→uv run ruff format --check src/ tests/
+    80→uv run bandit -r src/ -f screen -ll
+    81→uv run pip-audit
+    82→```
+    83→
+    84→**TypeScript Example:**
+    85→```bash
+    86→# Health check version
+    87→node scripts/health_check.js
+    88→
+    89→# Direct equivalent tests
+    90→npm run tsc --noEmit
+    91→npm run eslint src/ tests/
+    92→npm run prettier --check src/ tests/
+    93→npm audit
+    94→```
+    95→
+    96→#### 4.2 Expected Behavior
+    97→- Exit codes should match between automated and direct versions
+    98→- Error counts should be equivalent
+    99→- No suppression of legitimate issues
+   100→
+   101→### 5. Violation Response
+   102→
+   103→**Critical Violations (Immediate Action Required):**
+   104→- Silent error suppression without approved exception
+   105→- Reporting success when direct tool execution fails
+   106→- Undocumented filtering or interpretation
+   107→
+   108→**Response Protocol:**
+   109→1. Flag tool as COMPROMISED
+   110→2. Disable or add warning to affected automation
+   111→3. Require immediate fix before continued use
+   112→4. Document incident and prevention measures
+   113→
+   114→**Minor Issues (Schedule for Fix):**
+   115→- Formatting differences in output presentation
+   116→- Performance optimizations that don't affect accuracy
+   117→- Minor discrepancies in non-error scenarios
+   118→
+   119→### 6. Emergency Override
+   120→
+   121→In rare cases where a tool must be temporarily modified due to external factors (e.g., upstream tool bugs), emergency overrides may be implemented with:
+   122→
+   123→1. **Immediate Documentation**: Add entry to this file within same commit
+   124→2. **Clear Justification**: Explain why override is necessary
+   125→3. **Expiration Date**: Set specific date for review/removal
+   126→4. **User Notification**: Clearly inform users of temporary deviation
+   127→
+   128→**Current Emergency Overrides:** None
+   129→
+   130→## Maintenance
+   131→
+   132→This document is maintained by the Inspector agent and should be updated whenever:
+   133→- New exceptions are approved
+   134→- Tools are modified or added
+   135→- Violations are discovered and remediated
+   136→- Audit schedules need adjustment
+   137→
+   138→**Version History:**
+   139→- v1.0 (2025-08-25): Initial version created in response to a health check accuracy violation
+   140→
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>

@@ -1,0 +1,368 @@
+     1→# WSD Runtime Metadata Schema Specification (`wsd.json`)
+     2→
+     3→**Version:** 1.0.0
+     4→**Date:** 2025-11-13
+     5→**Status:** Draft
+     6→
+     7→## Overview
+     8→
+     9→The WSD Runtime Metadata file (wsd.json) is a JSON file at the WSD Runtime root that declares version information, file protection policies, and executable file lists. This specification defines the authoritative schema for wsd.json structure and field semantics.
+    10→
+    11→For how wsd.json is used during installation and updates, see Installation-System.md and Update-System.md respectively.
+    12→
+    13→## File Location
+    14→
+    15→**File Name**: `wsd.json`
+    16→**Location**: WSD Runtime root directory
+    17→**Format**: JSON (UTF-8 encoded)
+    18→**Distribution**: NOT copied during installation (see Installation-System.md for exclusion rule details)
+    19→
+    20→## JSON Schema
+    21→
+    22→```json
+    23→{
+    24→    "$schema": "http://json-schema.org/draft-07/schema#",
+    25→    "title": "WSD Runtime Metadata",
+    26→    "description": "Metadata file declaring WSD Runtime version and policies",
+    27→    "type": "object",
+    28→    "required": ["version"],
+    29→    "properties": {
+    30→        "version": {
+    31→            "type": "string",
+    32→            "description": "Semantic version of this WSD Runtime release (e.g., '1.0.0')",
+    33→            "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    34→        },
+    35→        "installation_only": {
+    36→            "type": "array",
+    37→            "description": "Files required for installation operations but not copied to destination",
+    38→            "items": {"type": "string"},
+    39→            "uniqueItems": true,
+    40→            "default": []
+    41→        },
+    42→        "no_overwrite": {
+    43→            "type": "array",
+    44→            "description": "Files protected from being overwritten during updates",
+    45→            "items": {"type": "string"},
+    46→            "uniqueItems": true,
+    47→            "default": []
+    48→        },
+    49→        "executable": {
+    50→            "type": "array",
+    51→            "description": "Files requiring executable (+x) permission",
+    52→            "items": {"type": "string"},
+    53→            "uniqueItems": true,
+    54→            "default": []
+    55→        },
+    56→        "file_hashes": {
+    57→            "type": "object",
+    58→            "description": "SHA-256 content hashes for files in WSD Runtime",
+    59→            "additionalProperties": {
+    60→                "type": "string",
+    61→                "pattern": "^sha256:[a-f0-9]{64}$"
+    62→            },
+    63→            "default": {}
+    64→        },
+    65→        "required_directories": {
+    66→            "type": "array",
+    67→            "description": "Directories that must exist in the target project",
+    68→            "items": {"type": "string"},
+    69→            "uniqueItems": true,
+    70→            "default": []
+    71→        }
+    72→    },
+    73→    "additionalProperties": false
+    74→}
+    75→```
+    76→
+    77→## Field Specifications
+    78→
+    79→### version
+    80→
+    81→**Type**: String (semantic version: `major.minor.patch`)
+    82→**Required**: Yes
+    83→**Pattern**: `^\d+\.\d+\.\d+$`
+    84→**Example**: `"1.2.3"`
+    85→
+    86→**Purpose**: Declares the WSD Runtime release version for tracking and compatibility checks.
+    87→
+    88→**Constraints**:
+    89→- Must match semantic version pattern
+    90→- Incremented per semantic versioning rules (major.minor.patch)
+    91→
+    92→### installation_only
+    93→
+    94→**Type**: Array of strings (relative file paths)
+    95→**Required**: No (defaults to empty array)
+    96→**Example**: `["wsd.json", ".DS_Store", "build-templates.py"]`
+    97→
+    98→**Purpose**: Declares which files are required for installation operations but should not be copied to the destination project during installation.
+    99→
+   100→**Usage**: Files that are needed by the WSD Runtime source to perform installations/updates but serve no purpose once WSD is integrated into a user's project. Common examples include wsd.json itself (which contains installation metadata but has no operational role in the destination) and system files like .DS_Store.
+   101→
+   102→**Path Requirements**:
+   103→- Relative to WSD Runtime root
+   104→- Forward slashes only
+   105→- Files do NOT need to exist in WSD Runtime (they may be generated at build time)
+   106→
+   107→**Note**: Unlike no_overwrite and executable arrays, installation_only paths are not validated for existence. This allows declaring build-time generated files (e.g., `__init__.py` for PyPI packages) that should be excluded from installation. For exclusion mechanism implementation, see Installation-System.md § File Copying Process and the FIP in Install-And-Update-Overview.md.
+   108→
+   109→### no_overwrite
+   110→
+   111→**Type**: Array of strings (relative file paths)
+   112→**Required**: No (defaults to empty array)
+   113→**Example**: `["docs/core/Action-Plan.md"]`
+   114→
+   115→**Purpose**: Declares which files should never be overwritten during updates when they exist in target.
+   116→
+   117→**Usage**: Files where user customization IS the primary purpose (like Action-Plan.md which IS the user's project plan). For files with customizable sections, use WORKSCOPE-DEV tags instead.
+   118→
+   119→**Path Requirements**:
+   120→- Relative to WSD Runtime root
+   121→- Forward slashes only
+   122→- Must reference files that exist in WSD Runtime
+   123→
+   124→**Note**: For policy behavior during updates and distinction from WORKSCOPE-DEV tags, see Update-System.md and Template-System.md § File Protection.
+   125→
+   126→### executable
+   127→
+   128→**Type**: Array of strings (relative file paths)
+   129→**Required**: No (defaults to empty array)
+   130→**Example**: `["scripts/health_check.py", "wsd.py"]`
+   131→
+   132→**Purpose**: Declares which files require executable (+x) permission.
+   133→
+   134→**Why Needed**: Distribution mechanisms (ZIP, web fetch) may not preserve file permissions. Explicit declaration ensures scripts remain executable.
+   135→
+   136→**Path Requirements**:
+   137→- Relative to WSD Runtime root
+   138→- Forward slashes only
+   139→- Must reference files that exist in WSD Runtime
+   140→
+   141→**Note**: For permission application details and conservative approach rationale, see Template-System.md § File Permission Model.
+   142→
+   143→### file_hashes
+   144→
+   145→**Type**: Object (dictionary mapping relative paths to hash strings)
+   146→**Required**: No (defaults to empty object)
+   147→**Example**:
+   148→```json
+   149→{
+   150→    ".claude/agents/task-master.md": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   151→    "scripts/health_check.py": "sha256:abc123def456789012345678901234567890123456789012345678901234abcd"
+   152→}
+   153→```
+   154→
+   155→**Purpose**: Stores pre-computed SHA-256 content hashes for files in WSD Runtime. These hashes enable accurate file comparison during install and update operations by comparing target file content against known source content.
+   156→
+   157→**Hash Format**: Each hash value follows the format `sha256:<hex_digest>` where:
+   158→- `sha256` is the algorithm prefix (for future-proofing)
+   159→- `:` is a separator character
+   160→- `<hex_digest>` is exactly 64 lowercase hexadecimal characters (256 bits / 4 bits per hex char)
+   161→
+   162→**Path Requirements**:
+   163→- Keys are relative paths from WSD Runtime root
+   164→- Forward slashes only (Unix-style)
+   165→- Must match the path format used elsewhere in wsd.json
+   166→
+   167→**Which Files Are Hashed**:
+   168→- All files that are copied during installation receive hashes
+   169→- Files listed in the `installation_only` array are NOT hashed (they are not copied to destination)
+   170→- The `.wsdignore` file (if present) is NOT hashed (excluded from staging)
+   171→
+   172→**Usage**: Hashes are generated during the pre-staging process by `pre_staging.py` and written to wsd.json before distribution. During install and update operations, target file hashes are calculated on-the-fly and compared against these stored source hashes. For detailed behavior, see Content-Hashing-Overview.md.
+   173→
+   174→**Note on .wsdkeep Files**: `.wsdkeep` placeholder files are NOT included in file_hashes. These files indicate directory requirements and are handled separately via the `required_directories` field. The pre-staging script extracts directory paths from `.wsdkeep` file locations and populates `required_directories`, while excluding `.wsdkeep` files from hash generation.
+   175→
+   176→### required_directories
+   177→
+   178→**Type**: Array of strings (relative directory paths)
+   179→**Required**: No (defaults to empty array)
+   180→**Example**: `["docs/workbench", "dev/diagnostics", "docs/tickets/open"]`
+   181→
+   182→**Purpose**: Declares which directories must exist in the target project. During installation, these directories are created if they don't exist. This replaces the previous approach of tracking `.wsdkeep` placeholder files in `file_hashes`.
+   183→
+   184→**How It Works**:
+   185→- The pre-staging script scans the WSD Runtime for `.wsdkeep` files
+   186→- For each `.wsdkeep` file found (e.g., `docs/workbench/.wsdkeep`), the parent directory path is extracted (`docs/workbench`)
+   187→- These directory paths are stored in the `required_directories` array
+   188→- During installation, WSD creates these directories in the target project and generates `.wsdkeep` files as needed to ensure git tracks empty directories
+   189→
+   190→**Path Requirements**:
+   191→- Relative to WSD Runtime root
+   192→- Forward slashes only (Unix-style)
+   193→- Directory paths only (not file paths)
+   194→- Must be stored in sorted order for deterministic output
+   195→
+   196→**Why This Design**:
+   197→- `.wsdkeep` files are structural artifacts indicating directory requirements, not content files
+   198→- Tracking them in `file_hashes` was conceptually incorrect (they have no meaningful content to hash)
+   199→- This semantic approach clearly separates "directories that must exist" from "files with content"
+   200→- Enables the install/update system to generate `.wsdkeep` files at the target rather than copying them
+   201→
+   202→**Note**: For how `required_directories` is consumed during installation and updates, see Installation-System.md and Update-System.md.
+   203→
+   204→## Key Concepts
+   205→
+   206→**Policy Source of Truth**: UPDATE's wsd.json is authoritative for policies during update operations, not the installed manifest. See Update-System.md for policy application details.
+   207→
+   208→**Installation Exclusion**: Files declared in the installation_only array are never copied during installation. See Installation-System.md for exclusion rule details and rationale.
+   209→
+   210→## Complete Examples
+   211→
+   212→### Example 1: Minimal wsd.json
+   213→
+   214→**Use Case**: Early WSD version with no protected files and minimal executable scripts
+   215→
+   216→```json
+   217→{
+   218→  "version": "1.0.0"
+   219→}
+   220→```
+   221→
+   222→**Analysis**:
+   223→- Only version declared (required field)
+   224→- installation_only defaults to empty array (no installation exclusions)
+   225→- no_overwrite defaults to empty array (no protected files)
+   226→- executable defaults to empty array (no executable files)
+   227→- Valid but minimal
+   228→
+   229→**Note**: This is valid but impractical. Real WSD installations typically need executable scripts, installation exclusions, and may protect user-owned files.
+   230→
+   231→### Example 2: Typical wsd.json
+   232→
+   233→**Use Case**: Standard WSD Runtime with protection for user-owned files and executable scripts
+   234→
+   235→```json
+   236→{
+   237→  "version": "1.0.0",
+   238→  "installation_only": [
+   239→    "wsd.json"
+   240→  ],
+   241→  "no_overwrite": [
+   242→    "docs/core/Action-Plan.md",
+   243→    "docs/core/PRD.md",
+   244→    "dev/prompts/Developer-Notes.md"
+   245→  ],
+   246→  "executable": [
+   247→    "scripts/health_check.py",
+   248→    "scripts/init_work_journal.sh",
+   249→    ".claude/hooks/protect_files.py"
+   250→  ],
+   251→  "file_hashes": {
+   252→    "scripts/health_check.py": "sha256:a1b2c3d4e5f6789012345678901234567890123456789012345678901234abcd",
+   253→    "scripts/init_work_journal.sh": "sha256:b2c3d4e5f6789012345678901234567890123456789012345678901234abcde",
+   254→    ".claude/hooks/protect_files.py": "sha256:c3d4e5f6789012345678901234567890123456789012345678901234abcdef"
+   255→  }
+   256→}
+   257→```
+   258→
+   259→**Analysis**:
+   260→- Version declared: v1.0.0
+   261→- One installation exclusion: wsd.json (not copied to destination)
+   262→- Three protected files: user's Action Plan, PRD, and Developer Notes
+   263→- Three executable scripts: health check, journal init, file protection hook
+   264→- Content hashes for files that are copied during installation
+   265→- Represents common WSD configuration
+   266→
+   267→### Example 3: Comprehensive wsd.json
+   268→
+   269→**Use Case**: Mature WSD Runtime with multiple protected files, extensive script collection, custom installation-only files, and content hashes
+   270→
+   271→```json
+   272→{
+   273→  "version": "1.2.5",
+   274→  "installation_only": [
+   275→    "wsd.json",
+   276→    ".DS_Store",
+   277→    "build-templates.py",
+   278→    "DISTRIBUTION-NOTES.md"
+   279→  ],
+   280→  "no_overwrite": [
+   281→    "docs/core/Action-Plan.md",
+   282→    "docs/core/PRD.md",
+   283→    "dev/prompts/Developer-Notes.md",
+   284→    "config/local-settings.json"
+   285→  ],
+   286→  "executable": [
+   287→    "scripts/health_check.py",
+   288→    "scripts/health_check.js",
+   289→    "scripts/update_docs.py",
+   290→    "scripts/file_list.py",
+   291→    "scripts/init_work_journal.sh",
+   292→    "scripts/archive_claude_sessions.py",
+   293→    "scripts/new_prompt.py",
+   294→    "scripts/codedocs_pdoc.py",
+   295→    "scripts/codedocs_python.py",
+   296→    "scripts/codedocs_typedoc.js",
+   297→    "scripts/codedocs_typescript.js",
+   298→    ".claude/hooks/protect_files.py",
+   299→    "wsd.py"
+   300→  ],
+   301→  "file_hashes": {
+   302→    "scripts/health_check.py": "sha256:a1b2c3d4e5f6789012345678901234567890123456789012345678901234abcd",
+   303→    "scripts/health_check.js": "sha256:b2c3d4e5f6789012345678901234567890123456789012345678901234abcde",
+   304→    "wsd.py": "sha256:c3d4e5f6789012345678901234567890123456789012345678901234abcdef",
+   305→    ".claude/hooks/protect_files.py": "sha256:d4e5f6789012345678901234567890123456789012345678901234abcdef01"
+   306→  }
+   307→}
+   308→```
+   309→
+   310→**Analysis**:
+   311→- Version: v1.2.5 (mature release with patch updates)
+   312→- Four installation exclusions: wsd.json, .DS_Store, build script, and distribution notes (not copied to user projects)
+   313→- Four protected files: Action Plan, PRD, Developer Notes, and local settings (user's core documents)
+   314→- Comprehensive executable list: all scripts requiring direct execution
+   315→- Content hashes for installed files enabling accurate update detection
+   316→- Includes both Python and TypeScript/JavaScript scripts (language-agnostic WSD)
+   317→- wsd.py itself declared executable (can run as `./wsd.py`)
+   318→
+   319→
+   320→## Validation Rules
+   321→
+   322→**Structural Requirements**:
+   323→- version field required and must match semantic version pattern
+   324→- installation_only, no_overwrite, executable, file_hashes, and required_directories are optional
+   325→- Array fields default to empty arrays; file_hashes defaults to empty object
+   326→- All paths must be strings
+   327→- No duplicate paths in any array
+   328→
+   329→**Referential Integrity**:
+   330→- Paths in installation_only do NOT require file existence (may be build-time generated)
+   331→- All paths in no_overwrite must reference files that exist in WSD Runtime
+   332→- All paths in executable must reference files that exist in WSD Runtime
+   333→- All paths in file_hashes must reference files that exist in WSD Runtime
+   334→- All paths in required_directories must reference directories derived from `.wsdkeep` file locations
+   335→- Paths use forward slashes (Unix-style)
+   336→
+   337→**Hash Validation**:
+   338→- Hash values must match pattern `sha256:[a-f0-9]{64}` (algorithm prefix + 64 lowercase hex chars)
+   339→- Hash keys (paths) must not include files listed in installation_only
+   340→- Hash keys (paths) must not include `.wsdkeep` files (these are tracked via required_directories)
+   341→- Hash count should match the number of installed files (excluding installation_only and `.wsdkeep` files)
+   342→
+   343→**Logical Constraints**:
+   344→- Version must increment properly between releases
+   345→- All arrays contain unique paths only
+   346→- Files in installation_only should not overlap with operational files (by design)
+   347→- Files in installation_only should not appear in file_hashes (they are not copied)
+   348→
+   349→## Related Specifications
+   350→
+   351→**For operational behavior**:
+   352→- Installation-System.md (how wsd.json is used during installation)
+   353→- Update-System.md (how policies are applied during updates)
+   354→- Template-System.md (file permission model, no_overwrite vs WORKSCOPE-DEV tags)
+   355→- Content-Hashing-Overview.md (hash calculation algorithm, comparison logic, staging integration)
+   356→
+   357→**For related structures**:
+   358→- WSD-Manifest-Schema.md (.wsd manifest structure)
+   359→- System-Architecture.md (architectural context)
+   360→
+   361→---
+   362→
+   363→*This specification defines the authoritative structure and semantics of the wsd.json metadata file. All WSD Runtime distributions must include a valid wsd.json, and all installation/update operations must conform to the policies declared within.*
+   364→
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>

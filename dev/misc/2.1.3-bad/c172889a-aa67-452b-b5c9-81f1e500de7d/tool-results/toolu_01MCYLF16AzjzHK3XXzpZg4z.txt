@@ -1,0 +1,301 @@
+     1→# Introduce `required_directories` Field to Replace `.wsdkeep` Manifest Tracking
+     2→
+     3→**Date Reported:** 2026-01-10
+     4→**Status**: Open
+     5→**Prerequisites**: Should be coordinated with the Manifest-Driven Pipeline feature (`docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md`), which is still in its refining phase. This ticket will be executed before that feature to simplify that feature's design burden, but both address related concerns about how files flow through the pipeline.
+     6→
+     7→## Problem Description
+     8→
+     9→The current implementation tracks `.wsdkeep` files in `source/wsd.json`'s `file_hashes` as if they were regular content files. With the upcoming Manifest-Driven Pipeline (where `file_hashes.keys()` becomes the canonical file list), this creates conceptual and practical issues:
+    10→
+    11→1. **Meaningless Hashing**: All 14 `.wsdkeep` files have identical hashes (SHA-256 of empty content). Hashing provides no value for change detection.
+    12→
+    13→2. **Conceptual Mismatch**: `.wsdkeep` files are structural artifacts marking "directories WSD needs to exist," not content files. Treating them as content conflates two distinct concerns.
+    14→
+    15→3. **Pipeline Bloat**: Physical `.wsdkeep` files flow through the entire pipeline (staging → wheel → pipx → user project) when they could be generated at install time based on directory state.
+    16→
+    17→4. **Complex Two-Phase Processing**: The current implementation partitions file lists into "regular files" and "wsdkeep_candidates," adding complexity to both install and update workflows.
+    18→
+    19→5. **Manifest/Disk Dissonance**: When `.wsdkeep` is tracked in manifests, update logic must reconcile "manifest says file exists" with "disk state may differ" - the two-phase processing exists specifically to handle this dissonance.
+    20→
+    21→## Investigation & Analysis
+    22→
+    23→### Current State
+    24→
+    25→**`source/wsd.json`**: Contains 14 `.wsdkeep` entries in `file_hashes`:
+    26→```
+    27→dev/diagnostics/.wsdkeep
+    28→dev/journal/archive/.wsdkeep
+    29→dev/prompts/archive/.wsdkeep
+    30→dev/reports/.wsdkeep
+    31→dev/workscopes/archive/.wsdkeep
+    32→docs/archive/.wsdkeep
+    33→docs/diagrams/.wsdkeep
+    34→docs/features/.wsdkeep
+    35→docs/public/.wsdkeep
+    36→docs/reports/.wsdkeep
+    37→docs/tickets/closed/.wsdkeep
+    38→docs/tickets/open/.wsdkeep
+    39→docs/workbench/.wsdkeep
+    40→scripts/demos/.wsdkeep
+    41→```
+    42→
+    43→**`source/wsd.py`**: Implements two-phase processing:
+    44→- `_filter_wsdkeep_files()` function (lines 2535-2573)
+    45→- Install workflow partitions files (lines 4414-4418)
+    46→- Update workflow partitions files (lines 4930-4939)
+    47→- Phase 2 processing uses `_directory_needs_wsdkeep()` for decisions
+    48→
+    49→**`.wsd` manifest**: Already correctly excludes `.wsdkeep` (filtered at write time, lines 2771, 4639-4640)
+    50→
+    51→**`collect_wsd_files()`**: Returns `.wsdkeep` files and validates empty directories have them (lines 857-868 in `wsd_utils.py`)
+    52→
+    53→### The Manifest-Driven Pipeline Context
+    54→
+    55→The Manifest-Driven Pipeline feature establishes that `file_hashes.keys()` is the canonical file list for all pipeline stages after `pre_staging.py`. This means:
+    56→
+    57→- If `.wsdkeep` remains in `file_hashes` → they flow through pipeline (current behavior)
+    58→- If `.wsdkeep` is removed from `file_hashes` → they become invisible to the pipeline
+    59→
+    60→The question becomes: how do we ensure required directories are created if `.wsdkeep` doesn't flow through the pipeline?
+    61→
+    62→### Design Options Considered
+    63→
+    64→**Option 1: Keep `.wsdkeep` in `file_hashes`**
+    65→- Simplest implementation (minimal changes)
+    66→- `.wsdkeep` files flow through entire pipeline
+    67→- Two-phase processing continues to handle install-time decisions
+    68→- Con: Conceptually inelegant, hashing empty files is meaningless
+    69→
+    70→**Option 2: New `required_directories` field (CHOSEN)**
+    71→- Add semantic field to `wsd.json` declaring which directories WSD requires
+    72→- `.wsdkeep` stays in `source/` for git, but NOT in `file_hashes`
+    73→- Install/update reads `required_directories` and generates `.wsdkeep` locally if needed
+    74→- Pro: Clean separation of concerns, smaller wheel, generative (not comparative) logic
+    75→
+    76→## Proposed Solution
+    77→
+    78→Introduce a new `required_directories` field in `wsd.json` that explicitly declares directories WSD requires to exist. This field is populated by scanning for `.wsdkeep` files in `source/` during pre-staging, but `.wsdkeep` files are NOT included in `file_hashes`.
+    79→
+    80→### Conceptual Model
+    81→
+    82→```
+    83→SOURCE (source/)           MANIFEST (wsd.json)              PIPELINE                     TARGET PROJECT
+    84→.wsdkeep files    ──────►  required_directories: [...]  ──► (no .wsdkeep files)  ──────► .wsdkeep generated
+    85→(git placeholders)         (semantic intent)                                              (if dir is empty)
+    86→```
+    87→
+    88→### Schema Addition
+    89→
+    90→```json
+    91→{
+    92→  "version": "1.0.3",
+    93→  "required_directories": [
+    94→    "dev/diagnostics",
+    95→    "dev/journal/archive",
+    96→    "docs/workbench"
+    97→  ],
+    98→  "file_hashes": { ... },
+    99→  ...
+   100→}
+   101→```
+   102→
+   103→### Key Behaviors
+   104→
+   105→1. **Pre-staging**: Scans for `.wsdkeep` files, extracts parent directories, populates `required_directories`, excludes `.wsdkeep` from `file_hashes`
+   106→
+   107→2. **Staging/Build**: `required_directories` is in `wsd.json`, which flows through pipeline. No `.wsdkeep` files are staged or packaged.
+   108→
+   109→3. **Install**: After regular file processing, reads `required_directories`. For each: ensure directory exists, create `.wsdkeep` if empty (using existing `_directory_needs_wsdkeep()` logic).
+   110→
+   111→4. **Update**: Same as install - process `required_directories` after regular files. No manifest comparison needed for `.wsdkeep`.
+   112→
+   113→### Why This Design
+   114→
+   115→1. **Generative, Not Comparative**: Install/update generates `.wsdkeep` based on current directory state, not manifest comparison
+   116→2. **Simpler Update Logic**: No "manifest says X but disk says Y" dissonance to reconcile
+   117→3. **Smaller Distribution**: No `.wsdkeep` files in PyPI wheel
+   118→4. **Clean Semantics**: Manifest declares intent ("these directories must exist"), not implementation (".wsdkeep files")
+   119→5. **Reuses Existing Logic**: `_directory_needs_wsdkeep()` remains the core decision function
+   120→
+   121→## Expected Benefits
+   122→
+   123→1. **Conceptual Clarity**: `.wsdkeep` is a git artifact in source; `required_directories` is semantic intent in manifest
+   124→2. **Simplified Code**: Remove two-phase file partitioning, `_filter_wsdkeep_files()` function
+   125→3. **Smaller Wheel**: No empty placeholder files shipped in package
+   126→4. **Cleaner Update Logic**: No manifest tracking of `.wsdkeep` in either `wsd.json` or `.wsd`
+   127→5. **Alignment with Manifest-Driven Pipeline**: Clean separation between tracked content and structural requirements
+   128→
+   129→## Risk Assessment
+   130→
+   131→**Low Risk:**
+   132→- The core `_directory_needs_wsdkeep()` logic is preserved and proven
+   133→- Existing two-phase processing concept remains, just changes what it processes (directories instead of files)
+   134→- `.wsd` manifest already doesn't include `.wsdkeep` (no change to user-facing manifest)
+   135→
+   136→**No Backward Compatibility Concerns (Rule 5.1):**
+   137→- WSD has not shipped - there are no production deployments to support
+   138→- No migration code, legacy support, or version detection needed
+   139→- The dogfood installation will be updated naturally
+   140→
+   141→**Edge Cases Addressed:**
+   142→- **New required directory in update**: Handled naturally (create dir, add `.wsdkeep` if empty)
+   143→- **User deletes required directory**: Recreated at update time
+   144→- **User populates directory**: `.wsdkeep` not created (directory has content)
+   145→- **User deletes `.wsdkeep` from populated dir**: Not recreated (correct behavior)
+   146→
+   147→## Related Files
+   148→
+   149→### Schema/Documentation
+   150→- `docs/core/WSD-Runtime-Metadata-Schema.md` - Add `required_directories` field
+   151→- `docs/core/WSD-Manifest-Schema.md` - Already correctly excludes `.wsdkeep`
+   152→- `docs/features/install-and-update/Template-System.md` - Major `.wsdkeep` section rewrite
+   153→- `docs/features/install-and-update/Installation-System.md` - Update for new approach
+   154→- `docs/features/install-and-update/Update-System.md` - Update for new approach
+   155→- `docs/features/pre-staging-script/Pre-Staging-Script-Overview.md` - Document extraction logic
+   156→- `docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md` - Note separation
+   157→- `docs/features/stage-release-script/Stage-Release-Script-Overview.md` - Note `.wsdkeep` not staged
+   158→- `docs/features/content-hashing/Content-Hashing-Overview.md` - Note `.wsdkeep` not hashed
+   159→
+   160→### Implementation
+   161→- `dev/scripts/pre_staging.py` - Add `required_directories` population, exclude `.wsdkeep` from hashes
+   162→- `source/wsd.py` - Refactor install/update to use `required_directories`
+   163→
+   164→### Verified - No Changes Needed
+   165→- `source/scripts/wsd_utils.py` - `.wsdkeep` files still collected by `collect_wsd_files()` for empty directory validation; exclusion happens at hash generation time in `pre_staging.py`
+   166→- `docs/core/WSD-Manifest-Schema.md` - Already correctly documents `.wsdkeep` exclusion from manifest `files` array (line 169)
+   167→
+   168→### Tests
+   169→- `tests/test_pre_staging.py` - Add `required_directories` tests
+   170→- `tests/test_wsd_install.py` - Update for new approach
+   171→- `tests/test_wsd_update.py` - Update for new approach
+   172→- `tests/test_wsd_file_ops.py` - Remove obsolete function tests
+   173→
+   174→## Developer Notes
+   175→
+   176→This ticket addresses how `.wsdkeep` files flow through the WSD pipeline. With the Manifest-Driven Pipeline making `file_hashes.keys()` the canonical file list, we had a design choice:
+   177→
+   178→1. Keep `.wsdkeep` in `file_hashes` (physical files flow through pipeline)
+   179→2. Remove `.wsdkeep` from `file_hashes` and add `required_directories` (semantic intent flows through pipeline)
+   180→
+   181→We chose Option 2 because `.wsdkeep` files are structural artifacts, not content. The manifest should declare semantic intent ("these directories must exist"), not track implementation details (".wsdkeep files").
+   182→
+   183→**Key Implementation Notes:**
+   184→
+   185→1. `collect_wsd_files()` continues to return `.wsdkeep` files - this is correct because `pre_staging.py` needs them to discover required directories
+   186→
+   187→2. The `_directory_needs_wsdkeep()` function remains the core decision logic - we're changing WHERE it's called (after `required_directories` processing instead of after file list partitioning)
+   188→
+   189→3. Functions to potentially remove/simplify:
+   190→   - `_filter_wsdkeep_files()` - likely removable
+   191→   - Two-phase file partitioning in install/update - replaced by `required_directories` processing
+   192→   - `.wsdkeep` collision skip in `detect_collisions()` - likely removable
+   193→   - `.wsdkeep` manifest filtering - likely removable (not in file list anyway)
+   194→
+   195→## Action Plan
+   196→
+   197→### Phase 1: Schema and Pre-Staging Updates
+   198→
+   199→- [ ] **1.1** - Add `required_directories` field to `wsd.json` schema
+   200→  - [ ] **1.1.1** - Update `docs/core/WSD-Runtime-Metadata-Schema.md` with new field specification
+   201→  - [ ] **1.1.2** - Add `required_directories` to the JSON schema in `docs/core/WSD-Runtime-Metadata-Schema.md` (type: array of strings, relative directory paths)
+   202→  - [ ] **1.1.3** - Document that this replaces `.wsdkeep` tracking in `file_hashes`
+   203→- [ ] **1.2** - Update `dev/scripts/pre_staging.py` to populate `required_directories`
+   204→  - [ ] **1.2.1** - Add function to scan collected files for `.wsdkeep` entries
+   205→  - [ ] **1.2.2** - Extract parent directory paths from `.wsdkeep` file paths
+   206→  - [ ] **1.2.3** - Populate `required_directories` array in wsd.json
+   207→  - [ ] **1.2.4** - Exclude `.wsdkeep` files from `file_hashes` generation
+   208→  - [ ] **1.2.5** - Update `has_changes()` to detect `required_directories` changes (use `sorted()` for order-independent comparison; note: first run after this change will trigger version bump, which is acceptable)
+   209→  - [ ] **1.2.6** - Add `validate_required_directories()` to validate extracted directories exist in collected files (mirrors validation pattern for other arrays)
+   210→  - [ ] **1.2.7** - Update summary report to show `required_directories` statistics
+   211→- [ ] **1.3** - Add tests for pre-staging changes
+   212→  - [ ] **1.3.1** - Test: `.wsdkeep` files discovered → `required_directories` populated
+   213→  - [ ] **1.3.2** - Test: `.wsdkeep` files NOT in `file_hashes`
+   214→  - [ ] **1.3.3** - Test: version bumped when `required_directories` changes
+   215→
+   216→### Phase 2: Install Workflow Updates
+   217→
+   218→- [ ] **2.1** - Refactor `source/wsd.py` install workflow
+   219→  - [ ] **2.1.1** - Remove two-phase file partitioning (no more `wsdkeep_candidates`)
+   220→  - [ ] **2.1.2** - Access `required_directories` directly via `metadata.get("required_directories", [])` inline (no separate function needed per YAGNI)
+   221→  - [ ] **2.1.3** - Add post-file-copy processing for `required_directories`
+   222→  - [ ] **2.1.4** - For each required directory: ensure exists, apply `_directory_needs_wsdkeep()` logic
+   223→  - [ ] **2.1.5** - Remove `.wsdkeep` filtering from manifest write (no longer needed)
+   224→- [ ] **2.2** - Update install tests in `tests/test_wsd_install.py`
+   225→  - [ ] **2.2.1** - Test: install creates directories from `required_directories`
+   226→  - [ ] **2.2.2** - Test: `.wsdkeep` added only to empty directories
+   227→  - [ ] **2.2.3** - Test: `.wsdkeep` NOT added to directories with content
+   228→  - [ ] **2.2.4** - Test: manifest does not contain `.wsdkeep` entries
+   229→  - [ ] **2.2.5** - Test: install failure rolls back created `.wsdkeep` files
+   230→
+   231→### Phase 3: Update Workflow Updates
+   232→
+   233→- [ ] **3.1** - Refactor `source/wsd.py` update workflow
+   234→  - [ ] **3.1.1** - Remove two-phase file partitioning for update
+   235→  - [ ] **3.1.2** - Add `required_directories` processing after regular file operations
+   236→  - [ ] **3.1.3** - Handle new required directories from updated WSD version
+   237→  - [ ] **3.1.4** - Simplify/update preview function for `required_directories`
+   238→- [ ] **3.2** - Update update tests in `tests/test_wsd_update.py`
+   239→  - [ ] **3.2.1** - Test: update creates new required directories from new WSD version
+   240→  - [ ] **3.2.2** - Test: update handles user-deleted `.wsdkeep` from populated dir correctly
+   241→  - [ ] **3.2.3** - Test: update restores `.wsdkeep` in user-deleted empty dir
+   242→  - [ ] **3.2.4** - Test: update recreates required directory if user deleted it entirely
+   243→  - [ ] **3.2.5** - Test: manifest never contains `.wsdkeep` entries after update
+   244→  - [ ] **3.2.6** - Test: `--dry-run` preview shows `required_directories` operations
+   245→
+   246→### Phase 4: Code Cleanup
+   247→
+   248→- [ ] **4.1** - Remove obsolete functions from `source/wsd.py`
+   249→  - [ ] **4.1.1** - Remove or simplify `_filter_wsdkeep_files()` function
+   250→  - [ ] **4.1.2** - Remove `.wsdkeep` skip in `detect_collisions()` (if no longer needed)
+   251→  - [ ] **4.1.3** - Remove `.wsdkeep` manifest filtering code (if no longer needed)
+   252→  - [ ] **4.1.4** - Update comments explaining the new approach
+   253→- [ ] **4.2** - Keep essential functions
+   254→  - [ ] **4.2.1** - Verify `is_directory_empty()` still works correctly
+   255→  - [ ] **4.2.2** - Verify `_directory_needs_wsdkeep()` still works correctly
+   256→- [ ] **4.3** - Update test files
+   257→  - [ ] **4.3.1** - Remove/update tests for `_filter_wsdkeep_files()` in `tests/test_wsd_update.py` (TestDryRunWsdkeepFiltering class) if function removed
+   258→  - [ ] **4.3.2** - Keep tests for `is_directory_empty()` and `_directory_needs_wsdkeep()` in `tests/test_wsd_file_ops.py`
+   259→
+   260→### Phase 5: Documentation Updates
+   261→
+   262→- [ ] **5.1** - Update Template-System.md `.wsdkeep` section
+   263→  - [ ] **5.1.1** - Rewrite conceptual model: `.wsdkeep` in source → `required_directories` in manifest → `.wsdkeep` generated at install
+   264→  - [ ] **5.1.2** - Remove two-phase file partitioning description
+   265→  - [ ] **5.1.3** - Add `required_directories` processing description
+   266→  - [ ] **5.1.4** - Update examples for new approach
+   267→- [ ] **5.2** - Update Installation-System.md
+   268→  - [ ] **5.2.1** - Document `required_directories` processing after file copy
+   269→  - [ ] **5.2.2** - Update any references to two-phase `.wsdkeep` handling
+   270→- [ ] **5.3** - Update Update-System.md
+   271→  - [ ] **5.3.1** - Document `required_directories` processing in update workflow
+   272→  - [ ] **5.3.2** - Remove old two-phase special case documentation
+   273→- [ ] **5.4** - Update Pre-Staging-Script-Overview.md
+   274→  - [ ] **5.4.1** - Document `.wsdkeep` → `required_directories` extraction logic
+   275→  - [ ] **5.4.2** - Document exclusion of `.wsdkeep` from `file_hashes`
+   276→  - [ ] **5.4.3** - Add `required_directories` extraction to algorithm pseudocode (new phase between file collection and hash generation)
+   277→  - [ ] **5.4.4** - Update `has_changes()` specification to include `required_directories` comparison
+   278→  - [ ] **5.4.5** - Add `required_directories` to "Version Increment Triggers" table
+   279→  - [ ] **5.4.6** - Add validation function documentation (similar to `validate_no_overwrite_exists`)
+   280→  - [ ] **5.4.7** - Update summary report format to include `required_directories` statistics
+   281→- [ ] **5.5** - Update related documentation
+   282→  - [ ] **5.5.1** - Manifest-Driven-Pipeline-Overview.md: note that `file_hashes.keys()` does NOT include `.wsdkeep` files due to `required_directories` design
+   283→  - [ ] **5.5.2** - Stage-Release-Script-Overview.md: note `.wsdkeep` not staged
+   284→  - [ ] **5.5.3** - Content-Hashing-Overview.md: note `.wsdkeep` not hashed
+   285→
+   286→### Phase 6: Verification
+   287→
+   288→- [ ] **6.1** - Run full test suite
+   289→  - [ ] **6.1.1** - Run `./wsd.py test` and verify all tests pass
+   290→  - [ ] **6.1.2** - Run `./wsd.py health` and verify all checks pass
+   291→- [ ] **6.2** - Manual verification
+   292→  - [ ] **6.2.1** - Run `pre_staging.py` and verify `required_directories` populated
+   293→  - [ ] **6.2.2** - Verify `.wsdkeep` files NOT in `file_hashes`
+   294→  - [ ] **6.2.3** - Perform manual install test, verify directories created correctly
+   295→  - [ ] **6.2.4** - Perform manual update test, verify `required_directories` handled correctly
+   296→  - [ ] **6.2.5** - Roundtrip verification: pre_staging → install → update cycle with no spurious changes
+   297→
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>

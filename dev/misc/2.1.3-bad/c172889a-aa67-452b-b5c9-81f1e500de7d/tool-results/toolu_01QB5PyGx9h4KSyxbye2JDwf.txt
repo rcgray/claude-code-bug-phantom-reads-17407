@@ -1,0 +1,1280 @@
+     1→# Template System Specification
+     2→
+     3→**Version:** 1.0.0
+     4→**Date:** 2025-11-11
+     5→**Status:** Draft
+     6→
+     7→## Overview
+     8→
+     9→The WSD Template System provides the foundational file structure and content preservation mechanism that enables Workscope-Dev to be distributed, installed, and updated while maintaining user customizations. This specification defines the template organization, the WORKSCOPE-DEV tag system for customizable content, and the rules governing content preservation during updates.
+    10→
+    11→For broader architectural context and how the Template System integrates with other WSD components, see System-Architecture.md.
+    12→
+    13→## Purpose
+    14→
+    15→The Template System serves three critical functions:
+    16→
+    17→1. **Distribution**: Provides a complete set of files that implement the workscope workflow system
+    18→2. **Customization**: Allows users to adapt WSD to their specific project needs
+    19→3. **Preservation**: Maintains user customizations across WSD updates
+    20→
+    21→This specification establishes the authoritative definition of template structure, tag syntax, preservation rules, and edge case handling.
+    22→
+    23→## Template File Organization
+    24→
+    25→### WSD Runtime Structure
+    26→
+    27→The WSD Runtime is a self-contained directory containing all files that will be copied to user projects during installation. In the WSD Development repository, this runtime is built in the `source/` directory, but end-users receive WSD Runtime as a standalone distribution.
+    28→
+    29→**In WSD Development Repository:**
+    30→```
+    31→wsd-development/
+    32→└── source/                    # Contains WSD Runtime (the product)
+    33→    ├── .claude/
+    34→    ├── dev/
+    35→    ├── docs/
+    36→    ├── scripts/
+    37→    └── wsd.py
+    38→```
+    39→
+    40→**WSD Runtime (Distributed to Users):**
+    41→```
+    42→wsd-runtime/                   # Standalone distribution
+    43→├── .claude/
+    44→├── dev/
+    45→├── docs/
+    46→├── scripts/
+    47→└── wsd.py
+    48→```
+    49→
+    50→**After Installation in User's Project:**
+    51→```
+    52→my-project/                    # User's project root
+    53→├── .claude/                   # Copied from WSD Runtime
+    54→├── dev/                       # Copied from WSD Runtime
+    55→├── docs/                      # Copied from WSD Runtime
+    56→├── scripts/                   # Copied from WSD Runtime
+    57→├── wsd.py                     # Copied from WSD Runtime
+    58→└── .wsd                       # Manifest created during installation
+    59→```
+    60→
+    61→For details on the complete directory structure, see the source/ directory in the WSD Development repository or System-Architecture.md.
+    62→
+    63→### File Categories
+    64→
+    65→**Configuration Files**
+    66→- **Location**: `.claude/`
+    67→- **Purpose**: Agent definitions, custom commands, hooks, and Claude Code settings
+    68→- **Update Behavior**: Updated with new features and improvements
+    69→- **Customization**: May contain WORKSCOPE-DEV tags for project-specific adjustments
+    70→
+    71→**Development Artifacts**
+    72→- **Location**: `dev/`
+    73→- **Purpose**: Temporary diagnostic files, work journals, workscope definitions, and other development artifacts
+    74→- **Update Behavior**: Directory structure maintained, contents user-generated
+    75→- **Special Note**: Empty subdirectories preserved via .wsdkeep files
+    76→
+    77→**Documentation Structure**
+    78→- **Location**: `docs/`
+    79→- **Purpose**: Core specifications, feature documentation, standards, tickets, and active working memory
+    80→- **Update Behavior**: Structure updated, user content in workbench preserved
+    81→- **Protection**: `read-only/` contents protected from agent modification
+    82→
+    83→**Script Files**
+    84→- **Location**: `scripts/`
+    85→- **Purpose**: Utility scripts including health checks, documentation generators, and initialization tools
+    86→- **Update Behavior**: Updated with bug fixes and enhancements
+    87→- **Special Handling**: Execute permissions preserved (declared in wsd.json)
+    88→
+    89→**Root Files**
+    90→- **Purpose**: Version control exclusions, licensing, and the WSD task runner
+    91→- **Update Behavior**: Updated with project evolution
+    92→
+    93→## .wsdkeep Placeholder Files
+    94→
+    95→### Purpose
+    96→
+    97→.wsdkeep files are structural artifacts that mark directories required by the WSD template. They serve as placeholders that maintain empty directory structures in both the filesystem and version control systems. Git doesn't track empty directories, so .wsdkeep files ensure the WSD directory structure is preserved across clones, forks, and distribution.
+    98→
+    99→### File Characteristics
+   100→
+   101→**Name**: Exactly `.wsdkeep` (no variations)
+   102→**Content**: Always empty (0 bytes)
+   103→**Location**: Any directory required by WSD that may be empty
+   104→**Visibility**: Hidden file (starts with dot)
+   105→
+   106→### Conceptual Model
+   107→
+   108→.wsdkeep files are **structural artifacts**, not content files. They mark directories that WSD requires to exist. The key distinction:
+   109→
+   110→- **Content files** are tracked in the `.wsd` manifest and represent the actual WSD Runtime
+   111→- **Structural artifacts** exist on the filesystem but are filtered from the manifest at write time
+   112→
+   113→This design means `.wsdkeep` files never appear in the manifest's `files` array. They are created or removed based on the target directory's state at the time of installation or update.
+   114→
+   115→### Two-Phase Processing
+   116→
+   117→.wsdkeep files are processed using a **two-phase approach** during both installation and updates. This ensures decisions about .wsdkeep are made against the final directory state after all regular file operations complete.
+   118→
+   119→**Phase 1: Regular Files**
+   120→All non-.wsdkeep files are processed first (copied, deleted, or updated). This establishes the final content state of all directories.
+   121→
+   122→**Phase 2: .wsdkeep Evaluation**
+   123→After regular file processing completes, each .wsdkeep candidate is evaluated using the `_directory_needs_wsdkeep()` function:
+   124→
+   125→```
+   126→Decision Logic:
+   127→- If directory does NOT exist → Create .wsdkeep (creates directory structure)
+   128→- If directory exists but is empty → Create .wsdkeep (maintains structure)
+   129→- If directory contains only .wsdkeep → Create/preserve .wsdkeep (maintains structure)
+   130→- If directory has other content → Skip .wsdkeep (content maintains structure)
+   131→```
+   132→
+   133→**Why Two Phases**: Processing .wsdkeep files after regular files ensures correct decisions. For example, if an update deletes a file that was the only content in a directory, Phase 2 correctly determines the directory now needs .wsdkeep. Conversely, if an update adds files to a directory, Phase 2 correctly skips .wsdkeep creation.
+   134→
+   135→### Manifest Exclusion
+   136→
+   137→.wsdkeep files are **never tracked in the `.wsd` manifest**. They are filtered at manifest write time, not during file enumeration. This means:
+   138→
+   139→- The Stage Release Script includes .wsdkeep files in its file list
+   140→- The installation and update systems enumerate .wsdkeep files normally
+   141→- The manifest writing step filters out any `.wsdkeep` entries
+   142→
+   143→**Rationale**: .wsdkeep files are structural artifacts whose presence depends on target directory state, not source directory contents. Tracking them in the manifest would create false expectations about what files exist.
+   144→
+   145→### Directory Requirements
+   146→
+   147→Any directory in the WSD template structure that is required but may be empty should contain a .wsdkeep file in the source.
+   148→
+   149→**Note on Specification Design:** This specification intentionally omits enumerating specific .wsdkeep file locations to prevent specification drift. The source/ directory structure serves as the Source of Truth for .wsdkeep placement, which evolves as the template system develops new organizational patterns. Common patterns include:
+   150→
+   151→- Archive subdirectories (for historical artifacts)
+   152→- Working directories (for temporary or active work)
+   153→- Organizational subdirectories (that organize content but start empty)
+   154→
+   155→### Version Control Integration
+   156→
+   157→**.wsdkeep Should Be Committed (in WSD Runtime Source)**:
+   158→- Ensures directory structure preserved in git
+   159→- Allows clone operations to recreate structure
+   160→- Standard practice for placeholder files
+   161→- Required for proper template distribution
+   162→
+   163→**.gitignore Interaction**:
+   164→- If directory is ignored, .wsdkeep may not be needed for git
+   165→- .wsdkeep still created for filesystem structure consistency
+   166→- Example: `dev/diagnostics/` might be gitignored, but .wsdkeep ensures directory exists
+   167→
+   168→**Distribution Benefits**:
+   169→- ZIP/tar archives preserve empty directories via .wsdkeep
+   170→- Web downloads include complete structure
+   171→- Package managers can maintain directory hierarchy
+   172→
+   173→### Examples
+   174→
+   175→**Example 1: Fresh Installation**
+   176→
+   177→After installation, empty directories contain .wsdkeep:
+   178→
+   179→```
+   180→project/
+   181→├── dev/
+   182→│   ├── diagnostics/
+   183→│   │   └── .wsdkeep         # Created (directory needs structure)
+   184→│   └── journal/
+   185→│       └── archive/
+   186→│           └── .wsdkeep     # Created (directory needs structure)
+   187→├── docs/
+   188→│   └── workbench/
+   189→│       └── .wsdkeep         # Created (directory needs structure)
+   190→└── .wsd                     # Manifest (does NOT list .wsdkeep files)
+   191→```
+   192→
+   193→**Example 2: Installation into Directory with User Content**
+   194→
+   195→User's project already has `docs/workbench/notes.md` before installation:
+   196→
+   197→```
+   198→docs/workbench/
+   199→└── notes.md                 # User's existing file
+   200→
+   201→# After installation:
+   202→docs/workbench/
+   203→└── notes.md                 # Preserved, NO .wsdkeep added
+   204→```
+   205→
+   206→**Explanation**: Phase 2 checks the directory state and finds user content, so .wsdkeep is skipped.
+   207→
+   208→**Example 3: Update Adds New Required Directory**
+   209→
+   210→A new WSD version adds `dev/experiments/` with .wsdkeep:
+   211→
+   212→```
+   213→# Phase 1: No regular files to process for this directory
+   214→# Phase 2: Directory doesn't exist → Create with .wsdkeep
+   215→
+   216→dev/experiments/
+   217→└── .wsdkeep                 # Created (directory needs structure)
+   218→```
+   219→
+   220→**Example 4: Update When User Populated Directory**
+   221→
+   222→User has populated `docs/workbench/` with their files. Update includes .wsdkeep for that directory:
+   223→
+   224→```
+   225→docs/workbench/
+   226→├── my-analysis.md           # User's file
+   227→└── notes.md                 # User's file
+   228→
+   229→# Phase 1: Process any regular file updates
+   230→# Phase 2: Directory has content → Skip .wsdkeep
+   231→```
+   232→
+   233→**Result**: No .wsdkeep created because user content maintains the directory.
+   234→
+   235→### Special Cases
+   236→
+   237→**Collision Detection**:
+   238→- .wsdkeep files are explicitly excluded from collision detection
+   239→- They can never cause installation collisions
+   240→- See Installation-System.md for collision handling details
+   241→
+   242→**Manual Deletion**:
+   243→- Safe to delete .wsdkeep from any directory
+   244→- No system breakage if removed
+   245→- Future updates will recreate .wsdkeep only if directory is empty
+   246→
+   247→**Binary Content**:
+   248→- .wsdkeep must always be empty (0 bytes)
+   249→- Any content makes it invalid as placeholder
+   250→- Installation/update systems assume empty content
+   251→
+   252→### Design Philosophy
+   253→
+   254→**.wsdkeep serves a single purpose**: Mark required directories that may be empty.
+   255→
+   256→**Why Not Alternatives**:
+   257→- Git doesn't track empty directories (fundamental limitation)
+   258→- README files add clutter and maintenance burden
+   259→- .gitkeep is not universally recognized
+   260→- .wsdkeep clearly indicates purpose (WSD-specific)
+   261→
+   262→**Structural Artifact Approach**:
+   263→- Always empty (no content to maintain)
+   264→- Predictable name (no variations)
+   265→- Safe to delete (no functional dependency)
+   266→- Evaluated against target state (not blindly copied)
+   267→- Never tracked in manifest (filtered at write time)
+   268→
+   269→### Special File Handling
+   270→
+   271→**Protected Directories**
+   272→- **`docs/read-only/`**: All files protected from agent modification
+   273→  - Enforcement: Via `protect_files.py` hook (provided by Claude Code)
+   274→  - Update Behavior: Can be updated by WSD, not by agents
+   275→- **`docs/references/`**: Template references protected from agent modification
+   276→  - Similar protection as read-only
+   277→
+   278→## File Permission Model
+   279→
+   280→### Permission Declaration
+   281→
+   282→File permissions in WSD are explicitly declared rather than implicitly inherited, ensuring correct permissions across all delivery mechanisms (git, web download, package managers).
+   283→
+   284→**Executable Files Declaration**:
+   285→
+   286→Files requiring executable permission are declared in wsd.json metadata:
+   287→
+   288→```json
+   289→{
+   290→  "version": "1.0.0",
+   291→  "no_overwrite": [...],
+   292→  "executable": [
+   293→    "scripts/health_check.py",
+   294→    "scripts/update_docs.py",
+   295→    "scripts/file_list.py",
+   296→    "scripts/init_work_journal.sh",
+   297→    ".claude/hooks/protect_files.py"
+   298→  ]
+   299→}
+   300→```
+   301→
+   302→**Location**: `wsd.json` at WSD Runtime root
+   303→**Format**: Array of relative file paths (strings)
+   304→**Scope**: Files that require executable (+x) permission
+   305→
+   306→**Note on Specification Design:** This specification intentionally omits enumerating all executable files to prevent specification drift. The wsd.json file in the source/ directory serves as the Source of Truth for the current executable list, which evolves as scripts are added, removed, or renamed in the template system
+   307→
+   308→### Why Explicit Declaration
+   309→
+   310→Different distribution mechanisms handle file permissions differently:
+   311→
+   312→**Git**: Preserves executable bit across clones and pulls
+   313→**ZIP/tar downloads**: May lose permission information during archive extraction
+   314→**Web fetch**: HTTP/HTTPS transfers don't include permission metadata
+   315→**Package managers**: Implementation varies by system
+   316→
+   317→By explicitly declaring executable files in wsd.json, WSD ensures correct permissions regardless of distribution method. The installation system reads this declaration and sets permissions appropriately.
+   318→
+   319→### Permission Application
+   320→
+   321→**During Installation**:
+   322→- Standard files copied with source permissions via `shutil.copy2()`
+   323→- After all files copied, read executable array from wsd.json
+   324→- Set +x bit on all files in executable array
+   325→- Permission setting is post-copy operation
+   326→
+   327→**During Updates**:
+   328→- Updated files receive permissions from update source
+   329→- Read executable array from UPDATE's wsd.json
+   330→- Apply +x bit to files in executable list
+   331→- Log permission changes for user visibility
+   332→
+   333→**Permission Setting Method**:
+   334→```python
+   335→def set_executable(file_path):
+   336→    """Add executable permission to file."""
+   337→    current_mode = os.stat(file_path).st_mode
+   338→    os.chmod(file_path, current_mode | 0o111)  # Add +x for user/group/other
+   339→```
+   340→
+   341→### Conservative Approach
+   342→
+   343→WSD takes a conservative approach to permission management:
+   344→
+   345→**What We DO**:
+   346→- Set executable bit (+x) for declared files
+   347→- Preserve source permissions during file copy
+   348→- Log permission changes during updates
+   349→
+   350→**What We DON'T DO**:
+   351→- Remove executable bit from files
+   352→- Modify other permission bits (read/write)
+   353→- Apply full permission masks (e.g., forcing 755)
+   354→- Change ownership or group
+   355→
+   356→**Rationale**:
+   357→- Avoid interfering with user's permission preferences
+   358→- Prevent edge cases from complex permission logic
+   359→- Focus on essential requirement (executable scripts must execute)
+   360→- Let OS and user manage other permission aspects
+   361→
+   362→### Common Executable Files
+   363→
+   364→**Shell Scripts**: `.sh` files in `scripts/` directory
+   365→**Python Scripts**: `.py` files that serve as entry points or utilities
+   366→**Hook Scripts**: `.claude/hooks/*.py` files for pre-execution hooks
+   367→
+   368→**Not All Scripts Need Execute Permission**:
+   369→- Python modules imported by other scripts
+   370→- Configuration files with `.py` extension
+   371→- Scripts invoked via interpreter (e.g., `python script.py`)
+   372→
+   373→Only scripts intended for direct execution should be in the executable array.
+   374→
+   375→### Examples
+   376→
+   377→**Example 1: Fresh Installation**
+   378→
+   379→```bash
+   380→# After installation
+   381→$ ls -l scripts/health_check.py
+   382→-rwxr-xr-x  1 user  group  1234  Nov 12 12:00 scripts/health_check.py
+   383→#  ^^^
+   384→#  Executable bit set by installation system
+   385→```
+   386→
+   387→**Example 2: Update Changes Permissions**
+   388→
+   389→```
+   390→Update Report:
+   391→...
+   392→Permission Changes:
+   393→  scripts/health_check.py: 644 -> 755 (now executable)
+   394→  scripts/demo.sh: 644 -> 755 (now executable)
+   395→```
+   396→
+   397→User sees which files gained executable permission during update.
+   398→
+   399→### Operational Details
+   400→
+   401→For implementation details, see:
+   402→- **Installation-System.md § File Permission Handling** for installation process
+   403→- **Update-System.md § File Permission Changes** for update handling
+   404→
+   405→## File Protection: no_overwrite Policy
+   406→
+   407→### Purpose
+   408→
+   409→The no_overwrite policy protects user-owned files from being overwritten during WSD updates. This is distinct from WORKSCOPE-DEV tag preservation - no_overwrite applies to files where the user's customization IS the primary purpose (like Action-Plan.md which is the user's project plan), not files that merely contain customizable sections.
+   410→
+   411→### Declaration
+   412→
+   413→Files requiring protection are declared in the source's wsd.json metadata file:
+   414→
+   415→```json
+   416→{
+   417→  "version": "1.0.0",
+   418→  "no_overwrite": [
+   419→    "docs/core/Action-Plan.md",
+   420→    "docs/core/PRD.md",
+   421→    "dev/prompts/Developer-Notes.md",
+   422→    "config/local-settings.json"
+   423→  ],
+   424→  "executable": [...]
+   425→}
+   426→```
+   427→
+   428→**Location**: `wsd.json` in the WSD Runtime
+   429→**Format**: Array of relative file paths (strings)
+   430→**Scope**: Applies during update operations only
+   431→**Note**: The no_overwrite array typically protects multiple user-owned files, not just a single file
+   432→
+   433→### Policy vs. Storage: Source of Truth Principle
+   434→
+   435→**Critical Design Principle**: The UPDATE's wsd.json no_overwrite array is the authoritative source, not the installed manifest.
+   436→
+   437→**Why This Design**:
+   438→- Template designer decides protection policy for each version
+   439→- Protection policy may change between versions
+   440→- Installed manifest is for tracking files, not defining policies
+   441→- Allows protection to evolve with template updates
+   442→
+   443→**Example Evolution**:
+   444→```json
+   445→// Version 1.0.0 wsd.json
+   446→{
+   447→  "version": "1.0.0",
+   448→  "no_overwrite": [
+   449→    "docs/core/Action-Plan.md",
+   450→    "config/local-settings.json"
+   451→  ]
+   452→}
+   453→
+   454→// Version 1.1.0 wsd.json
+   455→{
+   456→  "version": "1.1.0",
+   457→  "no_overwrite": [
+   458→    "docs/core/Action-Plan.md",
+   459→    "config/local-settings.json",
+   460→    "docs/core/PRD.md"  // NEW: protected starting in v1.1.0
+   461→  ]
+   462→}
+   463→```
+   464→
+   465→When user updates from v1.0.0 to v1.1.0, PRD.md becomes protected even though it wasn't protected in v1.0.0. The no_overwrite array evolves to protect additional files as the template system matures and user ownership patterns become clear.
+   466→
+   467→### Behavior
+   468→
+   469→**During Initial Installation**:
+   470→- Protected files copied normally from template
+   471→- No special handling required
+   472→- Protection flag not stored in destination manifest
+   473→- Files receive initial content from template
+   474→
+   475→**During Updates**:
+   476→- System reads no_overwrite array from UPDATE's wsd.json
+   477→- For each file in no_overwrite array:
+   478→  - If file exists in target → Skip updating (preserve user's version)
+   479→  - If file doesn't exist → Copy from template (protection applies to future updates)
+   480→- Update operation logs which files were skipped
+   481→- User version completely untouched
+   482→
+   483→### Examples
+   484→
+   485→**Example 1: User-Owned Documentation Files**
+   486→
+   487→The no_overwrite array typically protects multiple user-owned files where customization IS the primary purpose:
+   488→
+   489→**File**: `docs/core/Action-Plan.md`
+   490→**Why Protected**: This IS the user's project plan
+   491→**Rationale**: Contains user-specific phases, tasks, and project structure
+   492→
+   493→```markdown
+   494→# User's Action Plan (will be preserved)
+   495→## Phase 1: Our Custom Foundation
+   496→- [x] 1.1 - Setup our specific repository
+   497→- [x] 1.2 - Configure our CI/CD pipeline
+   498→- [ ] 1.3 - Write our project documentation
+   499→```
+   500→
+   501→**File**: `docs/core/PRD.md`
+   502→**Why Protected**: This IS the user's product requirements
+   503→**Rationale**: Contains project-specific requirements, features, and specifications
+   504→
+   505→**File**: `dev/prompts/Developer-Notes.md`
+   506→**Why Protected**: This IS the user's development notes
+   507→**Rationale**: Contains team-specific development patterns and decisions
+   508→
+   509→**Behavior**: All no_overwrite files are never overwritten during updates once user has customized them
+   510→
+   511→### no_overwrite vs. WORKSCOPE-DEV Tags
+   512→
+   513→These are complementary protection mechanisms with different purposes:
+   514→
+   515→| Aspect               | no_overwrite                         | WORKSCOPE-DEV Tags                                       |
+   516→| -------------------- | ------------------------------------ | -------------------------------------------------------- |
+   517→| **Protection Level** | Entire file                          | Specific sections                                        |
+   518→| **Use Case**         | User-owned content                   | Customizable template sections                           |
+   519→| **Behavior**         | Skip file entirely during updates    | Preserve tagged content, update surrounding template     |
+   520→| **Example**          | Action-Plan.md (user's project plan) | ws-init.md project introduction section                  |
+   521→| **When to Use**      | File content IS the user's work      | File is template with user customization points          |
+   522→| **Update Impact**    | No template improvements received    | Template improvements received, customizations preserved |
+   523→
+   524→**Key Distinction**:
+   525→- **no_overwrite**: "This entire file belongs to the user"
+   526→- **WORKSCOPE-DEV tags**: "This template has sections for user customization"
+   527→
+   528→### Design Rationale
+   529→
+   530→**What Goes in no_overwrite** (files where customization IS the purpose):
+   531→- User-owned documentation (Action-Plan.md, PRD.md, Developer-Notes.md)
+   532→- Project-specific configuration files
+   533→- Files that become the user's work product after customization
+   534→
+   535→**What DOESN'T Go in no_overwrite** (use WORKSCOPE-DEV tags instead):
+   536→- Configuration files with customizable sections
+   537→- Templates with project-specific content areas
+   538→- Files that need template updates alongside customizations
+   539→
+   540→**Protection Philosophy**:
+   541→The no_overwrite list should be minimal and intentional. It declares files where:
+   542→1. User customization is the PRIMARY purpose of the file
+   543→2. Template updates would destroy the file's value
+   544→3. Preserving user content is more important than template improvements
+   545→
+   546→For most files with customizable content, WORKSCOPE-DEV tags provide better balance - they preserve customizations while allowing template improvements.
+   547→
+   548→## WSD Runtime Metadata (wsd.json)
+   549→
+   550→The `wsd.json` file lives in WSD Runtime root and contains metadata about the WSD Runtime itself. This file is the authoritative source for WSD version, file protection policies, and executable file declarations.
+   551→
+   552→**Installation File Exclusion**: Certain files required for installation operations but not for WSD Runtime operation (including wsd.json and potentially other installation-only files) are **NOT** copied during installation. This design ensures the destination project contains only files necessary for operation. A side effect of this exclusion is that WSD-integrated projects cannot serve as installation sources, since they lack the installation-only files.
+   553→
+   554→**Purpose**:
+   555→- Declares WSD Runtime version for tracking and compatibility
+   556→- Defines file protection policies (no_overwrite list)
+   557→- Declares executable file requirements (executable list)
+   558→- Serves as Source of Truth for policies during update operations
+   559→
+   560→**File Location**: WSD Runtime root (e.g., `wsd-runtime/wsd.json`)
+   561→
+   562→**Note on Source of Truth**: The wsd.json file in the source/ directory is the single Source of Truth for current WSD Runtime version and protection policies. The executable bit of the files in the source/ directory are the Source of Truth for the file executable requirements. Version numbers shown in specification examples (e.g., "1.0.0", "1.1.0") are illustrative only and do not reflect current WSD Runtime version. The source/wsd.json file and the actual source/ directory structure are authoritative for current state.
+   563→
+   564→For complete wsd.json specification including JSON schema, structure, field semantics, policy behavior, Source of Truth role, installation exclusion rule, validation rules, and examples, see **WSD-Runtime-Metadata-Schema.md**.
+   565→
+   566→## WORKSCOPE-DEV Tag System
+   567→
+   568→### Tag Purpose
+   569→
+   570→WORKSCOPE-DEV tags mark sections of template files where users are expected to add project-specific content. During updates, the content within these tags is preserved while the surrounding template is updated.
+   571→
+   572→### Tag Syntax
+   573→
+   574→#### Basic Structure
+   575→```xml
+   576→<WORKSCOPE-DEV tag-id>
+   577→User's custom content goes here
+   578→</WORKSCOPE-DEV>
+   579→```
+   580→
+   581→#### Complete Specification
+   582→
+   583→1. **Opening Tag**: `<WORKSCOPE-DEV tag-id>`
+   584→   - Must start with `<WORKSCOPE-DEV`
+   585→   - Followed by single space
+   586→   - Followed by tag ID (no quotes)
+   587→   - Closed with `>`
+   588→
+   589→2. **Content**: Any text between opening and closing tags
+   590→   - Can span multiple lines
+   591→   - Can contain any characters except the exact closing tag
+   592→   - Whitespace and formatting preserved exactly
+   593→
+   594→3. **Closing Tag**: `</WORKSCOPE-DEV>`
+   595→   - Must match exactly
+   596→   - No tag ID in closing tag
+   597→   - Must be on its own or at end of content
+   598→
+   599→#### Valid Examples
+   600→
+   601→**Single Line:**
+   602→```xml
+   603→<WORKSCOPE-DEV project-name>MyAwesomeProject</WORKSCOPE-DEV>
+   604→```
+   605→
+   606→**Multi-line:**
+   607→```xml
+   608→<WORKSCOPE-DEV project-introduction>
+   609→## PROJECT INTRODUCTION
+   610→
+   611→This is MyAwesomeProject, a revolutionary solution for...
+   612→We use Claude Code to accelerate our development process.
+   613→
+   614→Key features include:
+   615→- Feature A
+   616→- Feature B
+   617→- Feature C
+   618→</WORKSCOPE-DEV>
+   619→```
+   620→
+   621→**Inline in Markdown:**
+   622→```markdown
+   623→The minimum Python version is <WORKSCOPE-DEV python-version>3.10</WORKSCOPE-DEV>
+   624→```
+   625→
+   626→**In Code Comments:**
+   627→```python
+   628→# <WORKSCOPE-DEV authentication-note>
+   629→# Our authentication uses OAuth2 with custom scopes.
+   630→# See docs/auth-guide.md for implementation details.
+   631→# </WORKSCOPE-DEV>
+   632→```
+   633→
+   634→### Tag ID Conventions
+   635→
+   636→#### Naming Rules
+   637→
+   638→1. **Format**: kebab-case (lowercase with hyphens)
+   639→2. **Length**: 3-50 characters
+   640→3. **Characters**: `a-z`, `0-9`, and `-` only
+   641→4. **Start/End**: Must start and end with alphanumeric
+   642→
+   643→#### Naming Patterns
+   644→
+   645→**By Purpose:**
+   646→- Configuration: `*-config`, `*-settings`
+   647→- Documentation: `*-introduction`, `*-description`, `*-notes`
+   648→- Requirements: `*-version`, `*-dependencies`
+   649→- Project-specific: `project-*`, `app-*`, `system-*`
+   650→
+   651→**By Scope:**
+   652→- Global: `project-*`, `system-*`
+   653→- Feature-specific: `feature-*`, `module-*`
+   654→- Tool-specific: `python-*`, `typescript-*`, `docker-*`
+   655→
+   656→#### Standard Tag IDs
+   657→
+   658→WSD Runtime includes WORKSCOPE-DEV tags across template files in the source/ directory, including (but not limited to) command definitions, agent rules, and configuration files. These tags enable users to customize project-specific content while preserving their customizations across WSD updates.
+   659→
+   660→**For the authoritative catalog of all tags**, including:
+   661→- Complete list of tag IDs with purposes and locations
+   662→- Detailed context and usage guidelines for each tag
+   663→- Initial content and user customization patterns
+   664→- Tag naming conventions and patterns
+   665→- Content guidelines by category
+   666→- Tag lifecycle evolution
+   667→
+   668→See: **Tag-Registry.md**
+   669→
+   670→**Note on Specification Design:** This specification intentionally omits enumerating specific tag IDs and counts to prevent specification drift. Tag-Registry.md serves as the Source of Truth for the current tag catalog, which evolves as the WSD Runtime template system develops
+   671→
+   672→### Tag Constraints
+   673→
+   674→1. **No Nesting**: Tags cannot be nested within other tags
+   675→2. **Unique IDs per File**: Same tag ID should not appear twice in one file
+   676→3. **No Partial Tags**: Opening and closing tags must both be present
+   677→4. **No Tag Modification**: Tag syntax must remain exact for parsing
+   678→
+   679→## Content Preservation Algorithm
+   680→
+   681→### Overview
+   682→
+   683→The content preservation algorithm ensures user customizations survive WSD updates. It operates through simple string manipulation rather than complex parsing.
+   684→
+   685→### Algorithm Steps
+   686→
+   687→```python
+   688→def preserve_content(update_file, destination_file):
+   689→    """
+   690→    Preserve user customizations during update.
+   691→
+   692→    Args:
+   693→        update_file: New template file from WSD
+   694→        destination_file: Existing file in user's project
+   695→
+   696→    Returns:
+   697→        Updated content with preserved customizations
+   698→    """
+   699→
+   700→    # Step 1: Read update file
+   701→    update_content = read_file(update_file)
+   702→
+   703→    # Step 2: Find all WORKSCOPE-DEV tags in update
+   704→    update_tags = find_all_tags(update_content)
+   705→
+   706→    # Step 3: If destination exists, extract user content
+   707→    if exists(destination_file):
+   708→        destination_content = read_file(destination_file)
+   709→        preserved_content = {}
+   710→
+   711→        for tag_id in update_tags:
+   712→            user_content = extract_tag_content(destination_content, tag_id)
+   713→            if user_content is not None:
+   714→                preserved_content[tag_id] = user_content
+   715→    else:
+   716→        preserved_content = {}
+   717→
+   718→    # Step 4: Copy update content as base
+   719→    result_content = update_content
+   720→
+   721→    # Step 5: Replace tag contents with preserved content
+   722→    for tag_id, content in preserved_content.items():
+   723→        result_content = replace_tag_content(result_content, tag_id, content)
+   724→
+   725→    # Step 6: Write result
+   726→    write_file(destination_file, result_content)
+   727→```
+   728→
+   729→### Detailed Preservation Rules
+   730→
+   731→#### Rule 1: Exact Content Preservation
+   732→User content between tags is preserved byte-for-byte, including:
+   733→- Whitespace and indentation
+   734→- Line endings
+   735→- Special characters
+   736→- Empty lines
+   737→
+   738→#### Rule 2: Context Updates
+   739→The template around tags can change completely:
+   740→```xml
+   741→<!-- Before Update -->
+   742→Please provide your <WORKSCOPE-DEV project-name>OldProject</WORKSCOPE-DEV> details.
+   743→
+   744→<!-- After Update -->
+   745→Project Name: <WORKSCOPE-DEV project-name>OldProject</WORKSCOPE-DEV>
+   746→Configuration for the above project...
+   747→```
+   748→
+   749→#### Rule 3: New Tags
+   750→Tags that don't exist in destination use initial content from update:
+   751→```xml
+   752→<!-- Update file (new tag) -->
+   753→<WORKSCOPE-DEV deployment-region>us-west-2</WORKSCOPE-DEV>
+   754→
+   755→<!-- Destination file (tag doesn't exist) -->
+   756→<!-- Result: us-west-2 is used as initial value -->
+   757→```
+   758→
+   759→#### Rule 4: Removed Tags
+   760→Tags in destination but not in update are effectively removed:
+   761→```xml
+   762→<!-- Destination has tag that update doesn't -->
+   763→<WORKSCOPE-DEV obsolete-feature>old content</WORKSCOPE-DEV>
+   764→<!-- Result: Entire tag and content removed -->
+   765→```
+   766→
+   767→#### Rule 5: No Cross-File Preservation
+   768→Tags are file-specific. Same tag ID in different files treated independently.
+   769→
+   770→### Preservation Examples
+   771→
+   772→#### Example 1: Simple Content Preservation
+   773→
+   774→**Update File:**
+   775→```markdown
+   776→# Project Setup
+   777→
+   778→<WORKSCOPE-DEV project-introduction>
+   779→Describe your project here
+   780→</WORKSCOPE-DEV>
+   781→
+   782→## Requirements
+   783→- Python 3.10+
+   784→```
+   785→
+   786→**Destination File (Before):**
+   787→```markdown
+   788→# Project Setup
+   789→
+   790→<WORKSCOPE-DEV project-introduction>
+   791→MyProject is a web application for managing inventories.
+   792→It uses Django and PostgreSQL with real-time updates.
+   793→</WORKSCOPE-DEV>
+   794→
+   795→## Requirements
+   796→- Python 3.8+
+   797→```
+   798→
+   799→**Destination File (After):**
+   800→```markdown
+   801→# Project Setup
+   802→
+   803→<WORKSCOPE-DEV project-introduction>
+   804→MyProject is a web application for managing inventories.
+   805→It uses Django and PostgreSQL with real-time updates.
+   806→</WORKSCOPE-DEV>
+   807→
+   808→## Requirements
+   809→- Python 3.10+
+   810→```
+   811→
+   812→#### Example 2: Multiple Tags
+   813→
+   814→**Update File:**
+   815→```python
+   816→# Configuration
+   817→PROJECT = "<WORKSCOPE-DEV project-name>YourProject</WORKSCOPE-DEV>"
+   818→VERSION = "<WORKSCOPE-DEV project-version>1.0.0</WORKSCOPE-DEV>"
+   819→DEBUG = False  # Updated default
+   820→```
+   821→
+   822→**Destination File (Before):**
+   823→```python
+   824→# Settings
+   825→PROJECT = "<WORKSCOPE-DEV project-name>SuperApp</WORKSCOPE-DEV>"
+   826→VERSION = "<WORKSCOPE-DEV project-version>2.5.3</WORKSCOPE-DEV>"
+   827→DEBUG = True  # Old default
+   828→```
+   829→
+   830→**Destination File (After):**
+   831→```python
+   832→# Configuration
+   833→PROJECT = "<WORKSCOPE-DEV project-name>SuperApp</WORKSCOPE-DEV>"
+   834→VERSION = "<WORKSCOPE-DEV project-version>2.5.3</WORKSCOPE-DEV>"
+   835→DEBUG = False  # Updated default
+   836→```
+   837→
+   838→#### Example 3: New Tag with Initial Content
+   839→
+   840→**Update File:**
+   841→```yaml
+   842→# <WORKSCOPE-DEV docker-config>
+   843→# Docker configuration
+   844→# Uncomment and modify as needed:
+   845→# DOCKER_REGISTRY: ghcr.io
+   846→# DOCKER_NAMESPACE: myorg
+   847→# </WORKSCOPE-DEV>
+   848→```
+   849→
+   850→**Destination File (Before):**
+   851→```yaml
+   852→# (This section doesn't exist)
+   853→```
+   854→
+   855→**Destination File (After):**
+   856→```yaml
+   857→# <WORKSCOPE-DEV docker-config>
+   858→# Docker configuration
+   859→# Uncomment and modify as needed:
+   860→# DOCKER_REGISTRY: ghcr.io
+   861→# DOCKER_NAMESPACE: myorg
+   862→# </WORKSCOPE-DEV>
+   863→```
+   864→
+   865→## Edge Cases
+   866→
+   867→### Malformed Tags
+   868→
+   869→#### Missing Closing Tag
+   870→**Behavior**: Tag ignored, content treated as regular template text
+   871→```xml
+   872→<WORKSCOPE-DEV incomplete-tag>
+   873→This content has no closing tag...
+   874→rest of file...
+   875→```
+   876→**Result**: Entire content from update file copied as-is
+   877→
+   878→#### Missing Opening Tag
+   879→**Behavior**: Closing tag treated as regular text
+   880→```xml
+   881→Some content...
+   882→</WORKSCOPE-DEV>
+   883→```
+   884→**Result**: Text copied as-is
+   885→
+   886→#### Mismatched Tag IDs
+   887→**Behavior**: Opening tag without matching close treated as malformed
+   888→```xml
+   889→<WORKSCOPE-DEV tag-one>
+   890→Content here
+   891→<WORKSCOPE-DEV tag-two>
+   892→Other content
+   893→</WORKSCOPE-DEV>
+   894→```
+   895→**Result**: Undefined behavior, likely malformed tag handling
+   896→
+   897→#### Nested Tags
+   898→**Behavior**: Not supported, inner tags treated as content
+   899→```xml
+   900→<WORKSCOPE-DEV outer-tag>
+   901→Some content
+   902→<WORKSCOPE-DEV inner-tag>
+   903→Nested content
+   904→</WORKSCOPE-DEV>
+   905→More content
+   906→</WORKSCOPE-DEV>
+   907→```
+   908→**Result**: Inner tag becomes part of outer tag's content
+   909→
+   910→### Special Characters in Content
+   911→
+   912→#### XML/HTML-like Content
+   913→**Allowed**: User content can contain angle brackets
+   914→```xml
+   915→<WORKSCOPE-DEV code-example>
+   916→function example() {
+   917→    if (x < y && y > z) {
+   918→        return <div>Result</div>;
+   919→    }
+   920→}
+   921→</WORKSCOPE-DEV>
+   922→```
+   923→
+   924→#### Tag-like Text
+   925→**Caution**: Content that looks like WORKSCOPE-DEV tags
+   926→```xml
+   927→<WORKSCOPE-DEV documentation>
+   928→To create a tag, use <WORKSCOPE-DEV tag-id>content</WORKSCOPE-DEV>
+   929→Note: The above is just example text
+   930→</WORKSCOPE-DEV>
+   931→```
+   932→**Result**: First `</WORKSCOPE-DEV>` ends the tag prematurely
+   933→
+   934→### File-Level Edge Cases
+   935→
+   936→#### Binary Files
+   937→**Behavior**: Binary files not scanned for tags
+   938→**Detection**: By file extension or content analysis
+   939→**Result**: Simple file copy during update
+   940→
+   941→#### Very Large Files
+   942→**Behavior**: Entire file loaded into memory
+   943→**Limitation**: System memory constraints apply
+   944→**Mitigation**: Templates typically small text files
+   945→
+   946→#### Symlinks
+   947→**Behavior**: Follow symlinks for reading
+   948→**Creation**: Don't create new symlinks
+   949→**Update**: Replace symlink with regular file
+   950→
+   951→#### Permission Errors
+   952→**Read Error**: Update fails with clear message
+   953→**Write Error**: Update fails with permission details
+   954→**Recovery**: No partial updates (atomic operation)
+   955→
+   956→## Error Handling
+   957→
+   958→### Fundamental Principle: All Errors Are Fatal
+   959→
+   960→**Per Design Decision 12**: During install and update operations, ALL errors MUST halt the operation immediately. There is no distinction between "fatal" and "non-fatal" errors. Any error—whether a read error, write error, encoding error, permission error, or malformed tag—MUST raise an exception and abort the operation.
+   961→
+   962→**Rationale:**
+   963→- Users must trust that "success" means complete success with no data loss
+   964→- Operations are idempotent; users can fix issues and retry at minimal cost
+   965→- Silent continuation erodes confidence and may hide systemic problems
+   966→- Any anomaly may indicate a larger problem worth investigating
+   967→- Git provides rollback; the system's job is to not make the mess bigger
+   968→
+   969→**Key Guarantees:**
+   970→- No partial updates committed on any error
+   971→- State remains consistent even on error (atomic operation)
+   972→- Clear error messages enable users to fix issues and retry
+   973→
+   974→### Error Categories
+   975→
+   976→#### 1. Tag Parsing Errors
+   977→
+   978→All tag parsing errors during install/update operations MUST halt the operation immediately.
+   979→
+   980→**Missing Closing Tag:**
+   981→```
+   982→Error: Malformed WORKSCOPE-DEV tag in .claude/commands/custom.md at line 45
+   983→Issue: Opening tag 'project-config' has no matching closing tag
+   984→
+   985→Operation halted. No files have been modified.
+   986→Fix the tag syntax and retry the operation.
+   987→```
+   988→
+   989→**Behavior:** Operation halts immediately, raises exception
+   990→
+   991→**Recovery:** Fix tag syntax in source file, re-run operation
+   992→
+   993→---
+   994→
+   995→**Invalid Tag ID:**
+   996→```
+   997→Error: Malformed WORKSCOPE-DEV tag in docs/core/config.md at line 23
+   998→Issue: Invalid tag ID 'my tag' (expected kebab-case, 3-50 chars)
+   999→
+  1000→Operation halted. No files have been modified.
+  1001→Fix the tag ID format and retry the operation.
+  1002→```
+  1003→
+  1004→**Behavior:** Operation halts immediately, raises exception
+  1005→
+  1006→**Recovery:** Fix tag ID to use valid kebab-case format
+  1007→
+  1008→---
+  1009→
+  1010→**Nested Tags:**
+  1011→```
+  1012→Error: Nested WORKSCOPE-DEV tags detected in .claude/agents/custom.md
+  1013→Outer Tag: configuration (line 40)
+  1014→Inner Tag: sub-config (line 45)
+  1015→
+  1016→Operation halted. No files have been modified.
+  1017→Restructure tags to avoid nesting and retry.
+  1018→```
+  1019→
+  1020→**Behavior:** Operation halts immediately, raises exception
+  1021→
+  1022→**Recovery:** Restructure file to avoid nested tags
+  1023→
+  1024→#### 2. File Read Errors
+  1025→
+  1026→All file read errors during install/update operations MUST halt the operation immediately.
+  1027→
+  1028→**Permission Denied:**
+  1029→```
+  1030→Error: Cannot read file during operation
+  1031→File: /path/to/template-file.md
+  1032→Reason: Permission denied
+  1033→
+  1034→Operation halted. No files have been modified.
+  1035→Grant read permission: chmod u+r /path/to/template-file.md
+  1036→Then retry the operation.
+  1037→```
+  1038→
+  1039→**Behavior:** Operation halts immediately, raises exception
+  1040→
+  1041→**Recovery:** Grant read permissions, retry operation
+  1042→
+  1043→---
+  1044→
+  1045→**Encoding Error:**
+  1046→```
+  1047→Error: Cannot read file during operation
+  1048→File: /path/to/destination-file.md
+  1049→Reason: File is not valid UTF-8 encoded
+  1050→
+  1051→Operation halted. No files have been modified.
+  1052→Convert file to UTF-8 encoding and retry the operation.
+  1053→```
+  1054→
+  1055→**Behavior:** Operation halts immediately, raises exception
+  1056→
+  1057→**Recovery:** Convert file to UTF-8 encoding, retry operation
+  1058→
+  1059→---
+  1060→
+  1061→**File Not Found (when expected):**
+  1062→```
+  1063→Error: Cannot read file during operation
+  1064→File: /path/to/expected-file.md
+  1065→Reason: File not found
+  1066→
+  1067→Operation halted. No files have been modified.
+  1068→Ensure file exists at the expected location and retry.
+  1069→```
+  1070→
+  1071→**Behavior:** Operation halts immediately, raises exception
+  1072→
+  1073→**Recovery:** Ensure file exists, retry operation
+  1074→
+  1075→#### 3. File Write Errors
+  1076→
+  1077→All file write errors during install/update operations MUST halt the operation immediately with rollback.
+  1078→
+  1079→**Permission Denied:**
+  1080→```
+  1081→Error: Cannot write file during operation
+  1082→File: /path/to/destination-file.md
+  1083→Reason: Permission denied
+  1084→
+  1085→Operation halted. All changes have been rolled back.
+  1086→Grant write permission: chmod u+w /path/to/destination-file.md
+  1087→Then retry the operation.
+  1088→```
+  1089→
+  1090→**Behavior:** Operation halts immediately, triggers rollback, raises exception
+  1091→
+  1092→**Recovery:** Grant write permissions, retry operation
+  1093→
+  1094→---
+  1095→
+  1096→**Disk Full:**
+  1097→```
+  1098→Error: Cannot write file during operation
+  1099→File: /path/to/destination-file.md
+  1100→Reason: No space left on device
+  1101→
+  1102→Operation halted. All changes have been rolled back.
+  1103→Free disk space and retry the operation.
+  1104→```
+  1105→
+  1106→**Behavior:** Operation halts immediately, triggers rollback, raises exception
+  1107→
+  1108→**Recovery:** Free disk space, retry operation
+  1109→
+  1110→#### 4. Binary File Handling
+  1111→
+  1112→Binary files are detected and handled without tag scanning. This is expected behavior, not an error.
+  1113→
+  1114→**Detection:** Files are identified as binary by extension or content analysis
+  1115→
+  1116→**Behavior:** Binary files copied directly without tag preservation (simple file copy)
+  1117→
+  1118→**Note:** This is the correct handling for binary files and does not constitute an error condition.
+  1119→
+  1120→### Error Message Requirements
+  1121→
+  1122→All error messages MUST include:
+  1123→1. **What happened**: Clear description of error type
+  1124→2. **Where it happened**: File path and line number (where applicable)
+  1125→3. **Why it happened**: Specific reason (permission denied, encoding error, malformed tag, etc.)
+  1126→4. **Operation status**: Confirmation that operation halted and no partial changes committed
+  1127→5. **How to fix**: Actionable resolution steps including specific commands
+  1128→
+  1129→### Integration with Install/Update Operations
+  1130→
+  1131→This section specifies error handling for the Template System's tag parsing and content preservation functions. These functions are called during install and update operations.
+  1132→
+  1133→**Error Propagation:** Template System functions MUST raise exceptions (not return error codes or empty values) when errors occur. The calling install/update operation catches these exceptions to trigger rollback and display error messages.
+  1134→
+  1135→**For operation-level error handling**, see:
+  1136→- **Installation-System.md § Error Handling** (installation-specific errors and rollback)
+  1137→- **Update-System.md § Error Handling** (update-specific errors and rollback)
+  1138→
+  1139→## Implementation Requirements
+  1140→
+  1141→### Parser Requirements
+  1142→
+  1143→1. **Simple String Search**: Use basic string operations, not regex or XML parsing
+  1144→2. **Case Sensitive**: Tags must match exactly as specified
+  1145→3. **Preserve Formatting**: Don't modify whitespace or line endings
+  1146→4. **Handle UTF-8**: Support international characters in content
+  1147→
+  1148→### Performance Requirements
+  1149→
+  1150→1. **File Scanning**: O(n) where n is file size
+  1151→2. **Tag Extraction**: O(m) where m is number of tags
+  1152→3. **Memory Usage**: Full file loaded into memory
+  1153→4. **No Caching**: Fresh scan on each update
+  1154→
+  1155→### Self-Detection Prevention
+  1156→
+  1157→The WSD Runtime source code contains functions that search for WORKSCOPE-DEV tag patterns. Without special handling, the tag scanner would detect these search patterns as malformed tags when scanning `wsd.py` itself during updates.
+  1158→
+  1159→Two complementary techniques prevent this self-detection:
+  1160→
+  1161→**For Documentation Examples (Non-Breaking Hyphen)**
+  1162→
+  1163→Documentation files that show tag syntax examples use the non-breaking hyphen `‑` (U+2011) instead of the regular hyphen `-` (U+002D) in the "WORKSCOPE-DEV" portion. This renders identically but prevents scanner detection. See **Tag-Registry.md § Writing Tag Examples in Documentation** for details.
+  1164→
+  1165→**For Source Code (String Concatenation)**
+  1166→
+  1167→Source code that searches for tag patterns uses string concatenation to construct the search string at runtime:
+  1168→
+  1169→```python
+  1170→# Pattern hidden from scanner via concatenation
+  1171→_TAG_OPEN_PREFIX = "<" + "WORKSCOPE-DEV"
+  1172→_TAG_CLOSE = "</" + "WORKSCOPE-DEV>"
+  1173→
+  1174→# Used in scanning functions
+  1175→start = content.find(_TAG_OPEN_PREFIX, pos)
+  1176→```
+  1177→
+  1178→The concatenated string `"<" + "WORKSCOPE-DEV"` produces the runtime value `<WORKSCOPE-DEV` but never appears as a literal pattern in the source file. Python optimizes string literal concatenation at compile time, so there is no performance impact.
+  1179→
+  1180→**When to Use Each Technique**
+  1181→
+  1182→| Context | Technique | Example |
+  1183→|---------|-----------|---------|
+  1184→| Documentation examples | Non-breaking hyphen | `<WORKSCOPE‑DEV tag-id>` |
+  1185→| Source code search patterns | String concatenation | `"<" + "WORKSCOPE-DEV"` |
+  1186→| Actual tags for preservation | Regular hyphen | `<WORKSCOPE-DEV tag-id>` |
+  1187→
+  1188→## Validation
+  1189→
+  1190→### Tag Validation Rules
+  1191→
+  1192→1. **Syntax Check**: Verify opening and closing tag format
+  1193→2. **ID Format**: Validate kebab-case convention
+  1194→3. **No Nesting**: Ensure tags don't nest
+  1195→4. **Completeness**: Verify all opened tags are closed
+  1196→
+  1197→### Content Validation Rules
+  1198→
+  1199→1. **Encoding**: Verify UTF-8 encoding
+  1200→2. **Size Limits**: Warn if file exceeds reasonable size
+  1201→3. **Binary Detection**: Skip binary files
+  1202→4. **Line Endings**: Preserve original line endings
+  1203→
+  1204→## Testing Scenarios
+  1205→
+  1206→### Basic Preservation Tests
+  1207→
+  1208→1. **Single Tag**: Preserve content in single tag
+  1209→2. **Multiple Tags**: Preserve multiple tags in one file
+  1210→3. **Empty Content**: Preserve empty tag content
+  1211→4. **Large Content**: Preserve multi-page content
+  1212→5. **Special Characters**: Preserve Unicode and symbols
+  1213→
+  1214→### Update Scenario Tests
+  1215→
+  1216→1. **Context Change**: Template changes around preserved content
+  1217→2. **Tag Addition**: New tags added in update
+  1218→3. **Tag Removal**: Tags removed in update
+  1219→4. **Tag Reorder**: Tags appear in different order
+  1220→5. **Initial Content**: New tag with default content
+  1221→
+  1222→### Edge Case Tests
+  1223→
+  1224→1. **Malformed Tag**: Missing closing tag
+  1225→2. **Nested Attempt**: Tag within tag
+  1226→3. **Similar Text**: Content that looks like tags
+  1227→4. **Binary File**: Non-text file handling
+  1228→5. **Permission Denied**: File not readable/writable
+  1229→
+  1230→### Integration Tests
+  1231→
+  1232→1. **Full Installation**: Fresh install with tags
+  1233→2. **Full Update**: Update with preservation
+  1234→3. **Multiple Files**: Tags across many files
+  1235→4. **Directory Tree**: Complete template structure
+  1236→5. **Rollback**: Revert using version control
+  1237→
+  1238→## Best Practices
+  1239→
+  1240→### For Template Designers
+  1241→
+  1242→1. **Meaningful IDs**: Use descriptive tag IDs
+  1243→2. **Documentation**: Comment tags purpose
+  1244→3. **Initial Content**: Provide helpful defaults
+  1245→4. **Consistent Naming**: Follow kebab-case convention
+  1246→5. **Unique IDs**: Ensure tag IDs are unique per file
+  1247→
+  1248→### For Users
+  1249→
+  1250→1. **Regular Updates**: Keep WSD current
+  1251→2. **Version Control**: Commit before updates
+  1252→3. **Review Changes**: Check preserved content after update
+  1253→4. **Report Issues**: Notify about malformed tags
+  1254→5. **Backup Strategy**: Maintain backups before major updates
+  1255→
+  1256→### For Implementers
+  1257→
+  1258→1. **Simple Algorithm**: Avoid complex parsing
+  1259→2. **Clear Errors**: Provide actionable error messages
+  1260→3. **Atomic Updates**: All or nothing operations
+  1261→4. **Preserve Exactly**: Don't modify user content
+  1262→5. **Test Coverage**: Comprehensive edge case testing
+  1263→
+  1264→## Related Specifications
+  1265→
+  1266→- **System-Architecture.md**: High-level WSD architecture and component integration
+  1267→- **Installation-System.md**: How templates are installed
+  1268→- **Update-System.md**: How templates are updated
+  1269→- **Install-And-Update-Overview.md**: Command-line interface for install and update commands
+  1270→- **WSD-Manifest-Schema.md**: How files are tracked
+  1271→- **Tag-Registry.md**: Complete list of all tags
+  1272→
+  1273→---
+  1274→
+  1275→*This specification defines the authoritative rules for the WSD Template System including file organization, WORKSCOPE-DEV tags, content preservation, and edge case handling. All implementations must conform to these specifications.*
+  1276→
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>

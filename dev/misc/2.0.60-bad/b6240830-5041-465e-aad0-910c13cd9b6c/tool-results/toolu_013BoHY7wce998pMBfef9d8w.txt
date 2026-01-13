@@ -1,0 +1,631 @@
+     1→# Stage Release Script Overview
+     2→
+     3→**Version:** 1.0.0
+     4→**Date:** 2025-12-23
+     5→**Status:** Draft
+     6→
+     7→## Overview
+     8→
+     9→The Stage Release Script is a Python utility that copies the WSD Runtime from the `source/` directory to a staging directory, filtering out development artifacts. The staging directory (`../workscope-dev/` by default) serves as the GitHub publishing conduit for the public `rcgray/workscope-dev` repository, enabling clean separation between WSD Development and the distributed WSD Runtime.
+    10→
+    11→This specification defines the complete staging process including file enumeration, exclusion filtering, target directory management, verification procedures, and error handling. The Stage Release Script is a prerequisite to the Build-System feature, which handles subsequent PyPI packaging from the staged files.
+    12→
+    13→For broader architectural context and how the Stage Release Script integrates with the distribution pipeline, see **Build-System-Overview.md**.
+    14→
+    15→## Purpose
+    16→
+    17→The Stage Release Script serves four critical functions:
+    18→
+    19→1. **Clean Distribution**: Creates a sanitized copy of WSD Runtime by filtering out development artifacts (`.DS_Store`, `__pycache__/`, `.envrc`) that should not be distributed to end users
+    20→
+    21→2. **Git Separation**: Enables the GitHub publishing workflow by staging files to a separate repository (`../workscope-dev/`) with its own git history, preserving the `.git/` directory during staging operations
+    22→
+    23→3. **Source Purity Enforcement**: Validates that `source/` remains clean by halting on unexpected files (suspicious files, symlinks, empty directories), enforcing Design Decision 9 (Keep WSD Runtime Directory Pure and Ship-Ready)
+    24→
+    25→4. **Release Automation**: Provides a repeatable, idempotent process for preparing releases, eliminating manual file copying and the risk of accidentally shipping development artifacts
+    26→
+    27→This specification establishes the authoritative definition of the staging algorithm, exclusion patterns, directory management, verification procedures, and the `.wsdignore` file format.
+    28→
+    29→## Script Architecture
+    30→
+    31→### Script Location
+    32→
+    33→The script lives at `dev/scripts/stage_release.py` in the WSD Development repository. This location is appropriate because:
+    34→
+    35→- The script is a WSD Development tool, NOT part of WSD Runtime
+    36→- It resides in the project's `dev/scripts/` directory alongside other WSD Development-only tools
+    37→- It is not copied to `source/` and will not be distributed to end users
+    38→
+    39→**Contract**: The script MUST NOT be placed in `source/`. It is a development tool that operates on `source/`, not part of the distributable runtime.
+    40→
+    41→### Command Interface
+    42→
+    43→```bash
+    44→# Stage to default sibling directory (../workscope-dev/)
+    45→uv run dev/scripts/stage_release.py
+    46→
+    47→# Preview what would be staged (no actual changes)
+    48→uv run dev/scripts/stage_release.py --dry-run
+    49→
+    50→# Stage to specific directory (for testing)
+    51→uv run dev/scripts/stage_release.py --target /path/to/target
+    52→```
+    53→
+    54→### Behavioral Guarantees
+    55→
+    56→| Aspect            | Behavior                                |
+    57→| ----------------- | --------------------------------------- |
+    58→| Target default    | `../workscope-dev/` (sibling directory) |
+    59→| Target override   | `--target /path/to/dir` flag            |
+    60→| Verbosity         | Always verbose (lists all files)        |
+    61→| Clean before copy | Always cleans target (except `.git/`)   |
+    62→| Verification      | Always verifies after staging           |
+    63→| Sync mode         | Full sync only (no incremental mode)    |
+    64→| Git operations    | None (user handles git manually)        |
+    65→| Target creation   | Never creates target (must exist)       |
+    66→
+    67→**Guarantee**: The script is idempotent. Running it twice in succession produces identical results in the target directory.
+    68→
+    69→## Staging Algorithm
+    70→
+    71→### Algorithm Specification
+    72→
+    73→```python
+    74→def stage_release(source_dir: Path, target_dir: Path, dry_run: bool = False) -> None:
+    75→    """
+    76→    Stage WSD Runtime files from source to target directory.
+    77→
+    78→    Args:
+    79→        source_dir: Path to source/ directory
+    80→        target_dir: Path to staging directory (e.g., ../workscope-dev/)
+    81→        dry_run: If True, preview only without making changes
+    82→
+    83→    Raises:
+    84→        FileNotFoundError: Target directory does not exist
+    85→        ValueError: Source contains unexpected files (symlinks, empty dirs, suspicious files)
+    86→    """
+    87→
+    88→    # Phase 1: Validation
+    89→    validate_target_exists(target_dir)
+    90→    validate_target_git_not_symlink(target_dir)  # .git/ must be real directory, not symlink
+    91→    warn_if_no_git(target_dir)
+    92→
+    93→    # Phase 2: Load patterns
+    94→    wsdignore_entries = load_wsdignore(source_dir)      # Files to skip quietly
+    95→    suspicious_patterns = get_suspicious_patterns()     # Files that should not exist
+    96→
+    97→    # Phase 3: Pre-scan source for errors (before modifying target)
+    98→    files_to_stage = []
+    99→    for item in walk_source(source_dir):
+   100→        # Check .wsdignore first (skip quietly)
+   101→        if matches_wsdignore(item, wsdignore_entries):
+   102→            log_skip(item, "in .wsdignore")
+   103→            continue
+   104→
+   105→        # Check suspicious patterns (error - should not exist in source/)
+   106→        if matches_suspicious_pattern(item, suspicious_patterns):
+   107→            raise_suspicious_file_error(item)
+   108→
+   109→        # Check for symlinks (error - unexpected in source/)
+   110→        if is_symlink(item):
+   111→            raise_symlink_error(item)
+   112→
+   113→        # Check for empty directories (error - should have .wsdkeep)
+   114→        if is_empty_directory(item):
+   115→            raise_empty_directory_error(item)
+   116→
+   117→        # Validated - add to staging list
+   118→        files_to_stage.append(item)
+   119→
+   120→    # Phase 4: Clean target directory (safe now - source validated)
+   121→    clean_target(target_dir, preserve=[".git"], dry_run=dry_run)
+   122→
+   123→    # Phase 5: Copy files
+   124→    staged_count = 0
+   125→    for item in files_to_stage:
+   126→        copy_with_permissions(item, target_dir, dry_run=dry_run)
+   127→        log_stage(item)
+   128→        staged_count += 1
+   129→
+   130→    # Phase 6: Verify staging
+   131→    if not dry_run:
+   132→        verify_staging(source_dir, target_dir, files_to_stage, staged_count)
+   133→
+   134→    # Phase 7: Generate summary report
+   135→    generate_summary()
+   136→```
+   137→
+   138→### Phase Details
+   139→
+   140→#### Phase 1: Validation
+   141→
+   142→The script MUST validate preconditions before proceeding:
+   143→
+   144→1. **Target exists**: The target directory MUST exist. If not, the script MUST exit with a clear error message. The script MUST NOT create the target directory.
+   145→
+   146→2. **Git directory validation**: If the target contains `.git/`, it MUST be a real directory, not a symlink. If `.git/` is a symlink, the script MUST halt with an error.
+   147→
+   148→3. **Git warning**: If the target directory does not contain a `.git/` subdirectory, the script SHOULD warn the user (this may indicate incorrect target selection).
+   149→
+   150→#### Phase 2: Load Patterns
+   151→
+   152→Two distinct pattern sets are loaded with different behaviors:
+   153→
+   154→1. **`.wsdignore` entries**: Files listed in `source/.wsdignore` that exist for WSD Development but should not ship. These are **skipped quietly** during staging.
+   155→
+   156→2. **Suspicious file patterns**: Built-in patterns identifying development artifacts that should NEVER exist in `source/`. These **cause an error** if detected.
+   157→
+   158→See **Exclusion Pattern System** section for complete pattern list.
+   159→
+   160→#### Phase 3: Pre-scan Source for Errors
+   161→
+   162→Before modifying the target directory, the script MUST validate all source files. This ensures that if any error is detected, the target remains unchanged.
+   163→
+   164→For each item in `source/`:
+   165→
+   166→1. **Check `.wsdignore`**: If item matches a `.wsdignore` entry, log skip and continue
+   167→2. **Check suspicious patterns**: If item matches a suspicious pattern, halt with error (these should not exist)
+   168→3. **Check symlink**: If item is a symlink, halt with error (symlinks are unexpected)
+   169→4. **Check empty directory**: If directory contains no files, halt with error (should have `.wsdkeep`)
+   170→
+   171→**Clarification on empty directories**: A directory containing only a `.wsdkeep` file is NOT empty—it contains a file. The empty directory check catches directories with zero files, which violates WSD conventions.
+   172→
+   173→**Contract**: The script MUST halt on any unexpected condition rather than silently proceeding. Because this validation happens before cleaning, any error leaves the target unchanged.
+   174→
+   175→#### Phase 4: Clean Target Directory
+   176→
+   177→After source validation passes, the target directory is cleaned:
+   178→
+   179→- Remove all files and directories EXCEPT `.git/`
+   180→- Log what was removed (file/directory count)
+   181→- Preserve `.git/` intact (maintains GitHub repository history)
+   182→
+   183→**Contract**: Cleaning is always performed. There is no incremental mode.
+   184→
+   185→#### Phase 5: Copy Files
+   186→
+   187→For each validated file (from Phase 3's staging list):
+   188→
+   189→1. Copy to target preserving relative path structure
+   190→2. Preserve file permissions (especially executable bits)
+   191→3. Log each file as staged
+   192→
+   193→**Guarantee**: File permissions MUST be preserved. Scripts with `+x` in `source/` MUST have `+x` in target.
+   194→
+   195→#### Phase 6: Verify Staging
+   196→
+   197→After copying, the script MUST verify:
+   198→
+   199→1. **File count**: Number of staged files equals the pre-validated staging list size
+   200→2. **Permissions**: Executable files retained their `+x` bit. The script compares against source file permissions to verify. Additionally, `wsd.json` contains a list of files that should be executable, which can serve as a reference.
+   201→
+   202→#### Phase 7: Generate Summary
+   203→
+   204→Report completion status including:
+   205→- Total files staged
+   206→- Total files excluded (with breakdown by reason)
+   207→- Verification results
+   208→- Next steps (git commands for publishing)
+   209→
+   210→### Prerequisite: Pre-Staging Script
+   211→
+   212→The Stage Release Script depends on `pre_staging.py` having been run first. The pre-staging script handles wsd.json metadata management including hash generation, executable list synchronization, and version bumping. The Stage Release Script copies the pre-staged `source/wsd.json` as-is to the target directory.
+   213→
+   214→For hash generation and wsd.json management details, see **Pre-Staging-Script-Overview.md** and **Content-Hashing-Overview.md**.
+   215→
+   216→### .wsdkeep File Handling
+   217→
+   218→.wsdkeep files are **NOT staged**. Although .wsdkeep files exist in `source/` as git placeholders to preserve empty directory structure, they are excluded from the staging process because directory requirements are tracked via the `required_directories` field in `wsd.json`.
+   219→
+   220→The staging script reads the file list from `file_hashes.keys()` in the manifest (populated by `pre_staging.py`). Since `pre_staging.py` excludes .wsdkeep files from `file_hashes`, they are never included in the staging file list.
+   221→
+   222→**Design Rationale**: .wsdkeep files are structural git artifacts, not content files. The manifest declares semantic intent via `required_directories` ("these directories must exist"), and install/update operations generate .wsdkeep files locally based on directory state. See **Template-System.md § .wsdkeep Placeholder Files** for the complete .wsdkeep lifecycle.
+   223→
+   224→## Exclusion Pattern System
+   225→
+   226→### Built-in Suspicious File Patterns
+   227→
+   228→These patterns identify development artifacts that should NEVER exist in `source/`. If detected, the script MUST halt with an error (unless the file is listed in `.wsdignore`):
+   229→
+   230→| Pattern              | Description                            |
+   231→| -------------------- | -------------------------------------- |
+   232→| `__pycache__/`       | Python bytecode cache directories      |
+   233→| `node_modules/`      | Node.js dependency directories         |
+   234→| `.git/`              | Git repository directories (in source) |
+   235→| `package-lock.json`  | npm lock files                         |
+   236→| `.package-lock.json` | npm hidden lock files                  |
+   237→| `.DS_Store`          | macOS metadata files                   |
+   238→| `desktop.ini`        | Windows metadata files                 |
+   239→| `Thumbs.db`          | Windows thumbnail cache                |
+   240→| `*~`                 | Vim backup files                       |
+   241→| `.*.swp`             | Vim swap files                         |
+   242→| `.*.swo`             | Vim swap files                         |
+   243→| `*.pyc`              | Python bytecode files                  |
+   244→| `*.pyo`              | Python optimized bytecode              |
+   245→| `dist/`              | Build distribution directories         |
+   246→| `build/`             | Build output directories               |
+   247→| `*.egg-info/`        | Python package metadata                |
+   248→
+   249→**Rationale**: These patterns are derived from the `/update-wsd-json` command's suspicious file detection logic, ensuring consistency across WSD Development tooling.
+   250→
+   251→### .wsdignore File Format
+   252→
+   253→The `source/.wsdignore` file lists files that legitimately exist in `source/` for WSD Development but should not be staged for distribution.
+   254→
+   255→**Current contents**:
+   256→```
+   257→.wsdignore
+   258→.envrc
+   259→```
+   260→
+   261→**Format rules**:
+   262→- One file path per line (relative to `source/`)
+   263→- Lines starting with `#` are comments
+   264→- Empty lines are ignored
+   265→- Patterns are matched exactly (no glob expansion)
+   266→
+   267→**Contract**: Files listed in `.wsdignore` are SKIPPED during staging, not treated as errors.
+   268→
+   269→### Exclusion Precedence
+   270→
+   271→1. Check against `.wsdignore` entries (skip if match)
+   272→2. Check against suspicious file patterns (error if match)
+   273→3. Proceed with staging
+   274→
+   275→This order allows `.wsdignore` to whitelist files that would otherwise be flagged as suspicious (though in practice, `.wsdignore` entries are specific to WSD Development, not general patterns).
+   276→
+   277→## Error Handling
+   278→
+   279→### Error Categories
+   280→
+   281→#### 1. Target Directory Errors
+   282→
+   283→**Error**: Target directory does not exist
+   284→
+   285→**Example Message**:
+   286→```
+   287→ERROR: Target directory does not exist: ../workscope-dev/
+   288→This directory should be the GitHub repository for rcgray/workscope-dev.
+   289→Please ensure the repository is cloned to the expected location.
+   290→```
+   291→
+   292→**Recovery**: Clone the GitHub repository to the expected location, or use `--target` to specify a different location.
+   293→
+   294→**Error**: Target `.git/` is a symlink
+   295→
+   296→**Example Message**:
+   297→```
+   298→ERROR: Target .git/ is a symlink: ../workscope-dev/.git -> /other/repo/.git
+   299→The .git directory must be a real directory, not a symlink.
+   300→This may indicate a git worktree or other non-standard setup.
+   301→```
+   302→
+   303→**Recovery**: Use a standard git clone for the target repository, or use `--target` to specify a different location.
+   304→
+   305→#### 2. Symlink Errors
+   306→
+   307→**Error**: Symlink detected in source
+   308→
+   309→**Example Message**:
+   310→```
+   311→ERROR: Symlink detected in source/: source/scripts/link.py -> ../other.py
+   312→Symlinks are not expected in the WSD Runtime source.
+   313→Please investigate and resolve before staging.
+   314→```
+   315→
+   316→**Recovery**: Remove the symlink and replace with actual file, or determine why it was created.
+   317→
+   318→**Rationale**: Symlinks are unexpected in `source/` and may indicate accidental file creation or architectural issues.
+   319→
+   320→#### 3. Empty Directory Errors
+   321→
+   322→**Error**: Empty directory detected
+   323→
+   324→**Example Message**:
+   325→```
+   326→ERROR: Empty directory detected: source/docs/workbench/
+   327→Empty directories should contain a .wsdkeep file.
+   328→Please add .wsdkeep or remove the directory.
+   329→```
+   330→
+   331→**Recovery**: Add a `.wsdkeep` placeholder file to the directory, or remove the directory if it is not needed.
+   332→
+   333→**Rationale**: Empty directories should have `.wsdkeep` files to ensure they are tracked by git and preserved during installation.
+   334→
+   335→#### 4. Suspicious File Errors
+   336→
+   337→**Error**: Suspicious file detected
+   338→
+   339→**Example Message**:
+   340→```
+   341→ERROR: Suspicious file detected: source/__pycache__/
+   342→Development artifacts should not exist in source/.
+   343→Please investigate (possible Rule 6.1 violation) and clean before staging.
+   344→```
+   345→
+   346→**Recovery**: Remove the suspicious file/directory and investigate how it was created (may indicate a Rule 6.1 violation where code changes were made to `source/` instead of running from the development environment properly).
+   347→
+   348→### Error Recovery Principles
+   349→
+   350→**Guarantee**: Source validation (Phase 3) occurs BEFORE target modification (Phase 4). If any error is detected in `source/` (symlinks, empty directories, suspicious files), the target directory remains completely unchanged.
+   351→
+   352→If an error occurs during file copying (Phase 5), the target may be in an inconsistent state (cleaned but partially copied). The error message will indicate this.
+   353→
+   354→**Recommendation**: On error, resolve the issue and re-run the script. The clean-before-copy behavior ensures the target will be in a consistent state after a successful run.
+   355→
+   356→## Implementation Requirements
+   357→
+   358→### Dependencies
+   359→
+   360→The script MUST use Python standard library only:
+   361→- `pathlib` - Path operations
+   362→- `shutil` - File copying with permission preservation
+   363→- `os` - Directory operations
+   364→- `argparse` - Command-line parsing
+   365→
+   366→**Contract**: No external packages required. The script runs with Python 3.10+ (matching WSD requirements).
+   367→
+   368→### Permission Handling
+   369→
+   370→The script MUST use `shutil.copy2()` for file copying, which preserves file metadata including permission bits.
+   371→
+   372→**Verification**: After staging, the script MUST verify that executable files (those with `+x` in source) retain their executable permission in the target.
+   373→
+   374→## Testing Scenarios
+   375→
+   376→### Basic Staging Tests
+   377→
+   378→1. **Default Target Staging**: Run `uv run dev/scripts/stage_release.py`, verify files appear in `../workscope-dev/`, verify `.git/` preserved, verify excluded files not present
+   379→
+   380→2. **Custom Target Staging**: Run with `--target /tmp/test-staging`, verify files staged to specified location
+   381→
+   382→3. **Dry Run Mode**: Run with `--dry-run`, verify no files changed, verify output shows what would be staged
+   383→
+   384→4. **Idempotency**: Run script twice in succession, verify target directory identical after both runs
+   385→
+   386→### Edge Case Tests
+   387→
+   388→1. **Missing Target Directory**: Run against non-existent target, verify clear error message, verify no partial operations
+   389→
+   390→2. **Target Without .git**: Run against valid directory without `.git/`, verify warning displayed but staging proceeds
+   391→
+   392→3. **Empty .wsdignore**: Remove all entries from `.wsdignore`, run staging, verify default exclusions still apply
+   393→
+   394→4. **Symlink Detection**: Create symlink in `source/`, run staging, verify error and halt
+   395→
+   396→5. **Empty Directory Detection**: Create empty directory in `source/` (without `.wsdkeep`), run staging, verify error and halt
+   397→
+   398→6. **Suspicious File Detection**: Create `__pycache__/` in `source/`, run staging, verify error and halt
+   399→
+   400→### Integration Tests
+   401→
+   402→1. **Full Release Workflow**: Stage files, then run `build_for_pypi.py` on staged output, verify build succeeds
+   403→
+   404→2. **Permission Preservation**: Stage files including executable scripts, verify `+x` bit preserved on `wsd.py` and scripts
+   405→
+   406→3. **File Count Verification**: Count files in `source/`, count exclusions, verify staged count matches expected
+   407→
+   408→4. **Git Workflow Integration**: Stage files, navigate to target, run `git status`, verify correct files shown as added/modified/deleted
+   409→
+   410→## Examples
+   411→
+   412→### Example 1: Standard Staging Operation
+   413→
+   414→**Context**: Developer wants to prepare a release for GitHub publishing.
+   415→
+   416→**Command**:
+   417→```bash
+   418→uv run dev/scripts/stage_release.py
+   419→```
+   420→
+   421→**Output**:
+   422→```
+   423→=== WSD Release Staging ===
+   424→Source: /Users/dev/workscope/source
+   425→Target: /Users/dev/workscope-dev
+   426→
+   427→Cleaning target directory...
+   428→  Preserved: .git/
+   429→  Removed: 127 files, 23 directories
+   430→
+   431→Staging files...
+   432→  STAGE: wsd.py
+   433→  STAGE: wsd.json
+   434→  STAGE: scripts/health_check.py
+   435→  STAGE: scripts/wsd_utils.py
+   436→  SKIP: .envrc (in .wsdignore)
+   437→  SKIP: .wsdignore (in .wsdignore)
+   438→  STAGE: .claude/agents/task-master.md
+   439→  ...
+   440→
+   441→Verifying staging...
+   442→  File count: 127 staged (2 excluded) - OK
+   443→  Permissions: 8 executable files verified - OK
+   444→
+   445→=== Staging Complete ===
+   446→Staged 127 files to ../workscope-dev/
+   447→Next steps:
+   448→  cd ../workscope-dev
+   449→  git status
+   450→  git add -A && git commit -m "Release vX.Y.Z"
+   451→  git push origin main
+   452→```
+   453→
+   454→**Analysis**: The script cleaned the target (preserving `.git/`), copied all source files except those in `.wsdignore`, verified the result, and provided next steps for the developer.
+   455→
+   456→### Example 2: Dry Run Preview
+   457→
+   458→**Context**: Developer wants to see what would be staged without making changes.
+   459→
+   460→**Command**:
+   461→```bash
+   462→uv run dev/scripts/stage_release.py --dry-run
+   463→```
+   464→
+   465→**Output**:
+   466→```
+   467→=== WSD Release Staging (DRY RUN) ===
+   468→Source: /Users/dev/workscope/source
+   469→Target: /Users/dev/workscope-dev
+   470→
+   471→Pre-scanning source...
+   472→  127 files to stage, 2 to skip
+   473→
+   474→Would clean target directory...
+   475→  Would preserve: .git/
+   476→  Would remove: 127 files, 23 directories
+   477→
+   478→Would stage files...
+   479→  WOULD STAGE: wsd.py
+   480→  WOULD STAGE: wsd.json
+   481→  WOULD SKIP: .envrc (in .wsdignore)
+   482→  ...
+   483→
+   484→=== Dry Run Complete ===
+   485→No changes made. Run without --dry-run to perform staging.
+   486→```
+   487→
+   488→**Analysis**: The dry run pre-scans the source to determine exact counts, then shows exactly what would happen without making any changes. This allows the developer to verify before committing to the operation.
+   489→
+   490→### Example 3: Error Scenario - Suspicious File
+   491→
+   492→**Context**: Developer accidentally ran a Python command that created `__pycache__/` in `source/`.
+   493→
+   494→**Command**:
+   495→```bash
+   496→uv run dev/scripts/stage_release.py
+   497→```
+   498→
+   499→**Output**:
+   500→```
+   501→=== WSD Release Staging ===
+   502→Source: /Users/dev/workscope/source
+   503→Target: /Users/dev/workscope-dev
+   504→
+   505→Pre-scanning source...
+   506→
+   507→ERROR: Suspicious file detected: source/__pycache__/
+   508→Development artifacts should not exist in source/.
+   509→Please investigate (possible Rule 6.1 violation) and clean before staging.
+   510→```
+   511→
+   512→**Analysis**: The script detected a `__pycache__/` directory during pre-scan (before modifying the target). The target directory remains unchanged. The developer must investigate and remove the artifact before staging can proceed.
+   513→
+   514→## Best Practices
+   515→
+   516→### For Release Managers
+   517→
+   518→1. **Always verify git status after staging**: Run `cd ../workscope-dev && git status` to see exactly what changed before committing.
+   519→
+   520→2. **Review diff for unexpected changes**: Run `git diff` in the staging directory to verify no unintended modifications.
+   521→
+   522→3. **Test dry-run first for major releases**: Use `--dry-run` to preview the staging operation, especially after significant changes to `source/`.
+   523→
+   524→4. **Maintain clean source directory**: Ensure `source/` remains free of development artifacts per Design Decision 9.
+   525→
+   526→### For Developers
+   527→
+   528→1. **Use proper development environment**: Run WSD from the development root, not from within `source/`, to avoid creating artifacts.
+   529→
+   530→2. **Keep .wsdignore minimal**: Only add files that genuinely need to exist in `source/` for development purposes.
+   531→
+   532→3. **Address errors immediately**: If the script halts on a suspicious file, investigate the root cause rather than working around it.
+   533→
+   534→## Related Specifications
+   535→
+   536→- **Pre-Staging-Script-Overview.md**: Describes the pre-staging script that must run before staging to prepare wsd.json with hashes, executable list, and version
+   537→- **Build-System-Overview.md**: Describes PyPI packaging that consumes the staged output; the staging script is a prerequisite to the build process
+   538→- **Design-Decisions.md § Decision 9**: Establishes the principle of keeping WSD Runtime directory pure and ship-ready, which this script enforces
+   539→- **Install-And-Update-Overview.md**: Describes installation behavior that the staged files will exhibit when distributed
+   540→- **Content-Hashing-Overview.md**: Hash calculation algorithm and format specification
+   541→- **WSD-Runtime-Metadata-Schema.md**: Schema for wsd.json including file_hashes field
+   542→
+   543→---
+   544→
+   545→*This specification defines the authoritative rules for the Stage Release Script including the staging algorithm, exclusion patterns, directory management, verification procedures, and error handling. All implementations must conform to these specifications.*
+   546→
+   547→## Feature Implementation Plan (FIP)
+   548→
+   549→**Important**: This is a script specifically for the WSD Development project and is NOT part of the WSD Runtime. The script resides in `dev/scripts/` (not `source/scripts/`).
+   550→
+   551→### Phase 1: Core Script Structure
+   552→
+   553→- [x] **1.1** - Create `dev/scripts/stage_release.py` with argument parsing
+   554→  - [x] **1.1.1** - Implement argparse setup for `--dry-run` and `--target` flags
+   555→  - [x] **1.1.2** - Add script entry point with main() function
+   556→  - [x] **1.1.3** - Implement source directory detection (relative to script location)
+   557→  - [x] **1.1.4** - Implement default target directory resolution (`../workscope-dev/`)
+   558→- [x] **1.2** - Implement validation phase
+   559→  - [x] **1.2.1** - Add target directory existence check with clear error message
+   560→  - [x] **1.2.2** - Add `.git/` symlink detection (error if `.git/` is a symlink)
+   561→  - [x] **1.2.3** - Add `.git/` presence warning for target directory (if missing)
+   562→  - [x] **1.2.4** - Add source directory validation
+   563→
+   564→### Phase 2: Pattern Systems
+   565→
+   566→- [x] **2.1** - Implement `.wsdignore` parsing (skip behavior)
+   567→  - [x] **2.1.1** - Load and parse `source/.wsdignore` file
+   568→  - [x] **2.1.2** - Handle missing `.wsdignore` gracefully (empty list)
+   569→  - [x] **2.1.3** - Support comments and empty lines in `.wsdignore`
+   570→  - [x] **2.1.4** - Implement `.wsdignore` matching function
+   571→- [x] **2.2** - Implement suspicious file detection (error behavior)
+   572→  - [x] **2.2.1** - Define suspicious file patterns as constants (directories like `__pycache__/`)
+   573→  - [x] **2.2.2** - Define suspicious file patterns for files (like `*.pyc`, `.DS_Store`)
+   574→  - [x] **2.2.3** - Implement pattern matching for directories (prefix/suffix matching)
+   575→  - [x] **2.2.4** - Implement pattern matching for files (glob-style matching)
+   576→
+   577→### Phase 3: Pre-scan and Staging Operations
+   578→
+   579→- [x] **3.1** - Implement source pre-scan with validation
+   580→  - [x] **3.1.1** - Walk source directory recursively
+   581→  - [x] **3.1.2** - Check `.wsdignore` first and log skips
+   582→  - [x] **3.1.3** - Detect and error on suspicious files (not in `.wsdignore`)
+   583→  - [x] **3.1.4** - Detect and error on symlinks
+   584→  - [x] **3.1.5** - Detect and error on empty directories (directories with zero files)
+   585→  - [x] **3.1.6** - Build validated staging list before any target modification
+   586→- [x] **3.2** - Implement target directory cleaning
+   587→  - [x] **3.2.1** - Remove all files and directories except `.git/`
+   588→  - [x] **3.2.2** - Track and report removal counts
+   589→  - [x] **3.2.3** - Implement dry-run mode (report but do not remove)
+   590→- [x] **3.3** - Implement file copying
+   591→  - [x] **3.3.1** - Copy files using `shutil.copy2()` for permission preservation
+   592→  - [x] **3.3.2** - Create parent directories as needed
+   593→  - [x] **3.3.3** - Log each staged file
+   594→  - [x] **3.3.4** - Implement dry-run mode (report but do not copy)
+   595→
+   596→### Phase 4: Verification and Reporting
+   597→
+   598→- [x] **4.1** - Implement staging verification
+   599→  - [x] **4.1.1** - Verify file count matches pre-validated staging list size
+   600→  - [x] **4.1.2** - Verify executable permissions preserved (compare source to target)
+   601→  - [x] **4.1.3** - Report verification results
+   602→- [x] **4.2** - Implement summary report generation
+   603→  - [x] **4.2.1** - Display staging summary (files staged, excluded counts)
+   604→  - [x] **4.2.2** - Display next steps for git workflow
+   605→  - [x] **4.2.3** - Handle dry-run summary appropriately
+   606→
+   607→### Phase 5: Testing and Documentation
+   608→
+   609→- [x] **5.1** - Add pytest test suite
+   610→  - [x] **5.1.1** - Test argument parsing
+   611→  - [x] **5.1.2** - Test `.wsdignore` parsing and matching
+   612→  - [x] **5.1.3** - Test suspicious file pattern detection
+   613→  - [x] **5.1.4** - Test staging operation with mock directories
+   614→  - [x] **5.1.5** - Test error conditions (missing target, symlinks, empty dirs, suspicious files)
+   615→  - [x] **5.1.6** - Test dry-run mode
+   616→  - [x] **5.1.7** - Test permission preservation
+   617→  - [x] **5.1.8** - Test `.git/` symlink detection error
+   618→  - [x] **5.1.9** - Test precedence: `.wsdignore` skip vs suspicious pattern error
+   619→  - [x] **5.1.10** - Test files with special characters in names
+   620→- [x] **5.2** - Add integration tests
+   621→  - [x] **5.2.1** - Test full staging workflow with real source directory
+   622→  - [x] **5.2.2** - Test permission preservation for executable scripts
+   623→  - [x] **5.2.3** - Test file count verification matches expected
+   624→  - [x] **5.2.4** - Test `.git/` directory preserved during clean
+   625→  - [x] **5.2.5** - Test idempotency (running twice produces identical results)
+   626→  - [x] **5.2.6** - Test target unchanged when source validation fails
+   627→
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>

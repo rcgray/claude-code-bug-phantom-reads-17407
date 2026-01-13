@@ -1,0 +1,726 @@
+# Session Analysis Scripts Specification
+
+**Version:** 1.0.0
+**Date:** 2026-01-12
+**Status:** Draft
+
+## Overview
+
+The Session Analysis Scripts feature provides a suite of tools for capturing, collecting, and analyzing Claude Code session logs to programmatically detect phantom read occurrences. This feature addresses the fundamental limitation of relying on AI self-reporting for phantom read detection by examining session logs directly, enabling objective evidence collection across multiple trial sessions.
+
+This specification defines the complete trial workflow including the `/start-trial` command for session marking, the `collect_trials.py` script for gathering and matching trial data, and the `analyze_trials.py` script for phantom read detection with version-aggregated statistics.
+
+For broader context on the phantom reads bug being investigated, see `docs/core/PRD.md`. For the manual trial methodology that this feature supplements, see `docs/core/Experiment-Methodology.md`.
+
+## Purpose
+
+The Session Analysis Scripts feature serves four critical functions:
+
+1. **Trial Identification**: Provides a mechanism to mark Claude Code sessions as bona fide trials through the `/start-trial` command, distinguishing investigation trials from regular project work within the same project directory.
+
+2. **Session Collection**: Enables systematic gathering and organization of trial session files from Claude Code's storage location, matching `.jsonl` session logs with optional human-readable chat exports.
+
+3. **Programmatic Detection**: Implements algorithmic detection of phantom reads by analyzing session logs for `<persisted-output>` responses that lack follow-up Read operations, removing the model from the detection loop entirely.
+
+4. **Version Aggregation**: Produces statistical summaries of phantom read occurrences grouped by Claude Code version, enabling objective comparison of failure rates across versions and identification of regression boundaries.
+
+This specification establishes the authoritative definition of the Trial Identifier format, project directory derivation algorithm, phantom read detection logic, and output report format. It also defines the file organization conventions for the `exports/` and `results/` directories.
+
+## Trial Identification System
+
+### Trial Identifier Format
+
+The Trial Identifier serves as the unique key linking session files, chat exports, and result files. The identifier MUST conform to the following format:
+
+```
+Trial Identifier: YYYYMMDD-HHMMSS
+```
+
+**Components:**
+- **YYYYMMDD**: Date in year-month-day format (e.g., 20260112)
+- **HHMMSS**: Time in hour-minute-second format using 24-hour clock (e.g., 155453)
+- **Literal prefix**: The string `Trial Identifier: ` (with trailing space) is part of the marker
+
+**Example:**
+```
+Trial Identifier: 20260112-155453
+```
+
+**Detection Rule:** Scripts MUST search for the FIRST occurrence of this pattern in a file. Multiple trials per session file are not supported; investigators are expected to use one trial per session.
+
+### The `/start-trial` Command
+
+The `/start-trial` command is a Claude Code custom command that generates and outputs the Trial Identifier.
+
+**Location:** `.claude/commands/start-trial.md`
+
+**Behavior Requirements:**
+1. The command MUST invoke the system `date` command to obtain the current timestamp
+2. The command MUST output `Trial Identifier: YYYYMMDD-HHMMSS` as the final line of its response
+3. The timestamp MUST be derived from the actual execution time, not hardcoded
+
+**Integration with Workflow:**
+The Trial Identifier becomes embedded in the session's `.jsonl` file when the agent outputs it. This marker is then used by `collect_trials.py` to identify which sessions are valid trials.
+
+## Project Directory Derivation
+
+The `collect_trials.py` script MUST locate session files by deriving the project-specific subdirectory under `~/.claude/projects/`.
+
+### Derivation Algorithm
+
+```python
+def derive_project_subdir(cwd: str) -> str:
+    """
+    Derive the Claude Code project subdirectory name from the current
+    working directory.
+
+    Args:
+        cwd: Absolute path of the current working directory
+
+    Returns:
+        Subdirectory name under ~/.claude/projects/
+    """
+    # Replace all '/' characters with '-'
+    transformed = cwd.replace('/', '-')
+
+    # The result already has a leading '-' from the root '/'
+    return transformed
+```
+
+**Example Derivation:**
+
+| Current Working Directory | Project Subdirectory Name |
+|---------------------------|---------------------------|
+| `/Users/gray/Projects/claude-code-bug-phantom-reads-17407` | `-Users-gray-Projects-claude-code-bug-phantom-reads-17407` |
+| `/home/user/myproject` | `-home-user-myproject` |
+
+**Session Files Location:**
+Session files are located at:
+```
+~/.claude/projects/{project_subdir}/*.jsonl
+```
+
+## Trial Collection Script
+
+### Script Overview
+
+The `collect_trials.py` script scans for trial sessions, matches them with optional exports, and copies matched files to a standardized results directory.
+
+**Location:** `scripts/collect_trials.py`
+
+**CLI Interface:** No arguments. Run as `python scripts/collect_trials.py` from the project root.
+
+### Collection Algorithm
+
+```python
+def collect_trials():
+    """
+    Main collection workflow.
+
+    1. Derive project subdirectory from cwd
+    2. Scan session files for Trial Identifiers
+    3. Scan exports/ for matching exports
+    4. Copy matched pairs (or lone sessions) to results/
+    5. Report collection summary
+    """
+
+    # Step 1: Locate session directory
+    project_subdir = derive_project_subdir(os.getcwd())
+    sessions_dir = Path.home() / ".claude" / "projects" / project_subdir
+
+    # Step 2: Find trial sessions
+    trials = {}  # trial_id -> session_path
+    for session_file in sessions_dir.glob("*.jsonl"):
+        trial_id = extract_trial_id(session_file)
+        if trial_id:
+            trials[trial_id] = session_file
+
+    # Step 3: Find matching exports
+    exports_dir = Path("exports")
+    exports = {}  # trial_id -> export_path
+    if exports_dir.exists():
+        for export_file in exports_dir.glob("*.txt"):
+            trial_id = extract_trial_id(export_file)
+            if trial_id:
+                exports[trial_id] = export_file
+
+    # Step 4: Copy to results/
+    results_dir = Path("results")
+    results_dir.mkdir(exist_ok=True)
+
+    for trial_id, session_path in trials.items():
+        result_session = results_dir / f"trial-{trial_id}.jsonl"
+
+        # Skip if already collected (idempotency)
+        if result_session.exists():
+            continue
+
+        # Copy session file
+        shutil.copy2(session_path, result_session)
+
+        # Copy matching export if present
+        if trial_id in exports:
+            result_export = results_dir / f"trial-{trial_id}.txt"
+            shutil.copy2(exports[trial_id], result_export)
+
+    # Step 5: Report summary
+    report_collection_summary(trials, exports, results_dir)
+```
+
+### Trial Identifier Extraction
+
+```python
+def extract_trial_id(file_path: Path) -> Optional[str]:
+    """
+    Extract Trial Identifier from a file.
+
+    Args:
+        file_path: Path to file to scan
+
+    Returns:
+        Trial ID (YYYYMMDD-HHMMSS) if found, None otherwise
+    """
+    pattern = re.compile(r'Trial Identifier: (\d{8}-\d{6})')
+
+    with open(file_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    match = pattern.search(content)
+    if match:
+        return match.group(1)
+    return None
+```
+
+### Idempotency Guarantee
+
+**Guarantee:** Running `collect_trials.py` multiple times MUST produce the same results directory contents. The script MUST NOT duplicate files or overwrite existing collected trials.
+
+**Implementation:** Before copying a session file, check if `trial-{trial_id}.jsonl` already exists in `results/`. If it exists, skip that trial entirely.
+
+### Output File Naming
+
+Collected files MUST use the following naming convention:
+
+| File Type | Naming Pattern | Example |
+|-----------|----------------|---------|
+| Session log | `trial-{YYYYMMDD-HHMMSS}.jsonl` | `trial-20260112-155453.jsonl` |
+| Chat export | `trial-{YYYYMMDD-HHMMSS}.txt` | `trial-20260112-155453.txt` |
+
+## Trial Analysis Script
+
+### Script Overview
+
+The `analyze_trials.py` script parses collected session files, detects phantom reads programmatically, and outputs version-aggregated statistics.
+
+**Location:** `scripts/analyze_trials.py`
+
+**CLI Interface:** No arguments. Run as `python scripts/analyze_trials.py` from the project root.
+
+### Phantom Read Detection Algorithm
+
+A phantom read occurs when a Read tool invocation returns a `<persisted-output>` response and the persisted file is NOT subsequently read in the same session.
+
+**Trial Failure Definition:** A trial is counted as a failure if it contains one or more phantom reads. Multiple phantom reads within a single trial still count as one failure.
+
+#### Data Structures
+
+```python
+@dataclass
+class PhantomRead:
+    """A detected phantom read occurrence."""
+    persisted_path: str    # Path to persisted output file (the file that should have been read)
+    message_index: int     # Index in session messages where <persisted-output> appeared
+```
+
+#### Detection Algorithm
+
+```python
+def detect_phantom_reads(session_path: Path) -> list[PhantomRead]:
+    """
+    Detect phantom reads in a session file.
+
+    Args:
+        session_path: Path to .jsonl session file
+
+    Returns:
+        List of detected phantom read occurrences
+    """
+    messages = parse_session_file(session_path)
+    phantom_reads = []
+
+    # Track persisted outputs and subsequent reads
+    persisted_files = {}  # file_path -> message_index
+    actual_reads = set()  # file paths that were actually read
+
+    for idx, msg in enumerate(messages):
+        # Check for <persisted-output> in tool results
+        if is_persisted_output_response(msg):
+            persisted_path = extract_persisted_path(msg)
+            persisted_files[persisted_path] = idx
+
+        # Check for Read tool calls with actual content
+        if is_successful_read(msg):
+            read_path = extract_read_path(msg)
+            actual_reads.add(read_path)
+
+    # Identify phantom reads: persisted but never actually read
+    for persisted_path, msg_idx in persisted_files.items():
+        if persisted_path not in actual_reads:
+            phantom_reads.append(PhantomRead(
+                file_path=persisted_path,
+                message_index=msg_idx
+            ))
+
+    return phantom_reads
+```
+
+### Persisted Output Detection
+
+The `<persisted-output>` marker indicates Claude Code saved tool results to disk instead of returning them inline.
+
+**Pattern:**
+```
+<persisted-output>Tool result saved to: {path}
+
+Use Read to view</persisted-output>
+```
+
+**Detection Rule:** Search message content for the literal string `<persisted-output>`. Extract the file path from the `Tool result saved to:` line.
+
+### Agent File Handling
+
+Claude Code may create sub-agent session files (`agent-*.jsonl`) that contain tool calls made by specialized agents. These files are linked to the parent session via the `sessionId` field.
+
+**Requirement:** The analysis script SHOULD scan agent files associated with each trial session and include phantom reads from those contexts in the analysis.
+
+**Linkage Detection:**
+```python
+def find_agent_files(session_path: Path, session_id: str) -> list[Path]:
+    """
+    Find agent files associated with a session.
+
+    Args:
+        session_path: Path to main session file
+        session_id: Session ID from main session
+
+    Returns:
+        List of agent file paths
+    """
+    session_dir = session_path.parent
+    agent_files = []
+
+    for agent_file in session_dir.glob("agent-*.jsonl"):
+        # Check if agent file references this session
+        if contains_session_id(agent_file, session_id):
+            agent_files.append(agent_file)
+
+    return agent_files
+```
+
+### Version Extraction
+
+The Claude Code version is extracted from session file message lines.
+
+**Source Field:** The `version` field in message JSON objects (e.g., `"version":"2.0.58"`).
+
+**Extraction:**
+```python
+def extract_version(session_path: Path) -> Optional[str]:
+    """
+    Extract Claude Code version from session file.
+
+    Args:
+        session_path: Path to .jsonl session file
+
+    Returns:
+        Version string (e.g., "2.0.58") or None if not found
+    """
+    with open(session_path, 'r') as f:
+        for line in f:
+            try:
+                msg = json.loads(line)
+                if 'version' in msg:
+                    return msg['version']
+            except json.JSONDecodeError:
+                continue
+    return None
+```
+
+### Version Comparison
+
+The analysis script must compare versions semantically to separate pre-regression from post-regression results.
+
+**Regression Boundary Constant:**
+
+The suspected regression boundary SHOULD be defined as a named constant at the top of the script to allow investigators to easily update it if further investigation reveals a different boundary:
+
+```python
+# Suspected regression boundary - versions before this showed 0% failure rate
+# Update this value if investigation identifies a different boundary
+REGRESSION_BOUNDARY = "2.0.59"
+```
+
+**Semantic Version Comparison:**
+
+Version comparison MUST use semantic versioning rules (major.minor.patch numeric comparison), not string comparison. This ensures correct ordering when patch numbers exceed single digits (e.g., `2.0.100` is correctly identified as after `2.0.59`).
+
+```python
+def parse_version(version: str) -> tuple[int, ...]:
+    """
+    Parse a version string into comparable numeric tuple.
+
+    Args:
+        version: Version string (e.g., "2.0.59")
+
+    Returns:
+        Tuple of integers for comparison (e.g., (2, 0, 59))
+    """
+    return tuple(int(x) for x in version.split('.'))
+
+
+def is_pre_regression(version: str) -> bool:
+    """
+    Determine if a version is before the regression boundary.
+
+    Args:
+        version: Version string to check
+
+    Returns:
+        True if version is strictly before REGRESSION_BOUNDARY
+    """
+    return parse_version(version) < parse_version(REGRESSION_BOUNDARY)
+```
+
+### Output Report Format
+
+The analysis script MUST output a summary report to stdout in the following format:
+
+```
+Claude Code Phantom Reads Analysis
+==================================
+
+Version    Trials    Failures    Rate
+-------    ------    --------    ----
+2.0.54     4         0           0%
+2.0.58     4         0           0%
+2.0.59     4         2           50%
+2.0.60     4         4           100%
+...
+
+------------------------------------------
+Total (up to 2.0.58):    12 trials, 0 failures (0%)
+Total (2.0.59+):         10 trials, 7 failures (70%)
+```
+
+**Report Sections:**
+
+1. **Header:** Title and separator line
+2. **Per-Version Table:** Each row shows version, trial count, failure count, and failure rate
+3. **Summary Statistics:** Two aggregate lines separating pre-regression (up to 2.0.58) from post-regression (2.0.59 and later) versions
+
+**Regression Boundary:** The summary statistics MUST use the `REGRESSION_BOUNDARY` constant (currently `2.0.59` as documented in `docs/core/PRD.md`) for grouping. Pre-regression versions are those strictly before this boundary.
+
+## Directory Structure
+
+### exports/ Directory
+
+**Purpose:** Holds human-readable chat exports saved by investigators using Claude Code's `/export` command.
+
+**Location:** `{project_root}/exports/`
+
+**Contents:**
+- `.txt` files containing chat exports
+- Any filename is acceptable; Trial Identifier is extracted from content
+- A `.gitkeep` file to ensure directory is tracked
+
+**Workflow:** After running `/export` in Claude Code, investigators manually save the output to this directory.
+
+### results/ Directory
+
+**Purpose:** Holds collected and standardized trial data.
+
+**Location:** `{project_root}/results/`
+
+**Contents:**
+- Standardized trial files with naming pattern `trial-{YYYYMMDD-HHMMSS}.jsonl` and `trial-{YYYYMMDD-HHMMSS}.txt`
+- A `.gitkeep` file to ensure directory is tracked
+
+**Guarantee:** Files in this directory are created only by `collect_trials.py` and follow the standardized naming convention.
+
+## Error Handling
+
+### Error Categories
+
+#### 1. Session Directory Not Found
+
+**Error:** The derived project subdirectory does not exist under `~/.claude/projects/`.
+
+**Example Message:**
+```
+Error: Session directory not found: ~/.claude/projects/-Users-gray-Projects-myproject
+
+This project may not have any Claude Code session history.
+```
+
+**Recovery:** Verify the current working directory is correct. Ensure Claude Code has been used in this project directory.
+
+#### 2. No Trial Sessions Found
+
+**Error:** Session files exist but none contain Trial Identifiers.
+
+**Example Message:**
+```
+Warning: No trial sessions found in session directory.
+
+Found 5 session files, but none contained Trial Identifiers.
+Run /start-trial in your Claude Code sessions to mark them as trials.
+```
+
+**Recovery:** Use `/start-trial` command in future sessions before running investigations.
+
+#### 3. Malformed Session File
+
+**Error:** A `.jsonl` file contains invalid JSON.
+
+**Example Message:**
+```
+Warning: Skipping malformed session file: session-abc123.jsonl
+Invalid JSON on line 47
+```
+
+**Recovery:** This is a data corruption issue. The file is skipped; other files continue processing.
+
+#### 4. Permission Errors
+
+**Error:** Cannot read session files or write to results directory.
+
+**Example Message:**
+```
+Error: Permission denied reading ~/.claude/projects/.../session.jsonl
+```
+
+**Recovery:** Check file permissions. Session files should be readable by the current user.
+
+### Error Recovery
+
+**Partial Success:** Both scripts are designed to continue processing after non-fatal errors. Individual malformed files or permission issues cause warnings but do not halt execution.
+
+**Idempotent Recovery:** If a script fails mid-execution, re-running it will skip already-processed trials and continue from where it left off.
+
+## Testing Scenarios
+
+### Basic Collection Tests
+
+1. **Single Trial Collection**: Run `/start-trial`, complete a session, run `collect_trials.py`. Verify session file appears in `results/` with correct naming.
+
+2. **Export Matching**: Save a chat export for a trial session, run `collect_trials.py`. Verify both `.jsonl` and `.txt` files appear in `results/` with matching Trial IDs.
+
+3. **Multiple Trials**: Create multiple trial sessions, run `collect_trials.py`. Verify all trials are collected with unique filenames.
+
+### Edge Case Tests
+
+1. **No Exports Present**: Run trials without saving exports. Verify `collect_trials.py` collects sessions without errors, export files simply absent.
+
+2. **Orphan Exports**: Save exports for sessions that have been purged from Claude Code. Verify `collect_trials.py` handles gracefully (exports are not collected since no matching session).
+
+3. **Idempotency**: Run `collect_trials.py` twice. Verify second run makes no changes to `results/` directory.
+
+4. **Mixed Session Types**: Have both trial sessions (with Trial Identifier) and regular sessions in project history. Verify only trial sessions are collected.
+
+### Integration Tests
+
+1. **Full Workflow**: Execute `/start-trial`, perform investigation with `/refine-plan`, export chat, run collection, run analysis. Verify complete pipeline produces expected report.
+
+2. **Multi-Version Analysis**: Collect trials from sessions using different Claude Code versions. Verify analysis report correctly groups by version and calculates statistics.
+
+3. **Phantom Read Detection**: Using a session log known to contain phantom reads, verify `analyze_trials.py` correctly identifies them.
+
+### Analysis Tests
+
+1. **Clean Session**: Analyze a session with no phantom reads. Verify zero failures reported for that version.
+
+2. **Phantom Read Session**: Analyze a session containing `<persisted-output>` responses without follow-up reads. Verify failures correctly counted.
+
+3. **Version Extraction**: Verify version is correctly extracted from session files with varying message structures.
+
+## Best Practices
+
+### For Investigators
+
+1. **Consistent Trial Marking**: Always run `/start-trial` immediately after `/wsd:init --custom` before any investigation work. This ensures the Trial Identifier appears early in the session file.
+
+2. **Export Promptly**: If saving chat exports, do so before exiting Claude Code. The `/export` command generates a complete transcript.
+
+3. **Meaningful Filenames**: While any filename works for exports, consider naming them descriptively (e.g., `trial-v2.0.59-attempt2.txt`) for human reference before collection standardizes names.
+
+4. **Regular Collection**: Run `collect_trials.py` after completing trial batches. Session files may be purged by Claude Code after some time.
+
+### For Implementers
+
+1. **Reference Existing Patterns**: Use `scripts/archive_claude_sessions.py` as a reference for session directory access patterns.
+
+2. **Defensive Parsing**: Session files may be malformed or truncated. Always handle JSON parse errors gracefully.
+
+3. **Stream Large Files**: Session files can be large. Process line-by-line rather than loading entire files into memory when possible.
+
+4. **Preserve Original Files**: Collection copies files; it never moves or modifies originals. This preserves the Claude Code session history.
+
+## Examples
+
+### Example 1: Basic Trial Workflow
+
+**Context:** An investigator wants to run a single reproduction trial and analyze results.
+
+**Workflow:**
+
+```bash
+# Start Claude Code in project directory
+claude
+
+# In Claude Code session:
+/wsd:init --custom
+/start-trial
+# Output includes: Trial Identifier: 20260112-160000
+
+/refine-plan docs/tickets/open/trigger-ticket.md
+# Perform investigation...
+
+/export
+# Copy output to exports/v2.0.59-trial1.txt
+
+/exit
+```
+
+```bash
+# After exiting Claude Code:
+python scripts/collect_trials.py
+# Output:
+# Collected 1 trial(s)
+# Matched 1 export(s)
+# Results written to results/
+
+python scripts/analyze_trials.py
+# Output:
+# Claude Code Phantom Reads Analysis
+# ==================================
+# Version    Trials    Failures    Rate
+# 2.0.59     1         1           100%
+```
+
+### Example 2: Multi-Version Comparison
+
+**Context:** Investigator has run trials across three versions and wants aggregated statistics.
+
+**Setup:**
+```
+results/
+  trial-20260110-100000.jsonl  # v2.0.58
+  trial-20260110-110000.jsonl  # v2.0.58
+  trial-20260111-090000.jsonl  # v2.0.59
+  trial-20260111-100000.jsonl  # v2.0.59
+  trial-20260112-140000.jsonl  # v2.0.60
+  trial-20260112-150000.jsonl  # v2.0.60
+```
+
+**Analysis Output:**
+```
+Claude Code Phantom Reads Analysis
+==================================
+
+Version    Trials    Failures    Rate
+-------    ------    --------    ----
+2.0.58     2         0           0%
+2.0.59     2         1           50%
+2.0.60     2         2           100%
+
+------------------------------------------
+Total (up to 2.0.58):    2 trials, 0 failures (0%)
+Total (2.0.59+):         4 trials, 3 failures (75%)
+```
+
+**Analysis:** The data shows the regression pattern: zero failures before 2.0.59, increasing failure rate from 2.0.59 onward.
+
+## Out of Scope
+
+The following are explicitly NOT part of this feature:
+
+- **Parsing chat exports programmatically**: Self-report comparison remains a manual human step
+- **Real-time monitoring**: Scripts run after trials complete, not during active sessions
+- **Automated trial execution**: Investigators manually run trials in Claude Code
+- **Cross-project analysis**: Scripts analyze only this project's sessions
+- **Production hardening**: Scripts are convenience tools for investigators, not hardened against bad actors
+
+## Related Specifications
+
+- **PRD.md**: Project context and goals for the phantom reads investigation
+- **Experiment-Methodology.md**: Manual trial execution methodology that this feature supplements
+- **Action-Plan.md**: Project action plan; Phase 4 references this feature
+
+---
+
+*This specification defines the authoritative rules for the Session Analysis Scripts feature including the Trial Identifier format, collection algorithm, phantom read detection logic, and output report format. All implementations must conform to these specifications.*
+
+## In-Flight Failures (IFF)
+
+
+## Feature Implementation Plan (FIP)
+
+### Phase 1: Core Infrastructure
+
+- [ ] **1.1** - Create feature directory structure
+  - [ ] **1.1.1** - Create `exports/` directory with `.gitkeep`
+  - [ ] **1.1.2** - Create `results/` directory with `.gitkeep`
+
+- [ ] **1.2** - Create `/start-trial` command
+  - [ ] **1.2.1** - Create `.claude/commands/start-trial.md` with Trial Identifier output
+  - [ ] **1.2.2** - Test command outputs correct timestamp format
+
+### Phase 2: Collection Script
+
+- [ ] **2.1** - Implement `scripts/collect_trials.py` core functionality
+  - [ ] **2.1.1** - Implement project directory derivation from cwd
+  - [ ] **2.1.2** - Implement session file scanning for Trial Identifiers
+  - [ ] **2.1.3** - Implement export file scanning for matching Trial Identifiers
+  - [ ] **2.1.4** - Implement file copying to `results/` with standardized naming
+
+- [ ] **2.2** - Implement collection safeguards
+  - [ ] **2.2.1** - Implement idempotency check (skip existing trials)
+  - [ ] **2.2.2** - Implement error handling for missing directories and malformed files
+  - [ ] **2.2.3** - Implement summary reporting
+
+### Phase 3: Analysis Script
+
+- [ ] **3.1** - Implement `scripts/analyze_trials.py` core detection
+  - [ ] **3.1.1** - Implement session file parsing (line-by-line JSON)
+  - [ ] **3.1.2** - Implement `<persisted-output>` pattern detection
+  - [ ] **3.1.3** - Implement follow-up read tracking
+  - [ ] **3.1.4** - Implement phantom read identification (persisted without follow-up)
+
+- [ ] **3.2** - Implement version extraction and aggregation
+  - [ ] **3.2.1** - Implement version extraction from session messages
+  - [ ] **3.2.2** - Implement version grouping and statistics calculation
+  - [ ] **3.2.3** - Implement regression boundary separation (pre-2.0.59 vs 2.0.59+)
+
+- [ ] **3.3** - Implement output report
+  - [ ] **3.3.1** - Implement per-version table output
+  - [ ] **3.3.2** - Implement summary statistics output
+  - [ ] **3.3.3** - Implement agent file detection and inclusion (optional enhancement)
+
+### Phase 4: Documentation Updates
+
+- [ ] **4.1** - Update Experiment-Methodology.md
+  - [ ] **4.1.1** - Add `/start-trial` step to Trial Execution section
+  - [ ] **4.1.2** - Add optional `/export` step with export saving instructions
+  - [ ] **4.1.3** - Add post-trial script execution steps (collect_trials.py, analyze_trials.py)
+
+### Phase 5: Testing and Validation
+
+- [ ] **5.1** - Manual end-to-end testing
+  - [ ] **5.1.1** - Run `/start-trial` and verify Trial Identifier format
+  - [ ] **5.1.2** - Run `collect_trials.py` and verify session collection
+  - [ ] **5.1.3** - Run `analyze_trials.py` and verify report output
+
+- [ ] **5.2** - Edge case validation
+  - [ ] **5.2.1** - Test idempotency (multiple collection runs)
+  - [ ] **5.2.2** - Test with no exports present
+  - [ ] **5.2.3** - Test with mixed trial/non-trial sessions

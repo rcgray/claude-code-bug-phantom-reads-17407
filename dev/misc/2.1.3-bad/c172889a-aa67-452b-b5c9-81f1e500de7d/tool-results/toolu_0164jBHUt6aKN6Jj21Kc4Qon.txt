@@ -1,0 +1,785 @@
+     1→# Pre-Staging Script Specification
+     2→
+     3→**Version:** 1.0.0
+     4→**Date:** 2026-01-07
+     5→**Status:** Draft
+     6→
+     7→## Overview
+     8→
+     9→The Pre-Staging Script is a Python utility that validates and updates `source/wsd.json` with file hashes, executable lists, and version bumps before staging operations. It consolidates wsd.json management functionality that was previously split between an agent command (`/update-wsd-json`) and the staging script (`stage_release.py`), moving these operations earlier in the release pipeline so that changes are tracked in the WSD Development repository.
+    10→
+    11→This specification defines the complete pre-staging process including file collection, validation of metadata arrays, executable list synchronization, hash generation, version auto-increment logic, and wsd.json updates.
+    12→
+    13→For broader architectural context and how the Pre-Staging Script integrates with the distribution pipeline, see **Stage-Release-Script-Overview.md** and **Build-System-Overview.md**.
+    14→
+    15→## Purpose
+    16→
+    17→The Pre-Staging Script serves five critical functions:
+    18→
+    19→1. **Metadata Validation**: Validates that files referenced in `no_overwrite`, `executable`, and `installation_only` arrays still exist in `source/`, preventing metadata drift from the actual file structure
+    20→
+    21→2. **Executable Synchronization**: Synchronizes the `executable` array with actual file permissions by detecting files with the `+x` bit set, ensuring the executable list reflects reality rather than manual maintenance
+    22→
+    23→3. **Hash Generation**: Generates SHA-256 content hashes for all WSD Runtime files (excluding `installation_only` files) and writes them to `source/wsd.json`, enabling repository tracking of file content state
+    24→
+    25→4. **Version Management**: Auto-increments the patch version when any tracked changes are detected (hashes, executable list, or metadata arrays), ensuring version reflects content changes
+    26→
+    27→5. **Pipeline Position Shift**: Moves wsd.json updates from the staging phase (which writes to a target directory) to a pre-staging phase (which writes to `source/`), making all wsd.json changes visible in version control before staging
+    28→
+    29→This specification establishes the authoritative definition of the pre-staging algorithm, validation rules, executable detection logic, version increment triggers, and the relationship to the stage release script.
+    30→
+    31→## Script Architecture
+    32→
+    33→### Script Location
+    34→
+    35→The script lives at `dev/scripts/pre_staging.py` in the WSD Development repository. This location is appropriate because:
+    36→
+    37→- The script is a WSD Development tool, NOT part of WSD Runtime
+    38→- It resides in the project's `dev/scripts/` directory alongside other WSD Development-only tools (like `stage_release.py`)
+    39→- It is not copied to `source/` and will not be distributed to end users
+    40→
+    41→**Contract**: The script MUST NOT be placed in `source/`. It is a development tool that operates ON `source/`, not part of the distributable runtime.
+    42→
+    43→### Command Interface
+    44→
+    45→```bash
+    46→# Run pre-staging with default behavior
+    47→uv run dev/scripts/pre_staging.py
+    48→
+    49→# Preview what would change (no writes)
+    50→uv run dev/scripts/pre_staging.py --dry-run
+    51→
+    52→# Show detailed operation progress
+    53→uv run dev/scripts/pre_staging.py --verbose
+    54→```
+    55→
+    56→### CLI Flags
+    57→
+    58→| Flag        | Description                                                    |
+    59→| ----------- | -------------------------------------------------------------- |
+    60→| `--dry-run` | Preview changes without writing to `source/wsd.json`           |
+    61→| `--verbose` | Display detailed progress including individual file operations |
+    62→
+    63→### Exit Codes
+    64→
+    65→| Code | Meaning                                     |
+    66→| ---- | ------------------------------------------- |
+    67→| `0`  | Success (including "no changes needed")     |
+    68→| `1`  | Error (validation failure, I/O error, etc.) |
+    69→
+    70→### Behavioral Guarantees
+    71→
+    72→| Aspect            | Behavior                                                              |
+    73→| ----------------- | --------------------------------------------------------------------- |
+    74→| Target            | Always operates on `source/wsd.json`                                  |
+    75→| File collection   | Uses `wsd_utils.collect_wsd_files()`                                  |
+    76→| Hash calculation  | Uses `wsd_utils.calculate_file_hash()`                                |
+    77→| Version increment | Auto-increments patch version on any detected change                  |
+    78→| Idempotency       | Running twice with no file changes produces no wsd.json modifications |
+    79→
+    80→## Pipeline Position
+    81→
+    82→The Pre-Staging Script fits into the release pipeline as follows:
+    83→
+    84→```
+    85→source/wsd.json (base state)
+    86→        |
+    87→        v
+    88→pre_staging.py       <-- VALIDATES, HASHES, VERSION BUMPS
+    89→        |
+    90→        v
+    91→source/wsd.json (with file_hashes, synced executable, updated version)
+    92→        |
+    93→        v
+    94→git commit           <-- CHANGES TRACKED IN REPOSITORY
+    95→        |
+    96→        v
+    97→stage_release.py     <-- COPIES FILES AS-IS (no wsd.json modifications)
+    98→        |
+    99→        v
+   100→staging directory (ready for build_package.py)
+   101→```
+   102→
+   103→**Key Change from Previous Design**: Previously, `stage_release.py` generated hashes and wrote them to the TARGET directory's wsd.json. This meant hashes were never tracked in version control. The pre-staging script moves this work earlier so all wsd.json modifications happen in `source/` and are captured by git.
+   104→
+   105→## Pre-Staging Algorithm
+   106→
+   107→### Algorithm Specification
+   108→
+   109→```python
+   110→def pre_staging(source_dir: Path, dry_run: bool = False, verbose: bool = False) -> None:
+   111→    """
+   112→    Validate and update source/wsd.json with hashes, executable list, and version.
+   113→
+   114→    Args:
+   115→        source_dir: Path to source/ directory
+   116→        dry_run: If True, preview only without making changes
+   117→        verbose: If True, display detailed progress
+   118→
+   119→    Raises:
+   120→        SystemExit: On validation failure or I/O error
+   121→    """
+   122→
+   123→    # Phase 1: Load current wsd.json
+   124→    wsd_json = load_wsd_json(source_dir)
+   125→    original_state = deep_copy(wsd_json)
+   126→
+   127→    # Phase 2: Collect valid files
+   128→    files = collect_wsd_files(source_dir)
+   129→
+   130→    # Phase 3: Validate metadata arrays
+   131→    validate_no_overwrite_exists(wsd_json, files, verbose)
+   132→    validate_installation_only_exists(wsd_json, verbose)
+   133→    validate_executable_exists(wsd_json, files, verbose)
+   134→
+   135→    # Phase 4: Sync executable list from actual permissions
+   136→    wsd_json['executable'] = sync_executable_list(files, source_dir, verbose)
+   137→
+   138→    # Phase 5: Generate file hashes (excluding installation_only)
+   139→    installation_only = set(wsd_json.get('installation_only', []))
+   140→    wsd_json['file_hashes'] = generate_file_hashes(files, source_dir, installation_only)
+   141→
+   142→    # Phase 5.5: Validate manifest exclusivity
+   143→    validate_manifest_exclusivity(wsd_json)
+   144→
+   145→    # Phase 6: Check for changes and bump version if needed
+   146→    if has_changes(original_state, wsd_json):
+   147→        wsd_json['version'] = increment_patch_version(wsd_json['version'])
+   148→
+   149→    # Phase 7: Write updated wsd.json (unless dry-run)
+   150→    if not dry_run:
+   151→        write_wsd_json(source_dir, wsd_json)
+   152→
+   153→    # Phase 8: Generate summary report
+   154→    generate_summary(original_state, wsd_json, dry_run)
+   155→```
+   156→
+   157→### Phase Details
+   158→
+   159→#### Phase 1: Load Current wsd.json
+   160→
+   161→The script MUST load and parse the existing `source/wsd.json` file:
+   162→
+   163→```python
+   164→def load_wsd_json(source_dir: Path) -> dict:
+   165→    """Load wsd.json from source directory."""
+   166→    wsd_json_path = source_dir / "wsd.json"
+   167→
+   168→    if not wsd_json_path.exists():
+   169→        raise SystemExit("ERROR: source/wsd.json does not exist")
+   170→
+   171→    with wsd_json_path.open(encoding='utf-8') as f:
+   172→        return json.load(f)
+   173→```
+   174→
+   175→**Error Handling**: If wsd.json does not exist or cannot be parsed, the script MUST exit with a clear error message.
+   176→
+   177→#### Phase 2: Collect Valid Files
+   178→
+   179→The script MUST use `wsd_utils.collect_wsd_files()` to obtain the list of valid files in `source/`:
+   180→
+   181→```python
+   182→from wsd_utils import collect_wsd_files, WsdCollectionError
+   183→
+   184→try:
+   185→    files = collect_wsd_files(source_dir)
+   186→except WsdCollectionError as e:
+   187→    raise SystemExit(f"ERROR: {e.message}")
+   188→```
+   189→
+   190→This function handles:
+   191→- Suspicious file detection (development artifacts)
+   192→- Symlink detection
+   193→- Empty directory detection
+   194→- .wsdignore exclusions
+   195→- Binary file detection
+   196→
+   197→For complete file collection specification, see **wsd_utils.py** documentation.
+   198→
+   199→#### Phase 3: Validate Metadata Arrays
+   200→
+   201→The script MUST validate metadata arrays according to their modification policies:
+   202→
+   203→**no_overwrite Validation:**
+   204→```python
+   205→def validate_no_overwrite_exists(
+   206→    wsd_json: dict,
+   207→    files: list[Path],
+   208→    verbose: bool = False
+   209→) -> None:
+   210→    """Validate all no_overwrite entries exist in collected files."""
+   211→    no_overwrite = set(wsd_json.get('no_overwrite', []))
+   212→    file_paths = {str(f) for f in files}
+   213→
+   214→    missing = no_overwrite - file_paths
+   215→    if missing:
+   216→        # Remove missing entries (file was deleted)
+   217→        wsd_json['no_overwrite'] = [f for f in wsd_json['no_overwrite'] if f not in missing]
+   218→        print(f"WARNING: Removed {len(missing)} missing files from no_overwrite: {sorted(missing)}")
+   219→    elif verbose:
+   220→        print(f"  no_overwrite: {len(no_overwrite)} entries validated")
+   221→```
+   222→
+   223→**installation_only Validation:**
+   224→```python
+   225→def validate_installation_only_exists(
+   226→    wsd_json: dict,
+   227→    verbose: bool = False
+   228→) -> None:
+   229→    """Validate installation_only array without modification.
+   230→
+   231→    The installation_only array is manually managed and may contain files that
+   232→    don't exist yet (build-time generated files). This function only validates
+   233→    that the array is present and well-formed, without adding or removing entries.
+   234→    """
+   235→    installation_only = wsd_json.get('installation_only', [])
+   236→
+   237→    if verbose:
+   238→        print(f"  installation_only: {len(installation_only)} entries (manual management only)")
+   239→```
+   240→
+   241→**executable Validation:**
+   242→```python
+   243→def validate_executable_exists(
+   244→    wsd_json: dict,
+   245→    files: list[Path],
+   246→    verbose: bool = False
+   247→) -> None:
+   248→    """Validate all executable entries exist in collected files."""
+   249→    executable = set(wsd_json.get('executable', []))
+   250→    file_paths = {str(f) for f in files}
+   251→
+   252→    missing = executable - file_paths
+   253→    if missing:
+   254→        wsd_json['executable'] = [f for f in wsd_json['executable'] if f not in missing]
+   255→        print(f"WARNING: Removed {len(missing)} missing files from executable: {sorted(missing)}")
+   256→    elif verbose:
+   257→        print(f"  executable: {len(executable)} entries validated")
+   258→```
+   259→
+   260→**Validation Rules:**
+   261→
+   262→1. **no_overwrite**: Files that no longer exist are automatically REMOVED from the array
+   263→2. **installation_only**: Array is NEVER modified (manually managed, may contain build-time files)
+   264→3. **executable**: Files that no longer exist are automatically REMOVED before sync
+   265→
+   266→**Design Constraints**:
+   267→- The script MUST NOT automatically ADD files to no_overwrite or installation_only (manual operations only)
+   268→- The script MUST NOT modify installation_only at all (files may be build-time generated)
+   269→- The executable array is completely regenerated in Phase 4, so validation here only provides logging
+   270→
+   271→#### Phase 4: Sync Executable List
+   272→
+   273→The script MUST synchronize the `executable` array with actual file permissions:
+   274→
+   275→```python
+   276→import stat
+   277→
+   278→def sync_executable_list(
+   279→    files: list[Path],
+   280→    source_dir: Path,
+   281→    verbose: bool = False
+   282→) -> list[str]:
+   283→    """Build executable list from actual file permissions.
+   284→
+   285→    Returns list of relative paths for files with +x bit set.
+   286→    """
+   287→    executable = []
+   288→
+   289→    for relative_path in files:
+   290→        file_path = source_dir / relative_path
+   291→        try:
+   292→            mode = file_path.stat().st_mode
+   293→            if mode & (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH):
+   294→                executable.append(str(relative_path))
+   295→                if verbose:
+   296→                    print(f"  Detected executable: {relative_path}")
+   297→        except OSError:
+   298→            continue
+   299→
+   300→    return sorted(executable)
+   301→```
+   302→
+   303→**Executable Detection Rules:**
+   304→
+   305→1. **Detection**: A file is executable if ANY executable bit is set (user, group, or other)
+   306→2. **Sync Behavior**: The executable array is completely regenerated from file permissions
+   307→3. **Additions**: Files with `+x` bit are added to the array
+   308→4. **Removals**: Files without `+x` bit (or that no longer exist) are removed from the array
+   309→
+   310→**Note on Interpreter-Invoked Scripts**: Files invoked via interpreters (e.g., `uv run python script.py`) do not need the `+x` bit. Only files intended to be directly executed need executable permissions.
+   311→
+   312→#### Phase 5: Generate File Hashes
+   313→
+   314→The script MUST generate content hashes for all files except those in `installation_only`:
+   315→
+   316→```python
+   317→from wsd_utils import calculate_file_hash
+   318→
+   319→def generate_file_hashes(
+   320→    files: list[Path],
+   321→    source_dir: Path,
+   322→    installation_only: set[str]
+   323→) -> dict[str, str]:
+   324→    """
+   325→    Generate SHA-256 hashes for all files except installation_only.
+   326→
+   327→    Returns dictionary mapping relative paths to hash strings.
+   328→    """
+   329→    file_hashes = {}
+   330→
+   331→    for relative_path in files:
+   332→        path_str = str(relative_path).replace('\\', '/')
+   333→
+   334→        if path_str in installation_only:
+   335→            continue
+   336→
+   337→        file_path = source_dir / relative_path
+   338→        file_hashes[path_str] = calculate_file_hash(file_path)
+   339→
+   340→    return file_hashes
+   341→```
+   342→
+   343→**Hash Generation Rules:**
+   344→
+   345→1. **Algorithm**: SHA-256 via `wsd_utils.calculate_file_hash()`
+   346→2. **Format**: `sha256:<64_lowercase_hex_chars>`
+   347→3. **Exclusions**: Files in `installation_only` array are NOT hashed
+   348→4. **Path Format**: Forward slashes for cross-platform consistency
+   349→
+   350→For complete hash calculation specification, see **Content-Hashing-Overview.md**.
+   351→
+   352→#### Phase 5.5: Validate Manifest Exclusivity
+   353→
+   354→The script MUST validate that `installation_only` and `file_hashes` are mutually exclusive:
+   355→
+   356→```python
+   357→def validate_manifest_exclusivity(wsd_json: dict) -> None:
+   358→    """Validate that installation_only and file_hashes are mutually exclusive.
+   359→
+   360→    Ensures no file paths appear in both the installation_only list and
+   361→    file_hashes dictionary keys. These fields represent semantically opposite
+   362→    destinations: installation_only files are NOT copied to user projects,
+   363→    while file_hashes files ARE copied with hash verification.
+   364→    """
+   365→    installation_only = set(wsd_json.get('installation_only', []))
+   366→    file_hashes = set(wsd_json.get('file_hashes', {}).keys())
+   367→
+   368→    overlap = installation_only & file_hashes
+   369→    if overlap:
+   370→        print("ERROR: Files cannot appear in both installation_only and file_hashes:")
+   371→        for path in sorted(overlap):
+   372→            print(f"  - {path}")
+   373→        print("\nRemove duplicates from installation_only or file_hashes.")
+   374→        sys.exit(1)
+   375→```
+   376→
+   377→**Mutual Exclusivity Rules:**
+   378→
+   379→1. **Semantic Conflict**: Files in `installation_only` are NOT copied to user projects, while files in `file_hashes` ARE copied. A file cannot have both behaviors.
+   380→2. **Validation Timing**: Validation occurs after hash generation to catch any conflicting entries before writing to wsd.json.
+   381→3. **Exit on Conflict**: If any overlap is detected, the script MUST exit with code 1 and list all conflicting files.
+   382→
+   383→#### Phase 6: Change Detection and Version Increment
+   384→
+   385→The script MUST detect changes and auto-increment the patch version:
+   386→
+   387→```python
+   388→def has_changes(original: dict, current: dict) -> bool:
+   389→    """Detect if any tracked fields have changed."""
+   390→    # Compare file_hashes
+   391→    if original.get('file_hashes', {}) != current.get('file_hashes', {}):
+   392→        return True
+   393→
+   394→    # Compare executable list
+   395→    if sorted(original.get('executable', [])) != sorted(current.get('executable', [])):
+   396→        return True
+   397→
+   398→    # Compare no_overwrite list
+   399→    if sorted(original.get('no_overwrite', [])) != sorted(current.get('no_overwrite', [])):
+   400→        return True
+   401→
+   402→    # Compare installation_only list
+   403→    if sorted(original.get('installation_only', [])) != sorted(current.get('installation_only', [])):
+   404→        return True
+   405→
+   406→    return False
+   407→
+   408→
+   409→def increment_patch_version(version: str) -> str:
+   410→    """Increment patch version (X.Y.Z -> X.Y.Z+1)."""
+   411→    parts = version.split('.')
+   412→    parts[2] = str(int(parts[2]) + 1)
+   413→    return '.'.join(parts)
+   414→```
+   415→
+   416→**Version Increment Triggers:**
+   417→
+   418→The patch version MUST be incremented when ANY of the following change:
+   419→
+   420→| Field               | Change Type                                  |
+   421→| ------------------- | -------------------------------------------- |
+   422→| `file_hashes`       | Files added, removed, or content changed     |
+   423→| `executable`        | Files added or removed from list             |
+   424→| `no_overwrite`      | Files removed (because they no longer exist) |
+   425→| `installation_only` | Files removed (because they no longer exist) |
+   426→
+   427→**Version Format**: Semantic versioning `X.Y.Z` where only the patch version (Z) is auto-incremented. Major and minor version changes are manual operations.
+   428→
+   429→#### Phase 7: Write Updated wsd.json
+   430→
+   431→Unless in dry-run mode, the script MUST write the updated wsd.json:
+   432→
+   433→```python
+   434→def write_wsd_json(source_dir: Path, wsd_json: dict) -> None:
+   435→    """Write updated wsd.json to source directory."""
+   436→    wsd_json_path = source_dir / "wsd.json"
+   437→
+   438→    with wsd_json_path.open('w', encoding='utf-8') as f:
+   439→        json.dump(wsd_json, f, indent=2)
+   440→        f.write('\n')  # Trailing newline
+   441→```
+   442→
+   443→**Write Guarantees:**
+   444→
+   445→1. **Atomic**: Write completes fully or fails completely
+   446→2. **Formatting**: JSON with 2-space indentation
+   447→3. **Trailing Newline**: File ends with a single newline character
+   448→
+   449→#### Phase 8: Generate Summary Report
+   450→
+   451→The script MUST generate a summary of operations performed:
+   452→
+   453→```
+   454→=== Pre-Staging Complete ===
+   455→Version: 1.2.3 -> 1.2.4 (patch bump due to changes)
+   456→
+   457→Changes:
+   458→  File hashes: 127 files hashed (3 changed, 1 added, 0 removed)
+   459→  Executable: 8 files (0 added, 0 removed)
+   460→  no_overwrite: 12 files (0 removed)
+   461→  installation_only: 2 files (0 removed)
+   462→
+   463→Updated source/wsd.json
+   464→```
+   465→
+   466→For dry-run mode:
+   467→
+   468→```
+   469→=== Pre-Staging Preview (Dry Run) ===
+   470→Version: 1.2.3 -> 1.2.4 (would bump due to changes)
+   471→
+   472→Changes detected:
+   473→  File hashes: 3 files changed, 1 added, 0 removed
+   474→  Executable: No changes
+   475→  no_overwrite: No changes
+   476→  installation_only: No changes
+   477→
+   478→No changes written. Run without --dry-run to apply.
+   479→```
+   480→
+   481→## Error Handling
+   482→
+   483→### Error Categories
+   484→
+   485→#### 1. Missing wsd.json
+   486→
+   487→**Error:** `source/wsd.json` does not exist
+   488→
+   489→**Example Message:**
+   490→```
+   491→ERROR: source/wsd.json does not exist
+   492→Cannot run pre-staging without an existing wsd.json file.
+   493→```
+   494→
+   495→**Recovery:** Create wsd.json manually with at least the required `version` field.
+   496→
+   497→#### 2. Invalid wsd.json
+   498→
+   499→**Error:** `source/wsd.json` cannot be parsed as JSON
+   500→
+   501→**Example Message:**
+   502→```
+   503→ERROR: Failed to parse source/wsd.json
+   504→JSON decode error at line 15: Expecting ',' delimiter
+   505→```
+   506→
+   507→**Recovery:** Fix the JSON syntax error in wsd.json.
+   508→
+   509→#### 3. File Collection Errors
+   510→
+   511→**Error:** `collect_wsd_files()` raises `WsdCollectionError`
+   512→
+   513→**Example Message:**
+   514→```
+   515→ERROR: Development artifact directory detected: source/__pycache__/
+   516→Please clean source/ directory before running pre-staging.
+   517→```
+   518→
+   519→**Recovery:** Remove the development artifact and re-run.
+   520→
+   521→#### 4. Permission Errors
+   522→
+   523→**Error:** Cannot read file for hashing or permission detection
+   524→
+   525→**Example Message:**
+   526→```
+   527→ERROR: Cannot read file: source/scripts/health_check.py
+   528→Reason: Permission denied
+   529→```
+   530→
+   531→**Recovery:** Fix file permissions and re-run.
+   532→
+   533→#### 5. Manifest Exclusivity Violation
+   534→
+   535→**Error:** A file appears in both `installation_only` and `file_hashes`
+   536→
+   537→**Example Message:**
+   538→```
+   539→ERROR: Files cannot appear in both installation_only and file_hashes:
+   540→  - wsd.json
+   541→  - scripts/build_tool.py
+   542→
+   543→Remove duplicates from installation_only or file_hashes.
+   544→```
+   545→
+   546→**Recovery:** Edit `source/wsd.json` to remove the conflicting file from either `installation_only` or `file_hashes`. A file in `installation_only` is NOT copied to user projects (development-only), while a file in `file_hashes` IS copied with hash verification. Determine the correct destination and remove the entry from the other array.
+   547→
+   548→### Error Recovery Principles
+   549→
+   550→**Guarantee**: If any error occurs, `source/wsd.json` remains unchanged. The script validates all inputs before making any modifications.
+   551→
+   552→**Recommendation**: On error, resolve the issue and re-run the script. The idempotent design ensures consistent results.
+   553→
+   554→## Design Decisions
+   555→
+   556→### Why Pre-Staging Instead of In-Staging
+   557→
+   558→**Problem**: Previously, hash generation happened in `stage_release.py`, writing hashes to the TARGET directory. This meant:
+   559→- Hashes were never tracked in the WSD Development repository
+   560→- Version bumps during staging were not recorded in source
+   561→- The source wsd.json was always one step behind the staged version
+   562→
+   563→**Solution**: Moving hash generation to a dedicated pre-staging script that writes to `source/wsd.json` ensures all changes are tracked in version control before staging.
+   564→
+   565→**Alternatives Considered:**
+   566→- **Modify stage_release.py to write back to source**: Would create confusing bidirectional data flow and violate single-responsibility
+   567→- **Keep agent command for wsd.json updates**: Agent-driven updates are slow, error-prone, and not deterministic
+   568→
+   569→### Manual Pipeline Execution
+   570→
+   571→Each script in the pipeline runs manually and independently:
+   572→
+   573→```
+   574→pre_staging.py -> stage_release.py -> build_package.py -> validate_package.py
+   575→```
+   576→
+   577→**Rationale**: Each step may require review or intervention. Automatic chaining could mask issues or create unexpected side effects.
+   578→
+   579→### installation_only Is Manual-Add Only
+   580→
+   581→The script NEVER automatically adds files to `installation_only`. It only removes entries for files that no longer exist.
+   582→
+   583→**Rationale**: Adding files to `installation_only` is a significant decision (those files will not be copied during installation). This requires explicit developer intent and should not happen automatically.
+   584→
+   585→## Out of Scope
+   586→
+   587→The following are explicitly NOT included in this feature:
+   588→
+   589→1. **Grand Build Script**: A master script that chains pre_staging → stage_release → build_package → validate_package is future work
+   590→2. **Major/Minor Version Bumping**: Only patch version auto-increments; major and minor version changes require manual editing
+   591→3. **installation_only Auto-Detection**: The script does not automatically determine which files should be in `installation_only`
+   592→4. **Cross-Script Validation**: The script does not check if other pipeline scripts have been run; each script owns its responsibilities independently
+   593→
+   594→## Testing Scenarios
+   595→
+   596→### Basic Pre-Staging Tests
+   597→
+   598→1. **Clean Run**: Run on clean source/, verify wsd.json updated with correct hashes and no version bump (if no changes)
+   599→
+   600→2. **Content Change Detection**: Modify a file in source/, run pre-staging, verify hash changes and version increments
+   601→
+   602→3. **New File Detection**: Add new file to source/, run pre-staging, verify hash added and version increments
+   603→
+   604→4. **File Removal Detection**: Delete file from source/, run pre-staging, verify hash removed and version increments
+   605→
+   606→5. **Dry Run Mode**: Run with `--dry-run`, verify no changes written, verify output shows what would change
+   607→
+   608→### Executable Sync Tests
+   609→
+   610→1. **Add Executable**: Set `+x` on file, run pre-staging, verify file added to executable array
+   611→
+   612→2. **Remove Executable**: Remove `+x` from file, run pre-staging, verify file removed from executable array
+   613→
+   614→3. **Mixed Permissions**: Have files with and without `+x`, verify only +x files in executable array
+   615→
+   616→### Metadata Validation Tests
+   617→
+   618→1. **no_overwrite Cleanup**: Add non-existent file to no_overwrite, run pre-staging, verify entry removed
+   619→
+   620→2. **installation_only Cleanup**: Add non-existent file to installation_only, run pre-staging, verify entry removed
+   621→
+   622→3. **Valid Metadata**: Run with all valid metadata entries, verify no removals
+   623→
+   624→### Version Increment Tests
+   625→
+   626→1. **No Changes**: Run twice with no file changes, verify version unchanged on second run
+   627→
+   628→2. **Hash Change**: Modify file content, verify patch version increments
+   629→
+   630→3. **Executable Change**: Change file permissions, verify patch version increments
+   631→
+   632→4. **Metadata Cleanup**: Remove file referenced in no_overwrite, verify patch version increments
+   633→
+   634→### Error Handling Tests
+   635→
+   636→1. **Missing wsd.json**: Run with no wsd.json, verify clear error and exit code 1
+   637→
+   638→2. **Invalid JSON**: Run with malformed wsd.json, verify clear error and exit code 1
+   639→
+   640→3. **Collection Error**: Create __pycache__ in source/, verify error from collect_wsd_files
+   641→
+   642→4. **Permission Error**: Make file unreadable, verify clear error message
+   643→
+   644→### Integration Tests
+   645→
+   646→1. **Full Pipeline**: Run pre_staging.py, then stage_release.py, verify staged wsd.json matches source wsd.json
+   647→
+   648→2. **Idempotency**: Run pre_staging.py twice, verify second run produces no changes
+   649→
+   650→## Best Practices
+   651→
+   652→### For Release Managers
+   653→
+   654→1. **Run Before Staging**: Always run `pre_staging.py` before `stage_release.py` to ensure wsd.json is current
+   655→
+   656→2. **Review Changes**: Check git diff after running to understand what changed in wsd.json
+   657→
+   658→3. **Use Dry Run First**: Run with `--dry-run` to preview changes before applying
+   659→
+   660→### For Developers
+   661→
+   662→1. **Keep source/ Clean**: Ensure no development artifacts exist in source/ before running
+   663→
+   664→2. **Set Permissions Explicitly**: If a file should be executable in the distributed runtime, ensure it has `+x` in source/
+   665→
+   666→3. **Manual Metadata Changes**: To add files to `no_overwrite` or `installation_only`, edit wsd.json manually before running pre_staging.py
+   667→
+   668→## Related Specifications
+   669→
+   670→- **Stage-Release-Script-Overview.md**: Staging script that runs after pre-staging; will be simplified to remove hash generation
+   671→- **Content-Hashing-Overview.md**: Hash calculation algorithm and usage; will be updated to reference pre_staging.py
+   672→- **WSD-Runtime-Metadata-Schema.md**: Schema for wsd.json including all fields managed by pre_staging.py
+   673→- **Design-Decisions.md § Decision 11**: WSD Development scripts in dev/scripts/ are separate from dogfood
+   674→
+   675→---
+   676→
+   677→*This specification defines the authoritative rules for the Pre-Staging Script including the pre-staging algorithm, validation rules, executable synchronization, hash generation, and version increment logic. All implementations must conform to these specifications.*
+   678→
+   679→## Feature Implementation Plan (FIP)
+   680→
+   681→**Important**: This is a script specifically for the WSD Development project and is NOT part of the WSD Runtime. The script resides in `dev/scripts/` (not `source/scripts/`).
+   682→
+   683→### Phase 1: Core Script Structure
+   684→
+   685→- [x] **1.1** - Create `dev/scripts/pre_staging.py` with argument parsing
+   686→  - [x] **1.1.1** - Implement argparse setup for `--dry-run` and `--verbose` flags
+   687→  - [x] **1.1.2** - Add script entry point with main() function
+   688→  - [x] **1.1.3** - Implement source directory detection (relative to script location)
+   689→  - [x] **1.1.4** - Add path setup for importing from source/scripts/wsd_utils.py
+   690→- [x] **1.2** - Implement wsd.json loading and writing
+   691→  - [x] **1.2.1** - Load existing wsd.json with error handling
+   692→  - [x] **1.2.2** - Implement deep copy for change detection
+   693→  - [x] **1.2.3** - Write updated wsd.json with proper formatting (2-space indent, trailing newline)
+   694→
+   695→### Phase 2: Validation and Sync Functions
+   696→
+   697→- [x] **2.1** - Implement metadata array validation
+   698→  - [x] **2.1.1** - Validate no_overwrite entries exist, remove missing with logging
+   699→  - [x] **2.1.2** - Validate installation_only array without modification (manual management only)
+   700→  - [x] **2.1.3** - Validate executable entries exist, remove missing with logging
+   701→  - [x] **2.1.4** - Add verbose logging support to validation functions
+   702→- [x] **2.2** - Implement executable list synchronization
+   703→  - [x] **2.2.1** - Detect files with +x bit using stat module
+   704→  - [x] **2.2.2** - Build executable array from actual file permissions
+   705→  - [x] **2.2.3** - Return sorted list for deterministic output with verbose logging
+   706→- [x] **2.3** - Correct installation_only validation specification error
+   707→  - [x] **2.3.1** - Update validate_installation_only_exists() to NOT remove missing entries
+   708→  - [x] **2.3.2** - Update function docstring to clarify manual management policy
+   709→  - [x] **2.3.3** - Update Phase 3 spec algorithm to document correct behavior
+   710→
+   711→### Phase 3: Hash Generation and Version Management
+   712→
+   713→- [x] **3.1** - Implement hash generation using wsd_utils
+   714→  - [x] **3.1.1** - Import and use wsd_utils.collect_wsd_files()
+   715→  - [x] **3.1.2** - Import and use wsd_utils.calculate_file_hash()
+   716→  - [x] **3.1.3** - Skip files in installation_only array
+   717→  - [x] **3.1.4** - Build file_hashes dictionary with forward-slash paths
+   718→- [x] **3.2** - Implement change detection and version increment
+   719→  - [x] **3.2.1** - Compare file_hashes dictionaries
+   720→  - [x] **3.2.2** - Compare executable arrays
+   721→  - [x] **3.2.3** - Compare no_overwrite and installation_only arrays
+   722→  - [x] **3.2.4** - Implement patch version increment (X.Y.Z -> X.Y.Z+1)
+   723→  - [x] **3.2.5** - Only increment if has_changes() returns True
+   724→
+   725→### Phase 4: Output and Reporting
+   726→
+   727→- [x] **4.1** - Implement summary report generation
+   728→  - [x] **4.1.1** - Report version change (old -> new)
+   729→  - [x] **4.1.2** - Report hash statistics (total, changed, added, removed)
+   730→  - [x] **4.1.3** - Report executable statistics
+   731→  - [x] **4.1.4** - Report metadata cleanup statistics
+   732→- [x] **4.2** - Implement verbose mode output
+   733→  - [x] **4.2.1** - Log individual file hash operations
+   734→  - [x] **4.2.2** - Log executable detection results
+   735→  - [x] **4.2.3** - Log metadata validation results
+   736→- [x] **4.3** - Implement dry-run output
+   737→  - [x] **4.3.1** - Show "would update" instead of "updated"
+   738→  - [x] **4.3.2** - Skip wsd.json write in dry-run mode
+   739→  - [x] **4.3.3** - Display clear message that no changes were made
+   740→
+   741→### Phase 5: Stage Release Script Updates
+   742→
+   743→- [x] **5.1** - Remove hash generation from stage_release.py
+   744→  - [x] **5.1.1** - Remove generate_file_hashes() function
+   745→  - [x] **5.1.2** - Remove write_wsd_json_with_hashes() function
+   746→  - [x] **5.1.3** - Remove hash generation calls from main()
+   747→  - [x] **5.1.4** - Remove hash_count from verification (or simplify verification)
+   748→- [x] **5.2** - Simplify wsd.json handling in stage_release.py
+   749→  - [x] **5.2.1** - Stage wsd.json as regular file (no modifications)
+   750→  - [x] **5.2.2** - Update summary report to reflect simplified behavior
+   751→
+   752→### Phase 6: Testing
+   753→
+   754→- [x] **6.1** - Create tests/test_pre_staging.py
+   755→  - [x] **6.1.1** - Test argument parsing (--dry-run, --verbose)
+   756→  - [x] **6.1.2** - Test wsd.json loading and error handling
+   757→  - [x] **6.1.3** - Test metadata validation (no_overwrite, installation_only, executable)
+   758→  - [x] **6.1.4** - Test executable detection (+x bit detection)
+   759→  - [x] **6.1.5** - Test hash generation (correct files, exclusions)
+   760→  - [x] **6.1.6** - Test change detection logic
+   761→  - [x] **6.1.7** - Test version increment (only on changes)
+   762→  - [x] **6.1.8** - Test dry-run mode (no writes)
+   763→  - [x] **6.1.9** - Test error handling (missing wsd.json, invalid JSON, collection errors)
+   764→  - [x] **6.1.10** - Test installation_only is never modified (even with missing files)
+   765→- [x] **6.2** - Update tests/test_stage_release.py
+   766→  - [x] **6.2.1** - Remove tests for hash generation functions
+   767→  - [x] **6.2.2** - Remove tests for wsd.json hash writing
+   768→  - [x] **6.2.3** - Verify remaining tests pass with simplified script
+   769→
+   770→### Phase 7: Documentation Updates
+   771→
+   772→- [x] **7.1** - Update Stage-Release-Script-Overview.md
+   773→  - [x] **7.1.1** - Remove Content Hash Generation section
+   774→  - [x] **7.1.2** - Add note about dependency on pre_staging.py
+   775→  - [x] **7.1.3** - Update algorithm specification to reflect simplified flow
+   776→  - [x] **7.1.4** - Update examples to show wsd.json staged as-is
+   777→- [x] **7.2** - Update Content-Hashing-Overview.md
+   778→  - [x] **7.2.1** - Update Hash Generation During Staging section to reference pre_staging.py
+   779→  - [x] **7.2.2** - Note that hashes are now tracked in repository
+   780→
+   781→
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>
