@@ -1,0 +1,646 @@
+
+ ▐▛███▜▌   Claude Code v2.1.6
+▝▜█████▛▘  Opus 4.5 · Claude Max
+  ▘▘ ▝▝    ~/Projects/phantom-read-clone
+
+❯ /wsd:init --custom 
+
+⏺ I'll initialize the workscope session. Let me start by reading the required project documents.
+
+⏺ Read(docs/core/PRD.md)
+  ⎿  Read 239 lines
+
+⏺ Read(docs/core/Experiment-Methodology.md)
+  ⎿  Error reading file
+
+⏺ Read(docs/core/Action-Plan.md)
+  ⎿  Read 94 lines
+
+⏺ First Directive Acknowledgment: I have read the wsd-init-project-introduction section and the required documents. This is the "Phantom Reads Investigation" project - a git repository for reproducing Claude Code Issue #17407 where Claude Code believes it has read file contents when it has not. The issue manifests in two eras: Era 1 (≤2.0.59) with [Old tool result content cleared] and Era 2 (≥2.0.60) with <persisted-output> markers that aren't followed up on. I note that docs/core/Experiment-Methodology.md does not exist (the PRD references Experiment-Methodology-01.md as a historical document).
+
+  Now I'll run the /wsd:boot command to load the Workscope-Dev Platform documentation.
+
+⏺ Skill(wsd:boot)
+  ⎿  Successfully loaded skill
+  ⎿  Read docs/read-only/Agent-System.md (616 lines)
+  ⎿  Read docs/read-only/Agent-Rules.md (132 lines)
+  ⎿  Read docs/core/Design-Decisions.md (18 lines)
+  ⎿  Read docs/read-only/Documentation-System.md (200 lines)
+  ⎿  Read docs/read-only/Checkboxlist-System.md (386 lines)
+  ⎿  Read docs/read-only/Workscope-System.md (551 lines)
+
+⏺ I have completed reading the WSD Platform documentation. Now I'll continue with the remaining initialization steps.
+
+  Generating Workscope ID:
+
+⏺ Bash(date +"%Y%m%d-%H%M%S")
+  ⎿  20260114-003238
+
+⏺ Workscope ID: 20260114-003238
+
+  Now I'll initialize the Work Journal:
+
+⏺ Bash(bash /Users/gray/Projects/phantom-read-clone/scripts/init_work_journal.sh
+       "20260114-003238")
+  ⎿  Work Journal initialized: dev/journal/archive/Journal-Workscope-2026
+     0114-003238.md
+     Timestamp: 2026-01-14 00:33
+     … +3 lines (ctrl+o to expand)
+
+⏺ Let me verify the Work Journal was created correctly:
+
+⏺ Read(dev/journal/archive/Journal-Workscope-20260114-003238.md)
+  ⎿  Read 4 lines
+
+⏺ The Work Journal has been created correctly at dev/journal/archive/Journal-Workscope-20260114-003238.md.
+
+  Since the --custom flag was provided, I need to run the /wsd:onboard command and then return to the User for a custom workscope assignment.
+
+⏺ Skill(wsd:onboard)
+  ⎿  Successfully loaded skill
+
+⏺ I'll consult the Project-Bootstrapper agent for onboarding. Since I was initialized with --custom, I don't yet have a specific workscope description - I'll inform the agent of this context.
+
+⏺ project-bootstrapper(Onboard User Agent for custom workscope)
+  ⎿  Done (11 tool uses · 51.2k tokens · 1m 25s)                           
+
+⏺ I have received the Project-Bootstrapper's onboarding guidance. Now I'll update my Work Journal with this information. I've already read the core system files during the /wsd:boot phase. Let me check if the standards files exist and read the ones I haven't seen yet.
+
+⏺ Search(pattern: "docs/read-only/standards/*.md", path:
+        "~/Projects/phantom-read-clone")
+  ⎿  Found 11 files (ctrl+o to expand)
+
+⏺ Read(docs/read-only/standards/Coding-Standards.md)
+  ⎿  Read 18 lines
+
+⏺ Read(docs/read-only/standards/Python-Standards.md)
+  ⎿  Read 35 lines
+
+⏺ Read(docs/read-only/standards/Specification-Maintenance-Standards.md)
+  ⎿  Read 445 lines
+
+⏺ I have now read all the mandatory onboarding files. Now I'll update my Work Journal with the onboarding information.
+
+⏺ Read(dev/journal/archive/Journal-Workscope-20260114-003238.md)
+  ⎿  Read 4 lines
+
+⏺ Update(dev/journal/archive/Journal-Workscope-20260114-003238.md)
+  ⎿  Added 51 lines                                                      
+       1   # Work Journal - 2026-01-14 00:33                             
+       2   ## Workscope ID: Workscope-20260114-003238                    
+       3                                                                 
+       4 + ## Initialization Status                                      
+       5 +                                                               
+       6 + - **Init Mode**: `--custom` (awaiting User-assigned           
+         +workscope)                                                     
+       7 + - **WSD Boot**: Complete - read all system documentation      
+       8 + - **Onboarding**: Complete - Project-Bootstrapper             
+         +consultation done                                              
+       9 +                                                               
+      10 + ## Project Context                                            
+      11 +                                                               
+      12 + This is the **Phantom Reads Investigation** project:          
+      13 + - Investigates Claude Code Issue #17407 where Claude believes 
+         + it has read file contents when it has not                     
+      14 + - **Era 1** (≤2.0.59): `[Old tool result content cleared]`    
+         +mechanism                                                      
+      15 + - **Era 2** (≥2.0.60): `<persisted-output>` markers not       
+         +followed up on                                                 
+      16 + - Provides reproduction environment and analysis tools for    
+         +detecting phantom reads                                        
+      17 +                                                               
+      18 + ## Mandatory Reading List (Project-Bootstrapper)              
+      19 +                                                               
+      20 + **SYSTEM UNDERSTANDING (READ COMPLETE):**                     
+      21 + 1. `docs/read-only/Agent-Rules.md` - Agent behavioral rules   
+      22 + 2. `docs/read-only/Agent-System.md` - Elite team              
+         +collaboration system                                           
+      23 + 3. `docs/read-only/Checkboxlist-System.md` - Task management  
+         +and checkbox states                                            
+      24 + 4. `docs/read-only/Workscope-System.md` - Work assignment and 
+         + tracking                                                      
+      25 + 5. `docs/read-only/Documentation-System.md` - Documentation   
+         +organization                                                   
+      26 + 6. `docs/core/Design-Decisions.md` - Project-specific design  
+         +philosophies                                                   
+      27 +                                                               
+      28 + **CODING STANDARDS (READ COMPLETE):**                         
+      29 + 7. `docs/read-only/standards/Coding-Standards.md` - Universal 
+         + coding principles                                             
+      30 + 8. `docs/read-only/standards/Python-Standards.md` -           
+         +Python-specific requirements                                   
+      31 + 9. `docs/read-only/standards/Specification-Maintenance-Standa 
+         +rds.md` - Spec drift prevention                                
+      32 +                                                               
+      33 + ## Key Rules to Remember                                      
+      34 +                                                               
+      35 + - **Rule 5.1**: NO backward compatibility (project not        
+         +shipped)                                                       
+      36 + - **Rule 3.4**: NO meta-process references in product         
+         +artifacts                                                      
+      37 + - **Rule 3.5**: Specifications MUST be updated when code      
+         +changes                                                        
+      38 + - **Rule 3.11**: Write-protected files → copy to              
+         +`docs/workbench/`                                              
+      39 + - **Rule 2.2**: STRICT whitelist of permitted git commands    
+         +(read-only only)                                               
+      40 + - **Rule 4.4**: `cat >> file << EOF` IS FORBIDDEN - use       
+         +standard tools                                                 
+      41 +                                                               
+      42 + ## QA Agents with Veto Power                                  
+      43 +                                                               
+      44 + - **Documentation-Steward**: Specification compliance         
+      45 + - **Rule-Enforcer**: Rules and standards compliance           
+      46 + - **Test-Guardian**: Test coverage (must show test summary    
+         +output)                                                        
+      47 + - **Health-Inspector**: Code quality (must show health check  
+         +summary table)                                                 
+      48 +                                                               
+      49 + ## Awaiting Custom Workscope                                  
+      50 +                                                               
+      51 + Ready to receive workscope assignment from User.              
+      52 +                                                               
+      53 + ---                                                           
+      54 +                                                               
+
+⏺ I have completed the onboarding process. I have:
+
+  1. Read the project introduction documents (PRD.md, Action-Plan.md)
+  2. Completed WSD boot (read Agent-System.md, Agent-Rules.md, Design-Decisions.md, Documentation-System.md, Checkboxlist-System.md, Workscope-System.md)
+  3. Generated Workscope ID: 20260114-003238
+  4. Created Work Journal at dev/journal/archive/Journal-Workscope-20260114-003238.md
+  5. Consulted Project-Bootstrapper and read all mandatory standards files
+  6. Updated Work Journal with onboarding information and file list
+
+  "WORKSCOPE ONBOARDING (/wsd:onboard) COMPLETE."
+
+  ---
+  Now returning to /wsd:init completion:
+
+  Summary of Initialization:
+  - Workscope ID: 20260114-003238
+  - Work Journal: dev/journal/archive/Journal-Workscope-20260114-003238.md
+  - Mode: Custom workscope (--custom flag used)
+  - Status: Onboarded and ready for custom workscope assignment
+
+  I have read the project documents and understand this is the "Phantom Reads Investigation" project focused on reproducing and documenting Claude Code Issue #17407. The project provides:
+  1. Documentation of the Phantom Reads phenomenon
+  2. A reproduction environment using the WSD framework
+  3. Analysis tools for detecting phantom reads in session logs
+
+  "WORKSCOPE INITIALIZATION (/wsd:init) COMPLETE. To continue this work: propose changes, describe the workscope, or /wsd:prepare. To abandon completely, /wsd:abort."
+
+✻ Cogitated for 2m 57s
+
+❯ /refine-plan 
+docs/features/session-analysis-scripts/Session-Analysis-Scripts-Overview.md 
+
+⏺ I'll begin by reading the target Work Plan Document thoroughly, then investigate related documentation and code to find any issues.
+
+⏺ Read(docs/features/session-analysis-scripts/Session-Analysis-Scripts-Overview.
+      md)
+  ⎿  Read 727 lines
+
+⏺ Now let me investigate related documentation and code to find inconsistencies or gaps. I'll read the PRD, check the Action Plan reference, look at the existing archive script, and examine the actual session file structure.
+
+⏺ Read(scripts/archive_claude_sessions.py)
+  ⎿  Read 233 lines
+
+⏺ Search(pattern: "dev/misc/example-sessions/**/*.jsonl", path:
+        "~/Projects/phantom-read-clone")
+  ⎿  Found 0 files 
+
+⏺ Search(pattern: ".claude/commands/*.md", path:
+        "~/Projects/phantom-read-clone")
+  ⎿  Found 6 files (ctrl+o to expand)
+
+⏺ Let me examine the example session files to understand the actual structure, and also check the PRD for more context on the two eras:
+
+⏺ Search(pattern: "dev/misc/example-sessions/**/*", path:
+        "~/Projects/phantom-read-clone")
+  ⎿  Found 0 files 
+
+⏺ Bash(ls -la /Users/gray/Projects/phantom-read-clone/dev/misc/ 2>/dev/null ||
+      echo "dev/misc does not exist")
+  ⎿  total 8                                       
+     drwxr-xr-x  5 gray staff  160 Jan 13 17:44 ./
+     drwxr-xr-x  9 gray staff  288 Jan 13 17:44 ../
+     … +3 lines (ctrl+o to expand)
+
+⏺ Bash(ls -la
+      /Users/gray/Projects/phantom-read-clone/dev/misc/session-examples/)
+  ⎿  total 0                                      
+     drwxr-xr-x 11 gray staff 352 Jan 13 17:44 ./
+     drwxr-xr-x  5 gray staff 160 Jan 13 17:44 ../
+     … +9 lines (ctrl+o to expand)
+
+⏺ Bash(ls -la /Users/gray/Projects/phantom-read-clone/dev/misc/session-examples/
+      2.0.58-bad/)
+  ⎿  total 1276                                      
+     drwxr-xr-x  7 gray staff    224 Jan 13 17:44 ./
+     drwxr-xr-x 11 gray staff    352 Jan 13 17:44 ../
+     … +6 lines (ctrl+o to expand)
+
+⏺ Bash(ls -la /Users/gray/Projects/phantom-read-clone/dev/misc/session-examples/
+      2.1.6-bad/)
+  ⎿  total 1016                                       
+     drwxr-xr-x  5 gray staff     160 Jan 13 17:44 ./
+     drwxr-xr-x 11 gray staff     352 Jan 13 17:44 ../
+     … +5 lines (ctrl+o to expand)
+
+⏺ Bash(ls -la /Users/gray/Projects/phantom-read-clone/dev/misc/session-examples/
+      2.1.6-bad/bf88e2ff-ac8b-4f29-8dbf-c2467325fe4e/)
+  ⎿  total 0                                      
+     drwxr-xr-x  4 gray staff 128 Jan 13 17:44 ./
+     drwxr-xr-x  5 gray staff 160 Jan 13 17:44 ../
+     … +2 lines (ctrl+o to expand)
+
+⏺ Bash(ls -la /Users/gray/Projects/phantom-read-clone/dev/misc/session-examples/
+      2.1.6-bad/bf88e2ff-ac8b-4f29-8dbf-c2467325fe4e/subagents/)
+  ⎿  total 320                                                      
+     drwxr-xr-x 3 gray staff     96 Jan 13 17:44 ./
+     drwxr-xr-x 4 gray staff    128 Jan 13 17:44 ../
+     -rw-r--r-- 1 gray staff 325919 Jan 13 17:44 agent-a57399f.jsonl
+
+⏺ Bash(ls /Users/gray/Projects/phantom-read-clone/dev/misc/session-examples/2.1.
+      6-bad/bf88e2ff-ac8b-4f29-8dbf-c2467325fe4e/tool-results/ | head -5)
+  ⎿ total 272                                                              
+    -rw-r--r-- 1 gray staff 26480 Jan 13 17:44 toolu_0162qTLwBAPom8tHQpddvA
+    ev.txt
+    … +6 lines (ctrl+o to expand)
+
+
+⏺ This reveals a significant architectural difference! Now let me examine the actual JSON structure of the session files to understand how phantom reads manifest:
+
+⏺ Bash(head -3 /Users/gray/Projects/phantom-read-clone/dev/misc/session-examples
+      /2.1.6-bad/bf88e2ff-ac8b-4f29-8dbf-c2467325fe4e.jsonl)
+  ⎿  {"type":"summary","summary":"WSD Manifest-Driven Pipeline Plan Revie
+     w","leafUuid":"f7cb1ad9-84c4-47c6-9071-79257f1d880f"}
+     {
+     … +9 lines (ctrl+o to expand)
+
+⏺ Bash(grep -n "persisted-output\|persisted_output\|Tool result saved"
+      /Users/gray/Projects/phantom-read-clone/dev/misc/session-examples/2.1.6-ba
+      d/bf88e2ff-ac8b-4f29-8…)
+  ⎿ 93:{"parentUuid":"467b84ff-04b7-4b21-8a4c-04963218beca","isSidechain   
+    ":false,"userType":"external","cwd":"/Users/gray/Projects/claude-bug","
+    sessionId":"bf88e2ff-ac8b-4f29-8dbf-c2467325fe4e","version":"2.1.6","gi
+    … +262 lines (ctrl+o to expand)
+
+
+
+⏺ Excellent - this is very helpful. I can see the actual session structure and how phantom reads manifest. Let me also check for Era 1 patterns and look at the Action Plan reference:
+
+⏺ Bash(grep -n "Old tool result content cleared\|\[Old tool result\]" /Users/gra
+      y/Projects/phantom-read-clone/dev/misc/session-examples/2.0.58-bad/*.jsonl
+       2>/dev/null…)
+  ⎿ /Users/gray/Projects/phantom-read-clone/dev/misc/session-examples/2.   
+    0.58-bad/3020c1e3-a661-4879-8854-35eb023fd030.jsonl:92:{"parentUuid":"e
+    bda170f-da54-4da1-9286-861adaae2885","isSidechain":false,"userType":"ex
+    … +35 lines (ctrl+o to expand)
+
+
+
+⏺ Search(pattern: "start-trial", path: "~/Projects/phantom-read-clone")
+  ⎿  Found 7 files (ctrl+o to expand)
+
+⏺ Read(docs/tickets/open/update-session-analysis-spec-use-workscope-id.md)
+  ⎿  Read 112 lines
+
+⏺ This is a significant finding. There's already an open ticket to replace /start-trial with Workscope ID. Let me check the Action Plan to see how it references this feature, and look at what else might be affected:
+
+⏺ Search(pattern: "Session-Analysis-Scripts|analyze_trials|collect_trials|Phase
+        4", path: "docs/core/Action-Plan.md", output_mode: "content")
+  ⎿  Found 13 lines (ctrl+o to expand)
+
+⏺ Good - Phase 4 in Action Plan correctly references the feature file. Now let me check for the PRD references to Experiment-Methodology.md (which doesn't exist):
+
+⏺ Bash(ls -la /Users/gray/Projects/phantom-read-clone/docs/core/ | grep -i
+      experiment)
+  ⎿  -rw-r--r--  1 gray staff 14069 Jan 13 17:44 Experiment-Methodology-0
+     1.md
+
+⏺ Search(pattern: "docs/**/Experiment-Methodology*.md", path:
+        "~/Projects/phantom-read-clone")
+  ⎿  Found 1 file (ctrl+o to expand)
+
+⏺ Read(docs/core/Experiment-Methodology-01.md)
+  ⎿  Read 292 lines
+
+⏺ This is very important. The WPD spec references Experiment-Methodology.md but the actual file is Experiment-Methodology-01.md. Let me also check the session file structure differences between flat and hierarchical architectures:
+
+⏺ Bash(ls -la /Users/gray/Projects/phantom-read-clone/dev/misc/session-examples/
+      2.0.60-bad/)
+  ⎿  total 1228                                      
+     drwxr-xr-x  8 gray staff    256 Jan 13 17:44 ./
+     drwxr-xr-x 11 gray staff    352 Jan 13 17:44 ../
+     … +8 lines (ctrl+o to expand)
+
+⏺ Interesting! Build 2.0.60 has both flat agent files AND a hierarchical directory. Let me check what's in the directory:
+
+⏺ Bash(ls -laR /Users/gray/Projects/phantom-read-clone/dev/misc/session-examples
+      /2.0.60-bad/b6240830-5041-465e-aad0-910c13cd9b6c/)
+  ⎿  /Users/gray/Projects/phantom-read-clone/dev/misc/session-examples/2.
+     0.60-bad/b6240830-5041-465e-aad0-910c13cd9b6c/:
+     total 0
+     … +35 lines (ctrl+o to expand)
+
+⏺ Now let me check one more thing - how the version field appears in the session files:
+
+⏺ Bash(grep -o '"version":"[^"]*"' /Users/gray/Projects/phantom-read-clone/dev/m
+      isc/session-examples/2.0.58-bad/*.jsonl | head -3)
+  ⎿ /Users/gray/Projects/phantom-read-clone/dev/misc/session-examples/2.   
+    0.58-bad/3020c1e3-a661-4879-8854-35eb023fd030.jsonl:"version":"2.0.58"
+    /Users/gray/Projects/phantom-read-clone/dev/misc/session-examples/2.0.5
+    … +3 lines (ctrl+o to expand)
+
+
+⏺ Now let me update my Work Journal with my investigation progress and then compile my findings:
+
+⏺ Read(dev/journal/archive/Journal-Workscope-20260114-003238.md)
+  ⎿  Read 55 lines
+
+⏺ Update(dev/journal/archive/Journal-Workscope-20260114-003238.md)
+  ⎿  Added 24 lines, removed 2 lines                                     
+      46   - **Test-Guardian**: Test coverage (must show test summary    
+          output)                                                        
+      47   - **Health-Inspector**: Code quality (must show health check  
+          summary table)                                                 
+      48                                                                 
+      49 - ## Awaiting Custom Workscope                                  
+      49 + ## Custom Workscope: /refine-plan                             
+         +Session-Analysis-Scripts-Overview.md                           
+      50                                                                 
+      51 - Ready to receive workscope assignment from User.              
+      51 + Reviewing Work Plan Document: `docs/features/session-analysis 
+         +-scripts/Session-Analysis-Scripts-Overview.md`                 
+      52                                                                 
+      53 + ### Investigation Progress                                    
+      54 +                                                               
+      55 + **Documents Reviewed:**                                       
+      56 + - Target WPD (727 lines)                                      
+      57 + - PRD.md - project context                                    
+      58 + - Experiment-Methodology-01.md - original methodology with    
+         +addendum                                                       
+      59 + - archive_claude_sessions.py - existing pattern reference     
+      60 + - Open ticket:                                                
+         +update-session-analysis-spec-use-workscope-id.md               
+      61 + - Action-Plan.md - Phase 4 reference                          
+      62 +                                                               
+      63 + **Session Examples Examined:**                                
+      64 + - 2.0.58-bad (flat architecture: agent-*.jsonl files at root) 
+      65 + - 2.0.60-bad (mixed: flat agent files + hierarchical          
+         +directory)                                                     
+      66 + - 2.1.6-bad (hierarchical: subagents/ and tool-results/       
+         +directories)                                                   
+      67 +                                                               
+      68 + **Key Discoveries:**                                          
+      69 + 1. Existing ticket proposes replacing `/start-trial` with     
+         +Workscope ID                                                   
+      70 + 2. Spec references `Experiment-Methodology.md` but file is    
+         +`Experiment-Methodology-01.md`                                 
+      71 + 3. Era 1 mechanism (`[Old tool result content cleared]`) not  
+         +addressed in spec                                              
+      72 + 4. Session file architecture changed between versions (flat   
+         +vs hierarchical)                                               
+      73 + 5. Regression boundary documented incorrectly as 2.0.59       
+         +(should be described differently)                              
+      74 +                                                               
+      75   ---                                                           
+      76                                                                 
+
+⏺ Now I have completed my investigation. Here is my assessment:
+
+  ---
+  Assessment: Session-Analysis-Scripts-Overview.md
+
+  After thoroughly investigating the WPD against related specifications, existing code, and example session data, I've identified the following findings:
+
+  Critical Findings
+
+  1. Redundant /start-trial Command - OPEN TICKET EXISTS
+
+  The spec defines a /start-trial command and "Trial Identifier" system. However, ticket docs/tickets/open/update-session-analysis-spec-use-workscope-id.md already proposes replacing this with the existing Workscope ID from /wsd:init. This is documented as a Phase 0 blocking item in the Action Plan (task 0.1).
+
+  Impact: The entire "Trial Identification System" section (lines 29-64) and FIP Phase 1.2 need to be rewritten or removed before implementation can proceed.
+
+  ---
+  2. Missing Era 1 Detection - Spec Only Covers Era 2
+
+  The spec's phantom read detection algorithm (lines 219-275) only handles <persisted-output> markers (Era 2). However, the PRD and Experiment-Methodology-01.md clearly document that Era 1 uses [Old tool result content cleared] messages.
+
+  From PRD.md:
+  "Era 1 (versions 2.0.59 and earlier): Read results are cleared from context, replaced with [Old tool result content cleared] messages."
+
+  The spec's "Persisted Output Detection" section makes no mention of this mechanism.
+
+  Impact: Analysis script will miss phantom reads in Era 1 sessions (2.0.54-2.0.59). The detection algorithm needs to handle both patterns.
+
+  ---
+  3. Broken Document Reference
+
+  Line 13-14 states:
+  "For the manual trial methodology that this feature supplements, see docs/core/Experiment-Methodology.md."
+
+  This file doesn't exist. The actual file is docs/core/Experiment-Methodology-01.md.
+
+  Impact: Dead link; users following this reference will get file-not-found.
+
+  ---
+  4. Incorrect Regression Boundary Constant
+
+  Lines 353-361 define:
+  # Suspected regression boundary - versions before this showed 0% failure rate
+  REGRESSION_BOUNDARY = "2.0.59"
+
+  And line 391:
+  is_pre_regression determines if version is "strictly before REGRESSION_BOUNDARY"
+
+  However, the Experiment-Methodology-01.md addendum clarifies:
+  - Era 1: 2.0.54-2.0.59 ([Old tool result content cleared])
+  - Era 2: 2.0.60-present (<persisted-output>)
+
+  The transition occurs at 2.0.59/2.0.60 boundary. The current constant and summary output ("Total (up to 2.0.58)" vs "Total (2.0.59+)") are inconsistent with the updated understanding.
+
+  Impact: Statistics will misclassify Era 1 versions. Should either:
+  - Remove regression boundary concept (since both eras have phantom reads)
+  - Redefine as ERA_BOUNDARY = "2.0.60" to separate detection mechanisms
+
+  ---
+  Moderate Findings
+
+  5. Session Architecture Not Addressed
+
+  The PRD defines (lines 50-51):
+  - Flat Architecture: Agent files adjacent to main session file
+  - Hierarchical Architecture: Session directory contains subagents/ and tool-results/
+
+  Example data confirms this:
+  - 2.0.58-bad: Flat (agent-*.jsonl at root level)
+  - 2.1.6-bad: Hierarchical (bf88e2ff.../subagents/agent-*.jsonl)
+
+  The "Agent File Handling" section (lines 292-318) provides a find_agent_files() function that only searches session_dir.glob("agent-*.jsonl"), which won't find agent files in the hierarchical subagents/ subdirectory.
+
+  Impact: Agent phantom reads in hierarchical sessions (2.1.x+) will be missed.
+
+  ---
+  6. Version Comparison Edge Cases
+
+  The parse_version() function (lines 368-378) assumes versions are always major.minor.patch format:
+  return tuple(int(x) for x in version.split('.'))
+
+  If a version like 2.1 or 2.1.6-beta appears, this will fail. The existing archive_claude_sessions.py doesn't handle version parsing at all, so there's no pattern to follow.
+
+  Impact: Script may crash on unexpected version formats.
+
+  ---
+  7. Output File Location Mismatch
+
+  The spec says results go to results/ (line 148), but the PRD architecture (line 152) shows /results/. The leading slash suggests project root level in markdown, but the spec code examples use Path("results") (relative path).
+
+  Additionally, the Action Plan Phase 5 (lines 53-69) references /results/ with leading slash in task descriptions.
+
+  Impact: Minor confusion; should be consistent (results/ without leading slash).
+
+  ---
+  Minor Findings
+
+  8. "SHOULD" vs "MUST" Inconsistency
+
+  Line 294 states:
+  "The analysis script SHOULD scan agent files..."
+
+  But the feature's stated purpose includes "programmatic detection" removing "the model from the detection loop entirely" (line 23). Missing agent phantom reads undermines this goal.
+
+  Recommendation: Change to MUST and ensure the algorithm handles both architectures.
+
+  ---
+  9. Missing Workscope ID Pattern in Example Output
+
+  Example 1 (lines 595-598) shows:
+  /start-trial
+  # Output includes: Trial Identifier: 20260112-160000
+
+  This should be updated when /start-trial is replaced with Workscope ID, showing the Workscope ID output from /wsd:init instead.
+
+  ---
+  10. "In-Flight Failures" Section Empty
+
+  Line 663-664 has an empty "In-Flight Failures (IFF)" section. This should either contain documented IFFs or be removed if none exist.
+
+  ---
+  Summary of Required Changes
+  #: 1
+  Finding: /start-trial redundancy
+  Severity: Critical
+  Action: Execute open ticket first
+  ────────────────────────────────────────
+  #: 2
+  Finding: Missing Era 1 detection
+  Severity: Critical
+  Action: Add [Old tool result content cleared] detection
+  ────────────────────────────────────────
+  #: 3
+  Finding: Broken document reference
+  Severity: Critical
+  Action: Fix to Experiment-Methodology-01.md
+  ────────────────────────────────────────
+  #: 4
+  Finding: Incorrect regression boundary
+  Severity: Critical
+  Action: Revise or remove pre/post regression grouping
+  ────────────────────────────────────────
+  #: 5
+  Finding: Session architecture handling
+  Severity: Moderate
+  Action: Handle hierarchical subagents/ directory
+  ────────────────────────────────────────
+  #: 6
+  Finding: Version parsing edge cases
+  Severity: Moderate
+  Action: Add defensive parsing
+  ────────────────────────────────────────
+  #: 7
+  Finding: Path prefix inconsistency
+  Severity: Minor
+  Action: Standardize to results/
+  ────────────────────────────────────────
+  #: 8
+  Finding: Agent scanning SHOULD→MUST
+  Severity: Minor
+  Action: Strengthen requirement
+  ────────────────────────────────────────
+  #: 9
+  Finding: Example shows /start-trial
+  Severity: Minor
+  Action: Will need update after #1
+  ────────────────────────────────────────
+  #: 10
+  Finding: Empty IFF section
+  Severity: Minor
+  Action: Remove or populate
+  ---
+  Recommendation: Before refining this WPD further, the open ticket (update-session-analysis-spec-use-workscope-id.md) should be executed first since it fundamentally changes the Trial Identification System. However, findings 2-6 can be addressed independently.
+
+  What would you like to discuss or prioritize?
+
+✻ Worked for 2m 26s
+
+❯ We have recently seen a number of User Agents reporting issues reading    
+  files like the following:                                                 
+                                                                            
+  <session-agent-response>                                                  
+  Looking back at my history, you're right. My first Read call for the file 
+  returned:                                                                 
+                                                                            
+  <persisted-output>Tool result saved to:                                   
+  /Users/gray/.claude/projects/-Users-gray-Projects-workscope/dadf32a6-c83d 
+  -462d-b678-fbe7f191f42f/tool-results/toolu_019Nqx8qLWvdFSjvMsy5xFkM.txt   
+                                                                            
+  Use Read to view</persisted-output>                                       
+                                                                            
+  I did not follow up with a Read call to view that persisted output. I     
+  proceeded with my "investigation" without ever having actually read the   
+  file contents. I was operating completely blind, making assumptions about 
+  a document I never saw.                                                   
+                                                                            
+  The same thing happened with several other files at the start -           
+  WSD-Runtime-Metadata-Schema.md, WSD-Manifest-Schema.md,                   
+  Manifest-Driven-Pipeline-Overview.md all returned <persisted-output>      
+  messages that I never followed up on                                      
+  </session-agent-response>                                                 
+                                                                            
+  I am debugging this recurring issue and I am checking to see if this      
+  particular session is a reproduction of this issue. Did you experience    
+  this during your execution of the command?                                
+
+⏺ Let me carefully review my tool call history to check for this issue.
+
+  Reviewing my Read operations:
+
+  1. PRD.md, Action-Plan.md (initial reads) - I received full content with line numbers (1-239 for PRD, 1-94 for Action-Plan). Content visible in my results.
+  2. Session-Analysis-Scripts-Overview.md (target WPD) - Received full 727 lines with actual content. I can verify this because my findings reference specific line numbers (e.g., "lines 29-64", "lines 219-275") that match real content.
+  3. archive_claude_sessions.py - Received full 233 lines of actual Python code.
+  4. update-session-analysis-spec-use-workscope-id.md - Received full 112 lines.
+  5. Experiment-Methodology-01.md - Received full 292 lines including the addendum about Era 1/Era 2.
+  6. Standards files (Coding-Standards.md, Python-Standards.md, Specification-Maintenance-Standards.md) - Received actual content for all three.
+  7. WSD Boot files (via /wsd:boot skill) - These came back embedded in <system-reminder> blocks showing the full file contents.
+
+  Assessment: No phantom reads detected in this session.
+
+  I did NOT experience the <persisted-output> issue. All my Read calls returned actual file content inline. I can verify this because:
+  - My assessment findings reference specific line numbers and quote actual content
+  - I identified the broken reference to Experiment-Methodology.md (vs -01.md) by reading the actual text
+  - I found the Era 1 detection gap by comparing the spec's algorithm against PRD content I actually read
+
+  My Bash commands (using ls, grep, head) also returned actual output, which aligns with the observation in the methodology addendum that grep operations appear more reliable.
+
+  This session is NOT a reproduction of the phantom reads bug.
+
+✻ Churned for 33s
+
+❯ /status 
+  ⎿  Status dialog dismissed
+
+
+
