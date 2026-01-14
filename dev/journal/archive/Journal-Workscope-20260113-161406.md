@@ -241,17 +241,59 @@ Updated `docs/core/Possible-Workarounds.md`:
 
 ---
 
-## Current Status
+## Testing Results
 
-**Documentation complete. Ready for implementation and testing.**
+**User tested the workaround manually following WORKAROUND.md instructions.**
+
+**Results: 3/3 trials successful**
+
+Agent feedback confirmed:
+- Used `mcp__filesystem__read_text_file` for all file reads
+- Received actual JSON content responses
+- No `<persisted-output>` markers encountered
+- No phantom read behavior observed
+
+---
+
+## Session Complete
+
+**Outcome**: Successfully researched, documented, and validated a working workaround for the Phantom Reads bug.
 
 **Files created/modified:**
 - `WORKAROUND.md` (new) - User-facing workaround documentation
-- `docs/core/Possible-Workarounds.md` (updated) - Internal tracking document
+- `docs/core/Possible-Workarounds.md` (updated) - Status changed to "Tested, EFFECTIVE"
 
-**Next steps:**
-1. Review WORKAROUND.md for accuracy and completeness
-2. Implement the configuration (create `.mcp.json`, update `.claude/settings.json`)
-3. Test in a fresh Claude Code session
-4. Document test results
+**Significance**: This workaround:
+1. Uses official Anthropic tooling (no custom hacks)
+2. Completely bypasses the buggy native Read tool
+3. Can be checked into repositories for automatic setup
+4. Has been validated through actual agent behavior
+
+**Next steps for project:**
+1. Continue with investigation repo development using this workaround
+2. Consider adding workaround to README.md when published
+3. Monitor for official fix from Anthropic
+
+---
+
+## Additional Update: Scope Limitation Documented
+
+Updated `WORKAROUND.md` to document an important caveat:
+
+**Corrected file paths:**
+- Project-level permissions: `.claude/settings.local.json` (not `.claude/settings.json`)
+- Global permissions: `~/.claude/settings.json`
+
+**Scope limitation added:**
+Project-level `permissions.deny` only affects the main session agent. It does NOT cover:
+- Slash commands and skills
+- Sub-agents spawned via Task tool
+
+For complete protection, users may need to use global configuration, but this requires setting up MCP server paths for each project.
+
+Added:
+- New "Scope Limitation" section under Configuration Options
+- Summary table comparing project vs global configuration
+- Updated troubleshooting section
+- Added scope limitation to Known Limitations list
 

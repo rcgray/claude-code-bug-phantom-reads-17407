@@ -4,13 +4,13 @@ This document tracks potential mitigation strategies for the Phantom Reads bug, 
 
 ## Summary Table
 
-| Approach                   | Status     | Effectiveness | Notes                              |
-| -------------------------- | ---------- | ------------- | ---------------------------------- |
-| Warning in onboarding      | Tested     | Not effective | Agent ignores warnings             |
-| PostToolUse detection hook | Tested     | Not effective | Agent ignores feedback             |
-| Proof-of-Work verification | Not tested | Unknown       | Requires agent cooperation         |
-| PreToolUse Read override   | Tested     | Not effective | Hooks fire inconsistently          |
-| MCP server replacement     | Documented | Pending test  | See `WORKAROUND.md` - ready to test |
+| Approach                   | Status     | Effectiveness   | Notes                                    |
+| -------------------------- | ---------- | --------------- | ---------------------------------------- |
+| Warning in onboarding      | Tested     | Not effective   | Agent ignores warnings                   |
+| PostToolUse detection hook | Tested     | Not effective   | Agent ignores feedback                   |
+| Proof-of-Work verification | Not tested | Unknown         | Requires agent cooperation               |
+| PreToolUse Read override   | Tested     | Not effective   | Hooks fire inconsistently                |
+| MCP server replacement     | Tested     | **EFFECTIVE**   | See `WORKAROUND.md` - 3/3 trials passed  |
 
 ---
 
@@ -239,11 +239,24 @@ Lines: 150 of 150
 
 ## 5. MCP Server Replacement
 
-**Status**: Documented, pending test
+**Status**: Tested, **EFFECTIVE**
 
 **Description**: Replace the native Read tool entirely with the official Anthropic Filesystem MCP server, and disable the native Read tool via permissions.
 
 **Full Documentation**: See [`WORKAROUND.md`](../../WORKAROUND.md) in the project root for complete implementation instructions.
+
+### Test Results (2026-01-13)
+
+**Trials**: 3/3 successful
+
+**Agent Feedback** (from one trial):
+> Throughout my investigation, I used `mcp__filesystem__read_text_file` for all file reads... The MCP filesystem tool returns actual JSON responses like `{"content":"# Manifest-Driven Pipeline Specification\n..."}` - Not the `<persisted-output>` pattern that requires follow-up.
+
+**Observations**:
+- Agents correctly followed CLAUDE.md instructions to use MCP tools
+- All file reads returned actual content, not persisted-output markers
+- No phantom read behavior observed in any trial
+- The workaround is transparent to the agent workflow
 
 ### Key Discovery (2026-01-13)
 
@@ -323,12 +336,11 @@ The MCP server approach is the only remaining option that:
 3. Doesn't rely on agent cooperation
 4. Provides a clean, architecturally sound solution
 
-**Update (2026-01-13)**: The MCP approach is now fully documented in [`WORKAROUND.md`](../../WORKAROUND.md). Key findings:
-- The official Anthropic Filesystem MCP server can be used (no custom server needed)
-- Native tools can be disabled via `permissions.deny` in `.claude/settings.json`
-- The solution can be checked into the repository for automatic setup
+**Update (2026-01-13)**: The MCP approach has been tested and confirmed effective. See [`WORKAROUND.md`](../../WORKAROUND.md) for implementation instructions.
 
-**Next action**: Test the documented workaround and report effectiveness.
+**Test Results**: 3/3 trials successful. Agents used MCP filesystem tools throughout and received actual file content instead of `<persisted-output>` markers.
+
+**This is now the recommended workaround** for users experiencing the Phantom Reads bug until an official fix is available.
 
 ---
 

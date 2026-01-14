@@ -60,7 +60,7 @@ Create a file named `.mcp.json` in your project root:
 
 ### Step 2: Disable Native Read Tool
 
-Create or update `.claude/settings.json` in your project:
+Create or update `.claude/settings.local.json` in your project's `.claude/` directory:
 
 ```json
 {
@@ -73,6 +73,8 @@ Create or update `.claude/settings.json` in your project:
 ```
 
 This prevents Claude from using the native `Read` tool, forcing it to use the MCP filesystem tools instead.
+
+**Alternative - Global configuration**: To apply this workaround to ALL your projects, use `~/.claude/settings.json` instead. See "Configuration Scope" below for trade-offs.
 
 ### Step 3: Add Agent Instructions to CLAUDE.md
 
@@ -143,18 +145,50 @@ The Filesystem MCP server provides these tools:
 
 ## Configuration Options
 
-### Project-Level vs User-Level
+### Configuration Scope
 
-**Project-level configuration** (recommended for sharing):
-- `.mcp.json` at project root
-- `.claude/settings.json` for permissions
+There are important trade-offs between project-level and global configuration:
+
+**Project-level configuration**:
+- `.mcp.json` at project root (for MCP servers)
+- `.claude/settings.local.json` (for permissions)
 - Can be checked into version control
-- Anyone cloning the repo gets the workaround
+- Anyone cloning the repo gets the MCP server automatically
 
-**User-level configuration** (for personal use):
-- `~/.claude.json` for MCP servers
-- `~/.claude/settings.json` for permissions
+**Global configuration**:
+- `~/.claude.json` (for MCP servers)
+- `~/.claude/settings.json` (for permissions)
 - Applies to all your projects
+- Requires configuring MCP server paths for each project
+
+### Scope Limitation (Important Caveat)
+
+**Project-level `permissions.deny` only affects the main Claude Code session agent.** It does NOT restrict:
+
+- **Slash commands and skills** - Custom commands may still use the native `Read` tool
+- **Sub-agents** - Agents spawned via the Task tool may not inherit the permission restrictions
+
+**Implications:**
+
+1. If you use project-level configuration, slash commands and sub-agents may still experience phantom reads.
+
+2. For complete protection, consider using **global configuration** (`~/.claude/settings.json`). However, this means you'll need to configure the MCP server (in `~/.claude.json`) with paths for each project you work on.
+
+3. Alternatively, accept that project-level configuration protects the main session (where most work happens) while slash commands and sub-agents may occasionally use the native Read tool.
+
+This is an inherent limitation of the workaround. A proper fix from Anthropic would not have this scope restriction.
+
+### Project-Level vs Global Summary
+
+| Aspect | Project-Level | Global |
+|--------|---------------|--------|
+| MCP config | `.mcp.json` | `~/.claude.json` |
+| Permissions | `.claude/settings.local.json` | `~/.claude/settings.json` |
+| Shareable | Yes (check into repo) | No |
+| Covers main session | Yes | Yes |
+| Covers slash commands | No | Yes |
+| Covers sub-agents | No | Yes |
+| MCP paths | One project | Must add each project |
 
 ### Multiple Allowed Directories
 
@@ -214,9 +248,10 @@ Note: This is more aggressive and may affect Claude's normal operation. Start wi
 
 ### Claude Still Uses Native Read
 
-1. **Verify settings.json location**: Must be in `.claude/settings.json` (project) or `~/.claude/settings.json` (user)
+1. **Verify settings file location**: Must be in `.claude/settings.local.json` (project) or `~/.claude/settings.json` (global)
 2. **Check JSON syntax**: Invalid JSON is silently ignored
 3. **Restart Claude Code**: Settings are loaded at startup
+4. **Check execution context**: If using slash commands or sub-agents, see "Scope Limitation" above - project-level config may not cover these contexts
 
 ### MCP Tools Not Found
 
@@ -237,6 +272,8 @@ If Claude says it can't find `mcp__filesystem__read_text_file`:
 3. **Different tool names**: Agents need to learn the MCP tool names (`read_text_file` vs `Read`). Existing prompts and commands may need updates.
 
 4. **Node.js dependency**: Requires Node.js to be installed for the MCP server.
+
+5. **Scope limitation**: Project-level permission restrictions only affect the main session agent. Slash commands, skills, and sub-agents may still use the native Read tool. See "Scope Limitation" in Configuration Options for details and mitigation strategies.
 
 ### What This Doesn't Fix
 
