@@ -10,7 +10,7 @@ The following are the steps for implementing the project, where the full list is
 
 ## Phase 0: Blocking Tasks
 
-- [ ] **0.1** - Remove mentions of `/start-trial` command (see `docs/tickets/open/update-session-analysis-spec-use-workscope-id.md`)
+- [x] **0.1** - Remove mentions of `/start-trial` command (see `docs/tickets/closed/update-session-analysis-spec-use-workscope-id.md`)
 
 ## Phase 1: Open-Ended Investigation
 

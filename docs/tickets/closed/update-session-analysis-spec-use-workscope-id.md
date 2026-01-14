@@ -62,50 +62,44 @@ The spec should be rewritten cleanly using Workscope ID as if that was the origi
 
 ### Phase 1: Update Trial Identification System
 
-- [ ] **1.1** - Update Overview section
-  - [ ] **1.1.1** - Remove mention of `/start-trial` command
-  - [ ] **1.1.2** - Reference Workscope ID from `/wsd:init` as the linking mechanism
-
-- [ ] **1.2** - Rewrite Trial Identification System section
-  - [ ] **1.2.1** - Rename section to "Workscope ID System" or similar
-  - [ ] **1.2.2** - Update identifier format to `Workscope ID: YYYYMMDD-HHMMSS`
-  - [ ] **1.2.3** - Remove `/start-trial` command subsection entirely
-  - [ ] **1.2.4** - Explain that `/wsd:init` generates the identifier automatically
+- [x] **1.1** - Update Overview section
+  - [x] **1.1.1** - Remove mention of `/start-trial` command
+  - [x] **1.1.2** - Reference Workscope ID from `/wsd:init` as the linking mechanism
+- [x] **1.2** - Rewrite Trial Identification System section
+  - [x] **1.2.1** - Rename section to "Workscope ID System" or similar
+  - [x] **1.2.2** - Update identifier format to `Workscope ID: YYYYMMDD-HHMMSS`
+  - [x] **1.2.3** - Remove `/start-trial` command subsection entirely
+  - [x] **1.2.4** - Explain that `/wsd:init` generates the identifier automatically
 
 ### Phase 2: Update Algorithm Code Examples
 
-- [ ] **2.1** - Update collection algorithm
-  - [ ] **2.1.1** - Rename `extract_trial_id()` to `extract_workscope_id()`
-  - [ ] **2.1.2** - Update regex pattern to match `Workscope ID:`
-  - [ ] **2.1.3** - Update variable names (trial_id → workscope_id)
-
-- [ ] **2.2** - Update file naming references
-  - [ ] **2.2.1** - Keep `trial-{YYYYMMDD-HHMMSS}.jsonl` naming (trial is still appropriate for results)
+- [x] **2.1** - Update collection algorithm
+  - [x] **2.1.1** - Rename `extract_trial_id()` to `extract_workscope_id()`
+  - [x] **2.1.2** - Update regex pattern to match `Workscope ID:`
+  - [x] **2.1.3** - Update variable names (trial_id → workscope_id)
+- [x] **2.2** - Update file naming references
+  - [x] **2.2.1** - Keep `trial-{YYYYMMDD-HHMMSS}.jsonl` naming (trial is still appropriate for results)
 
 ### Phase 3: Update Prose and Examples
 
-- [ ] **3.1** - Update Error Handling section
-  - [ ] **3.1.1** - Remove "Run /start-trial" guidance from error messages
-  - [ ] **3.1.2** - Reference Workscope ID in "No Trial Sessions Found" error
-
-- [ ] **3.2** - Update Testing Scenarios section
-  - [ ] **3.2.1** - Remove `/start-trial` from test descriptions
-  - [ ] **3.2.2** - Update workflow to show Workscope ID is automatic
-
-- [ ] **3.3** - Update Best Practices section
-  - [ ] **3.3.1** - Remove recommendation to run `/start-trial`
-  - [ ] **3.3.2** - Note that `/wsd:init --custom` provides the identifier
-
-- [ ] **3.4** - Update Examples section
-  - [ ] **3.4.1** - Remove `/start-trial` from Example 1 workflow
-  - [ ] **3.4.2** - Show that Workscope ID output comes from `/wsd:init`
+- [x] **3.1** - Update Error Handling section
+  - [x] **3.1.1** - Remove "Run /start-trial" guidance from error messages
+  - [x] **3.1.2** - Reference Workscope ID in "No Trial Sessions Found" error
+- [x] **3.2** - Update Testing Scenarios section
+  - [x] **3.2.1** - Remove `/start-trial` from test descriptions
+  - [x] **3.2.2** - Update workflow to show Workscope ID is automatic
+- [x] **3.3** - Update Best Practices section
+  - [x] **3.3.1** - Remove recommendation to run `/start-trial`
+  - [x] **3.3.2** - Note that `/wsd:init --custom` provides the identifier
+- [x] **3.4** - Update Examples section
+  - [x] **3.4.1** - Remove `/start-trial` from Example 1 workflow
+  - [x] **3.4.2** - Show that Workscope ID output comes from `/wsd:init`
 
 ### Phase 4: Update Feature Implementation Plan
 
-- [ ] **4.1** - Remove obsolete FIP tasks
-  - [ ] **4.1.1** - Delete Phase 1.2 (Create `/start-trial` command)
-  - [ ] **4.1.2** - Remove task 4.1.1 (Add `/start-trial` step to methodology)
-  - [ ] **4.1.3** - Remove task 5.1.1 (Run `/start-trial` and verify format)
-
-- [ ] **4.2** - Renumber remaining FIP tasks if needed
+- [x] **4.1** - Remove obsolete FIP tasks
+  - [x] **4.1.1** - Delete Phase 1.2 (Create `/start-trial` command)
+  - [x] **4.1.2** - Remove task 4.1.1 (Add `/start-trial` step to methodology)
+  - [x] **4.1.3** - Remove task 5.1.1 (Run `/start-trial` and verify format)
+- [x] **4.2** - Renumber remaining FIP tasks if needed
 
