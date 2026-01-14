@@ -1,120 +1,108 @@
-# Workscope-Dev
+# Claude Code Phantom Reads Investigation
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![PyPI](https://img.shields.io/pypi/v/workscope-dev)](https://pypi.org/project/workscope-dev/)
-[![Claude Code](https://img.shields.io/badge/Claude%20Code-ready-green)](https://claude.ai/code)
+This repository documents and provides tools to reproduce the **Phantom Reads** bug in Claude Code ([Issue #17407](https://github.com/anthropics/claude-code/issues/17407)).
 
-**An orchestration framework for AI-assisted coding with Claude Code.**
+## What Are Phantom Reads?
 
-Structure your work. Enforce your rules. Ship with confidence.
+The Phantom Reads bug causes Claude Code to believe it has successfully read file contents when it has not. The AI proceeds confidently with its task, operating on incomplete or non-existent information—often producing plausible-sounding but incorrect outputs.
 
-→ Learn more at [workscope.dev](https://workscope.dev)
+This bug is particularly insidious because:
 
----
+- **Silent Failure**: Claude exhibits no awareness that it missed file content and moves forward with regular confidence
+- **Intermittent Occurrence**: The bug doesn't manifest consistently, making it easy to dismiss as occasional model error
+- **Masked by Capability**: Claude's strong reasoning allows it to "gap fill" plausibly, producing outputs that appear reasonable but are based on assumptions rather than actual file content
+- **UI Shows Success**: The Claude Code interface displays successful reads even when phantom reads occur
 
-## Why WSD?
+### Two Distinct Mechanisms
 
-AI coding tools are powerful, but using them effectively requires more than good prompts. Without structure, you get "vibe coding"—generated code that works until it doesn't, built on foundations no one fully understands. WSD brings discipline to AI-assisted development by organizing work into bounded units, loading relevant context deliberately, and verifying results through specialized review processes.
+The bug manifests differently depending on the Claude Code version:
 
-WSD doesn't replace your judgment. It gives you a framework for applying it consistently: breaking large projects into AI-appropriate workscopes, enforcing your project's rules automatically, and maintaining traceability across sessions.
+| Era   | Versions         | Error Mechanism                                                    |
+| ----- | ---------------- | ------------------------------------------------------------------ |
+| Era 1 | 2.0.54 - 2.0.59  | `[Old tool result content cleared]` - Content cleared from context |
+| Era 2 | 2.0.60 - present | `<persisted-output>` markers returned instead of content           |
 
-## Key Features
+**Important**: There is no known "safe" version. All tested versions from 2.0.54 through 2.1.6 have exhibited phantom read behavior under certain conditions.
 
-### Bounded Workscopes
+## Workaround Available
 
-Every unit of work is formally defined, sized for a single AI session, and tracked from assignment to completion. A workscope goes through a structured lifecycle:
+A working mitigation exists using the official Anthropic Filesystem MCP server. This workaround bypasses Claude Code's native `Read` tool entirely, preventing phantom reads through an architecturally different code path.
 
-1. **Assignment** — Work is selected from your project's checkboxlists using a deterministic algorithm
-2. **Context Loading** — Relevant documentation and code files are identified and loaded
-3. **Execution** — The AI performs the assigned tasks with full context
-4. **Quality Review** — Specialized agents verify rule compliance, spec alignment, test coverage, and code health—with authority to reject work that doesn't meet standards
-5. **Completion** — Work is accepted, checkboxlists are updated, and an audit trail is preserved
+**See [WORKAROUND.md](WORKAROUND.md) for complete setup instructions.**
 
-Each workscope gets a unique ID, an immutable record, and a work journal documenting the session.
+The workaround:
+- Uses the `@modelcontextprotocol/server-filesystem` package
+- Disables the native `Read` tool via permission settings
+- Forces all file reads through the MCP server, which reads files reliably
 
-### Living Task Management
+Note: Project-level configuration only protects the main session. Slash commands and sub-agents may still use the native Read tool. See the workaround documentation for details on scope limitations.
 
-Your work items don't hide in a project management server—they live right in your project as checkboxlists scattered across your documentation. This means:
+## Purpose of This Repository
 
-- **Instantly editable** — Change priorities by editing a markdown file
-- **Version controlled** — Task history lives in git alongside your code
-- **Dynamically scheduled** — The Task-Master agent constructs your schedule on the fly, following cross-document references to find the next appropriate work
-- **Parallel-aware** — Multiple workscopes can run concurrently without conflicts
+This repository serves three purposes:
 
-Five checkbox states (`[ ]` `[%]` `[*]` `[x]` `[-]`) enable hierarchical tracking across documents, from high-level phases down to individual implementation tasks.
+1. **Documentation**: Explain the Phantom Reads phenomenon for affected users
+2. **Reproduction**: Provide an environment to trigger and observe phantom reads
+3. **Analysis**: Build tools to programmatically detect phantom reads in session logs
 
-### Structured Documentation
 
-WSD provides a documentation architecture that AI agents understand. Instead of hoping the AI finds the right context, the system deliberately surfaces relevant files:
+## Investigation Status
 
-- **Feature specifications** organized by feature in `docs/features/`
-- **Tickets** for discrete issues in `docs/tickets/`
-- **Working memory** in `docs/workbench/` for active context
-- **Core documents** like your PRD and Action Plan in `docs/core/`
-- **Rules and standards** that agents are trained to follow in `docs/read-only/`
+The investigation is ongoing and documented in [docs/core/Investigation-Journal.md](docs/core/Investigation-Journal.md).
 
-Agents know where to look. Specifications stay in sync with implementation. Context flows to where it's needed.
+### Key Findings
 
-## Quick Start
+- **Context resets correlate with phantom reads**: The `cache_read_input_tokens` field in session data shows context resets that predict phantom read risk
+- **Session files don't capture the bug**: The `.jsonl` session log records actual file content, but the model receives phantom read markers—the transformation happens after logging
+- **Grep appears more reliable**: Agents report that `grep` results succeed when `Read` operations fail
+- **CLAUDE.md warnings are ineffective**: Agents ignore warnings about phantom reads because they genuinely believe they read the files
+- **MCP bypass works**: The Filesystem MCP server provides 100% success rate in testing
 
-**Install WSD:**
+### Current Working Theory
 
-```bash
-pipx install workscope-dev
-```
+The Read tool records actual content to the session file, but a separate context management system decides what actually reaches the model. When context grows too large, older tool results are cleared or summarized. The session file doesn't capture this transformation because it logs tool execution, not model context.
 
-**Integrate into your project:**
+## Original Experiment
 
-```bash
-wsd install path/to/your/project
-```
+The bug was discovered during development work in early January 2026. Systematic testing across Claude Code versions identified version boundaries and characterized the two error mechanisms.
 
-This adds WSD's workflow system to your project, including slash commands for Claude Code, documentation structure, and development tools.
+The original experiment methodology is documented in [docs/core/Experiment-Methodology-01.md](docs/core/Experiment-Methodology-01.md). Key findings from the original investigation:
 
-**Start your first session** by running `/wsd:init` in Claude Code. See the [User Guide](dev/wsd/User-Guide.md) for the complete workflow.
+- **Trigger condition**: Multi-file read operations, especially via custom commands like `/refine-plan`
+- **Detection method**: Self-report methodology—prompting agents to introspect on their read history
+- **Version boundary**: The transition from Era 1 to Era 2 mechanisms occurs at the 2.0.59/2.0.60 boundary
 
-### Alternative: Install from Source
+The original conclusion that versions 2.0.58 and earlier were unaffected has been revised—subsequent testing confirmed phantom reads can occur in those versions via the Era 1 mechanism.
 
-```bash
-git clone https://github.com/rcgray/workscope-dev.git
-cd workscope-dev
-./wsd.py install path/to/your/project
-```
+## Symptoms You May Have Noticed
 
-## Supported Projects
+If you've experienced any of these, phantom reads may be the cause:
 
-WSD works with multiple project types and detects your stack automatically:
+- Claude produces analysis that sounds plausible but doesn't match file contents
+- Claude claims to have "thoroughly reviewed" documents it clearly didn't understand
+- Multi-file operations produce inconsistent quality across files
+- Work quality seems to vary randomly between sessions
+- Claude seems "dumber" than expected despite using a capable model
 
-- **Python** — pytest, mypy, ruff, bandit integration
-- **TypeScript** — ESLint, Prettier, TypeDoc integration
-- **JavaScript** — ESLint, Prettier, JSDoc integration
-- **Polyglot** — Mixed Python + Node.js projects supported
-- **Codeless** — Documentation, research, and planning projects
+## How to Reproduce
 
-## Requirements
+Reliable repro case in progress
 
-- **Python 3.10+** — Required for WSD tools
-- **Claude Code** — The AI assistant WSD orchestrates
-- **Git** — Recommended for rollback safety
+## Contributing
 
-For TypeScript/JavaScript projects, Node.js 18+ is also required.
+If you've experienced phantom reads:
 
-## Documentation
+1. Note your Claude Code version (`claude --version`)
+2. Export your session logs if possible
+3. Document which files were affected
+4. Open an issue or contribute to the investigation
 
-After installation, guides are available in `dev/wsd/`:
+## References
 
-| Guide | Description |
-|-------|-------------|
-| [User Guide](dev/wsd/User-Guide.md) | Daily usage, workflow lifecycle, commands |
-| [Integration Guide](dev/wsd/Integration-Guide.md) | Installation, customization, collision handling |
-| [Task Runner Guide](dev/wsd/Task-Runner-Guide.md) | Development tools, health checks, unified commands |
-| [Update Guide](dev/wsd/Update-Guide.md) | Updating WSD while preserving customizations |
-
-Platform-specific setup:
-- [Python Project Guide](dev/wsd/Python-Project-Guide.md)
-- [Node Project Guide](dev/wsd/Node-Project-Guide.md)
-- [Codeless Project Guide](dev/wsd/Codeless-Project-Guide.md)
+- **GitHub Issue**: [anthropics/claude-code#17407](https://github.com/anthropics/claude-code/issues/17407)
+- **Investigation Journal**: [docs/core/Investigation-Journal.md](docs/core/Investigation-Journal.md)
+- **Experiment Methodology**: [docs/core/Experiment-Methodology-01.md](docs/core/Experiment-Methodology-01.md)
+- **Workaround Guide**: [WORKAROUND.md](WORKAROUND.md)
 
 ## License
 

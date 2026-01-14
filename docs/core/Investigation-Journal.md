@@ -2,7 +2,7 @@
 
 This document tracks ongoing discoveries, experiments, and findings related to the Phantom Reads bug investigation. Entries are chronological, with the most recent at the bottom.
 
-For the formal experiment methodology and protocol, see `Experiment-Methodology.md`. This journal captures the raw investigation process, including discoveries that may update or refine our understanding documented elsewhere.
+For the formal experiment methodology and protocol, see [Experiment-Methodology-01.md](Experiment-Methodology-01.md). This journal captures the raw investigation process, including discoveries that may update or refine our understanding documented elsewhere.
 
 ---
 
@@ -12,7 +12,7 @@ For the formal experiment methodology and protocol, see `Experiment-Methodology.
 
 A User Agent provided a particularly nonsensical review of a Work Plan Document (WPD) when given the `/refine-plan` command. The response contained plausible-sounding analysis that bore no relationship to the actual document contents, suggesting the agent was operating on incomplete or non-existent information while believing it had read the file.
 
-This triggered the initial investigation into whether this was an isolated incident or a systematic issue.
+Intermittent recurrence and agent probing triggered the initial investigation into whether this was an isolated incident or a systematic issue.
 
 ---
 
@@ -43,7 +43,7 @@ The report documented the investigation findings and identified the 2.0.58/2.0.5
 
 ## 2026-01-12: Example Repository Started
 
-**Event**: This repository created to provide reproducible demonstration of the bug.
+**Event**: This repository created to investigate the issue, construct a reproducible demonstration of the bug, and explore temporary workarounds.
 
 Goals:
 1. Document the phenomenon for other users
@@ -93,17 +93,17 @@ This indicates the tool result was persisted to disk due to size, but the agent 
 
 ### Revised Build Transition Understanding
 
-| Era | Versions | Error Mechanism | Notes |
-|-----|----------|-----------------|-------|
-| 1 | 2.0.?? - 2.0.59 | `[Old tool result content cleared]` | Original investigation may have conflated this with Era 2 |
-| 2 | 2.0.60 - 2.1.6+ | `<persisted-output>` | Current era, persists in latest builds |
+| Era | Versions        | Error Mechanism                     | Notes                                                     |
+| --- | --------------- | ----------------------------------- | --------------------------------------------------------- |
+| 1   | 2.0.?? - 2.0.59 | `[Old tool result content cleared]` | Original investigation may have conflated this with Era 2 |
+| 2   | 2.0.60 - 2.1.6+ | `<persisted-output>`                | Current era, persists in latest builds                    |
 
 **Important**: There is NO 100% "safe" build discovered. Even 2.0.58 can fail with the Era 1 mechanism, though possibly at lower frequency.
 
 ### Trigger Conditions Refined
 
 **Does NOT trigger reliably**:
-- `/wsd:init --custom` alone - files read via `/wsd:boot` sub-command appear to be consistently read
+- `/wsd:init --custom` alone - files read via `/wsd:boot` sub-command appear to be consistently received inline.
 
 **Does trigger**:
 - `/refine-plan` command execution
@@ -297,10 +297,10 @@ Across both Era 1 and Era 2 "bad" sessions:
 
 A **context reset** is detected when `cache_read_input_tokens` drops significantly (>10,000 tokens) between consecutive assistant messages:
 
-| Session | Context Resets | Phantom Reads? | Notes |
-|---------|---------------|----------------|-------|
-| 2.0.58-good | 1 | No | Single reset at line 36 |
-| 2.0.58-bad | 3 | Yes | Resets at lines 36, 57, 69 |
+| Session     | Context Resets | Phantom Reads? | Notes                      |
+| ----------- | -------------- | -------------- | -------------------------- |
+| 2.0.58-good | 1              | No             | Single reset at line 36    |
+| 2.0.58-bad  | 3              | Yes            | Resets at lines 36, 57, 69 |
 
 All resets drop to approximately **~20K tokens** - likely the persistent system prompt and command definitions.
 
