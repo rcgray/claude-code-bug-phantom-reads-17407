@@ -10,22 +10,16 @@ The following are the steps for implementing the project, where the full list is
 
 ## Phase 0: Blocking Tasks
 
-(Reserved for blocking issues discovered during execution)
-
+- [ ] **0.1** - Remove mentions of `/start-trial` command (see `docs/tickets/open/update-session-analysis-spec-use-workscope-id.md`)
 
 ## Phase 1: Reproduction Environment - Trigger Ticket
-
-Create the Work Plan Document that will serve as the target for `/refine-plan` during reproduction trials.
 
 - [ ] **1.1** - Create trigger ticket using `/open-ticket` command
   - [ ] **1.1.1** - Design ticket scope (e.g., "Add Ruby language support to WSD")
   - [ ] **1.1.2** - Execute `/open-ticket` to generate the ticket with appropriate checkboxlist
   - [ ] **1.1.3** - Review generated ticket for sufficient complexity to trigger multi-file reads
 
-
 ## Phase 2: Reproduction Environment - Initial Validation
-
-Manually validate that the stock WSD files plus trigger ticket are sufficient to reproduce phantom reads.
 
 - [ ] **2.1** - Execute manual reproduction trial
   - [ ] **2.1.1** - Run `/wsd:init --custom` in a fresh Claude Code session
@@ -37,10 +31,7 @@ Manually validate that the stock WSD files plus trigger ticket are sufficient to
   - [ ] **2.2.2** - If successful: document which files were affected and proceed to Phase 4
   - [ ] **2.2.3** - If unsuccessful: proceed to Phase 3 to add dummy project complexity
 
-
 ## Phase 3: Reproduction Environment - Dummy Project (Conditional)
-
-If Phase 2 validation shows insufficient trigger complexity, create a dummy project to provide additional file content for multi-file read operations.
 
 - [ ] **3.1** - Design dummy project
   - [ ] **3.1.1** - Determine minimal project type (simple CLI tool recommended)
@@ -53,17 +44,11 @@ If Phase 2 validation shows insufficient trigger complexity, create a dummy proj
   - [ ] **3.3.1** - Execute manual reproduction trial using dummy project ticket
   - [ ] **3.3.2** - Document results and confirm phantom reads are reproducible
 
-
 ## Phase 4: Analysis Tools
-
-Design and implement Python scripts to programmatically detect phantom reads in Claude Code session logs.
 
 - [ ] **4.1** - Create analysis scripts feature (see `docs/features/session-analysis-scripts/Session-Analysis-Scripts-Overview.md`)
 
-
 ## Phase 5: Experiment Execution
-
-Re-run the original experiment using this repository's reproduction environment and capture results.
 
 - [ ] **5.1** - Create `/results` directory structure
   - [ ] **5.1.1** - Create `/results/README.md` explaining the directory purpose and contents
@@ -82,10 +67,7 @@ Re-run the original experiment using this repository's reproduction environment 
 - [ ] **5.4** - Document experiment results
   - [ ] **5.4.1** - Create `/results/FINDINGS.md` summarizing reproduction results
 
-
 ## Phase 6: Documentation and Publication
-
-Create the public-facing README and finalize all documentation based on completed work.
 
 - [ ] **6.1** - Draft README.md
   - [ ] **6.1.1** - Write issue overview section linking to GitHub Issue #17407
@@ -98,10 +80,7 @@ Create the public-facing README and finalize all documentation based on complete
   - [ ] **6.2.1** - Review Experiment-Methodology.md for accuracy after experiment execution
   - [ ] **6.2.2** - Ensure all user-facing documentation is free of internal process references
 
-
 ## Phase 7: Validation and Cleanup
-
-Final validation that the repository is ready for public use.
 
 - [ ] **7.1** - End-to-end validation
   - [ ] **7.1.1** - Fresh clone of repository to clean directory

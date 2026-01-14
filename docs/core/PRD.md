@@ -37,6 +37,19 @@ This repository provides:
 
 3. **Analysis Tools**: Python scripts that examine Claude Code session logs to programmatically detect phantom read occurrences, removing reliance on the AI's self-reporting.
 
+## Terms and Definitions
+
+In addition to the Terms and Definitions you learned as part of the Workscope-Dev system, this specific project has a few more:
+
+- "Session Agent": The agent that was working in an example session that experienced and reported a phantom read (or didn't in the case of a success example). This is distinct from a "User Agent" (which is _you_) and a Special Agent that you would work with during a workscope lifecycle.
+- "Phantom Read": A phenomenon that occurs in the AI harness where a Read operation conducted by the Session Agent does not result in the contents of the file being correctly inserted into the Session Agent's context.
+- "Inline Read": When the Session Agent received the contents of a file directly.
+- "Deferred Read": When the Session Agent received the contents of a file through some intermediary step, such as a reference to a persisted output or a text file created by a tool internal to the AI harness. Not all deferred reads are presumed to be phantom reads (i.e., it may be the case that the agent correctly followed up on the read after the intermediary message), but we suspect that deferred reads are the cause of phantom reads.
+- "Era 1": (mentioned above) Refers to sessions that took place in builds up to `2.0.59`, after which a key change occurred in how deferred reads were conducted by the Claude Code harness. For example, we have a pair of sessions in `dev/misc/example-sessions/` called `2.0.58-good` (success) and `2.0.58-bad` (phantom read) that were generated in that build.
+- "Era 2": (mentioned above) Refers to sessions that took place in builds `2.0.60` and later, where deferred reads are handled differently by the Claude Code harness. For example, we have a pair of sessions in `dev/misc/example-sessions/` called `2.1.6-good` (success) and `2.1.6-bad` (phantom read) that were generated in that build.
+- "Flat Architecture": A session (`.jsonl` files) in which the core session file and the breakout agent session files are stored adjacent in a directory, with only their session IDs to link them. This is an older architecture that changed somewhere between build `2.0.60` and `2.1.3`.
+- "Hierarchical Architecture": A session (`.jsonl` files) in which the core session file is accompanied by a directory of the same name, which stores all of the breakout agent session files associated with that core session as well as any tool outputs. This is the newer (current) architecture that changed somewhere between build `2.0.60` and `2.1.3`.
+
 ## Key Features
 
 ### 1. Public README
@@ -86,10 +99,10 @@ The AI is expected to recognize this marker and issue a follow-up Read command t
 
 Testing across Claude Code versions revealed two distinct eras of phantom read behavior:
 
-| Era | Versions | Error Mechanism | Notes |
-|-----|----------|-----------------|-------|
-| 1 | 2.0.54 - 2.0.59 | `[Old tool result content cleared]` | Context clearing mechanism |
-| 2 | 2.0.60 - 2.1.6+ | `<persisted-output>` | Disk persistence mechanism |
+| Era | Versions        | Error Mechanism                     | Notes                      |
+| --- | --------------- | ----------------------------------- | -------------------------- |
+| 1   | 2.0.54 - 2.0.59 | `[Old tool result content cleared]` | Context clearing mechanism |
+| 2   | 2.0.60 - 2.1.6+ | `<persisted-output>`                | Disk persistence mechanism |
 
 **Important**: The original investigation incorrectly concluded that versions 2.0.58 and earlier were unaffected. Subsequent testing confirmed that ALL tested versions can exhibit phantom reads—the mechanism simply differs between eras.
 

@@ -213,6 +213,147 @@ Implement hook-based detection as first mitigation attempt. The existing `.claud
 
 ---
 
+## 2026-01-13: MCP Filesystem Workaround Confirmed
+
+**Event**: Successfully implemented and validated a workaround using the official Anthropic Filesystem MCP server.
+
+### Workaround Overview
+
+The workaround bypasses Claude Code's native `Read` tool entirely by:
+
+1. **Installing the Filesystem MCP server** - Official Anthropic MCP server that reads files through standard Node.js file system operations
+2. **Disabling the native Read tool** - Via `.claude/settings.local.json` with `permissions.deny: ["Read"]`
+3. **Using MCP tools instead** - `mcp__filesystem__read_text_file` and related tools
+
+### Configuration Files
+
+**`.mcp.json`** (project root):
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/ABSOLUTE/PATH/TO/PROJECT",
+        "/private/tmp"
+      ]
+    }
+  }
+}
+```
+
+**`.claude/settings.local.json`**:
+```json
+{
+  "permissions": {
+    "deny": ["Read"]
+  }
+}
+```
+
+### Why This Works
+
+The MCP Filesystem server reads files through standard Node.js file system operations, completely bypassing Claude Code's context management system. Since the MCP server performs a direct file read and returns content immediately, it cannot produce `<persisted-output>` markers.
+
+### Known Limitations
+
+**Critical Scope Limitation**: Project-level `permissions.deny` only affects the main Claude Code session agent. It does NOT restrict:
+- **Slash commands and skills** - Custom commands may still use the native `Read` tool
+- **Sub-agents** - Agents spawned via the Task tool may not inherit permission restrictions
+
+This means phantom reads can still occur in sub-agent contexts. For complete protection, global configuration (`~/.claude/settings.json`) would be needed, but this requires configuring MCP server paths for each project.
+
+### Documentation
+
+Full workaround documentation created at `WORKAROUND.md` in project root. This file will NOT be committed to the repository since this repo is intended to serve as a reproduction case for the bug itself.
+
+### Implications for Investigation
+
+With the workaround in place, we can now make progress on the Session Analysis Scripts feature without being blocked by phantom reads in our own development sessions. The analysis scripts themselves will detect phantom reads in OTHER sessions (collected trial data), not in the session running the scripts.
+
+---
+
+## 2026-01-13: Session File Analysis - Critical Findings
+
+**Event**: Deep analysis of session `.jsonl` files to understand phantom read detection feasibility.
+
+### The Session File Discrepancy
+
+**Critical Discovery**: The session `.jsonl` file does NOT capture phantom read markers.
+
+Across both Era 1 and Era 2 "bad" sessions:
+- The session `.jsonl` records **actual file content** in all `tool_result` entries
+- But agents report seeing phantom read markers (`[Old tool result content cleared]` or `<persisted-output>`)
+- The phantom read markers appear NOWHERE in the session files except in conversation text where agents discuss experiencing them
+
+**Hypothesis**: The session `.jsonl` is a log of tool execution results, NOT a representation of what the model receives in its context window. Content clearing/persistence happens AFTER the session file is written but BEFORE content is sent to the model.
+
+### Context Reset Correlation Discovery
+
+**Quantifiable Indicator Found**: The `cache_read_input_tokens` field in assistant messages shows context resets that correlate with phantom read occurrence.
+
+A **context reset** is detected when `cache_read_input_tokens` drops significantly (>10,000 tokens) between consecutive assistant messages:
+
+| Session | Context Resets | Phantom Reads? | Notes |
+|---------|---------------|----------------|-------|
+| 2.0.58-good | 1 | No | Single reset at line 36 |
+| 2.0.58-bad | 3 | Yes | Resets at lines 36, 57, 69 |
+
+All resets drop to approximately **~20K tokens** - likely the persistent system prompt and command definitions.
+
+**Correlation**: More context resets = higher risk of phantom reads. Each reset clears older tool results, creating opportunities for critical content to be removed before the model processes it.
+
+### What the Agent Actually Experiences
+
+From the 2.0.58-bad chat export, the agent confirms:
+> "The results came back as `[Old tool result content cleared]` in the conversation history shown to me. I can see this pattern throughout my tool results."
+> "I proceeded with my 'assessment' without actually having seen the content of the target WPD or several related specifications."
+
+This confirms the phenomenon is real - the agent genuinely did not receive the file contents, even though the session file recorded them.
+
+### Implications for Detection Strategy
+
+1. **Direct detection from session files is impossible** - the markers aren't recorded
+2. **Context reset counting is a viable proxy** - quantifiable and correlates with phantom reads
+3. **Agent self-report may be reliable** - warrants a validation study
+4. **Alternative read mechanisms (MCP) bypass the issue entirely**
+
+### Recommended Next Steps
+
+1. **Risk scoring via context resets** - classify sessions as low/high risk based on reset count
+2. **Self-report validation study** - correlate agent reports with output quality (hallucinated details, bad line numbers)
+3. **Output quality analysis** - programmatically check for fabricated content
+
+---
+
+## Evolving Theory
+
+### What We Know For Certain
+
+1. **The phenomenon is real** - agents demonstrate reduced competence discussing file contents
+2. **Agents produce fabricated details** - bad line numbers, references to non-existent content
+3. **Agents admit knowledge gaps** - lucid admissions they don't know file contents
+4. **Alternative access methods work** - grep results, re-reads, and MCP reads succeed
+5. **The workaround works** - MCP Filesystem has 100% success rate so far
+6. **Context resets correlate** - more resets = higher phantom read risk
+
+### What Remains Uncertain
+
+1. **Exact mechanism** - Is it deferred reads? Context clearing? Something else?
+2. **Agent interpretation** - Are `[Old tool result content cleared]` and `<persisted-output>` literal strings or the agent's interpretation of a concept?
+3. **Causation vs correlation** - Do context resets CAUSE phantom reads, or are they both symptoms of the same underlying issue?
+
+### Current Working Theory
+
+The Read tool records actual content to the session file, but a separate context management system decides what actually reaches the model. When context grows too large, older tool results are cleared/summarized. The session file doesn't capture this transformation because it logs tool execution, not model context.
+
+Era 1 and Era 2 may represent different implementations of the same underlying behavior - managing large tool results when context is constrained.
+
+---
+
 ## Open Questions
 
 1. **What determines which reads become phantom reads?** Is it file size? Position in read sequence? Total context consumed?
@@ -225,11 +366,38 @@ Implement hook-based detection as first mitigation attempt. The existing `.claud
 
 5. **Can we detect both eras programmatically?** Our analysis scripts may need to detect both error mechanisms.
 
+6. **Would a self-report validation study be feasible?** Correlating yes/no phantom read reports with output quality could establish self-report as a reliable proxy.
+
 ---
 
-## Next Steps
+## Future Investigation Directions
 
-1. Examine the collected `.jsonl` session files to understand the exact sequence of tool calls and responses
-2. Identify patterns in which files become phantom reads vs. which succeed
-3. Design analysis scripts that can detect both Era 1 and Era 2 phantom read mechanisms
-4. Update PRD and Experiment-Methodology.md to reflect revised understanding of build transitions
+### Proposed: Self-Report Validation Study
+
+**Goal**: Determine if agent self-report can serve as a reliable proxy for phantom read detection.
+
+**Method**:
+1. Generate multiple trial sessions with `/refine-plan`
+2. Ask agents to self-report yes/no on phantom read occurrence
+3. Carefully analyze their output for:
+   - References to line numbers that don't exist
+   - Quotes of text not present in files
+   - Structural claims that don't match reality
+4. Calculate correlation between self-report and actual errors
+
+**Success criteria**: High correlation (>80%) with sufficient statistical power would validate self-report as detection method.
+
+### Proposed: Context Reset Threshold Analysis
+
+**Goal**: Determine if there's a predictable threshold for context resets.
+
+**Method**:
+1. Analyze multiple sessions for context sizes before resets
+2. Identify if there's a consistent trigger point (e.g., 150K tokens)
+3. Determine if certain operations (multi-file reads) are more likely to trigger resets
+
+**Outcome**: Could enable predictive warnings before phantom reads occur.
+
+---
+
+*Last updated: 2026-01-13*
