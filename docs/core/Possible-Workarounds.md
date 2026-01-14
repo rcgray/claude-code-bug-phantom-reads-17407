@@ -4,13 +4,13 @@ This document tracks potential mitigation strategies for the Phantom Reads bug, 
 
 ## Summary Table
 
-| Approach | Status | Effectiveness | Notes |
-|----------|--------|---------------|-------|
-| Warning in onboarding | Tested | Not effective | Agent ignores warnings |
-| PostToolUse detection hook | Tested | Not effective | Agent ignores feedback |
-| Proof-of-Work verification | Not tested | Unknown | Requires agent cooperation |
-| PreToolUse Read override | **In Testing** | Unknown | Most promising technical solution |
-| MCP server replacement | Not tested | Unknown | Highest effort, most reliable |
+| Approach                   | Status     | Effectiveness | Notes                              |
+| -------------------------- | ---------- | ------------- | ---------------------------------- |
+| Warning in onboarding      | Tested     | Not effective | Agent ignores warnings             |
+| PostToolUse detection hook | Tested     | Not effective | Agent ignores feedback             |
+| Proof-of-Work verification | Not tested | Unknown       | Requires agent cooperation         |
+| PreToolUse Read override   | Tested     | Not effective | Hooks fire inconsistently          |
+| MCP server replacement     | Documented | Pending test  | See `WORKAROUND.md` - ready to test |
 
 ---
 
@@ -93,7 +93,7 @@ Example: "Agent-System.md | 616 lines | # Agent System Overview"
 
 ## 4. PreToolUse Read Override
 
-**Status**: In Testing (implemented 2026-01-13)
+**Status**: Tested, not effective
 
 **Description**: Use PreToolUse to intercept ALL Read calls, perform the read via Python (which is reliable), and deliver content to Claude.
 
@@ -227,61 +227,70 @@ Lines: 150 of 150
 - Are there file size limits on `permissionDecisionReason`?
 - How does this interact with binary files?
 
+### Test Results (2026-01-13)
+
+**Observed behavior**: The PreToolUse hooks fire inconsistently. When observed in terminal output, the hooks appeared to execute, but the agent still received `<persisted-output>` markers and proceeded without the intercepted content.
+
+**Failure mode**: Even when hooks did fire (visible in logs), the agent behaved as if they hadn't—continuing to report phantom reads in their normal failure pattern. The hook mechanism itself appears unreliable within Claude Code's execution environment.
+
+**Conclusion**: Hook-based workarounds are fundamentally unreliable. The Claude Code harness does not consistently execute hooks, or does not consistently deliver hook output to the agent. This affects both PreToolUse and PostToolUse approaches. The only remaining option is to bypass the native Read tool entirely via MCP server.
+
 ---
 
 ## 5. MCP Server Replacement
 
-**Status**: Not tested
+**Status**: Documented, pending test
 
-**Description**: Replace the native Read tool entirely with a custom MCP server that provides a reliable file reading tool.
+**Description**: Replace the native Read tool entirely with the official Anthropic Filesystem MCP server, and disable the native Read tool via permissions.
 
-### Proposed Implementation
+**Full Documentation**: See [`WORKAROUND.md`](../../WORKAROUND.md) in the project root for complete implementation instructions.
 
-Create an MCP server that provides:
-- `reliable_read` tool - reads files synchronously, never returns persisted-output
-- Possibly `reliable_grep` - if Grep also has issues
-- Session-wide file content cache
+### Key Discovery (2026-01-13)
+
+Research revealed that:
+
+1. **Official Filesystem MCP server exists**: [@modelcontextprotocol/server-filesystem](https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem) provides `read_text_file` and other file operations via standard Node.js file I/O.
+
+2. **Native tools can be disabled**: [GitHub Issue #1380](https://github.com/anthropics/claude-code/issues/1380) confirmed that `permissions.deny` in `.claude/settings.json` can disable any native tool, including `Read`.
+
+3. **Project-level configuration**: Both `.mcp.json` (MCP servers) and `.claude/settings.json` (permissions) can be checked into the repository.
 
 ### Architecture
 
 ```
-┌─────────────┐     ┌─────────────────┐     ┌──────────────┐
-│ Claude Code │────▶│ MCP Server      │────▶│ File System  │
-│   Agent     │◀────│ (reliable_read) │◀────│              │
-└─────────────┘     └─────────────────┘     └──────────────┘
+┌─────────────┐     ┌─────────────────────────┐     ┌──────────────┐
+│ Claude Code │────▶│ Filesystem MCP Server   │────▶│ File System  │
+│   Agent     │◀────│ (@modelcontextprotocol) │◀────│              │
+└─────────────┘     └─────────────────────────┘     └──────────────┘
+        │
+        ╳ Native Read tool DENIED via permissions
 ```
 
-### Implementation Sketch
+### Implementation Summary
 
-```python
-from mcp.server import Server
-
-app = Server("reliable-filesystem")
-
-@app.tool()
-async def reliable_read(file_path: str, offset: int = 0, limit: int = None) -> str:
-    """Read file content reliably. Never returns persisted-output markers."""
-    content = Path(file_path).read_text()
-    lines = content.splitlines()
-
-    if offset:
-        lines = lines[offset:]
-    if limit:
-        lines = lines[:limit]
-
-    return "\n".join(lines)
-```
+1. **`.mcp.json`** - Configure Filesystem MCP server with project path
+2. **`.claude/settings.json`** - Add `"Read"` to `permissions.deny`
+3. **`CLAUDE.md`** - Instruct agents to use `mcp__filesystem__read_text_file`
+4. **Restart Claude Code** - Verify with `/mcp` command
 
 ### Pros
-- Most reliable solution - completely bypasses bug
+- Uses official Anthropic MCP server (no custom code)
+- Completely bypasses native Read tool
 - Clean architecture - no hacks
-- Could add additional features (caching, validation)
+- Can be checked into repo for automatic setup
+- Provides additional tools (search, batch read, etc.)
 
 ### Cons
-- Highest implementation effort
-- Requires MCP server setup and configuration
-- Agents must be instructed to use `reliable_read` instead of `Read`
-- May not integrate seamlessly with existing tooling
+- Requires Node.js for MCP server
+- Absolute paths in configuration (not fully portable)
+- Agents must learn new tool names
+- Adds slight context overhead for additional tools
+
+### Next Steps
+
+1. Implement the configuration per `WORKAROUND.md`
+2. Test in a fresh Claude Code session
+3. Document results and update effectiveness rating
 
 ---
 
@@ -303,12 +312,23 @@ async def reliable_read(file_path: str, offset: int = 0, limit: int = None) -> s
 
 ## Recommendation
 
-**Try PreToolUse override next** (Approach #4). It's the most promising because:
-1. It doesn't rely on agent cooperation after the fact
-2. It completely bypasses the phantom read bug
-3. Content is delivered directly (albeit via deny reason)
+**Implement MCP server replacement** (Approach #5). All hook-based approaches have failed:
+1. Documentation warnings - agent ignores them
+2. PostToolUse detection - agent ignores feedback
+3. PreToolUse override - hooks fire inconsistently
 
-If that fails due to agents not understanding the pattern, fall back to **MCP server** (Approach #5) which is cleaner but requires more effort.
+The MCP server approach is the only remaining option that:
+1. Completely bypasses the native Read tool
+2. Doesn't rely on hooks (which are unreliable)
+3. Doesn't rely on agent cooperation
+4. Provides a clean, architecturally sound solution
+
+**Update (2026-01-13)**: The MCP approach is now fully documented in [`WORKAROUND.md`](../../WORKAROUND.md). Key findings:
+- The official Anthropic Filesystem MCP server can be used (no custom server needed)
+- Native tools can be disabled via `permissions.deny` in `.claude/settings.json`
+- The solution can be checked into the repository for automatic setup
+
+**Next action**: Test the documented workaround and report effectiveness.
 
 ---
 

@@ -8,7 +8,9 @@
       "Bash(cat:*)",
       "Skill(wsd:boot)",
       "Skill(wsd:onboard)",
-      "WebFetch(domain:docs.anthropic.com)"
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(bash /Users/gray/Projects/claude-code-bug-phantom-reads-17407/scripts/init_work_journal.sh:*)",
+      "WebFetch(domain:www.anthropic.com)"
     ],
     "deny": [
       "Read(./.env)",
