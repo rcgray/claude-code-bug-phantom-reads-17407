@@ -303,15 +303,15 @@ Primary Specifications:
 
 ### Spec Content Budget
 
-| File | Target Lines | Estimated Tokens |
-|------|-------------|------------------|
-| data-pipeline-overview.md | 500 | 6,000 |
-| module-alpha.md | 800 | 9,600 |
-| module-beta.md | 800 | 9,600 |
-| module-gamma.md | 800 | 9,600 |
-| integration-layer.md | 600 | 7,200 |
-| compliance-requirements.md | 400 | 4,800 |
-| **TOTAL** | **3,900** | **~46,800** |
+| File                       | Target Lines | Estimated Tokens |
+| -------------------------- | ------------ | ---------------- |
+| data-pipeline-overview.md  | 500          | 6,000            |
+| module-alpha.md            | 800          | 9,600            |
+| module-beta.md             | 800          | 9,600            |
+| module-gamma.md            | 800          | 9,600            |
+| integration-layer.md       | 600          | 7,200            |
+| compliance-requirements.md | 400          | 4,800            |
+| **TOTAL**                  | **3,900**    | **~46,800**      |
 
 ### Token Estimation Method
 
@@ -411,17 +411,17 @@ All errors in this feature manifest during trial execution and are detected thro
 
 ## Success Criteria
 
-| Test Case | Metric | Target Value |
-|-----------|--------|--------------|
-| Easy WPD | Max tokens | <100K |
-| Easy WPD | Context resets | 1-2 |
-| Easy WPD | Phantom read rate | 0% (5/5 succeed) |
-| Hard WPD | Max tokens | >150K |
-| Hard WPD | Context resets | 4+ |
-| Hard WPD | Phantom read rate | 100% (5/5 fail) |
-| Medium WPD | Max tokens | 120-150K |
-| Medium WPD | Context resets | 2-3 |
-| Medium WPD | Phantom read rate | 40-60% (mixed) |
+| Test Case  | Metric            | Target Value     |
+| ---------- | ----------------- | ---------------- |
+| Easy WPD   | Max tokens        | <100K            |
+| Easy WPD   | Context resets    | 1-2              |
+| Easy WPD   | Phantom read rate | 0% (5/5 succeed) |
+| Hard WPD   | Max tokens        | >150K            |
+| Hard WPD   | Context resets    | 4+               |
+| Hard WPD   | Phantom read rate | 100% (5/5 fail)  |
+| Medium WPD | Max tokens        | 120-150K         |
+| Medium WPD | Context resets    | 2-3              |
+| Medium WPD | Phantom read rate | 40-60% (mixed)   |
 
 ## Validation Methodology
 
@@ -510,89 +510,83 @@ The WPD Required Context sections use imperative language ("You MUST thoroughly 
 
 ### Phase 1: Directory Setup and Overview Document
 
-- [ ] **1.1** - Create directory structure for reproduction content
-  - [ ] **1.1.1** - Create `docs/specs/` directory
-  - [ ] **1.1.2** - Create `docs/wpds/` directory
-- [ ] **1.2** - Write `docs/specs/data-pipeline-overview.md`
-  - [ ] **1.2.1** - Write System Purpose section
-  - [ ] **1.2.2** - Create ASCII Architecture Diagram
-  - [ ] **1.2.3** - Write Module Summary section with Alpha, Beta, Gamma descriptions
-  - [ ] **1.2.4** - Write Data Flow section
-  - [ ] **1.2.5** - Write Cross-Cutting Concerns section with explicit references to integration and compliance specs
-  - [ ] **1.2.6** - Verify all six spec files are explicitly referenced
+- [x] **1.1** - Create directory structure for reproduction content
+  - [x] **1.1.1** - Create `docs/specs/` directory
+  - [x] **1.1.2** - Create `docs/wpds/` directory
+- [x] **1.2** - Write `docs/specs/data-pipeline-overview.md`
+  - [x] **1.2.1** - Write System Purpose section
+  - [x] **1.2.2** - Create ASCII Architecture Diagram
+  - [x] **1.2.3** - Write Module Summary section with Alpha, Beta, Gamma descriptions
+  - [x] **1.2.4** - Write Data Flow section
+  - [x] **1.2.5** - Write Cross-Cutting Concerns section with explicit references to integration and compliance specs
+  - [x] **1.2.6** - Verify all six spec files are explicitly referenced
 
 ### Phase 2: Module Specifications
 
-- [ ] **2.1** - Write `docs/specs/module-alpha.md` (Ingestion Module)
-  - [ ] **2.1.1** - Write Overview and Input Sources sections
-  - [ ] **2.1.2** - Write Data Structures section with schema definitions
-  - [ ] **2.1.3** - Write Validation Rules section (minimum 10 rules)
-  - [ ] **2.1.4** - Write Error Handling section (minimum 150 lines)
-  - [ ] **2.1.5** - Write Configuration section with 5+ named constants including `DEFAULT_BATCH_SIZE`
-  - [ ] **2.1.6** - Write Integration Points and Compliance sections with cross-references
-  - [ ] **2.1.7** - Verify total length is 700-900 lines
-- [ ] **2.2** - Write `docs/specs/module-beta.md` (Transformation Module)
-  - [ ] **2.2.1** - Write Overview and Transformation Pipeline sections
-  - [ ] **2.2.2** - Write Data Structures section with intermediate format definitions
-  - [ ] **2.2.3** - Write Transformation Rules section (minimum 15 rules)
-  - [ ] **2.2.4** - Write Error Handling section (minimum 150 lines)
-  - [ ] **2.2.5** - Write Configuration section with 5+ named constants
-  - [ ] **2.2.6** - Write Integration Points referencing Alpha, Gamma, and integration-layer
-  - [ ] **2.2.7** - Write Compliance section with cross-reference
-  - [ ] **2.2.8** - Verify total length is 700-900 lines
-- [ ] **2.3** - Write `docs/specs/module-gamma.md` (Output Module)
-  - [ ] **2.3.1** - Write Overview and Output Destinations sections
-  - [ ] **2.3.2** - Write Data Structures section with output format definitions
-  - [ ] **2.3.3** - Write Formatting Rules section (minimum 5 rules)
-  - [ ] **2.3.4** - Write Acknowledgment Flow section
-  - [ ] **2.3.5** - Write Error Handling section (minimum 150 lines)
-  - [ ] **2.3.6** - Write Configuration section with 5+ named constants
-  - [ ] **2.3.7** - Write Integration Points and Compliance sections with cross-references
-  - [ ] **2.3.8** - Verify total length is 700-900 lines
+- [x] **2.1** - Write `docs/specs/module-alpha.md` (Ingestion Module)
+  - [x] **2.1.1** - Write Overview and Input Sources sections
+  - [x] **2.1.2** - Write Data Structures section with schema definitions
+  - [x] **2.1.3** - Write Validation Rules section (minimum 10 rules)
+  - [x] **2.1.4** - Write Error Handling section (minimum 150 lines)
+  - [x] **2.1.5** - Write Configuration section with 5+ named constants including `DEFAULT_BATCH_SIZE`
+  - [x] **2.1.6** - Write Integration Points and Compliance sections with cross-references
+  - [x] **2.1.7** - Verify total length is 700-900 lines. This is non-negotiable.
+- [x] **2.2** - Write `docs/specs/module-beta.md` (Transformation Module)
+  - [x] **2.2.1** - Write Overview and Transformation Pipeline sections
+  - [x] **2.2.2** - Write Data Structures section with intermediate format definitions
+  - [x] **2.2.3** - Write Transformation Rules section (minimum 15 rules)
+  - [x] **2.2.4** - Write Error Handling section (minimum 150 lines)
+  - [x] **2.2.5** - Write Configuration section with 5+ named constants
+  - [x] **2.2.6** - Write Integration Points referencing Alpha, Gamma, and integration-layer
+  - [x] **2.2.7** - Write Compliance section with cross-reference
+  - [x] **2.2.8** - Verify total length is 700-900 lines. This is non-negotiable.
+- [x] **2.3** - Write `docs/specs/module-gamma.md` (Output Module)
+  - [x] **2.3.1** - Write Overview and Output Destinations sections
+  - [x] **2.3.2** - Write Data Structures section with output format definitions
+  - [x] **2.3.3** - Write Formatting Rules section (minimum 5 rules)
+  - [x] **2.3.4** - Write Acknowledgment Flow section
+  - [x] **2.3.5** - Write Error Handling section (minimum 150 lines)
+  - [x] **2.3.6** - Write Configuration section with 5+ named constants
+  - [x] **2.3.7** - Write Integration Points and Compliance sections with cross-references
+  - [x] **2.3.8** - Verify total length is 700-900 lines. This is non-negotiable.
 
 ### Phase 3: Cross-Cutting Specifications
 
-- [ ] **3.1** - Write `docs/specs/integration-layer.md`
-  - [ ] **3.1.1** - Write Overview and Message Formats sections with schema definitions
-  - [ ] **3.1.2** - Write Alpha-to-Beta Protocol section
-  - [ ] **3.1.3** - Write Beta-to-Gamma Protocol section
-  - [ ] **3.1.4** - Write Error Propagation section (minimum 100 lines, references all modules)
-  - [ ] **3.1.5** - Write Monitoring and Configuration sections
-  - [ ] **3.1.6** - Verify all three modules are referenced
-  - [ ] **3.1.7** - Verify total length is 500-700 lines
-- [ ] **3.2** - Write `docs/specs/compliance-requirements.md`
-  - [ ] **3.2.1** - Write Overview and Audit Logging sections
-  - [ ] **3.2.2** - Write Module Alpha Compliance section (numbered requirements)
-  - [ ] **3.2.3** - Write Module Beta Compliance section (numbered requirements)
-  - [ ] **3.2.4** - Write Module Gamma Compliance section (numbered requirements)
-  - [ ] **3.2.5** - Write Security and Reporting sections
-  - [ ] **3.2.6** - Verify total length is 300-500 lines
+- [x] **3.1** - Write `docs/specs/integration-layer.md`
+  - [x] **3.1.1** - Write Overview and Message Formats sections with schema definitions
+  - [x] **3.1.2** - Write Alpha-to-Beta Protocol section
+  - [x] **3.1.3** - Write Beta-to-Gamma Protocol section
+  - [x] **3.1.4** - Write Error Propagation section (minimum 100 lines, references all modules)
+  - [x] **3.1.5** - Write Monitoring and Configuration sections
+  - [x] **3.1.6** - Verify all three modules are referenced
+  - [x] **3.1.7** - Verify total length is 500-700 lines. This is non-negotiable.
+- [x] **3.2** - Write `docs/specs/compliance-requirements.md`
+  - [x] **3.2.1** - Write Overview and Audit Logging sections
+  - [x] **3.2.2** - Write Module Alpha Compliance section (numbered requirements)
+  - [x] **3.2.3** - Write Module Beta Compliance section (numbered requirements)
+  - [x] **3.2.4** - Write Module Gamma Compliance section (numbered requirements)
+  - [x] **3.2.5** - Write Security and Reporting sections
+  - [x] **3.2.6** - Verify total length is 300-500 lines. This is non-negotiable.
 
 ### Phase 4: WPD Creation
 
-- [ ] **4.1** - Write `docs/wpds/refactor-easy.md`
-  - [ ] **4.1.1** - Write Overview describing `DEFAULT_BATCH_SIZE` rename
-  - [ ] **4.1.2** - Write Required Context section referencing ONLY `module-alpha.md`
-  - [ ] **4.1.3** - Write Tasks checkboxlist with 3-5 tasks
-- [ ] **4.2** - Write `docs/wpds/refactor-hard.md`
-  - [ ] **4.2.1** - Write Overview describing Error Registry refactor
-  - [ ] **4.2.2** - Write Required Context section with directive language requiring ALL six specs
-  - [ ] **4.2.3** - Write Tasks checkboxlist with 10-15 tasks spanning all modules
-- [ ] **4.3** - Write `docs/wpds/refactor-medium.md`
-  - [ ] **4.3.1** - Write Overview describing Alpha-Beta streaming handoff
-  - [ ] **4.3.2** - Write Required Context section with two-tier structure (MUST vs recommended)
-  - [ ] **4.3.3** - Write Tasks checkboxlist with 6-8 tasks
+- [x] **4.1** - Write `docs/wpds/refactor-easy.md`
+  - [x] **4.1.1** - Write Overview describing `DEFAULT_BATCH_SIZE` rename
+  - [x] **4.1.2** - Write Required Context section referencing ONLY `module-alpha.md`
+  - [x] **4.1.3** - Write Tasks checkboxlist with 3-5 tasks
+- [x] **4.2** - Write `docs/wpds/refactor-hard.md`
+  - [x] **4.2.1** - Write Overview describing Error Registry refactor
+  - [x] **4.2.2** - Write Required Context section with directive language requiring ALL six specs
+  - [x] **4.2.3** - Write Tasks checkboxlist with 10-15 tasks spanning all modules
+- [x] **4.3** - Write `docs/wpds/refactor-medium.md`
+  - [x] **4.3.1** - Write Overview describing Alpha-Beta streaming handoff
+  - [x] **4.3.2** - Write Required Context section with two-tier structure (MUST vs recommended)
+  - [x] **4.3.3** - Write Tasks checkboxlist with 6-8 tasks
 
 ### Phase 5: Documentation and Validation
 
-- [ ] **5.1** - Update README.md with reproduction environment documentation
-  - [ ] **5.1.1** - Add section explaining `docs/specs/` purpose and contents
-  - [ ] **5.1.2** - Add section explaining `docs/wpds/` purpose and expected outcomes
-  - [ ] **5.1.3** - Add validation methodology reference
-- [ ] **5.2** - Verify content integrity
-  - [ ] **5.2.1** - Verify all file references in WPDs resolve correctly
-  - [ ] **5.2.2** - Verify all cross-references within specs are valid
-  - [ ] **5.2.3** - Verify each spec meets minimum line count
-- [ ] **5.3** - Conduct initial validation trials (if time permits)
-  - [ ] **5.3.1** - Run one easy trial and verify success
-  - [ ] **5.3.2** - Run one hard trial and verify failure
+- [x] **5.1** - Verify content integrity
+  - [x] **5.1.1** - Verify all file references in WPDs resolve correctly
+  - [x] **5.1.2** - Verify all cross-references within specs are valid
+  - [x] **5.1.3** - Verify each spec meets minimum line count
+

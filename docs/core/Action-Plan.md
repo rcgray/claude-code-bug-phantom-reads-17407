@@ -34,7 +34,7 @@ The following are the steps for implementing the project, where the full list is
 
 ## Phase 3: Reproduction Environment - Three Specs
 
-- [ ] **3.1** - Create Reproduction-Specs-Collection feature (see `docs/features/reproduction-specs-collection/Reproduction-Specs-Collection-Overview.md`)
+- [x] **3.1** - Create Reproduction-Specs-Collection feature (see `docs/features/reproduction-specs-collection/Reproduction-Specs-Collection-Overview.md`)
 - [ ] **3.2** - Execute manual reproduction trial of the three specs created in previous Phase
   - [ ] **3.2.1** - Run `/wsd:init --custom` in a fresh Claude Code session
   - [ ] **3.2.2** - Run `/refine-plan` against the trigger WSDs
