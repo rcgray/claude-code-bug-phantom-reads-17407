@@ -52,7 +52,7 @@ Collect-Trials-Script-Overview.md`)
 
 ## Phase 4: Analysis Tools
 
-- [ ] **4.1** - Create the `cc_version.py` script (see `docs/features/cc-version-script/CC-Version-Script-Overview.md`)
+- [x] **4.1** - Create the `cc_version.py` script (see `docs/features/cc-version-script/CC-Version-Script-Overview.md`)
 - [ ] **4.2** - Create the `collect_trials.py` script (see `docs/features/collect-trials-script/Collect-Trials-Script-Overview.md`)
 - [ ] **4.3** - Design and create analysis scripts feature
 - [ ] **4.4** - Run sample experiments as we would expect end-users to run them. Evaluate analysis scripts results.

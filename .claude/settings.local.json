@@ -14,7 +14,11 @@
       "Bash(ls:*)",
       "Bash(grep:*)",
       "Bash(fi)",
-      "Bash(wc:*)"
+      "Bash(wc:*)",
+      "Bash(uv sync:*)",
+      "Bash(./wsd.py:*)",
+      "Bash(find:*)",
+      "Bash(sed:*)"
     ],
     "deny": [
       "Read(./.env)",

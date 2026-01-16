@@ -466,41 +466,41 @@ The script uses `~/.claude/` exclusively and does not detect or adapt to Windows
 
 ### Phase 3: Version Query Operations
 
-- [ ] **3.1** - Implement `--list` command
-  - [ ] **3.1.1** - Implement `list_versions()` function
-  - [ ] **3.1.2** - Execute `npm view @anthropic-ai/claude-code versions` (no `--json` flag)
-  - [ ] **3.1.3** - Pass through npm's human-readable output directly to stdout
-- [ ] **3.2** - Implement `--status` command
-  - [ ] **3.2.1** - Implement `get_auto_update_status()` to check settings
-  - [ ] **3.2.2** - Implement `get_installed_version()` parsing `claude --version` output
-  - [ ] **3.2.3** - Implement `get_latest_version()` from npm versions list
-  - [ ] **3.2.4** - Implement `show_status()` combining all three values
+- [x] **3.1** - Implement `--list` command
+  - [x] **3.1.1** - Implement `list_versions()` function
+  - [x] **3.1.2** - Execute `npm view @anthropic-ai/claude-code versions` (no `--json` flag)
+  - [x] **3.1.3** - Pass through npm's human-readable output directly to stdout
+- [x] **3.2** - Implement `--status` command
+  - [x] **3.2.1** - Implement `get_auto_update_status()` to check settings
+  - [x] **3.2.2** - Implement `get_installed_version()` parsing `claude --version` output
+  - [x] **3.2.3** - Implement `get_latest_version()` from npm versions list
+  - [x] **3.2.4** - Implement `show_status()` combining all three values
 
 ### Phase 4: Version Installation
 
-- [ ] **4.1** - Implement version validation
-  - [ ] **4.1.1** - Implement `get_available_versions()` returning list from npm
-  - [ ] **4.1.2** - Implement `validate_version(version)` checking against available versions
-- [ ] **4.2** - Implement `--install` command
-  - [ ] **4.2.1** - Implement `install_version(version)` function
-  - [ ] **4.2.2** - Execute npm uninstall command
-  - [ ] **4.2.3** - Execute npm cache clean command
-  - [ ] **4.2.4** - Execute npm install command with version
-  - [ ] **4.2.5** - Verify installation with `claude --version`
-- [ ] **4.3** - Implement `--reset` command
-  - [ ] **4.3.1** - Implement `reset_to_defaults()` function
-  - [ ] **4.3.2** - Call enable_auto_update()
-  - [ ] **4.3.3** - Install latest version
+- [x] **4.1** - Implement version validation
+  - [x] **4.1.1** - Implement `get_available_versions()` returning list from npm
+  - [x] **4.1.2** - Implement `validate_version(version)` checking against available versions
+- [x] **4.2** - Implement `--install` command
+  - [x] **4.2.1** - Implement `install_version(version)` function
+  - [x] **4.2.2** - Execute npm uninstall command
+  - [x] **4.2.3** - Execute npm cache clean command
+  - [x] **4.2.4** - Execute npm install command with version
+  - [x] **4.2.5** - Verify installation with `claude --version`
+- [x] **4.3** - Implement `--reset` command
+  - [x] **4.3.1** - Implement `reset_to_defaults()` function
+  - [x] **4.3.2** - Call enable_auto_update()
+  - [x] **4.3.3** - Install latest version
 
 ### Phase 5: CLI Integration
 
-- [ ] **5.1** - Implement argument parsing
-  - [ ] **5.1.1** - Create `argparse.ArgumentParser` with description
-  - [ ] **5.1.2** - Add mutually exclusive group for commands
-  - [ ] **5.1.3** - Add all command flags with help text
-- [ ] **5.2** - Implement main entry point
-  - [ ] **5.2.1** - Implement `main()` function with prerequisite validation
-  - [ ] **5.2.2** - Dispatch to appropriate handler based on arguments
-  - [ ] **5.2.3** - Add `if __name__ == "__main__"` block
-- [ ] **5.3** - Verify script is executable
-  - [ ] **5.3.1** - Ensure file has executable permissions (`chmod +x`)
+- [x] **5.1** - Implement argument parsing
+  - [x] **5.1.1** - Create `argparse.ArgumentParser` with description
+  - [x] **5.1.2** - Add mutually exclusive group for commands
+  - [x] **5.1.3** - Add all command flags with help text
+- [x] **5.2** - Implement main entry point
+  - [x] **5.2.1** - Implement `main()` function with prerequisite validation
+  - [x] **5.2.2** - Dispatch to appropriate handler based on arguments
+  - [x] **5.2.3** - Add `if __name__ == "__main__"` block
+- [x] **5.3** - Verify script is executable
+  - [x] **5.3.1** - Ensure file has executable permissions (`chmod +x`)

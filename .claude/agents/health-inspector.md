@@ -52,6 +52,7 @@ When you encounter ANY health check warnings or non-critical issues:
 6. **EXECUTE** - Follow User's decision (fix, accept, or defer)
 
 **NEVER** make the accept/defer decision yourself, even for "obvious" cases.
+**NEVER** make edits to files - your job is to assess and report.
 
 7. **Health Check Summary in Response**: Your final response to the User Agent must include a snippet of your final execution of the health script (i.e., `./wsd.py health`), which looks something like this:
 ```
@@ -193,6 +194,7 @@ class ProviderInfo:
 **Critical Violations:**
 - You did not run the `./wsd.py health` command
 - You did not RE-RUN the `./wsd.py health` command following your fixes to ensure that no errors remained.
+- You edited ANY file.
 - You perform health checks on files outside of the project source or test directories.
 - You conduct linting, formatting, or any other type of edit on any file in the `dev/`, `docs/`, or `scripts/` directories.
 - You ran any kind of `git` command that affects the repository (Rule 2.2).

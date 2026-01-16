@@ -23,6 +23,7 @@ Usage:
     ./src/cc_version.py --reset
 """
 
+import argparse
 import json
 import shutil
 import subprocess
@@ -270,3 +271,437 @@ def enable_auto_update() -> None:
 
     write_settings(settings)
     print("Auto-update enabled.")
+
+
+def list_versions() -> None:
+    """List all available Claude Code versions from npm registry.
+
+    Executes 'npm view @anthropic-ai/claude-code versions' and passes
+    the human-readable output directly to stdout. This provides users
+    with a quick view of all available versions without JSON parsing.
+
+    Returns:
+        None
+
+    Raises:
+        SystemExit: If npm command fails, exits with code 1.
+    """
+    result = subprocess.run(
+        ["npm", "view", "@anthropic-ai/claude-code", "versions"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    if result.returncode != 0:
+        print(
+            f"Error: npm command failed with exit code {result.returncode}.",
+            file=sys.stderr,
+        )
+        if result.stderr:
+            print(f"npm output: {result.stderr.strip()}", file=sys.stderr)
+        sys.exit(1)
+
+    print(result.stdout, end="")
+
+
+def get_auto_update_status() -> str:
+    """Get the current auto-update status from settings.
+
+    Reads ~/.claude/settings.json and checks if env.DISABLE_AUTOUPDATER
+    is set to "1".
+
+    Returns:
+        "Disabled" if auto-update is disabled, "Enabled" otherwise.
+
+    Raises:
+        FileNotFoundError: If settings.json does not exist.
+        ValueError: If settings.json is empty or contains invalid JSON.
+        TypeError: If env key exists but is not a dictionary.
+    """
+    settings = read_settings()
+    if settings.get("env", {}).get("DISABLE_AUTOUPDATER") == "1":
+        return "Disabled"
+    return "Enabled"
+
+
+def get_installed_version() -> str:
+    """Get the currently installed Claude Code version.
+
+    Executes 'claude --version' and parses the output to extract
+    the version number. Expected output format: "2.1.3 (Claude Code)"
+
+    Returns:
+        Version string (e.g., "2.1.3").
+
+    Raises:
+        RuntimeError: If claude command fails or output cannot be parsed.
+    """
+    result = subprocess.run(
+        ["claude", "--version"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"Failed to get Claude Code version. Exit code: {result.returncode}\n"
+            f"stderr: {result.stderr.strip() if result.stderr else '(none)'}"
+        )
+
+    # Parse version from output like "2.1.3 (Claude Code)"
+    output = result.stdout.strip()
+    if not output:
+        raise RuntimeError("Claude version command returned empty output.")
+
+    # Extract version number (first space-separated token)
+    version = output.split()[0]
+    return version
+
+
+def get_available_versions() -> list[str]:
+    """Fetch all available Claude Code versions from npm registry.
+
+    Queries the npm registry for @anthropic-ai/claude-code package and
+    returns the complete list of available versions for validation and
+    installation purposes.
+
+    Returns:
+        List of version strings sorted by npm (oldest to newest).
+
+    Raises:
+        RuntimeError: If npm command fails or output cannot be parsed.
+    """
+    result = subprocess.run(
+        ["npm", "view", "@anthropic-ai/claude-code", "versions", "--json"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"Failed to fetch versions from npm. Exit code: {result.returncode}\n"
+            f"npm output: {result.stderr.strip() if result.stderr else '(none)'}"
+        )
+
+    try:
+        versions = json.loads(result.stdout)
+    except json.JSONDecodeError as e:
+        raise RuntimeError(f"Failed to parse npm JSON output: {e}") from e
+
+    if not isinstance(versions, list) or not versions:
+        raise RuntimeError("npm returned empty or invalid versions list.")
+
+    return [str(v) for v in versions]
+
+
+def get_latest_version() -> str:
+    """Get the latest available Claude Code version from npm.
+
+    Fetches the complete version list and returns the last element,
+    which represents the most recent release.
+
+    Returns:
+        Latest version string (e.g., "2.1.6").
+
+    Raises:
+        RuntimeError: If npm command fails or output cannot be parsed.
+    """
+    versions = get_available_versions()
+    return versions[-1]
+
+
+def validate_version(version: str) -> bool:
+    """Validate that a version string exists in available npm versions.
+
+    Checks the requested version against the list of versions available
+    in the npm registry for @anthropic-ai/claude-code package.
+
+    Args:
+        version: Version string to validate (e.g., "2.0.58").
+
+    Returns:
+        True if version exists in available versions, False otherwise.
+
+    Raises:
+        RuntimeError: If npm command fails during version fetch.
+    """
+    available_versions = get_available_versions()
+    return version in available_versions
+
+
+def install_version(version: str) -> None:
+    """Install a specific Claude Code version.
+
+    Orchestrates npm commands to install the specified version: uninstalls
+    current version, cleans npm cache, installs target version, and verifies
+    installation success.
+
+    Args:
+        version: Version string to install (e.g., "2.0.58").
+
+    Returns:
+        None
+
+    Raises:
+        SystemExit: If version validation fails or any npm command fails.
+    """
+    # Validate version exists before attempting installation
+    print(f"Validating version {version}...")
+    try:
+        if not validate_version(version):
+            print(
+                f"Error: Version '{version}' not found.\nUse --list to see available versions.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+    except RuntimeError as e:
+        print(f"Error validating version: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # Step 1: Uninstall current version
+    print("Uninstalling current Claude Code version...")
+    result = subprocess.run(
+        ["npm", "uninstall", "-g", "@anthropic-ai/claude-code"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        print(
+            f"Error: npm uninstall failed with exit code {result.returncode}.",
+            file=sys.stderr,
+        )
+        if result.stderr:
+            print(f"npm output: {result.stderr.strip()}", file=sys.stderr)
+        sys.exit(1)
+
+    # Step 2: Clean npm cache
+    print("Cleaning npm cache...")
+    result = subprocess.run(
+        ["npm", "cache", "clean", "--force"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        print(
+            f"Error: npm cache clean failed with exit code {result.returncode}.",
+            file=sys.stderr,
+        )
+        if result.stderr:
+            print(f"npm output: {result.stderr.strip()}", file=sys.stderr)
+        sys.exit(1)
+
+    # Step 3: Install specified version
+    print(f"Installing Claude Code version {version}...")
+    result = subprocess.run(
+        ["npm", "install", "-g", f"@anthropic-ai/claude-code@{version}"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        print(
+            f"Error: npm install failed with exit code {result.returncode}.",
+            file=sys.stderr,
+        )
+        if result.stderr:
+            print(f"npm output: {result.stderr.strip()}", file=sys.stderr)
+        sys.exit(1)
+
+    # Step 4: Verify installation
+    print("Verifying installation...")
+    try:
+        installed = get_installed_version()
+        if installed == version:
+            print(f"Successfully installed Claude Code version {version}.")
+        else:
+            print(
+                f"Warning: Requested version {version}, but {installed} is installed.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+    except RuntimeError as e:
+        print(f"Error verifying installation: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def reset_to_defaults() -> None:
+    """Reset Claude Code to Anthropic-intended default state.
+
+    Performs two operations in sequence:
+    1. Enables auto-updates by removing env.DISABLE_AUTOUPDATER from settings
+    2. Installs the latest available version
+
+    This restores the system to the state Anthropic intends for normal operation.
+
+    Returns:
+        None
+
+    Raises:
+        SystemExit: If any operation fails.
+    """
+    # Step 1: Enable auto-updates
+    print("Enabling auto-updates...")
+    try:
+        settings = read_settings()
+
+        # Only modify if auto-update is currently disabled
+        if settings.get("env", {}).get("DISABLE_AUTOUPDATER") == "1":
+            del settings["env"]["DISABLE_AUTOUPDATER"]
+            if not settings["env"]:
+                del settings["env"]
+            write_settings(settings)
+            print("Auto-update enabled.")
+        else:
+            print("Auto-update is already enabled.")
+
+    except (FileNotFoundError, ValueError, TypeError) as e:
+        print(f"Error enabling auto-update: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # Step 2: Install latest version
+    print("Installing latest version...")
+    try:
+        latest = get_latest_version()
+        print(f"Latest version is {latest}.")
+    except RuntimeError as e:
+        print(f"Error getting latest version: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    install_version(latest)
+    print("Reset to defaults complete.")
+
+
+def show_status() -> None:
+    """Display current Claude Code installation status.
+
+    Shows auto-updater state, installed version, and latest available
+    version in a clear, readable format.
+
+    Returns:
+        None
+
+    Raises:
+        SystemExit: If any status check fails, exits with code 1.
+    """
+    try:
+        auto_update_status = get_auto_update_status()
+    except (FileNotFoundError, ValueError, TypeError) as e:
+        print(f"Error checking auto-update status: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        installed_version = get_installed_version()
+    except RuntimeError as e:
+        print(f"Error getting installed version: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        latest_version = get_latest_version()
+    except RuntimeError as e:
+        print(f"Error getting latest version: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"Auto-update: {auto_update_status}")
+    print(f"Installed version: {installed_version}")
+    print(f"Latest version: {latest_version}")
+
+
+def create_parser() -> argparse.ArgumentParser:
+    """Create and configure the argument parser for the CLI.
+
+    Builds an ArgumentParser with mutually exclusive command flags for
+    all supported operations. Only one command may be specified per
+    invocation.
+
+    Returns:
+        Configured ArgumentParser instance.
+    """
+    parser = argparse.ArgumentParser(
+        description="Manage Claude Code version installation and auto-update settings.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    commands = parser.add_mutually_exclusive_group(required=True)
+
+    commands.add_argument(
+        "--disable-auto-update",
+        action="store_true",
+        help='Set env.DISABLE_AUTOUPDATER to "1" in ~/.claude/settings.json',
+    )
+
+    commands.add_argument(
+        "--enable-auto-update",
+        action="store_true",
+        help="Remove env.DISABLE_AUTOUPDATER from ~/.claude/settings.json",
+    )
+
+    commands.add_argument(
+        "--list",
+        action="store_true",
+        dest="list_versions",
+        help="List available Claude Code versions from npm registry (human-readable output)",
+    )
+
+    commands.add_argument(
+        "--status",
+        action="store_true",
+        help="Show auto-updater state, currently installed version, and latest available version",
+    )
+
+    commands.add_argument(
+        "--install",
+        metavar="VERSION",
+        help="Install specific Claude Code version (validates against available versions first)",
+    )
+
+    commands.add_argument(
+        "--reset",
+        action="store_true",
+        help="Restore defaults: enable auto-update and install latest version",
+    )
+
+    return parser
+
+
+def main() -> int:
+    """Main entry point for the cc_version CLI.
+
+    Validates prerequisites, parses command-line arguments, and dispatches
+    to the appropriate handler function based on the selected command.
+
+    Returns:
+        Exit code (0 for success, 1 for any error).
+    """
+    if not validate_prerequisites():
+        return 1
+
+    parser = create_parser()
+    args = parser.parse_args()
+
+    try:
+        if args.disable_auto_update:
+            disable_auto_update()
+        elif args.enable_auto_update:
+            enable_auto_update()
+        elif args.list_versions:
+            list_versions()
+        elif args.status:
+            show_status()
+        elif args.install:
+            install_version(args.install)
+        elif args.reset:
+            reset_to_defaults()
+    except (FileNotFoundError, ValueError, TypeError, OSError) as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
