@@ -49,6 +49,7 @@ In addition to the Terms and Definitions you learned as part of the Workscope-De
 - "Era 2": (mentioned above) Refers to sessions that took place in builds `2.0.60` and later, where deferred reads are handled differently by the Claude Code harness. For example, we have a pair of sessions in `dev/misc/example-sessions/` called `2.1.6-good` (success) and `2.1.6-bad` (phantom read) that were generated in that build.
 - "Flat Architecture": A session (`.jsonl` files) in which the core session file and the breakout agent session files are stored adjacent in a directory, with only their session IDs to link them. This is an older architecture that changed somewhere between build `2.0.60` and `2.1.3`.
 - "Hierarchical Architecture": A session (`.jsonl` files) in which the core session file is accompanied by a directory of the same name, which stores all of the breakout agent session files associated with that core session as well as any tool outputs. This is the newer (current) architecture that changed somewhere between build `2.0.60` and `2.1.3`.
+- "Hybrid Architecture": A session (`.jsonl` files) in which the core session file is accompanied by a directory of the same name AND breakout agent session files stored adjacent in the same directory. We have seen sessions in build `2.0.60` use this pattern.
 
 ## Key Features
 

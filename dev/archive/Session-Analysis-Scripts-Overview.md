@@ -1,5 +1,7 @@
 # Session Analysis Scripts Specification
 
+**NOTE:** this feature spec was replaced by better targeted features. `collect_trials.py` is coverd by `collect-trials-script` feature, but this might be useful for informing a future analysis script like `analyze_trials.py`.
+
 **Version:** 1.0.0
 **Date:** 2026-01-12
 **Status:** Draft

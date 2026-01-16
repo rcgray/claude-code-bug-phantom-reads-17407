@@ -5,8 +5,10 @@ This document tracks our investigation into Claude Code session file structure a
 **Purpose**: Inform the design of the Session Analysis Scripts feature by examining real session data.
 
 **Sample Data**:
-- Era 1 (old mechanism): `2.0.58-good/`, `2.0.58-bad/`
-- Era 2 (new mechanism): `2.1.6-good/`, `2.1.6-bad/`
+- Era 1 (≤2.0.59, `[Old tool result content cleared]` mechanism): `2.0.58-good/`, `2.0.58-bad/`, `2.0.59-bad/`
+- Era 2 (≥2.0.60, `<persisted-output>` mechanism): `2.0.60-good/`, `2.0.60-bad/`, `2.1.3-bad/`, `2.1.6-good/`, `2.1.6-bad/`
+
+**Note on Eras vs File Structures**: Eras describe the phantom read error mechanism (what markers agents see). File structure (flat/hybrid/hierarchical) describes how session files are organized on disk. These are **independent concepts**—see Question 1 for structure details.
 
 ---
 
@@ -29,11 +31,11 @@ Filename: 0357781f-d024-4cef-8496-56501c76afb3.jsonl
 Line 2: {"type": "user", "sessionId": "0357781f-d024-4cef-8496-56501c76afb3", "version": "2.1.6", ...}
 ```
 
-#### Directory Structure Changes
+#### Directory Structure Types
 
-The session file organization differs between eras:
+Three distinct session file organizations have been observed. These structures are **independent of Era** (the phantom read mechanism); a session's structure is determined by how Claude Code organizes files, not by which error markers appear during phantom reads.
 
-**Era 1 (2.0.58 and earlier)**:
+**Flat Structure** (observed in 2.0.58, 2.0.59 samples):
 ```
 {project-sessions-dir}/
 ├── {sessionId}.jsonl           # Main session
@@ -42,9 +44,22 @@ The session file organization differs between eras:
 └── agent-{shortId}.jsonl       # Sub-agent 3
 ```
 
-All files are flat in the same directory. Agent files reference the parent session via the `sessionId` field in their messages.
+All files are flat in the same directory. No session subdirectory exists. Agent files reference the parent session via the `sessionId` field in their messages.
 
-**Era 2 (2.1.6 and later)**:
+**Hybrid Structure** (observed in some 2.0.60 samples; may exist in other versions):
+```
+{project-sessions-dir}/
+├── {sessionId}.jsonl           # Main session
+├── agent-{shortId}.jsonl       # Sub-agent files (still at root level)
+├── agent-{shortId}.jsonl
+└── {sessionId}/                # Session subdirectory
+    └── tool-results/           # Only tool-results, no subagents/
+        └── toolu_{toolUseId}.txt
+```
+
+The hybrid structure has agent files at the root level (like flat), but also has a session subdirectory containing `tool-results/`. We have limited samples, so we cannot definitively state which versions produce this structure.
+
+**Hierarchical Structure** (observed in 2.1.3+, 2.1.6 samples; may exist in other versions):
 ```
 {project-sessions-dir}/
 ├── {sessionId}.jsonl           # Main session
@@ -55,7 +70,7 @@ All files are flat in the same directory. Agent files reference the parent sessi
         └── toolu_{toolUseId}.txt
 ```
 
-The session now has its own subdirectory containing subagents and persisted tool results.
+The session has its own subdirectory containing both subagents and persisted tool results. No agent files exist at the root level.
 
 #### Linking Mechanism
 
@@ -63,9 +78,9 @@ The session now has its own subdirectory containing subagents and persisted tool
 
 1. **Identify the main session file**: Any `.jsonl` file with a UUID-format filename
 2. **Check for matching subdirectory**: Look for a directory named `{sessionId}/`
-3. **Choose association strategy based on directory existence** (not version number):
-   - **If subdirectory exists**: Use hierarchical structure (organized for us)
-   - **If no subdirectory**: Use flat structure (scan sibling agent files)
+3. **Use unified collection algorithm** that handles all three structures:
+   - Copy the subdirectory if it exists (handles `tool-results/` and/or `subagents/`)
+   - ALWAYS scan root-level agent files (they may or may not exist)
 
 #### Algorithm for Session Association
 
@@ -73,64 +88,79 @@ The session now has its own subdirectory containing subagents and persisted tool
 def find_session_files(main_session_path: Path) -> dict:
     """
     Find all files associated with a session.
-    
-    The algorithm checks for directory existence to determine structure,
-    independent of Claude Code version number.
-    
+
+    Uses a unified algorithm that handles all three structure types
+    (flat, hybrid, and hierarchical) without needing to detect which
+    type we're dealing with.
+
     Returns:
         {
             'main': Path to main session file,
             'agents': List of agent file paths,
-            'tool_results': List of tool result file paths (hierarchical only)
+            'tool_results': List of tool result file paths
         }
     """
     session_id = extract_session_id(main_session_path)
     session_dir = main_session_path.parent
-    
+
     result = {
         'main': main_session_path,
         'agents': [],
         'tool_results': []
     }
-    
-    # Check for hierarchical subdirectory structure
+
+    # Check for session subdirectory (exists in hybrid and hierarchical)
     session_subdir = session_dir / session_id
     if session_subdir.exists():
-        # Hierarchical: Look in organized subdirectory
+        # Copy any organized content from subdirectory
         subagents_dir = session_subdir / 'subagents'
         if subagents_dir.exists():
-            result['agents'] = list(subagents_dir.glob('agent-*.jsonl'))
-        
+            result['agents'].extend(subagents_dir.glob('agent-*.jsonl'))
+
         tool_results_dir = session_subdir / 'tool-results'
         if tool_results_dir.exists():
             result['tool_results'] = list(tool_results_dir.glob('toolu_*.txt'))
-    else:
-        # Flat: Scan all agent-*.jsonl files in same directory
-        for agent_file in session_dir.glob('agent-*.jsonl'):
-            if extract_session_id(agent_file) == session_id:
-                result['agents'].append(agent_file)
-    
+
+    # ALWAYS scan root-level agent files (exist in flat and hybrid)
+    for agent_file in session_dir.glob('agent-*.jsonl'):
+        if file_contains_session_id(agent_file, session_id):
+            result['agents'].append(agent_file)
+
     return result
 ```
 
+**Why this unified approach works:**
+- The subdirectory check handles any content that exists there (empty operation if no subdirectory)
+- The root-level scan finds agents in flat/hybrid structures (empty operation if none exist)
+- No structure detection logic needed - algorithm is correct for all cases
+
 ### Verification
 
-**2.0.58-good sample**:
+**2.0.58-good sample** (flat structure):
 - Main session: `c489af7a-584d-4276-a76c-ddb29f988ace.jsonl`
-- Agent files: `agent-07bd3f25.jsonl`, `agent-17c7da61.jsonl`, `agent-af401ba5.jsonl`
+- Agent files: `agent-07bd3f25.jsonl`, `agent-17c7da61.jsonl`, `agent-af401ba5.jsonl` (at root)
+- No session subdirectory
 - All agent files contain `sessionId: c489af7a-584d-4276-a76c-ddb29f988ace` ✓
 
-**2.1.6-good sample**:
+**2.0.60-bad sample** (hybrid structure):
+- Main session: `b6240830-5041-465e-aad0-910c13cd9b6c.jsonl`
+- Agent files: `agent-1698e3ad.jsonl`, `agent-375bb764.jsonl`, `agent-a382dbae.jsonl` (at root)
+- Subdirectory: `b6240830-5041-465e-aad0-910c13cd9b6c/` exists
+- Subdirectory contains: `tool-results/` only (no `subagents/`)
+- All agent files contain `sessionId: b6240830-5041-465e-aad0-910c13cd9b6c` ✓
+
+**2.1.6-good sample** (hierarchical structure):
 - Main session: `0357781f-d024-4cef-8496-56501c76afb3.jsonl`
+- No agent files at root level
 - Subdirectory: `0357781f-d024-4cef-8496-56501c76afb3/`
 - Agent file: `subagents/agent-aee03d2.jsonl` (contains matching sessionId) ✓
 
 ### Design Implications for Session Analysis Scripts
 
 1. **Session discovery**: Find main sessions by identifying `.jsonl` files with UUID-format filenames
-2. **Structure detection**: Check for subdirectory existence, not version number
-3. **Associated files**: Use directory structure if available, fall back to flat scanning
-4. **Tool results**: Only present in hierarchical structure; contain actual persisted content
+2. **Use unified algorithm**: Don't try to detect structure type - handle all cases uniformly
+3. **Always check both locations**: Subdirectory content AND root-level agent files
+4. **Tool results**: Only present when subdirectory exists (hybrid and hierarchical)
 
 ---
 
@@ -164,8 +194,9 @@ $ grep -o "20260113-095602" 0357781f-d024-4cef-8496-56501c76afb3.jsonl
 ⏺ Bash(bash scripts/init_work_journal.sh "20260113-095602")
 ```
 
-**Verified in both directory structure types**:
+**Verified in all structure types**:
 - 2.0.58-good (flat): Workscope ID `20260113-020300` appears in both session and export
+- 2.0.60-bad (hybrid): Workscope ID appears in both session and export
 - 2.1.6-good (hierarchical): Workscope ID `20260113-095602` appears in both session and export
 
 #### Why This Works
@@ -178,46 +209,48 @@ Since `/wsd:init --custom` is already part of the reproduction steps for each tr
 def extract_workscope_id(file_path: Path) -> Optional[str]:
     """
     Extract Workscope ID from a file.
-    
-    Pattern: "Workscope ID: YYYYMMDD-HHMMSS"
-    
+
+    Handles both formats found in chat exports:
+    - "Workscope ID: YYYYMMDD-HHMMSS" (inline mentions)
+    - "Workscope ID: Workscope-YYYYMMDD-HHMMSS" (Work Journal headers)
+
     Returns:
         Workscope ID string (YYYYMMDD-HHMMSS) if found, None otherwise
     """
-    pattern = r'Workscope ID: (\d{8}-\d{6})'
-    
+    pattern = r'Workscope ID:?\s*(?:Workscope-)?(\d{8}-\d{6})'
+
     with open(file_path, 'r', encoding='utf-8') as f:
         content = f.read()
-    
+
     match = re.search(pattern, content)
     if match:
         return match.group(1)
-    
+
     return None
 
 
 def match_session_to_export(session_path: Path, exports_dir: Path) -> Optional[Path]:
     """
     Find the export file that matches a session file.
-    
+
     Returns:
         Path to matching export, or None if no match found
     """
     workscope_id = extract_workscope_id(session_path)
     if not workscope_id:
         return None
-    
+
     for export_file in exports_dir.glob('*.txt'):
         export_id = extract_workscope_id(export_file)
         if export_id == workscope_id:
             return export_file
-    
+
     return None
 ```
 
 ### Design Implications for Session Analysis Scripts
 
-1. **Trial identification**: Use `Workscope ID: YYYYMMDD-HHMMSS` pattern
+1. **Trial identification**: Use `Workscope ID:?\s*(?:Workscope-)?(\d{8}-\d{6})` pattern
 2. **Export matching**: Scan exports for matching Workscope ID, not filename
 3. **Optional exports**: Exports are optional; sessions without matching exports are still valid trials
 4. **First match wins**: Use first occurrence of pattern in file
@@ -314,7 +347,7 @@ Both main session and subagent files were scanned - no `<persisted-output>` mark
    ```json
    {
      "tool_use_id": "toolu_0162qTLwBAPom8tHQpddvAev",
-     "type": "tool_result", 
+     "type": "tool_result",
      "content": "     1→\"\"\"Stage Release Script for WSD Development..."
    }
    ```
@@ -513,16 +546,16 @@ More resets = more opportunities for critical file content to be cleared before 
 def count_context_resets(session_path: Path, threshold: int = 10000) -> list[tuple[int, int, int]]:
     """
     Count context resets in a session file.
-    
+
     A reset is detected when cache_read_input_tokens drops by more than
     the threshold between consecutive assistant messages.
-    
+
     Returns:
         List of (line_number, before_value, after_value) tuples
     """
     resets = []
     prev_cache_read = 0
-    
+
     with open(session_path, 'r') as f:
         for i, line in enumerate(f, 1):
             try:
@@ -536,7 +569,7 @@ def count_context_resets(session_path: Path, threshold: int = 10000) -> list[tup
                         prev_cache_read = cache_read
             except json.JSONDecodeError:
                 continue
-    
+
     return resets
 ```
 
@@ -567,7 +600,7 @@ The session `.jsonl` appears to be a log of tool execution results, NOT a repres
 1. **Session `.jsonl` parsing alone CANNOT detect phantom reads** - the markers aren't recorded there
 2. **Proxy indicators** may be needed:
    - Context reset count (see above)
-   - Presence of `tool-results/` directory (Era 2 only)
+   - Presence of `tool-results/` directory (hybrid and hierarchical structures)
    - Agent self-report patterns in conversation
    - Discrepancies between claimed file reads and actual agent knowledge
 3. **Chat export analysis** may provide better evidence since it shows the agent's actual responses and reasoning
@@ -579,18 +612,37 @@ The session `.jsonl` appears to be a log of tool execution results, NOT a repres
 
 | Question | Status | Key Finding |
 |----------|--------|-------------|
-| Q1: Session file association | ✅ Complete | Use sessionId field; check for subdirectory structure |
-| Q2: Export pairing | ✅ Complete | Use Workscope ID pattern (`YYYYMMDD-HHMMSS`) |
+| Q1: Session file association | ✅ Complete | Use sessionId field; unified algorithm handles flat/hybrid/hierarchical |
+| Q2: Export pairing | ✅ Complete | Use Workscope ID pattern (`YYYYMMDD-HHMMSS`) with optional `Workscope-` prefix |
 | Q3: Good session (Era 2) | ✅ Complete | No `tool-results/` dir; actual content in tool_results |
 | Q4: Bad session (Era 2) | ✅ Complete | Session file has content but agent saw `<persisted-output>` |
 | Q5: Good session (Era 1) | ✅ Complete | Structurally identical to bad; 1 context reset vs 3 in bad |
 | Q6: Bad session (Era 1) | ✅ Complete | Same discrepancy - session has content but agent saw `[Old tool result content cleared]` |
 
 **Critical Discoveries**:
-1. The session `.jsonl` file does NOT accurately represent what the model sees in its context window
-2. Phantom read markers are NOT recorded in the session file
-3. Context resets (drops in `cache_read_input_tokens`) correlate with phantom read occurrence
-4. More context resets = higher risk of phantom reads
+1. Three distinct session structures exist (flat, hybrid, hierarchical); the unified algorithm handles all without structure detection
+2. The session `.jsonl` file does NOT accurately represent what the model sees in its context window
+3. Phantom read markers are NOT recorded in the session file
+4. Context resets (drops in `cache_read_input_tokens`) correlate with phantom read occurrence
+5. More context resets = higher risk of phantom reads
+
+---
+
+## Session Structure Reference
+
+| Structure | Agent Files | Session Subdirectory | Observed In (limited samples) |
+|-----------|-------------|---------------------|-------------------------------|
+| Flat | Root level | Does not exist | 2.0.58, 2.0.59 |
+| Hybrid | Root level | Exists (`tool-results/` only) | some 2.0.60 |
+| Hierarchical | In `subagents/` | Exists (`subagents/` + `tool-results/`) | 2.1.3, 2.1.6 |
+
+**Important**: The "Observed In" column reflects our limited sample data, not definitive version boundaries. We cannot rule out that any structure might appear in versions we haven't tested.
+
+**Key Insight**: The unified collection algorithm handles all three cases by:
+1. Copying the subdirectory if it exists
+2. ALWAYS scanning for root-level agent files
+
+This approach eliminates the need for structure detection logic, making version-to-structure mapping unnecessary for practical purposes.
 
 ---
 
@@ -629,4 +681,4 @@ The MCP Filesystem workaround has shown 100% success rate. Sessions using MCP re
 
 ---
 
-*This document is part of the Phantom Reads Investigation project. Last updated: 2026-01-13*
+*This document is part of the Phantom Reads Investigation project. Last updated: 2026-01-15*
