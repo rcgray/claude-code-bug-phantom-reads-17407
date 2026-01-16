@@ -73,7 +73,7 @@ The experiment leverages the Workscope-Dev (WSD) framework already present in th
 
 ### 3. Session Analysis Tools
 
-Python scripts in `scripts/` that:
+Python scripts in `src/` that:
 - Parse Claude Code session `.jsonl` files
 - Identify Read tool invocations that returned phantom read indicators:
   - Era 2: `<persisted-output>` responses without follow-up reads
@@ -164,9 +164,9 @@ The self-report methodology has inherent limitations (model incentives, introspe
 │   └── workbench/                  # Working documents
 ├── dev/
 │   └── misc/                       # Session samples (good/bad cases by version)
-├── scripts/
-│   ├── archive_claude_sessions.py  # Session archival utility
-│   └── analyze_phantom_reads.py    # Phantom read detector (to build)
+├── src/
+│   ├── cc_version.py               # Claude Code version setting utility
+│   └── collect_trials.py           # Tool for gathering trial data
 └── .claude/
     └── commands/
         └── refine-plan.md          # Trigger command

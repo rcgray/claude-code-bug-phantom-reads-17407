@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-A Python CLI tool (`scripts/cc_version.py`) that manages Claude Code version installation and auto-update settings, streamlining the process of switching between Claude Code versions for phantom reads investigation trials.
+A Python CLI tool (`src/cc_version.py`) that manages Claude Code version installation and auto-update settings, streamlining the process of switching between Claude Code versions for phantom reads investigation trials.
 
 ---
 
@@ -25,7 +25,7 @@ These manual steps are tedious and error-prone. A convenience script would reduc
 
 ## Solution Overview
 
-Create `scripts/cc_version.py` - an executable Python script that wraps npm and Claude Code commands to provide a simplified CLI for:
+Create `src/cc_version.py` - an executable Python script that wraps npm and Claude Code commands to provide a simplified CLI for:
 
 - Toggling Claude Code's auto-update behavior via `~/.claude/settings.json`
 - Listing available Claude Code versions
@@ -53,7 +53,7 @@ The script follows a conservative error-handling philosophy: any edge case or un
 
 ## Deliverables
 
-### 1. New File: `scripts/cc_version.py`
+### 1. New File: `src/cc_version.py`
 
 Primary deliverable - executable Python script with shebang. Key characteristics:
 
@@ -75,15 +75,15 @@ Primary deliverable - executable Python script with shebang. Key characteristics
 
 ### CLI Commands (Finalized)
 
-| Command | Description |
-|---------|-------------|
-| `--disable-auto-update` | Set `env.DISABLE_AUTOUPDATER` to "1" in `~/.claude/settings.json` |
-| `--enable-auto-update` | Remove `env.DISABLE_AUTOUPDATER` from `~/.claude/settings.json` |
-| `--list` | List available Claude Code versions (pass-through of `npm view @anthropic-ai/claude-code versions`) |
-| `--status` | Show auto-updater state, currently installed version, and latest available version |
-| `--install <version>` | Install specific Claude Code version (validates against available versions first) |
-| `--reset` | Restore defaults: enable auto-update + install latest version |
-| `--help` | Show usage information |
+| Command                 | Description                                                                                         |
+| ----------------------- | --------------------------------------------------------------------------------------------------- |
+| `--disable-auto-update` | Set `env.DISABLE_AUTOUPDATER` to "1" in `~/.claude/settings.json`                                   |
+| `--enable-auto-update`  | Remove `env.DISABLE_AUTOUPDATER` from `~/.claude/settings.json`                                     |
+| `--list`                | List available Claude Code versions (pass-through of `npm view @anthropic-ai/claude-code versions`) |
+| `--status`              | Show auto-updater state, currently installed version, and latest available version                  |
+| `--install <version>`   | Install specific Claude Code version (validates against available versions first)                   |
+| `--reset`               | Restore defaults: enable auto-update + install latest version                                       |
+| `--help`                | Show usage information                                                                              |
 
 ### Settings File Details
 
@@ -158,10 +158,10 @@ Only one command per invocation. If user provides multiple commands (e.g., `--di
 
 ## Success Criteria
 
-1. Running `./scripts/cc_version.py --status` shows current auto-update state, installed version, and latest available version
-2. Running `./scripts/cc_version.py --disable-auto-update` creates backup and sets the setting
-3. Running `./scripts/cc_version.py --install 2.0.58` successfully installs that version after validation
-4. Running `./scripts/cc_version.py --reset` returns system to Anthropic defaults
+1. Running `./src/cc_version.py --status` shows current auto-update state, installed version, and latest available version
+2. Running `./src/cc_version.py --disable-auto-update` creates backup and sets the setting
+3. Running `./src/cc_version.py --install 2.0.58` successfully installs that version after validation
+4. Running `./src/cc_version.py --reset` returns system to Anthropic defaults
 5. All error conditions produce helpful stderr messages and exit code 1
 6. Script has executable shebang and runs directly without `python` prefix
 
@@ -171,7 +171,7 @@ Only one command per invocation. If user provides multiple commands (e.g., `--di
 
 ### File Count Summary
 
-- 1 new Python script: `scripts/cc_version.py`
+- 1 new Python script: `src/cc_version.py`
 - 1 documentation update: `docs/core/Experiment-Methodology-01.md`
 
 ### npm Commands Used

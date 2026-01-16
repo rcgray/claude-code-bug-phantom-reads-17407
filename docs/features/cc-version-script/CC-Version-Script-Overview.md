@@ -6,7 +6,7 @@
 
 ## Overview
 
-The CC Version Script is a Python CLI tool (`scripts/cc_version.py`) that manages Claude Code version installation and auto-update settings. It provides a unified interface for switching between Claude Code versions during phantom reads investigation trials, replacing the manual steps documented in the experiment methodology with a single streamlined command interface.
+The CC Version Script is a Python CLI tool (`src/cc_version.py`) that manages Claude Code version installation and auto-update settings. It provides a unified interface for switching between Claude Code versions during phantom reads investigation trials, replacing the manual steps documented in the experiment methodology with a single streamlined command interface.
 
 This specification defines the complete behavior of the version management script, including CLI command structure, settings file manipulation, npm command orchestration, and the conservative error-handling philosophy that governs all operations. The script operates as a convenience wrapper around existing npm and Claude Code commands, prioritizing clarity and safety over robustness.
 
@@ -32,15 +32,15 @@ The script provides a command-line interface with mutually exclusive operation f
 
 ### Command Reference
 
-| Command | Description |
-|---------|-------------|
-| `--disable-auto-update` | Set `env.DISABLE_AUTOUPDATER` to `"1"` in `~/.claude/settings.json` |
-| `--enable-auto-update` | Remove `env.DISABLE_AUTOUPDATER` from `~/.claude/settings.json` |
-| `--list` | List available Claude Code versions from npm registry (human-readable output) |
-| `--status` | Show auto-updater state, currently installed version, and latest available version |
-| `--install <version>` | Install specific Claude Code version (validates against available versions first) |
-| `--reset` | Restore defaults: enable auto-update and install latest version |
-| `--help` | Show usage information |
+| Command                 | Description                                                                        |
+| ----------------------- | ---------------------------------------------------------------------------------- |
+| `--disable-auto-update` | Set `env.DISABLE_AUTOUPDATER` to `"1"` in `~/.claude/settings.json`                |
+| `--enable-auto-update`  | Remove `env.DISABLE_AUTOUPDATER` from `~/.claude/settings.json`                    |
+| `--list`                | List available Claude Code versions from npm registry (human-readable output)      |
+| `--status`              | Show auto-updater state, currently installed version, and latest available version |
+| `--install <version>`   | Install specific Claude Code version (validates against available versions first)  |
+| `--reset`               | Restore defaults: enable auto-update and install latest version                    |
+| `--help`                | Show usage information                                                             |
 
 ### Mutual Exclusivity
 
@@ -48,10 +48,10 @@ The script enforces mutual exclusivity among operation flags. If a user provides
 
 ### Exit Codes
 
-| Code | Meaning |
-|------|---------|
-| `0` | Success |
-| `1` | Any error condition |
+| Code | Meaning             |
+| ---- | ------------------- |
+| `0`  | Success             |
+| `1`  | Any error condition |
 
 ### Output Conventions
 
@@ -72,10 +72,10 @@ The script uses `Path.home() / ".claude" / "settings.json"` to locate the settin
 
 ### Auto-Update Setting
 
-| Setting | JSON Path | Type | Effect |
-|---------|-----------|------|--------|
-| Disable auto-update | `env.DISABLE_AUTOUPDATER` | String | Value `"1"` disables auto-updates |
-| Enable auto-update | (key removed) | N/A | Absence of key enables auto-updates (Claude Code default) |
+| Setting             | JSON Path                 | Type   | Effect                                                    |
+| ------------------- | ------------------------- | ------ | --------------------------------------------------------- |
+| Disable auto-update | `env.DISABLE_AUTOUPDATER` | String | Value `"1"` disables auto-updates                         |
+| Enable auto-update  | (key removed)             | N/A    | Absence of key enables auto-updates (Claude Code default) |
 
 **Important:** The setting name includes the "R" at the end: `DISABLE_AUTOUPDATER`, not `DISABLE_AUTOUPDATE`.
 
@@ -124,14 +124,14 @@ if not settings['env']:
 
 Before any modification to `settings.json`, the script MUST create a backup:
 
-| Aspect | Specification |
-|--------|---------------|
-| Backup filename | `settings.json.TIMESTAMP.cc_version_backup` |
-| Backup location | Same directory as `settings.json` (`~/.claude/`) |
+| Aspect           | Specification                                                                                                                                                                                       |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backup filename  | `settings.json.TIMESTAMP.cc_version_backup`                                                                                                                                                         |
+| Backup location  | Same directory as `settings.json` (`~/.claude/`)                                                                                                                                                    |
 | Timestamp format | `YYYYMMDD_HHMMSS` (e.g., `settings.json.20260116_103045.cc_version_backup`). Note: Uses underscore intentionally for filesystem compatibility, distinct from Workscope ID format which uses hyphen. |
-| Accumulation | Backups accumulate with unique timestamps |
-| Batch deletion | Users can delete all backups via `rm ~/.claude/*.cc_version_backup` |
-| Restoration | Manual only; no `--restore-backup` command provided |
+| Accumulation     | Backups accumulate with unique timestamps                                                                                                                                                           |
+| Batch deletion   | Users can delete all backups via `rm ~/.claude/*.cc_version_backup`                                                                                                                                 |
+| Restoration      | Manual only; no `--restore-backup` command provided                                                                                                                                                 |
 
 The backup exists for emergency manual recovery. If users need to restore from backup, they copy the most recent backup file manually.
 
@@ -209,10 +209,10 @@ The script validates prerequisites before executing any operation.
 
 ### Required Tools
 
-| Tool | Validation Command | Purpose |
-|------|-------------------|---------|
-| npm | `npm --version` | Package management for installation |
-| claude | `claude --version` | Confirms Claude Code is installed |
+| Tool   | Validation Command | Purpose                             |
+| ------ | ------------------ | ----------------------------------- |
+| npm    | `npm --version`    | Package management for installation |
+| claude | `claude --version` | Confirms Claude Code is installed   |
 
 ### Prerequisite Check Behavior
 
@@ -348,12 +348,12 @@ This conservative approach is intentional. The script is a convenience wrapper f
 
 ## Platform Support
 
-| Platform | Supported | Notes |
-|----------|-----------|-------|
-| macOS | Yes | Primary development platform |
-| Linux | Yes | Standard Unix paths |
-| Windows (WSL) | Yes | Uses Unix paths via WSL |
-| Windows (native) | No | Does not support `%USERPROFILE%\.claude\` |
+| Platform         | Supported | Notes                                     |
+| ---------------- | --------- | ----------------------------------------- |
+| macOS            | Yes       | Primary development platform              |
+| Linux            | Yes       | Standard Unix paths                       |
+| Windows (WSL)    | Yes       | Uses Unix paths via WSL                   |
+| Windows (native) | No        | Does not support `%USERPROFILE%\.claude\` |
 
 The script uses `~/.claude/` exclusively and does not detect or adapt to Windows native paths. Users on Windows MUST use WSL.
 
@@ -401,18 +401,18 @@ The script uses `~/.claude/` exclusively and does not detect or adapt to Windows
 **Recommended Trial Workflow:**
 ```bash
 # 1. Disable auto-updates to prevent mid-trial version changes
-./scripts/cc_version.py --disable-auto-update
+./src/cc_version.py --disable-auto-update
 
 # 2. Install target version
-./scripts/cc_version.py --install 2.0.58
+./src/cc_version.py --install 2.0.58
 
 # 3. Verify configuration
-./scripts/cc_version.py --status
+./src/cc_version.py --status
 
 # 4. Run trials...
 
 # 5. Restore defaults when done
-./scripts/cc_version.py --reset
+./src/cc_version.py --reset
 ```
 
 ### For Implementers
@@ -439,30 +439,30 @@ The script uses `~/.claude/` exclusively and does not detect or adapt to Windows
 
 ### Phase 1: Core Infrastructure
 
-- [ ] **1.1** - Create `scripts/cc_version.py` with executable shebang and module docstring
-  - [ ] **1.1.1** - Add shebang line (`#!/usr/bin/env python`)
-  - [ ] **1.1.2** - Add module docstring describing script purpose
-  - [ ] **1.1.3** - Add required imports (`argparse`, `json`, `subprocess`, `sys`, `pathlib`)
-- [ ] **1.2** - Implement prerequisite checking functions
-  - [ ] **1.2.1** - Implement `check_npm_available()` function
-  - [ ] **1.2.2** - Implement `check_claude_available()` function
-  - [ ] **1.2.3** - Implement `validate_prerequisites()` that calls both checks
-- [ ] **1.3** - Implement settings file utilities
-  - [ ] **1.3.1** - Implement `get_settings_path()` returning `Path.home() / ".claude" / "settings.json"`
-  - [ ] **1.3.2** - Implement `read_settings()` with JSON parsing and error handling
-  - [ ] **1.3.3** - Implement `write_settings()` with backup creation and JSON formatting
-  - [ ] **1.3.4** - Implement `create_backup()` for settings file
+- [x] **1.1** - Create `src/cc_version.py` with executable shebang and module docstring
+  - [x] **1.1.1** - Add shebang line (`#!/usr/bin/env python`)
+  - [x] **1.1.2** - Add module docstring describing script purpose
+  - [x] **1.1.3** - Add required imports (`argparse`, `json`, `subprocess`, `sys`, `pathlib`)
+- [x] **1.2** - Implement prerequisite checking functions
+  - [x] **1.2.1** - Implement `check_npm_available()` function
+  - [x] **1.2.2** - Implement `check_claude_available()` function
+  - [x] **1.2.3** - Implement `validate_prerequisites()` that calls both checks
+- [x] **1.3** - Implement settings file utilities
+  - [x] **1.3.1** - Implement `get_settings_path()` returning `Path.home() / ".claude" / "settings.json"`
+  - [x] **1.3.2** - Implement `read_settings()` with JSON parsing and error handling
+  - [x] **1.3.3** - Implement `write_settings()` with backup creation and JSON formatting
+  - [x] **1.3.4** - Implement `create_backup()` for settings file
 
 ### Phase 2: Auto-Update Management
 
-- [ ] **2.1** - Implement `--disable-auto-update` command
-  - [ ] **2.1.1** - Implement `disable_auto_update()` function
-  - [ ] **2.1.2** - Ensure `env` dict creation if missing
-  - [ ] **2.1.3** - Set `env.DISABLE_AUTOUPDATER` to `"1"`
-- [ ] **2.2** - Implement `--enable-auto-update` command
-  - [ ] **2.2.1** - Implement `enable_auto_update()` function
-  - [ ] **2.2.2** - Remove `env.DISABLE_AUTOUPDATER` key if present
-  - [ ] **2.2.3** - Clean up empty `env` dict if no other keys remain
+- [x] **2.1** - Implement `--disable-auto-update` command
+  - [x] **2.1.1** - Implement `disable_auto_update()` function
+  - [x] **2.1.2** - Ensure `env` dict creation if missing
+  - [x] **2.1.3** - Set `env.DISABLE_AUTOUPDATER` to `"1"`
+- [x] **2.2** - Implement `--enable-auto-update` command
+  - [x] **2.2.1** - Implement `enable_auto_update()` function
+  - [x] **2.2.2** - Remove `env.DISABLE_AUTOUPDATER` key if present
+  - [x] **2.2.3** - Clean up empty `env` dict if no other keys remain
 
 ### Phase 3: Version Query Operations
 
@@ -504,8 +504,3 @@ The script uses `~/.claude/` exclusively and does not detect or adapt to Windows
   - [ ] **5.2.3** - Add `if __name__ == "__main__"` block
 - [ ] **5.3** - Verify script is executable
   - [ ] **5.3.1** - Ensure file has executable permissions (`chmod +x`)
-
-### Phase 6: Documentation Update
-
-- [ ] **6.1** - Update Experiment-Methodology-01.md
-  - [ ] **6.1.1** - Add note after manual steps section referencing the script as preferred alternative

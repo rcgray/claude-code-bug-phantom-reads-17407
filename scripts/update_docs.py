@@ -20,7 +20,6 @@ import sys
 from pathlib import Path
 from typing import Any, TypedDict
 
-
 # Add scripts directory to path for wsd_utils import
 _scripts_dir = Path(__file__).parent
 sys.path.insert(0, str(_scripts_dir))
@@ -32,7 +31,6 @@ from wsd_utils import (  # noqa: E402
     get_node_check_dirs,
     is_script_available,
 )
-
 
 # Language Configuration Registry
 # Maps language identifiers to their configuration for documentation generation.

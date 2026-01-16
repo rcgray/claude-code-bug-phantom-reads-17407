@@ -41,12 +41,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-
 # Add scripts directory to path for wsd_utils import
 _scripts_dir = Path(__file__).parent
 sys.path.insert(0, str(_scripts_dir))
 from wsd_utils import get_check_dirs  # noqa: E402
-
 
 # Get the project root directory (this script is in scripts/ subdirectory)
 project_root = Path(__file__).parent.parent.resolve()

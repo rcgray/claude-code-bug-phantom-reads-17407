@@ -6,7 +6,7 @@
 
 ## Overview
 
-The Collect Trials Script is a Python CLI tool (`scripts/collect_trials.py`) that automates the collection and organization of phantom read trial artifacts from Claude Code sessions. It replaces the tedious manual process of gathering chat exports and session `.jsonl` files after running reproduction trials, enabling investigators to focus on analysis rather than file management.
+The Collect Trials Script is a Python CLI tool (`src/collect_trials.py`) that automates the collection and organization of phantom read trial artifacts from Claude Code sessions. It replaces the tedious manual process of gathering chat exports and session `.jsonl` files after running reproduction trials, enabling investigators to focus on analysis rather than file management.
 
 This specification defines the complete behavior of the trial collection script, including the export scanning algorithm, session file discovery mechanism, and output directory structure. The script operates on the principle that Workscope ID serves as the primary trial identifier, with Session UUID being an internal implementation detail used only for locating associated files.
 
@@ -31,7 +31,7 @@ This specification establishes the authoritative definition of the trial collect
 ### Command Signature
 
 ```
-uv run scripts/collect_trials.py -e <exports-dir> -d <destination-dir>
+./src/collect_trials.py -e <exports-dir> -d <destination-dir>
 ```
 
 ### Arguments
@@ -417,12 +417,12 @@ Processed exports are deleted to enable clean batch workflows:
 
 ### For Investigators
 
-1. **Archive Sessions First**: Run `uv run scripts/archive_claude_sessions.py` before trials to prevent session file loss from Claude Code purges
+1. **Archive Sessions First**: Run `./src/archive_claude_sessions.py` before trials to prevent session file loss from Claude Code purges
 
 2. **Batch Your Trials**: Run multiple trials, using `/export` after each, then collect all at once:
    ```bash
    # After running trials and exporting each...
-   uv run scripts/collect_trials.py -e ~/trial-exports -d ~/trial-data/v2.1.3
+   ./src/collect_trials.py -e ~/trial-exports -d ~/trial-data/v2.1.3
    ```
 
 3. **Version-Based Destinations**: Organize trials by Claude Code version for easier analysis:
@@ -458,10 +458,11 @@ Processed exports are deleted to enable clean batch workflows:
 
 ### Phase 1: Core Script Structure
 
-- [ ] **1.1** - Create `scripts/collect_trials.py` with argument parsing
-  - [ ] **1.1.1** - Implement argument parser with `-e/--exports` and `-d/--destination` required arguments
-  - [ ] **1.1.2** - Add directory existence validation for both arguments
-  - [ ] **1.1.3** - Implement exit codes (0 for success, 1 for error)
+- [ ] **1.1** - Create `src/collect_trials.py` with argument parsing
+  - [ ] **1.1.1** - Add shebang line (`#!/usr/bin/env python`)
+  - [ ] **1.1.2** - Implement argument parser with `-e/--exports` and `-d/--destination` required arguments
+  - [ ] **1.1.3** - Add directory existence validation for both arguments
+  - [ ] **1.1.4** - Implement exit codes (0 for success, 1 for error)
 - [ ] **1.2** - Implement `encode_project_path()` function
   - [ ] **1.2.1** - Copy pattern from `archive_claude_sessions.py` for consistency
   - [ ] **1.2.2** - Add function to derive session directory from cwd

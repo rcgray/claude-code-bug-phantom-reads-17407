@@ -14,7 +14,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-
 # Add scripts directory to path for wsd_utils import
 _scripts_dir = Path(__file__).parent
 sys.path.insert(0, str(_scripts_dir))

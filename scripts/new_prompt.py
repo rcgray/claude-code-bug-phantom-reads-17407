@@ -8,7 +8,6 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
-
 # Define paths relative to project root
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PROMPTS_DIR = PROJECT_ROOT / "dev" / "prompts"

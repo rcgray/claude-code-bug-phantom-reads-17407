@@ -219,7 +219,7 @@ The analysis tools in this repository can supplement manual trials by programmat
 
 - GitHub Issue: https://github.com/anthropics/claude-code/issues/17407
 - PRD: `docs/core/PRD.md`
-- Analysis Tools: `scripts/` (see PRD for specifications)
+- Analysis Tools: `src/` (see PRD for specifications)
 
 ---
 
@@ -261,10 +261,10 @@ Subsequent testing confirmed that version 2.0.58 CAN experience phantom reads vi
 
 ### Revised Version Transition
 
-| Era | Versions | Error Mechanism |
-|-----|----------|-----------------|
-| 1 | 2.0.54 - 2.0.59 | `[Old tool result content cleared]` |
-| 2 | 2.0.60 - present | `<persisted-output>` |
+| Era | Versions         | Error Mechanism                     |
+| --- | ---------------- | ----------------------------------- |
+| 1   | 2.0.54 - 2.0.59  | `[Old tool result content cleared]` |
+| 2   | 2.0.60 - present | `<persisted-output>`                |
 
 The transition between eras occurs at the 2.0.59/2.0.60 boundary, not the 2.0.58/2.0.59 boundary as originally reported.
 
