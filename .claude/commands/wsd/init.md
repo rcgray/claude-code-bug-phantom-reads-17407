@@ -45,7 +45,7 @@ This is the "Phantom Reads Investigation" project: a `git` repository intended f
 
 Please read:
 - `docs/core/PRD.md`
-- `docs/core/Experiment-Methodology.md`
+- `docs/core/Experiment-Methodology-01.md`
 - `docs/core/Action-Plan.md`
 
 </WORKSCOPE-DEV>

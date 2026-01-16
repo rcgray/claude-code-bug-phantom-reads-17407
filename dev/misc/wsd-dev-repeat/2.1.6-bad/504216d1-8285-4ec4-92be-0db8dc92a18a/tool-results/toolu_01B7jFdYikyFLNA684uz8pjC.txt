@@ -1,0 +1,1242 @@
+     1→# Test Environment Isolation Standards
+     2→
+     3→## Overview
+     4→
+     5→This document establishes mandatory standards for test environment isolation in Python projects using pytest. These standards ensure that tests are deterministic, reproducible, and independent of developer machine configuration.
+     6→
+     7→### Core Principle
+     8→
+     9→**Tests must pass identically on any machine, regardless of local environment configuration.**
+    10→
+    11→A test suite that depends on a developer's specific setup is not truly automated—it's a source of false failures, CI/CD instability, and developer friction.
+    12→
+    13→## Why Test Isolation Matters
+    14→
+    15→### Problems Caused by Poor Isolation
+    16→
+    17→1. **Non-deterministic failures**: Tests pass on one machine, fail on another
+    18→2. **CI/CD brittleness**: Build servers require special configuration to match developer environments
+    19→3. **Onboarding friction**: New developers encounter mysterious test failures
+    20→4. **Hidden bugs**: Tests may pass due to "lucky" local config, hiding real issues
+    21→5. **Debugging overhead**: Hours wasted investigating environment-dependent failures
+    22→
+    23→### Benefits of Proper Isolation
+    24→
+    25→1. **Confidence**: Green tests mean the code works, red tests mean it doesn't
+    26→2. **Portability**: Tests run anywhere—local machines, CI/CD, containers
+    27→3. **Maintainability**: Tests explicitly declare their dependencies
+    28→4. **Debugging**: Failures are reproducible and clearly caused by code changes
+    29→
+    30→## Standard 1: Environment Variable Isolation
+    31→
+    32→### Mandatory Practice
+    33→
+    34→**Every test must explicitly control its environment variables.**
+    35→
+    36→Tests fall into two categories:
+    37→
+    38→#### 1A: Tests of Default Behavior (No Environment Variables Set)
+    39→
+    40→These tests verify behavior when environment variables are NOT set. They must clear the environment:
+    41→
+    42→```python
+    43→from unittest.mock import patch
+    44→import pytest
+    45→
+    46→@patch.dict(os.environ, {}, clear=True)
+    47→def test_default_cache_directory():
+    48→    """Test default behavior when SERVICE_CACHE_DIR is not set."""
+    49→    client = ExternalServiceClient("resource-id")
+    50→    cache_dir = client.get_cache_directory()
+    51→
+    52→    # Now we KNOW SERVICE_CACHE_DIR was not set
+    53→    assert cache_dir == Path.home() / ".cache" / "external_service"
+    54→```
+    55→
+    56→**Why**: Without `clear=True`, the test inherits the developer's shell environment, making it non-deterministic.
+    57→
+    58→#### 1B: Tests of Environment-Dependent Behavior
+    59→
+    60→These tests verify behavior when specific environment variables ARE set. They must explicitly set only what's needed:
+    61→
+    62→```python
+    63→@patch.dict(os.environ, {"SERVICE_CACHE_DIR": "/custom/path"})
+    64→def test_custom_cache_directory():
+    65→    """Test behavior when SERVICE_CACHE_DIR is explicitly set."""
+    66→    client = ExternalServiceClient("resource-id")
+    67→    cache_dir = client.get_cache_directory()
+    68→
+    69→    # Now we KNOW exactly what SERVICE_CACHE_DIR is
+    70→    assert cache_dir == Path("/custom/path")
+    71→```
+    72→
+    73→### Common Environment Variables in Python Projects
+    74→
+    75→When testing code that reads these variables, always use `@patch.dict`:
+    76→
+    77→- **API credentials**: `API_KEY`, `SERVICE_TOKEN`, `DATABASE_URL` - Must be mocked unless in opt-in integration tests
+    78→- **Service endpoints**: `API_ENDPOINT`, `DATABASE_HOST`, `REDIS_URL` - Must be controlled
+    79→- **Directory paths**: `HOME`, `CACHE_DIR`, `DATA_PATH`, `LOG_DIR` - Must be explicitly set or cleared
+    80→- **Configuration files**: `CONFIG_FILE`, `SETTINGS_PATH` - Must be controlled, typically with `tmp_path`
+    81→- **Feature flags**: `ENABLE_FEATURE_X`, `DEBUG_MODE`, `EXPERIMENTAL` - Must be explicitly set
+    82→- **Runtime environment**: `ENVIRONMENT`, `STAGE`, `NODE_ENV` - Must be controlled for deterministic behavior
+    83→
+    84→### Anti-Pattern Example
+    85→
+    86→```python
+    87→# ❌ BAD: This test will fail if developer has SERVICE_CACHE_DIR set
+    88→def test_default_cache_directory():
+    89→    client = ExternalServiceClient("resource-id")
+    90→    cache_dir = client.get_cache_directory()
+    91→    assert cache_dir == Path.home() / ".cache" / "external_service"
+    92→```
+    93→
+    94→### Correct Pattern
+    95→
+    96→```python
+    97→# ✅ GOOD: Environment is explicitly controlled
+    98→@patch.dict(os.environ, {}, clear=True)
+    99→def test_default_cache_directory():
+   100→    client = ExternalServiceClient("resource-id")
+   101→    cache_dir = client.get_cache_directory()
+   102→    assert cache_dir == Path.home() / ".cache" / "external_service"
+   103→```
+   104→
+   105→## Standard 2: File System Isolation
+   106→
+   107→### Mandatory Practice
+   108→
+   109→**Tests must never read from or write to actual user directories.**
+   110→
+   111→### Use pytest tmp_path Fixture
+   112→
+   113→All file operations should use temporary directories:
+   114→
+   115→```python
+   116→def test_config_file_loading(tmp_path: Path):
+   117→    """Test configuration file loading."""
+   118→    # Create temporary config file
+   119→    config_file = tmp_path / "config.toml"
+   120→    config_file.write_text("[settings]\ntheme = dark\nlog_level = info")
+   121→
+   122→    # Test with temporary file
+   123→    config = AppConfig.load(config_file)
+   124→    assert config.get("theme") == "dark"
+   125→```
+   126→
+   127→### Never Access Real User Directories
+   128→
+   129→```python
+   130→# ❌ BAD: Reads from actual user config directory
+   131→def test_config_loading():
+   132→    config_path = Path.home() / ".config" / "myapp" / "config.toml"
+   133→    config = AppConfig.load(config_path)
+   134→    # What if user doesn't have this file? Or has different settings?
+   135→
+   136→# ✅ GOOD: Uses temporary directory
+   137→@patch.dict(os.environ, {"CONFIG_HOME": str(tmp_path)})
+   138→def test_config_loading(tmp_path: Path):
+   139→    config_file = tmp_path / "config.toml"
+   140→    config_file.write_text("[settings]\ntheme = dark\nlog_level = info")
+   141→    config = AppConfig.load(config_file)
+   142→```
+   143→
+   144→### Test Fixtures Location
+   145→
+   146→Permanent test data files belong in `tests/test_data/`:
+   147→
+   148→```
+   149→tests/
+   150→├── test_data/
+   151→│   ├── sample_config.toml
+   152→│   ├── external_model_data.json
+   153→│   └── gguf/
+   154→│       └── minimal_test.gguf
+   155→```
+   156→
+   157→These are **version-controlled fixtures**, not developer configuration files.
+   158→
+   159→## Standard 3: Configuration File Isolation
+   160→
+   161→### Mandatory Practice
+   162→
+   163→**Tests must never depend on developer's actual configuration files.**
+   164→
+   165→### Pattern: Mock Config Loading
+   166→
+   167→```python
+   168→from unittest.mock import Mock, patch
+   169→
+   170→def test_cli_with_config():
+   171→    """Test CLI behavior with configuration."""
+   172→    # Create mock config in memory
+   173→    mock_config = Mock()
+   174→    mock_config.get = Mock(side_effect=lambda k: {"theme": "dark", "debug": True}.get(k))
+   175→
+   176→    with patch('myapp.config.AppConfig.load', return_value=mock_config):
+   177→        result = runner.invoke(cli, ["process", "--verbose"])
+   178→        assert result.exit_code == 0
+   179→```
+   180→
+   181→### Pattern: Temporary Config Files
+   182→
+   183→```python
+   184→def test_config_manager_platform_specific(tmp_path: Path):
+   185→    """Test platform-specific config paths."""
+   186→    with patch.dict(os.environ, {"CONFIG_HOME": str(tmp_path)}, clear=True):
+   187→        config_path = tmp_path / "config.toml"
+   188→        config_path.write_text("[aliases]\nshortcut = full-command --with-args")
+   189→
+   190→        config = AppConfig.load()
+   191→        assert config.get_aliases() == {"shortcut": "full-command --with-args"}
+   192→```
+   193→
+   194→### Never Test Against Real User Files
+   195→
+   196→```python
+   197→# ❌ BAD: Depends on developer's actual .env file
+   198→def test_api_key_discovery():
+   199→    keys = discover_api_keys()
+   200→    assert "API_KEY" in keys
+   201→    # What if developer doesn't have this key? Or has a different one?
+   202→
+   203→# ✅ GOOD: Creates controlled test environment
+   204→def test_api_key_discovery(tmp_path: Path):
+   205→    env_file = tmp_path / ".env"
+   206→    env_file.write_text("API_KEY=test-key-12345")
+   207→
+   208→    with patch.dict(os.environ, {"CONFIG_HOME": str(tmp_path)}, clear=True):
+   209→        keys = discover_api_keys()
+   210→        assert keys["API_KEY"] == "test-key-12345"
+   211→```
+   212→
+   213→## Standard 4: Network Isolation
+   214→
+   215→### Mandatory Practice
+   216→
+   217→**Unit tests must mock all network calls. Integration tests requiring network must be opt-in.**
+   218→
+   219→### Unit Tests: Always Mock Network
+   220→
+   221→```python
+   222→from unittest.mock import Mock, patch
+   223→
+   224→def test_anthropic_tokenization():
+   225→    """Test Anthropic tokenization (mocked)."""
+   226→    # Mock the API response
+   227→    with patch('requests.post') as mock_post:
+   228→        mock_post.return_value.json.return_value = {
+   229→            "token_count": 42
+   230→        }
+   231→
+   232→        tokenizer = AnthropicTokenizer("claude-3-opus-20240229")
+   233→        count = tokenizer.count_tokens("Hello world")
+   234→
+   235→        assert count == 42
+   236→        # Verify API was called correctly
+   237→        mock_post.assert_called_once()
+   238→```
+   239→
+   240→### Integration Tests: Opt-in with Markers
+   241→
+   242→For tests that genuinely need network access:
+   243→
+   244→```python
+   245→@pytest.mark.network
+   246→@pytest.mark.skipif(not os.getenv("ANTHROPIC_API_KEY"), reason="API key required")
+   247→def test_anthropic_api_integration():
+   248→    """Integration test with real Anthropic API."""
+   249→    tokenizer = AnthropicTokenizer("claude-3-opus-20240229")
+   250→    count = tokenizer.count_tokens("Hello world")
+   251→    assert count > 0
+   252→```
+   253→
+   254→Run these explicitly:
+   255→```bash
+   256→# Skip by default
+   257→pytest  # Network tests skipped
+   258→
+   259→# Run explicitly
+   260→pytest --network  # Or custom marker setup
+   261→pytest -m network
+   262→```
+   263→
+   264→### Example Pattern: --with-api-keys Flag
+   265→
+   266→Example implementation of this pattern:
+   267→
+   268→```python
+   269→# tests/conftest.py
+   270→def pytest_addoption(parser):
+   271→    parser.addoption(
+   272→        "--with-api-keys",
+   273→        action="store_true",
+   274→        default=False,
+   275→        help="Run tests requiring real API keys"
+   276→    )
+   277→
+   278→@pytest.fixture
+   279→def api_keys_available(request):
+   280→    if not request.config.getoption("--with-api-keys"):
+   281→        pytest.skip("Test requires --with-api-keys flag")
+   282→```
+   283→
+   284→This is the correct pattern. **Extend it to all network-dependent tests.**
+   285→
+   286→## Standard 5: Test Categories and Isolation Levels
+   287→
+   288→### Unit Tests (Default)
+   289→
+   290→**Characteristics:**
+   291→- No network access (mock all external APIs)
+   292→- No file system access to user directories (use `tmp_path`)
+   293→- No environment variable dependencies (use `@patch.dict`)
+   294→- Fast execution (milliseconds)
+   295→- No external dependencies
+   296→
+   297→**Isolation Requirements:**
+   298→- ✅ Environment variables cleared or explicitly set
+   299→- ✅ File system isolated to temporary directories
+   300→- ✅ Network calls mocked
+   301→- ✅ No reading from actual config files
+   302→
+   303→**Run by default:**
+   304→```bash
+   305→pytest  # Runs all unit tests
+   306→```
+   307→
+   308→### Integration Tests (Opt-in)
+   309→
+   310→**Characteristics:**
+   311→- May use real network calls to test actual API integration
+   312→- Still use controlled environments (not developer's personal config)
+   313→- May require API keys or other credentials
+   314→- Slower execution (seconds)
+   315→
+   316→**Isolation Requirements:**
+   317→- ✅ API keys provided via test fixtures or temporary env vars
+   318→- ✅ File system still isolated to temporary directories
+   319→- ✅ Network calls allowed but to real endpoints
+   320→- ❌ No mocking of core functionality being tested
+   321→
+   322→**Run explicitly:**
+   323→```bash
+   324→pytest --with-api-keys
+   325→pytest -m integration
+   326→```
+   327→
+   328→### End-to-End Tests (Rare, Opt-in)
+   329→
+   330→**Characteristics:**
+   331→- Test complete user workflows
+   332→- May read from actual installed configuration (if testing installation)
+   333→- Much slower execution (seconds to minutes)
+   334→
+   335→**Isolation Requirements:**
+   336→- ⚠️ May use some real environment, but document requirements
+   337→- ✅ Should not assume any particular user configuration
+   338→- ✅ Should clean up after themselves
+   339→
+   340→**Run explicitly:**
+   341→```bash
+   342→pytest --e2e
+   343→pytest -m e2e
+   344→```
+   345→
+   346→## Standard 6: Common Patterns and Fixtures
+   347→
+   348→### Standard Fixture: Isolated Environment
+   349→
+   350→Create reusable fixtures for common isolation needs:
+   351→
+   352→```python
+   353→# tests/conftest.py
+   354→
+   355→@pytest.fixture
+   356→def clean_env():
+   357→    """Provide a completely clean environment."""
+   358→    with patch.dict(os.environ, {}, clear=True):
+   359→        yield
+   360→
+   361→@pytest.fixture
+   362→def isolated_app_env(tmp_path):
+   363→    """Provide isolated application environment with temp directories."""
+   364→    env = {
+   365→        "CONFIG_HOME": str(tmp_path / "config"),
+   366→        "CACHE_HOME": str(tmp_path / "cache"),
+   367→        "DATA_HOME": str(tmp_path / "data"),
+   368→    }
+   369→
+   370→    # Create directories
+   371→    for path_str in env.values():
+   372→        Path(path_str).mkdir(parents=True, exist_ok=True)
+   373→
+   374→    with patch.dict(os.environ, env, clear=True):
+   375→        yield tmp_path
+   376→```
+   377→
+   378→Usage:
+   379→```python
+   380→def test_config_isolation(isolated_app_env):
+   381→    """Test runs in completely isolated application environment."""
+   382→    config_file = isolated_app_env / "config" / "config.toml"
+   383→    config_file.write_text("[settings]\nmode = test")
+   384→
+   385→    # Config will be loaded from isolated environment
+   386→    config = AppConfig.load()
+   387→    assert config.get("mode") == "test"
+   388→```
+   389→
+   390→### Standard Fixture: Mock API Keys
+   391→
+   392→```python
+   393→@pytest.fixture
+   394→def mock_api_keys(monkeypatch):
+   395→    """Provide mock API credentials for testing."""
+   396→    keys = {
+   397→        "API_KEY": "test-api-key-12345",
+   398→        "SERVICE_TOKEN": "test-token-67890",
+   399→        "DATABASE_URL": "sqlite:///:memory:",
+   400→    }
+   401→    for key, value in keys.items():
+   402→        monkeypatch.setenv(key, value)
+   403→    yield keys
+   404→```
+   405→
+   406→## Standard 7: Anti-Patterns to Avoid
+   407→
+   408→### ❌ Assuming Clean Environment
+   409→
+   410→```python
+   411→# BAD: Assumes HF_HOME is not set
+   412→def test_default_behavior():
+   413→    result = get_cache_dir()
+   414→    assert result == Path.home() / ".cache" / "huggingface"
+   415→```
+   416→
+   417→### ✅ Explicitly Ensuring Clean Environment
+   418→
+   419→```python
+   420→# GOOD: Guarantees HF_HOME is not set
+   421→@patch.dict(os.environ, {}, clear=True)
+   422→def test_default_behavior():
+   423→    result = get_cache_dir()
+   424→    assert result == Path.home() / ".cache" / "huggingface"
+   425→```
+   426→
+   427→### ❌ Reading Real User Files
+   428→
+   429→```python
+   430→# BAD: Reads from actual user directory
+   431→def test_config_loading():
+   432→    config = load_config(Path.home() / ".config" / "myapp" / "config.toml")
+   433→    assert config.get("theme") == "dark"
+   434→```
+   435→
+   436→### ✅ Using Temporary Files
+   437→
+   438→```python
+   439→# GOOD: Creates temporary config
+   440→def test_config_loading(tmp_path):
+   441→    config_file = tmp_path / "config.toml"
+   442→    config_file.write_text("[settings]\ntheme = dark\nlog_level = info")
+   443→    config = load_config(config_file)
+   444→    assert config.get("theme") == "dark"
+   445→```
+   446→
+   447→### ❌ Unmocked Network Calls in Unit Tests
+   448→
+   449→```python
+   450→# BAD: Makes real network call
+   451→def test_fetch_models():
+   452→    models = fetch_models_from_api()
+   453→    assert len(models) > 0
+   454→```
+   455→
+   456→### ✅ Mocked Network Calls
+   457→
+   458→```python
+   459→# GOOD: Mocks network call
+   460→@patch('requests.get')
+   461→def test_fetch_models(mock_get):
+   462→    mock_get.return_value.json.return_value = {"models": ["gpt-4", "gpt-3.5"]}
+   463→    models = fetch_models_from_api()
+   464→    assert models == ["gpt-4", "gpt-3.5"]
+   465→```
+   466→
+   467→### ❌ Partial Environment Patching
+   468→
+   469→```python
+   470→# BAD: Only patches one variable, leaves others from shell
+   471→@patch.dict(os.environ, {"CONFIG_FILE": "/tmp/config.toml"})
+   472→def test_with_config():
+   473→    # SERVICE_CACHE_DIR, API_KEY, etc. still leak from shell!
+   474→    ...
+   475→```
+   476→
+   477→### ✅ Complete Environment Control
+   478→
+   479→```python
+   480→# GOOD: Clears everything, sets only what's needed
+   481→@patch.dict(os.environ, {"CONFIG_FILE": "/tmp/config.toml"}, clear=True)
+   482→def test_with_config():
+   483→    # Only CONFIG_FILE is set, everything else is clean
+   484→    ...
+   485→```
+   486→
+   487→## Standard 8: Case Study - Environment Variable Isolation
+   488→
+   489→> **Note**: This case study uses a real example involving an external service's cache directory environment variable. While the specific variable name is from one project, the isolation pattern demonstrated here applies to any environment-dependent behavior in your code.
+   490→
+   491→### The Problem
+   492→
+   493→Test: `tests/test_huggingface_coverage.py::test_get_cache_dir_default`
+   494→
+   495→```python
+   496→# Original test (WRONG)
+   497→def test_get_cache_dir_default(self, mock_auto_tokenizer):
+   498→    """Test default cache directory."""
+   499→    tokenizer = HuggingFaceTokenizer("meta-llama/Llama-2-7b-hf")
+   500→    cache_dir = tokenizer._get_cache_dir()
+   501→    assert cache_dir == Path.home() / ".cache" / "huggingface" / "hub"
+   502→```
+   503→
+   504→**Failure**: When developer runs `HF_HOME=env/hf_home pytest`, test fails because:
+   505→1. Test assumes `HF_HOME` is not set
+   506→2. Test doesn't isolate environment
+   507→3. Code correctly reads `HF_HOME` from shell
+   508→4. Test gets `env/hf_home/hub` instead of default path
+   509→
+   510→**This is a test isolation bug, not a code bug.** The code correctly reads the environment variable; the test incorrectly assumed it wasn't set.
+   511→
+   512→### The Fix
+   513→
+   514→```python
+   515→# Corrected test
+   516→@patch.dict(os.environ, {}, clear=True)
+   517→def test_get_cache_dir_default(self, mock_auto_tokenizer):
+   518→    """Test default cache directory when HF_HOME is not set."""
+   519→    tokenizer = HuggingFaceTokenizer("meta-llama/Llama-2-7b-hf")
+   520→    cache_dir = tokenizer._get_cache_dir()
+   521→    assert cache_dir == Path.home() / ".cache" / "huggingface" / "hub"
+   522→```
+   523→
+   524→Now the test:
+   525→- Explicitly clears environment, ensuring `HF_HOME` is not set
+   526→- Tests exactly what it claims to test (default behavior)
+   527→- Passes regardless of developer's shell environment
+   528→
+   529→### Comparison: The Custom Path Test
+   530→
+   531→The sibling test already does this correctly:
+   532→
+   533→```python
+   534→@patch.dict(os.environ, {"HF_HOME": "/custom/hf/home"})
+   535→def test_get_cache_dir_custom(self, mock_auto_tokenizer):
+   536→    """Test custom cache directory from environment."""
+   537→    tokenizer = HuggingFaceTokenizer("meta-llama/Llama-2-7b-hf")
+   538→    cache_dir = tokenizer._get_cache_dir()
+   539→    assert cache_dir == Path("/custom/hf/home") / "hub"
+   540→```
+   541→
+   542→This test works because it explicitly sets `HF_HOME` to a known value.
+   543→
+   544→## Standard 9: Cache State Isolation
+   545→
+   546→### Mandatory Practice
+   547→
+   548→**Tests must not depend on existing cache state and must clean up after execution.**
+   549→
+   550→Cache pollution is a common source of test interdependence. One test populates the cache, and subsequent tests unexpectedly find cached data instead of exercising fresh code paths.
+   551→
+   552→### The Problem
+   553→
+   554→Python applications commonly have multiple caches that can affect test behavior:
+   555→- **External data cache** - Downloaded resources, API responses, computed results
+   556→- **Session cache** - User sessions, authentication tokens, temporary state
+   557→- **Build cache** - Compiled artifacts, processed assets, generated files
+   558→- **Application cache** - Business logic caching, memoization, computed values
+   559→
+   560→### Pattern: Isolated Cache Directories
+   561→
+   562→Use temporary cache directories for each test:
+   563→
+   564→```python
+   565→def test_resource_download(tmp_path: Path):
+   566→    """Test resource download with isolated cache."""
+   567→    cache_dir = tmp_path / "service_cache"
+   568→
+   569→    with patch.dict(os.environ, {"SERVICE_CACHE_DIR": str(cache_dir)}, clear=True):
+   570→        client = ExternalServiceClient("resource-identifier")
+   571→        # This test has its own cache, won't interfere with others
+   572→        assert client.is_cached() is False
+   573→```
+   574→
+   575→### Pattern: Clear Cache Before Test
+   576→
+   577→For tests that must use a specific cache location:
+   578→
+   579→```python
+   580→def test_cache_loading(tmp_path: Path):
+   581→    """Test loading from cache."""
+   582→    cache_dir = tmp_path / "cache"
+   583→    cache_dir.mkdir()
+   584→
+   585→    # Explicitly populate cache with known data
+   586→    cache_file = cache_dir / "test_model.cache"
+   587→    cache_file.write_text('{"tokens": 100}')
+   588→
+   589→    # Test uses only the cache we created
+   590→    result = load_from_cache(cache_file)
+   591→    assert result["tokens"] == 100
+   592→```
+   593→
+   594→### Anti-Pattern Examples
+   595→
+   596→```python
+   597→# ❌ BAD: Assumes cache is empty
+   598→def test_cache_miss():
+   599→    client = ExternalServiceClient("resource-identifier")
+   600→    # Fails if another test or developer has this resource cached!
+   601→    assert client.is_cached() is False
+   602→
+   603→# ❌ BAD: Pollutes shared cache
+   604→def test_cache_writing():
+   605→    # Uses default cache location
+   606→    client = ExternalServiceClient("resource-identifier")
+   607→    client.download()
+   608→    # Leaves cache in modified state for other tests!
+   609→
+   610→# ❌ BAD: Depends on cache from previous test
+   611→def test_cache_hit():
+   612→    # Assumes test_cache_writing ran first
+   613→    client = ExternalServiceClient("resource-identifier")
+   614→    assert client.is_cached() is True
+   615→```
+   616→
+   617→### Correct Patterns
+   618→
+   619→```python
+   620→# ✅ GOOD: Isolated cache
+   621→@patch.dict(os.environ, {"SERVICE_CACHE_DIR": str(tmp_path / "cache")}, clear=True)
+   622→def test_cache_miss(tmp_path: Path):
+   623→    client = ExternalServiceClient("resource-identifier")
+   624→    # Fresh cache, known state
+   625→    assert client.is_cached() is False
+   626→
+   627→# ✅ GOOD: Explicit cache setup
+   628→def test_cache_hit(tmp_path: Path):
+   629→    cache_dir = tmp_path / "cache" / "resources"
+   630→    cache_dir.mkdir(parents=True)
+   631→
+   632→    # Explicitly create cache state
+   633→    resource_dir = cache_dir / "resource-identifier"
+   634→    resource_dir.mkdir()
+   635→    # ... populate with known cached data
+   636→
+   637→    with patch.dict(os.environ, {"SERVICE_CACHE_DIR": str(tmp_path / "cache")}, clear=True):
+   638→        client = ExternalServiceClient("resource-identifier")
+   639→        assert client.is_cached() is True
+   640→```
+   641→
+   642→### Common Cache Patterns
+   643→
+   644→When testing cache-related functionality, isolate these:
+   645→
+   646→```python
+   647→@pytest.fixture
+   648→def isolated_caches(tmp_path: Path):
+   649→    """Provide isolated cache directories for testing."""
+   650→    env = {
+   651→        "CACHE_HOME": str(tmp_path / "cache"),
+   652→        "DATA_CACHE_DIR": str(tmp_path / "data_cache"),
+   653→        "SESSION_CACHE_DIR": str(tmp_path / "session_cache"),
+   654→    }
+   655→
+   656→    # Create directories
+   657→    for path_str in env.values():
+   658→        Path(path_str).mkdir(parents=True, exist_ok=True)
+   659→
+   660→    with patch.dict(os.environ, env, clear=True):
+   661→        yield tmp_path
+   662→```
+   663→
+   664→## Standard 10: Global State and Singleton Isolation
+   665→
+   666→### Mandatory Practice
+   667→
+   668→**Tests must reset global state and singletons before/after execution.**
+   669→
+   670→Global state creates hidden dependencies between tests. One test modifies a singleton, and subsequent tests inherit that modified state.
+   671→
+   672→### Common Problems in Python Applications
+   673→
+   674→Python applications commonly have global state concerns:
+   675→
+   676→1. **Provider Registry** - Singleton that registers available providers
+   677→2. **Tokenizer Instances** - May be cached/reused
+   678→3. **Module-level Configuration** - Settings loaded at import time
+   679→
+   680→### Pattern: Reset Singletons
+   681→
+   682→```python
+   683→def test_service_registration():
+   684→    """Test service registration in isolation."""
+   685→    # Reset registry to known state
+   686→    from myapp.services import ServiceRegistry
+   687→
+   688→    # Save original state
+   689→    original_services = ServiceRegistry._services.copy()
+   690→
+   691→    try:
+   692→        # Test with clean registry
+   693→        ServiceRegistry._services.clear()
+   694→        ServiceRegistry.register("custom", CustomService)
+   695→        assert "custom" in ServiceRegistry.list_services()
+   696→    finally:
+   697→        # Restore original state
+   698→        ServiceRegistry._services = original_services
+   699→```
+   700→
+   701→### Pattern: Fixture for State Cleanup
+   702→
+   703→```python
+   704→@pytest.fixture
+   705→def clean_service_registry():
+   706→    """Ensure clean service registry for test."""
+   707→    from myapp.services import ServiceRegistry
+   708→
+   709→    original = ServiceRegistry._services.copy()
+   710→    yield
+   711→    ServiceRegistry._services = original
+   712→
+   713→def test_with_clean_registry(clean_service_registry):
+   714→    """Test runs with isolated registry state."""
+   715→    # Registry is cleaned before and after this test
+   716→    ...
+   717→```
+   718→
+   719→### Anti-Pattern Examples
+   720→
+   721→```python
+   722→# ❌ BAD: Modifies global registry
+   723→def test_add_service():
+   724→    ServiceRegistry.register("test", TestService)
+   725→    # Leaves registry in modified state!
+   726→
+   727→# ❌ BAD: Depends on global state from other test
+   728→def test_service_exists():
+   729→    # Assumes test_add_service ran first
+   730→    assert "test" in ServiceRegistry.list_services()
+   731→
+   732→# ❌ BAD: Module-level side effects
+   733→import myapp.config
+   734→myapp.config.DEFAULT_MODE = "custom"  # Affects all tests!
+   735→
+   736→def test_something():
+   737→    # This test and all subsequent tests see modified default
+   738→    ...
+   739→```
+   740→
+   741→### Correct Patterns
+   742→
+   743→```python
+   744→# ✅ GOOD: Isolated registry modification
+   745→def test_add_service(clean_service_registry):
+   746→    ServiceRegistry.register("test", TestService)
+   747→    assert "test" in ServiceRegistry.list_services()
+   748→    # Fixture cleans up after
+   749→
+   750→# ✅ GOOD: Mock global config
+   751→def test_with_custom_default():
+   752→    with patch('myapp.config.DEFAULT_MODE', 'custom'):
+   753→        # Only this test sees modified default
+   754→        assert get_default_mode() == 'custom'
+   755→```
+   756→
+   757→### Important: Module Import Side Effects
+   758→
+   759→Be aware of code that executes at import time:
+   760→
+   761→```python
+   762→# In module code (BAD pattern to avoid):
+   763→DEFAULT_CONFIG = load_config()  # Runs at import!
+   764→
+   765→# Tests will inherit whatever state this creates
+   766→```
+   767→
+   768→If such code exists, tests must account for it:
+   769→
+   770→```python
+   771→def test_something():
+   772→    # Reset module-level state
+   773→    import myapp.some_module
+   774→    importlib.reload(myapp.some_module)  # Careful: expensive!
+   775→
+   776→    # Or better: refactor module to avoid import-time side effects
+   777→```
+   778→
+   779→## Standard 11: Working Directory Isolation
+   780→
+   781→### Mandatory Practice
+   782→
+   783→**Tests must not assume they run from a specific working directory.**
+   784→
+   785→Tests that use relative paths fail when run from different directories (IDE, CI/CD, different developer setups).
+   786→
+   787→### The Problem
+   788→
+   789→```python
+   790→# ❌ BAD: Assumes running from project root
+   791→def test_load_fixture():
+   792→    data = load_json("tests/test_data/sample.json")
+   793→    # Fails if run from tests/ directory or elsewhere
+   794→```
+   795→
+   796→### Pattern: Use `__file__` for Paths
+   797→
+   798→```python
+   799→# ✅ GOOD: Path relative to test file location
+   800→def test_load_fixture():
+   801→    test_dir = Path(__file__).parent
+   802→    fixture_path = test_dir / "test_data" / "sample.json"
+   803→    data = load_json(fixture_path)
+   804→```
+   805→
+   806→### Pattern: Use Fixtures for Test Data Paths
+   807→
+   808→```python
+   809→# tests/conftest.py
+   810→@pytest.fixture
+   811→def test_data_dir():
+   812→    """Provide path to test data directory."""
+   813→    return Path(__file__).parent / "test_data"
+   814→
+   815→# tests/test_something.py
+   816→def test_load_sample(test_data_dir: Path):
+   817→    """Test loading sample data."""
+   818→    data = load_json(test_data_dir / "sample.json")
+   819→    assert data["version"] == 1
+   820→```
+   821→
+   822→### Anti-Pattern Examples
+   823→
+   824→```python
+   825→# ❌ BAD: Relative path from unknown location
+   826→def test_data_loading():
+   827→    data = load_data("tests/test_data/fixtures/sample_data.json")
+   828→
+   829→# ❌ BAD: Assumes CWD is project root
+   830→def test_config_loading():
+   831→    with open("src/myapp/data/metadata.json") as f:
+   832→        data = json.load(f)
+   833→
+   834→# ❌ BAD: Changes working directory without cleanup
+   835→def test_something():
+   836→    os.chdir("tests")
+   837→    # Other tests now run from wrong directory!
+   838→    ...
+   839→```
+   840→
+   841→### Correct Patterns
+   842→
+   843→```python
+   844→# ✅ GOOD: Absolute path from test location
+   845→def test_data_loading():
+   846→    test_dir = Path(__file__).parent
+   847→    data_path = test_dir / "test_data" / "fixtures" / "sample_data.json"
+   848→    data = load_data(data_path)
+   849→
+   850→# ✅ GOOD: Use package resources for package data
+   851→from importlib.resources import files
+   852→def test_metadata_loading():
+   853→    metadata = files("myapp.data").joinpath("metadata.json")
+   854→    with metadata.open() as f:
+   855→        data = json.load(f)
+   856→
+   857→# ✅ GOOD: Change directory with cleanup
+   858→def test_with_different_cwd(tmp_path: Path):
+   859→    original_cwd = Path.cwd()
+   860→    try:
+   861→        os.chdir(tmp_path)
+   862→        # Test that needs specific CWD
+   863→        ...
+   864→    finally:
+   865→        os.chdir(original_cwd)
+   866→```
+   867→
+   868→### Example Test Data Organization
+   869→
+   870→Example test data organization in `tests/test_data/`:
+   871→
+   872→```
+   873→tests/
+   874→├── test_data/
+   875→│   ├── fixtures/          # Version-controlled test inputs
+   876→│   │   ├── sample_data.json
+   877→│   │   ├── test_config.toml
+   878→│   │   └── valid_input.csv
+   879→│   ├── expected/          # Expected outputs for verification
+   880→│   │   ├── processed_result.json
+   881→│   │   └── formatted_output.txt
+   882→│   └── mocks/             # Mock API responses
+   883→│       ├── api_success.json
+   884→│       └── api_error.json
+   885→└── test_*.py
+   886→```
+   887→
+   888→Access these with path relative to test file:
+   889→
+   890→```python
+   891→@pytest.fixture
+   892→def sample_data_file():
+   893→    """Provide path to sample data fixture."""
+   894→    tests_dir = Path(__file__).parent
+   895→    return tests_dir / "test_data" / "fixtures" / "sample_data.json"
+   896→```
+   897→
+   898→## Standard 12: Standard Stream Isolation (CLI Testing)
+   899→
+   900→### Mandatory Practice
+   901→
+   902→**CLI tests must properly capture and isolate stdout/stderr output.**
+   903→
+   904→CLI applications write to stdout/stderr. Tests must capture this output without interference between tests.
+   905→
+   906→### The Problem
+   907→
+   908→```python
+   909→# ❌ BAD: Output goes to console
+   910→def test_cli_help():
+   911→    cli_main(["--help"])
+   912→    # How do we verify what was printed?
+   913→    # Output visible in test runner, pollutes output
+   914→```
+   915→
+   916→### Pattern: Use pytest's capsys
+   917→
+   918→```python
+   919→# ✅ GOOD: Capture output with capsys
+   920→def test_cli_help(capsys):
+   921→    """Test CLI help output."""
+   922→    with pytest.raises(SystemExit):  # --help exits
+   923→        cli_main(["--help"])
+   924→
+   925→    captured = capsys.readouterr()
+   926→    assert "usage:" in captured.out.lower()
+   927→    assert "show this help message" in captured.out.lower()
+   928→```
+   929→
+   930→### Pattern: Use Typer's CliRunner (Recommended for Typer apps)
+   931→
+   932→For Python CLIs using Typer, which provides a testing utility:
+   933→
+   934→```python
+   935→from typer.testing import CliRunner
+   936→from myapp.cli import app
+   937→
+   938→runner = CliRunner()
+   939→
+   940→def test_version_command():
+   941→    """Test version command output."""
+   942→    result = runner.invoke(app, ["--version"])
+   943→
+   944→    assert result.exit_code == 0
+   945→    assert "version" in result.stdout.lower()
+   946→```
+   947→
+   948→### Pattern: Mixing Output Capture
+   949→
+   950→```python
+   951→def test_cli_with_file_output(tmp_path: Path, capsys):
+   952→    """Test CLI that writes to both file and stdout."""
+   953→    output_file = tmp_path / "output.txt"
+   954→
+   955→    result = runner.invoke(app, [
+   956→        "hello world",
+   957→        "--output", str(output_file)
+   958→    ])
+   959→
+   960→    # Verify CLI output
+   961→    assert result.exit_code == 0
+   962→
+   963→    # Verify file was written
+   964→    assert output_file.exists()
+   965→    assert "token" in output_file.read_text()
+   966→
+   967→    # Verify nothing leaked to stderr
+   968→    assert result.stderr == ""
+   969→```
+   970→
+   971→### Anti-Pattern Examples
+   972→
+   973→```python
+   974→# ❌ BAD: Doesn't capture output
+   975→def test_cli_output():
+   976→    cli_main(["hello"])
+   977→    # No way to verify output!
+   978→
+   979→# ❌ BAD: Manual stdout redirection (fragile)
+   980→def test_cli_manual_capture():
+   981→    old_stdout = sys.stdout
+   982→    sys.stdout = io.StringIO()
+   983→    try:
+   984→        cli_main(["hello"])
+   985→        output = sys.stdout.getvalue()
+   986→    finally:
+   987→        sys.stdout = old_stdout
+   988→    # Fragile, doesn't handle stderr, can leave stdout corrupted
+   989→
+   990→# ❌ BAD: Output interference
+   991→def test_something():
+   992→    print("Debug info")  # Pollutes test output!
+   993→```
+   994→
+   995→### Correct Patterns
+   996→
+   997→```python
+   998→# ✅ GOOD: CliRunner captures everything
+   999→def test_error_messages():
+  1000→    """Test that errors are properly reported."""
+  1001→    result = runner.invoke(app, ["--model", "nonexistent"])
+  1002→
+  1003→    assert result.exit_code != 0
+  1004→    assert "error" in result.stdout.lower()
+  1005→
+  1006→# ✅ GOOD: Use pytest's capsys for non-CLI code
+  1007→def test_formatter_output(capsys):
+  1008→    """Test formatter writes to stdout."""
+  1009→    formatter = OutputFormatter()
+  1010→    formatter.print_result({"tokens": 42})
+  1011→
+  1012→    captured = capsys.readouterr()
+  1013→    assert "42" in captured.out
+  1014→
+  1015→# ✅ GOOD: Suppress output when not testing it
+  1016→def test_cli_exit_code():
+  1017→    """Test only exit code, ignore output."""
+  1018→    result = runner.invoke(app, ["hello"], catch_exceptions=False)
+  1019→    assert result.exit_code == 0
+  1020→    # Don't check output, just success/failure
+  1021→```
+  1022→
+  1023→### Python CLI Testing Best Practices
+  1024→
+  1025→```python
+  1026→# Standard test setup for Python CLI tests
+  1027→from typer.testing import CliRunner
+  1028→from myapp.cli import app
+  1029→
+  1030→runner = CliRunner()
+  1031→
+  1032→def test_basic_tokenization():
+  1033→    """Test basic token counting."""
+  1034→    result = runner.invoke(app, [
+  1035→        "Hello, world!",
+  1036→        "--provider", "openai",
+  1037→        "--model", "gpt-4"
+  1038→    ])
+  1039→
+  1040→    assert result.exit_code == 0
+  1041→    assert "tokens" in result.stdout.lower()
+  1042→
+  1043→def test_cli_with_config(tmp_path: Path):
+  1044→    """Test CLI with custom config."""
+  1045→    config_file = tmp_path / "config.toml"
+  1046→    config_file.write_text("[settings]\nlog_level = debug")
+  1047→
+  1048→    with patch.dict(os.environ, {"CONFIG_FILE": str(config_file)}, clear=True):
+  1049→        result = runner.invoke(app, ["run"])
+  1050→        assert result.exit_code == 0
+  1051→```
+  1052→
+  1053→## Standard 13: Module-Level Derived Constant Patching
+  1054→
+  1055→### Mandatory Practice
+  1056→
+  1057→**Tests that patch module-level constants must patch all derived constants in the dependency chain.**
+  1058→
+  1059→Python evaluates module-level expressions once at import time. Constants derived from other constants capture a snapshot of their base value—patching the base constant later does not update derived constants.
+  1060→
+  1061→### The Problem
+  1062→
+  1063→```python
+  1064→# In module code:
+  1065→PROJECT_ROOT = Path(__file__).resolve().parent.parent
+  1066→REPORTS_DIR = PROJECT_ROOT / "docs" / "reports"      # Evaluated ONCE at import
+  1067→DEV_REPORTS_DIR = PROJECT_ROOT / "dev" / "reports"   # Evaluated ONCE at import
+  1068→```
+  1069→
+  1070→When you patch `PROJECT_ROOT`, `REPORTS_DIR` and `DEV_REPORTS_DIR` still point to their original computed values. Tests using these derived constants will write to real directories.
+  1071→
+  1072→### Anti-Pattern: Patching Only the Base Constant
+  1073→
+  1074→```python
+  1075→# ❌ BAD: Only patches base constant
+  1076→def test_generate_docs(tmp_path: Path):
+  1077→    with patch.object(my_module, "PROJECT_ROOT", tmp_path):
+  1078→        # REPORTS_DIR still points to real directory!
+  1079→        result = my_module.generate_report()
+  1080→```
+  1081→
+  1082→### Correct Pattern: Patch All Constants in the Chain
+  1083→
+  1084→```python
+  1085→# ✅ GOOD: Patches base AND all derived constants
+  1086→def test_generate_docs(tmp_path: Path, monkeypatch):
+  1087→    monkeypatch.setattr(my_module, "PROJECT_ROOT", tmp_path)
+  1088→    monkeypatch.setattr(my_module, "REPORTS_DIR", tmp_path / "docs" / "reports")
+  1089→    monkeypatch.setattr(my_module, "DEV_REPORTS_DIR", tmp_path / "dev" / "reports")
+  1090→
+  1091→    result = my_module.generate_report()
+  1092→    # Now writes to tmp_path, not real directories
+  1093→```
+  1094→
+  1095→### Finding Constants to Patch
+  1096→
+  1097→Before writing a test that patches any path constant:
+  1098→
+  1099→1. **Identify the base constant** you need to patch (e.g., `PROJECT_ROOT`)
+  1100→2. **Search the module** for constants that reference it:
+  1101→   ```bash
+  1102→   grep "PROJECT_ROOT" source/scripts/my_module.py
+  1103→   ```
+  1104→3. **Patch every constant** in the dependency chain
+  1105→
+  1106→### Common Patterns
+  1107→
+  1108→```python
+  1109→@pytest.fixture
+  1110→def isolated_project_paths(tmp_path: Path, monkeypatch):
+  1111→    """Provide isolated project paths for testing."""
+  1112→    monkeypatch.setattr(my_module, "PROJECT_ROOT", tmp_path)
+  1113→    monkeypatch.setattr(my_module, "REPORTS_DIR", tmp_path / "docs" / "reports")
+  1114→    monkeypatch.setattr(my_module, "DEV_REPORTS_DIR", tmp_path / "dev" / "reports")
+  1115→
+  1116→    # Create directories
+  1117→    (tmp_path / "docs" / "reports").mkdir(parents=True)
+  1118→    (tmp_path / "dev" / "reports").mkdir(parents=True)
+  1119→
+  1120→    return tmp_path
+  1121→
+  1122→def test_with_isolated_paths(isolated_project_paths):
+  1123→    """Test runs with fully isolated path constants."""
+  1124→    result = my_module.generate_all_reports()
+  1125→    assert result.success
+  1126→```
+  1127→
+  1128→### Troubleshooting
+  1129→
+  1130→If a test unexpectedly writes to real directories:
+  1131→
+  1132→1. **Check which constant the function uses** - It may use a derived constant, not the base
+  1133→2. **Verify all derived constants are patched** - Missing even one breaks isolation
+  1134→3. **Create directories in tmp_path** - Derived paths may need their directories created
+  1135→
+  1136→## Future Considerations
+  1137→
+  1138→These isolation concerns are lower priority in simpler projects but may become relevant as complexity grows:
+  1139→
+  1140→### Time and Date Dependencies
+  1141→
+  1142→If time-based features are implemented (e.g., timestamped logs, time-sensitive operations):
+  1143→
+  1144→```python
+  1145→# Mock time for deterministic tests
+  1146→from unittest.mock import patch
+  1147→from datetime import datetime
+  1148→
+  1149→@patch('datetime.datetime')
+  1150→def test_timestamp_generation(mock_datetime):
+  1151→    mock_datetime.now.return_value = datetime(2024, 1, 1, 12, 0, 0)
+  1152→    # Test runs with frozen time
+  1153→    result = generate_report_with_timestamp()
+  1154→    assert "2024-01-01" in result
+  1155→```
+  1156→
+  1157→### Random Number Generation
+  1158→
+  1159→If randomness is introduced (sampling, fuzzing, etc.):
+  1160→
+  1161→```python
+  1162→import random
+  1163→
+  1164→def test_with_randomness():
+  1165→    random.seed(42)  # Deterministic "random" behavior
+  1166→    result = generate_random_test_cases()
+  1167→    assert len(result) == 10  # Always generates same 10
+  1168→```
+  1169→
+  1170→### System Properties (Locale, Timezone)
+  1171→
+  1172→For locale-sensitive features:
+  1173→
+  1174→```python
+  1175→import locale
+  1176→
+  1177→def test_number_formatting():
+  1178→    with patch.object(locale, 'getlocale', return_value=('en_US', 'UTF-8')):
+  1179→        # Test with known locale
+  1180→        ...
+  1181→```
+  1182→
+  1183→### Platform-Specific Behavior
+  1184→
+  1185→Example implementation of cross-platform testing with pytest markers:
+  1186→
+  1187→```python
+  1188→@pytest.mark.skipif(sys.platform != "win32", reason="Windows-only test")
+  1189→def test_windows_paths():
+  1190→    # Test Windows-specific path handling
+  1191→    ...
+  1192→```
+  1193→
+  1194→## Enforcement and Compliance
+  1195→
+  1196→### Required for All New Tests
+  1197→
+  1198→Starting immediately, all new tests must comply with these standards. Code reviews must verify:
+  1199→
+  1200→- [ ] Environment variables are explicitly controlled with `@patch.dict`
+  1201→- [ ] File operations use `tmp_path` or controlled fixtures
+  1202→- [ ] Network calls are mocked in unit tests
+  1203→- [ ] Integration tests are marked and opt-in
+  1204→- [ ] Tests do not depend on developer's personal configuration
+  1205→- [ ] Cache directories are isolated with temporary paths
+  1206→- [ ] Global state and singletons are reset before/after tests
+  1207→- [ ] Paths use `__file__` or fixtures, not relative to CWD
+  1208→- [ ] CLI tests properly capture stdout/stderr output
+  1209→- [ ] Module-level derived constants are fully patched
+  1210→
+  1211→### Existing Test Audit
+  1212→
+  1213→A separate audit will be conducted to identify non-compliant tests in the existing suite. Violations will be addressed through:
+  1214→
+  1215→1. Identification phase: Scan all tests for anti-patterns
+  1216→2. Prioritization: Fix critical failures first
+  1217→3. Systematic remediation: Fix all violations
+  1218→4. Verification: Confirm tests pass in various environments
+  1219→
+  1220→## Summary: The Golden Rules
+  1221→
+  1222→1. **Default Behavior Tests**: Always use `@patch.dict(os.environ, {}, clear=True)`
+  1223→2. **Environment-Dependent Tests**: Always use `@patch.dict(os.environ, {...})` with explicit values
+  1224→3. **File Operations**: Always use `tmp_path` fixture
+  1225→4. **Network Calls**: Always mock in unit tests; opt-in for integration tests
+  1226→5. **Configuration Files**: Never read from actual user directories
+  1227→6. **Test Categories**: Clearly separate unit/integration/e2e tests
+  1228→7. **Cache Isolation**: Use temporary cache directories, never assume cache state
+  1229→8. **Global State**: Reset singletons and global variables before/after tests
+  1230→9. **Working Directory**: Use `__file__` or fixtures, never assume CWD
+  1231→10. **CLI Output**: Use `CliRunner` or `capsys` to capture stdout/stderr
+  1232→11. **Documentation**: Tests must document what environment they assume
+  1233→12. **Derived Constants**: Patch all constants in the dependency chain, not just the base
+  1234→
+  1235→**When in doubt, ask**: "Would this test pass on a colleague's machine with different environment variables, configuration, cache state, and working directory?"
+  1236→
+  1237→If the answer is no, the test needs better isolation.
+  1238→
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>

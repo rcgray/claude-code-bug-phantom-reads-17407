@@ -329,6 +329,189 @@ This confirms the phenomenon is real - the agent genuinely did not receive the f
 
 ---
 
+## 2026-01-14: Context Reset Analysis Document
+
+**Event**: Created formal analysis document for context reset theory.
+
+Findings from session file analysis were formalized in `docs/core/Context-Reset-Analysis.md`, documenting:
+- The correlation between context reset frequency and phantom read occurrence
+- The ~140K token threshold hypothesis for reset triggers
+- Detection algorithm for counting resets in session files
+- Risk classification framework (low/medium/high risk based on reset count)
+
+### Reproduction Environment Plan
+
+Created `docs/archive/reproduction-environment-plan.md` documenting the strategy for creating a controlled reproduction environment within this repository, based on the ~140K token threshold discovery.
+
+Key insight: If we can control token consumption, we can control phantom read occurrence. The plan proposed creating dummy specification documents of known complexity that would push sessions above or below the threshold predictably.
+
+---
+
+## 2026-01-15: Reproduction Specs Collection Implementation and First Tests
+
+**Event**: Implemented the Reproduction Specs Collection feature and conducted first reproduction trials.
+
+### Feature Implementation
+
+Completed implementation of `docs/features/reproduction-specs-collection/Reproduction-Specs-Collection-Overview.md`:
+- Created 6 interconnected specification documents describing a fictional "Data Pipeline System"
+- Created 3 test WPDs (easy, medium, hard) designed to trigger different levels of token consumption
+- Total spec content: ~3,600 lines across 6 files
+
+### Directory Structure
+
+```
+docs/
+├── specs/                              # Dummy specification files
+│   ├── data-pipeline-overview.md       # Hub document (425 lines)
+│   ├── module-alpha.md                 # Ingestion module (742 lines)
+│   ├── module-beta.md                  # Transformation module (741 lines)
+│   ├── module-gamma.md                 # Output module (771 lines)
+│   ├── integration-layer.md            # Cross-module protocols (530 lines)
+│   └── compliance-requirements.md      # Audit/regulatory reqs (392 lines)
+└── wpds/                               # Test Work Plan Documents
+    ├── refactor-easy.md                # Minimal scope WPD
+    ├── refactor-medium.md              # Partial scope WPD
+    └── refactor-hard.md                # Full scope WPD
+```
+
+### Trial Methodology Enhancement
+
+Enhanced the trial methodology to include `/context` calls at key points:
+
+```
+/wsd:init --custom
+/context                    # Capture baseline
+/refine-plan docs/wpds/refactor-{easy|medium|hard}.md
+/context                    # Capture post-operation
+[Prompt for phantom read self-report]
+/export
+```
+
+This provides precise token consumption data at the critical juncture.
+
+### First Trial Results
+
+Conducted 3 trials (one for each difficulty level) in a clone of this repository:
+
+| Trial | Pre-/refine-plan | Post-/refine-plan | Delta | Expected | Actual |
+|-------|------------------|-------------------|-------|----------|--------|
+| Hard | 95K (48%) | 149K (75%) | +54K | FAILURE | SUCCESS |
+| Medium | 80K (40%) | 123K (62%) | +43K | MIXED | SUCCESS |
+| Easy | 74K (37%) | 94K (47%) | +20K | SUCCESS | SUCCESS |
+
+**Result**: All three trials succeeded. The hard case was expected to fail but did not.
+
+### Initial Analysis
+
+The hard trial reached 149K tokens (75% of 200K context window) but experienced no phantom reads. This suggested either:
+1. The ~140K threshold hypothesis was incorrect
+2. The reproduction environment was missing some critical factor
+3. The spec content alone was insufficient
+
+Trial data saved to `dev/misc/repro-attempts/` for analysis.
+
+---
+
+## 2026-01-15: WSD Development Project Repeat Trials
+
+**Event**: Conducted new trials in the WSD Development project (the original project where phantom reads were first encountered) using the enhanced `/context` methodology.
+
+### Purpose
+
+To obtain trials with embedded `/context` data from a project where phantom reads are KNOWN to occur, enabling comparison with the failed reproduction attempts.
+
+### Results
+
+Captured both a successful and failing trial:
+- `dev/misc/wsd-dev-repeat/2.1.6-good/` - No phantom reads
+- `dev/misc/wsd-dev-repeat/2.1.6-bad/` - Phantom reads confirmed
+
+**Critical Data**:
+
+| Metric | GOOD Trial | BAD Trial |
+|--------|------------|-----------|
+| Pre-/refine-plan | **85K (42%)** | **126K (63%)** |
+| Post-/refine-plan | **159K (79%)** | **142K (71%)** |
+| Delta during /refine-plan | **+74K** | **+16K** |
+| Phantom Reads? | **NO** | **YES** |
+
+### Counter-Intuitive Discovery
+
+**The BAD trial consumed FEWER total tokens but experienced phantom reads.**
+
+The bad trial:
+- Started at 126K tokens (63% context consumption)
+- Ended at only 142K tokens (71%)
+- Added only 16K tokens during `/refine-plan`
+- Experienced phantom reads on multiple files
+
+The good trial:
+- Started at 85K tokens (42% context consumption)
+- Ended at 159K tokens (79%)
+- Added 74K tokens during `/refine-plan`
+- All files read successfully inline
+
+---
+
+## 2026-01-15: Headroom Theory Discovered
+
+**Event**: Analysis of the WSD Development repeat trials led to the discovery of the Headroom Theory.
+
+### The Key Insight
+
+The critical factor is **starting context consumption** (and therefore available headroom) before a multi-file read operation, NOT total content size or final token consumption.
+
+**Headroom** = Available buffer space = Context Window Size - Current Consumption
+
+### Why the Bad Trial Failed
+
+The bad trial agent read more files during onboarding:
+- `Python-Test-Environment-Isolation-Standards.md` (1,238 lines)
+- `TypeScript-Test-Environment-Isolation-Standards.md` (1,251 lines)
+- Additional standards files
+
+This pushed context to 126K tokens (only 74K headroom) BEFORE `/refine-plan` even started. When the agent tried to read the spec files, it had insufficient buffer space and context management triggered phantom reads early.
+
+The good trial had 115K headroom, allowing all files to be read without triggering aggressive context management.
+
+### Why Our Reproduction Failed
+
+Our reproduction environment's onboarding process consumes ~74-95K tokens, leaving 105-126K headroom. The WSD Development bad trial demonstrates that phantom reads occur when headroom drops below ~80K. Our trials never entered this danger zone.
+
+### Relationship to Reset Theory
+
+The Headroom Theory **supports and refines** the Reset Theory:
+
+| Theory | Explains |
+|--------|----------|
+| **Reset Theory** | The MECHANISM - context resets clear content before the model processes it |
+| **Headroom Theory** | The TRIGGER - low starting headroom causes earlier/more frequent resets |
+
+The theories are complementary:
+1. Low headroom → More resets (Headroom Theory)
+2. More resets → More phantom reads (Reset Theory)
+
+### Documentation
+
+Created `docs/core/Headroom-Theory.md` to formally document these findings and their relationship to the Reset Theory.
+
+### Implications for Reproduction Environment
+
+To reliably trigger phantom reads, we must:
+1. **Increase baseline consumption** before `/refine-plan` (not just spec content size)
+2. **Target ~120-130K pre-operation** to reduce headroom to <80K
+3. **Add substantial onboarding content** (e.g., large standards files similar to WSD Development)
+
+### Risk Classification (Revised)
+
+Based on the Headroom Theory:
+- **Low risk**: <50% consumption (>100K headroom)
+- **Medium risk**: 50-60% consumption (80-100K headroom)
+- **High risk**: >60% consumption (<80K headroom)
+
+---
+
 ## Evolving Theory
 
 ### What We Know For Certain
@@ -339,16 +522,19 @@ This confirms the phenomenon is real - the agent genuinely did not receive the f
 4. **Alternative access methods work** - grep results, re-reads, and MCP reads succeed
 5. **The workaround works** - MCP Filesystem has 100% success rate so far
 6. **Context resets correlate** - more resets = higher phantom read risk
+7. **Starting headroom matters** - low headroom before multi-file operations predicts phantom reads
 
 ### What Remains Uncertain
 
-1. **Exact mechanism** - Is it deferred reads? Context clearing? Something else?
-2. **Agent interpretation** - Are `[Old tool result content cleared]` and `<persisted-output>` literal strings or the agent's interpretation of a concept?
-3. **Causation vs correlation** - Do context resets CAUSE phantom reads, or are they both symptoms of the same underlying issue?
+1. **Exact threshold** - Is the danger zone truly at ~120-130K starting consumption?
+2. **Causation details** - Does low headroom cause more resets, or are both symptoms of the same underlying issue?
+3. **File-level factors** - Are certain files more vulnerable than others?
 
 ### Current Working Theory
 
 The Read tool records actual content to the session file, but a separate context management system decides what actually reaches the model. When context grows too large, older tool results are cleared/summarized. The session file doesn't capture this transformation because it logs tool execution, not model context.
+
+**The Headroom Theory adds**: When a multi-file operation begins with already-high context consumption, the system has less buffer space and triggers context management sooner and more frequently, leading to more phantom reads.
 
 Era 1 and Era 2 may represent different implementations of the same underlying behavior - managing large tool results when context is constrained.
 
@@ -356,48 +542,27 @@ Era 1 and Era 2 may represent different implementations of the same underlying b
 
 ## Open Questions
 
-1. **What determines which reads become phantom reads?** Is it file size? Position in read sequence? Total context consumed?
+1. **What determines which reads become phantom reads?** Is it file size? Position in read sequence? Total context consumed? **Headroom at time of read?**
 
 2. **Why does grep appear more reliable?** Is it because grep results are smaller? Different code path?
 
 3. **What changed between 2.0.59 and 2.0.60?** The switch from `[Old tool result content cleared]` to `<persisted-output>` suggests a change in how large results are handled.
 
-4. **Is there a threshold?** Can we determine what triggers the persisted-output behavior vs. inline content?
+4. **Is there a precise headroom threshold?** Can we determine exactly what headroom level triggers the persisted-output behavior?
 
 5. **Can we detect both eras programmatically?** Our analysis scripts may need to detect both error mechanisms.
 
-6. **Would a self-report validation study be feasible?** Correlating yes/no phantom read reports with output quality could establish self-report as a reliable proxy.
+6. **Can we validate headroom theory with additional trials?** Conduct trials with varying starting consumption levels.
 
 ---
 
-## Future Investigation Directions
+## Next Steps
 
-### Proposed: Self-Report Validation Study
-
-**Goal**: Determine if agent self-report can serve as a reliable proxy for phantom read detection.
-
-**Method**:
-1. Generate multiple trial sessions with `/refine-plan`
-2. Ask agents to self-report yes/no on phantom read occurrence
-3. Carefully analyze their output for:
-   - References to line numbers that don't exist
-   - Quotes of text not present in files
-   - Structural claims that don't match reality
-4. Calculate correlation between self-report and actual errors
-
-**Success criteria**: High correlation (>80%) with sufficient statistical power would validate self-report as detection method.
-
-### Proposed: Context Reset Threshold Analysis
-
-**Goal**: Determine if there's a predictable threshold for context resets.
-
-**Method**:
-1. Analyze multiple sessions for context sizes before resets
-2. Identify if there's a consistent trigger point (e.g., 150K tokens)
-3. Determine if certain operations (multi-file reads) are more likely to trigger resets
-
-**Outcome**: Could enable predictive warnings before phantom reads occur.
+1. **Validate Headroom Theory** - Conduct trials with controlled starting consumption to verify threshold
+2. **Update Reproduction Environment** - Add substantial onboarding content to reduce headroom
+3. **Re-run Reproduction Trials** - Test whether increased baseline triggers phantom reads
+4. **Update Documentation** - Revise Reproduction-Specs-Collection-Overview.md with headroom requirements
 
 ---
 
-*Last updated: 2026-01-13*
+*Last updated: 2026-01-15*

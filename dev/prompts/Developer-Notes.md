@@ -349,3 +349,39 @@ After `/wsd:close` (reported 0% remaining)
      ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛁ ⛀
 ```
 This is an error - I did not clear this.  Auto-compact confirmed off (as always)
+
+
+---
+
+grep -rlZ "2a812dfa-814f-48b0-8520-a9f575a018fc" .
+
+cp Hard-2a812dfa-814f-48b0-8520-a9f575a018fc.txt ~/Projects/claude-code-bug-phantom-reads-17407/dev/misc/repro-attempts/hard-1/
+cp 2a812dfa-814f-48b0-8520-a9f575a018fc.jsonl ~/Projects/claude-code-bug-phantom-reads-17407/dev/misc/repro-attempts/hard-1/
+cp -r 2a812dfa-814f-48b0-8520-a9f575a018fc ~/Projects/claude-code-bug-phantom-reads-17407/dev/misc/repro-attempts/hard-1/
+
+cp Medium-c35c12b8-cefb-4d16-ad19-d62ced4823e4.txt ~/Projects/claude-code-bug-phantom-reads-17407/dev/misc/repro-attempts/medium-1/
+cp c35c12b8-cefb-4d16-ad19-d62ced4823e4.jsonl ~/Projects/claude-code-bug-phantom-reads-17407/dev/misc/repro-attempts/medium-1/
+cp -r c35c12b8-cefb-4d16-ad19-d62ced4823e4 ~/Projects/claude-code-bug-phantom-reads-17407/dev/misc/repro-attempts/medium-1/
+
+cp Easy-092d9127-3415-45ce-9f35-04c22834eab0.txt ~/Projects/claude-code-bug-phantom-reads-17407/dev/misc/repro-attempts/easy-1/
+cp 092d9127-3415-45ce-9f35-04c22834eab0.jsonl ~/Projects/claude-code-bug-phantom-reads-17407/dev/misc/repro-attempts/easy-1/
+cp -r 092d9127-3415-45ce-9f35-04c22834eab0 ~/Projects/claude-code-bug-phantom-reads-17407/dev/misc/repro-attempts/easy-1/
+
+
+
+/refine-plan docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md
+
+# Good - 27eaff45-a330-4a88-9213-3725c9f420d0
+# Bad - 504216d1-8285-4ec4-92be-0db8dc92a18a
+
+grep -rlZ "27eaff45-a330-4a88-9213-3725c9f420d0" .
+grep -rlZ "504216d1-8285-4ec4-92be-0db8dc92a18a" .
+
+
+cp Good-27eaff45-a330-4a88-9213-3725c9f420d0.txt ~/Projects/claude-code-bug-phantom-reads-17407/dev/misc/wsd-dev-repeat/2.1.6-good/
+cp 27eaff45-a330-4a88-9213-3725c9f420d0.jsonl ~/Projects/claude-code-bug-phantom-reads-17407/dev/misc/wsd-dev-repeat/2.1.6-good/
+cp -r 27eaff45-a330-4a88-9213-3725c9f420d0 ~/Projects/claude-code-bug-phantom-reads-17407/dev/misc/wsd-dev-repeat/2.1.6-good/
+
+cp Bad-504216d1-8285-4ec4-92be-0db8dc92a18a.txt ~/Projects/claude-code-bug-phantom-reads-17407/dev/misc/wsd-dev-repeat/2.1.6-bad/
+cp 504216d1-8285-4ec4-92be-0db8dc92a18a.jsonl ~/Projects/claude-code-bug-phantom-reads-17407/dev/misc/wsd-dev-repeat/2.1.6-bad/
+cp -r 504216d1-8285-4ec4-92be-0db8dc92a18a ~/Projects/claude-code-bug-phantom-reads-17407/dev/misc/wsd-dev-repeat/2.1.6-bad/

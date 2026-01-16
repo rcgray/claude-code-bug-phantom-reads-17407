@@ -1,0 +1,254 @@
+  2080→def categorize_update_files(
+  2081→    installed_files: list[str],
+  2082→    update_source_dir: Path,
+  2083→    update_metadata: WsdMetadata,
+  2084→    target_dir: Path,
+  2085→) -> FileCategorization:
+  2086→    """Categorize files for update operation based on set operations, protection, and hashes.
+  2087→
+  2088→    Implements file comparison algorithm from Update-System.md § File Comparison Algorithm
+  2089→    with content hash comparison from Content-Hashing-Overview.md. Compares installed files
+  2090→    against update source files, performs set operations to determine which files need to be
+  2091→    deleted/added/updated, applies no_overwrite protection policies, and uses content hash
+  2092→    comparison to skip files with identical content.
+  2093→
+  2094→    This function returns ALL files in their natural categories. Note that .wsdkeep
+  2095→    files are no longer tracked in file_hashes; directory requirements are declared
+  2096→    via the required_directories field in wsd.json. The update workflow filters out
+  2097→    .wsdkeep files from these categories and handles directories separately.
+  2098→
+  2099→    Algorithm:
+  2100→    1. Read installation_only list from UPDATE's wsd.json
+  2101→    2. Extract file paths from installed manifest
+  2102→    3. Collect all update files and filter out installation_only files
+  2103→    4. Perform set operations (delete = installed - update)
+  2104→    5. Perform set operations (add = update - installed)
+  2105→    6. Identify files in both (in_both = installed ∩ update)
+  2106→    7. Read no_overwrite list from UPDATE's wsd.json
+  2107→    8. Read file_hashes from UPDATE's wsd.json for content comparison
+  2108→    9. Filter in_both files:
+  2109→       - Protected by no_overwrite → to_skip
+  2110→       - Content hash matches → to_skip_unchanged
+  2111→       - Content differs or hash missing → to_update
+  2112→    10. Return categorized file lists (including .wsdkeep files)
+  2113→
+  2114→    Args:
+  2115→        installed_files: List of file paths from installed manifest
+  2116→        update_source_dir: Path to WSD Runtime root directory containing update files
+  2117→        update_metadata: Parsed wsd.json from update source containing protection policies
+  2118→        target_dir: Path to target directory where WSD is installed (for directory checks)
+  2119→
+  2120→    Returns:
+  2121→        FileCategorization object with categorized file lists:
+  2122→            - to_delete: Files to remove from target (includes .wsdkeep)
+  2123→            - to_add: Files to copy to target (includes .wsdkeep)
+  2124→            - to_update: Files to overwrite with tag preservation (content differs)
+  2125→            - to_skip: Files to leave unchanged (no_overwrite protected)
+  2126→            - to_skip_unchanged: Files to leave unchanged (content identical)
+  2127→
+  2128→    Raises:
+  2129→        FileNotFoundError: If update_source_dir does not exist
+  2130→        WsdCollectionError: If invalid content found in update source
+  2131→    """
+  2132→    # Read installation_only list from UPDATE's wsd.json
+  2133→    installation_only = update_metadata.installation_only
+  2134→    installation_only_set = set(installation_only)
+  2135→
+  2136→    # Extract file paths from installed manifest
+  2137→    installed_set = set(installed_files)
+  2138→
+  2139→    # Collect all update files and filter out installation_only files
+  2140→    all_update_files = collect_wsd_files(update_source_dir)
+  2141→    # Convert to strings and filter out installation_only files
+  2142→    update_files = {str(p) for p in all_update_files if str(p) not in installation_only_set}
+  2143→
+  2144→    # Perform set operations (delete = installed - update)
+  2145→    to_delete_set = installed_set - update_files
+  2146→
+  2147→    # Perform set operations (add = update - installed)
+  2148→    to_add_set = update_files - installed_set
+  2149→
+  2150→    # Identify files in both (in_both = installed ∩ update)
+  2151→    in_both = installed_set & update_files
+  2152→
+  2153→    # Read no_overwrite list from UPDATE's wsd.json
+  2154→    no_overwrite = set(update_metadata.no_overwrite)
+  2155→
+  2156→    # Read file_hashes from UPDATE's wsd.json for content comparison
+  2157→    source_hashes = update_metadata.file_hashes
+  2158→
+  2159→    # Filter in_both files using protection policies and content hash comparison
+  2160→    to_skip_list: list[str] = []
+  2161→    to_skip_unchanged_list: list[str] = []
+  2162→    to_update_list: list[str] = []
+  2163→
+  2164→    for file_path in in_both:
+  2165→        if file_path in no_overwrite:
+  2166→            # Protected by no_overwrite policy - skip updating regardless of content
+  2167→            to_skip_list.append(file_path)
+  2168→        else:
+  2169→            # Not protected - check content hash to determine if update needed
+  2170→            target_file_path = target_dir / file_path
+  2171→            source_hash = source_hashes.get(file_path)
+  2172→
+  2173→            if source_hash is None:
+  2174→                # Missing hash indicates manifest out of sync - halt per DD-12
+  2175→                error_msg = (
+  2176→                    f"Missing hash for '{file_path}' in wsd.json manifest. "
+  2177→                    "The manifest may be out of sync with source files. "
+  2178→                    "Regenerate wsd.json with pre_staging.py."
+  2179→                )
+  2180→                raise ValueError(error_msg)
+  2181→
+  2182→            if target_file_path.exists():
+  2183→                try:
+  2184→                    target_hash = calculate_file_hash(target_file_path)
+  2185→                    if target_hash == source_hash:
+  2186→                        # Content identical - skip update
+  2187→                        to_skip_unchanged_list.append(file_path)
+  2188→                        continue
+  2189→                except OSError:
+  2190→                    # Cannot read target file - fail-safe to update
+  2191→                    pass
+  2192→
+  2193→            # Content differs or read error - update needed
+  2194→            to_update_list.append(file_path)
+  2195→
+  2196→    # Return categorized file lists
+  2197→    # The update workflow filters out .wsdkeep and handles directories via required_directories
+  2198→    return FileCategorization(
+  2199→        to_delete=sorted(to_delete_set),
+  2200→        to_add=sorted(to_add_set),
+  2201→        to_update=sorted(to_update_list),
+  2202→        to_skip=sorted(to_skip_list),
+  2203→        to_skip_unchanged=sorted(to_skip_unchanged_list),
+  2204→    )
+  2205→
+  2206→
+  2207→@dataclass
+  2208→class UpdateStatistics:
+  2209→    """Statistics for update file operations.
+  2210→
+  2211→    Tracks counts of files processed in each category during update operations.
+  2212→    Used for reporting update results to user and for logging purposes.
+  2213→
+  2214→    Attributes:
+  2215→        deleted: Number of files successfully deleted from target
+  2216→        added: Number of files successfully copied to target
+  2217→        updated: Number of files successfully updated with preservation
+  2218→        skipped: Number of files skipped due to no_overwrite protection
+  2219→    """
+  2220→
+  2221→    deleted: int
+  2222→    added: int
+  2223→    updated: int
+  2224→    skipped: int
+  2225→
+  2226→
+  2227→def execute_file_deletions(
+  2228→    to_delete: list[str],
+  2229→    target_dir: Path,
+  2230→) -> int:
+  2231→    """Execute file deletion operations for update process.
+  2232→
+  2233→    Deletes files in "to_delete" category using shared delete_file() utility with error
+  2234→    handling, logging, and statistics tracking.
+  2235→
+  2236→    Args:
+  2237→        to_delete: List of relative file paths to delete from target
+  2238→        target_dir: Path to target directory (project root)
+  2239→
+  2240→    Returns:
+  2241→        int: Count of files successfully deleted
+  2242→
+  2243→    Raises:
+  2244→        OSError: If deletion fails due to permissions or file locks
+  2245→        IsADirectoryError: If path is a directory (should not happen)
+  2246→    """
+  2247→    deleted_count = 0
+  2248→
+  2249→    verbose_log(f"Deleting {len(to_delete)} obsolete files")
+  2250→
+  2251→    for relative_path in to_delete:
+  2252→        file_path = target_dir / relative_path
+  2253→
+  2254→        try:
+  2255→            verbose_log(f"Deleting: {relative_path}")
+  2256→            delete_file(file_path)
+  2257→            logger.info(f"Deleted: {relative_path}")
+  2258→            deleted_count += 1
+  2259→
+  2260→        except (OSError, IsADirectoryError) as e:
+  2261→            error_msg = (
+  2262→                f"Error: Cannot delete file during update\n"
+  2263→                f"\n"
+  2264→                f"File: {relative_path}\n"
+  2265→                f"Reason: {e}\n"
+  2266→                f"\n"
+  2267→                f"Action: Update halted. No changes made.\n"
+  2268→                f"        Grant write permission to file or parent directory.\n"
+  2269→                f"        Retry update after resolving permission issue."
+  2270→            )
+  2271→            print(error_msg, file=sys.stderr)
+  2272→            raise
+  2273→
+  2274→    return deleted_count
+  2275→
+  2276→
+  2277→def execute_file_additions(
+  2278→    to_add: list[str],
+  2279→    update_source_dir: Path,
+  2280→    target_dir: Path,
+  2281→    executable_files: list[str],
+  2282→) -> int:
+  2283→    """Execute file addition operations for update process.
+  2284→
+  2285→    Copies files in "to_add" category using shared copy_file() utility with error handling,
+  2286→    permission setting, logging, and statistics tracking.
+  2287→
+  2288→    Args:
+  2289→        to_add: List of relative file paths to copy to target
+  2290→        update_source_dir: Path to WSD Runtime root directory (update source)
+  2291→        target_dir: Path to target directory (project root)
+  2292→        executable_files: List of files requiring executable permission from wsd.json
+  2293→
+  2294→    Returns:
+  2295→        int: Count of files successfully added
+  2296→
+  2297→    Raises:
+  2298→        FileNotFoundError: If source file does not exist
+  2299→        OSError: If copy operation fails (permissions, disk full, etc.)
+  2300→    """
+  2301→    added_count = 0
+  2302→    executable_set = set(executable_files)
+  2303→
+  2304→    verbose_log(f"Adding {len(to_add)} new files")
+  2305→
+  2306→    for relative_path in to_add:
+  2307→        source_path = update_source_dir / relative_path
+  2308→        dest_path = target_dir / relative_path
+  2309→
+  2310→        try:
+  2311→            verbose_log(f"Adding: {relative_path}")
+  2312→            copy_file(source_path, dest_path)
+  2313→
+  2314→            if relative_path in executable_set:
+  2315→                set_executable(dest_path)
+  2316→
+  2317→            logger.info(f"Added: {relative_path}")
+  2318→            added_count += 1
+  2319→
+  2320→        except FileNotFoundError:
+  2321→            error_msg = (
+  2322→                f"Error: Cannot create new file during update\n"
+  2323→                f"\n"
+  2324→                f"File: {relative_path}\n"
+  2325→                f"Reason: Source file not found\n"
+  2326→                f"\n"
+  2327→                f"Action: Update halted. Partial changes rolled back.\n"
+  2328→                f"        This appears to be a WSD source corruption issue.\n"
+  2329→                f"        Re-download WSD source and retry."
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>

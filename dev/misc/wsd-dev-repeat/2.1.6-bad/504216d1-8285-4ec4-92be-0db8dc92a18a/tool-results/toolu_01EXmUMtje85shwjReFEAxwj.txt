@@ -1,0 +1,101 @@
+     1→# TypeScript Development Best Practices
+     2→
+     3→## General Guidelines
+     4→
+     5→- **`tsconfig.json`**: Respect project's TypeScript compiler options (`strict`, `noImplicitAny`, `strictNullChecks`, etc.).
+     6→- **Linting & Formatting**: Adhere to project ESLint & Prettier configs. Format/lint regularly.
+     7→
+     8→## Typing
+     9→
+    10→- **Avoid `any`**: Minimize `any`; prefer specific types or `unknown`.
+    11→- **`unknown` Safely**: With `unknown`, always perform type checks (e.g., `typeof`, `instanceof`, type guards) before use.
+    12→- **Explicit Types**: Prefer explicit types for function params, return types, and variable declarations, especially for exported/public members and complex data structures. Type inference is fine for obvious local variables.
+    13→- **`interface` vs `type`**: Use `interface` for object shapes (can merge, use with `implements`). Use `type` for unions, intersections, primitives, tuples, mapped/conditional types.
+    14→- **Utility Types**: Leverage built-in utility types (`Partial`, `Readonly`, `Pick`, `Omit`, `Record`, etc.).
+    15→- **Readonly**: Use `readonly` properties and `Readonly<T>`/`ReadonlyArray<T>` for immutability.
+    16→- **Const Assertions**: Use `as const` for literal types and immutability (e.g., `const CMD = 'INIT' as const;`).
+    17→
+    18→## Tools and Libraries
+    19→- Many TypeScript projects have a Node.js server component. Use `pnpm` instead of `npm`.
+    20→
+    21→## Code Style & Structure
+    22→
+    23→- **Naming**: `camelCase` (vars, fns), `PascalCase` (classes, types, enums, components), `UPPER_SNAKE_CASE` (constants). Avoid `I` prefix for interfaces unless a strict project convention.
+    24→- **File Naming**: Use `PascalCase` for TypeScript files (e.g., `UserService.ts`, `ProjectManager.ts`). Never use `camelCase` (`userService.ts`) or `kebab-case` (`user-service.ts`) for `.ts`/`.tsx` files. File names should reflect their primary export and architectural role: use `Manager` suffix for workspace coordinators, `DataManager` for data layer with state, `Service` for stateless operations, `Utilities` for pure functions.
+    25→- **Modularity**: Use ES modules (`import`/`export`). Keep files focused (single responsibility).
+    26→- **Exports**: Export only necessary items. Prefer named exports; use default exports sparingly.
+    27→- **Constants**: Define constants for magic strings/numbers; export if shared (e.g., `shared/constants.ts`).
+    28→
+    29→## Modern Features & Practices
+    30→
+    31→- **`let`/`const`**: Prefer `const`; use `let` only for reassignment. Avoid `var`.
+    32→- **`async`/`await`**: Use for Promises to improve readability.
+    33→- **Error Handling**: Use `try...catch` for sync/async errors. Handle Promise rejections. Consider custom Error classes for specific scenarios.
+    34→- **Nullish Coalescing (`??`)**: Use `??` for `null` or `undefined` defaults (vs `||` for any falsy).
+    35→- **Optional Chaining (`?.`)**: Use `?.` for safe access on nullable objects/functions.
+    36→
+    37→## Readability & Maintainability
+    38→
+    39→- **Comprehensive TypeDoc (`/** ... */`)**:
+    40→    - **File-Level**: Every `.ts`/`.tsx` file must start with a TypeDoc block:
+    41→      ```typescript
+    42→      /**
+    43→       * @file Module purpose, responsibilities, and role.
+    44→       * @see {@link path/to/relevant/doc.md} (If applicable)
+    45→       */
+    46→      ```
+    47→    - **All Exports**: Document all exported functions, classes, types, interfaces, enums, constants.
+    48→    - **Functions/Methods**:
+    49→        - Summary, `@async` (if applicable), `@param`, `@returns` (incl. `null`/error cases), `@throws`, `{@link}`, side effects.
+    50→        - Example:
+    51→          ```typescript
+    52→          /**
+    53→           * Brief summary of what it does.
+    54→           * @param {string} id - Identifier for the item.
+    55→           * @returns {Promise<Item | null>} The item or null if not found.
+    56→           * @remarks Updates last access time.
+    57→           */
+    58→          async function getItem(id: string): Promise<Item | null> { /* ... */ }
+    59→          ```
+    60→    - **Types/Interfaces/Enums/Constants**: Document with `@description`. For objects, comment each property:
+    61→      ```typescript
+    62→      /** @description Defines user preferences. */
+    63→      interface UserPrefs {
+    64→        /** @description UI theme selection. */
+    65→        theme: 'light' | 'dark';
+    66→      }
+    67→      ```
+    68→    - **Internal Helpers**: Use JSDoc for complex internal logic; consider `@internal`.
+    69→
+    70→- **Data Schemas & Validation (e.g., Zod)**:
+    71→    - For serialized data (JSON, API, IPC), define schemas (e.g., Zod) for validation.
+    72→    - Infer TS types from schemas: `type MyData = z.infer<typeof MyDataSchema>;`.
+    73→    - Document schemas and their properties clearly within the schema definition:
+    74→      ```typescript
+    75→      /** @description Zod schema for MyData. */
+    76→      export const MyDataSchema = z.object({
+    77→        /** @description Unique identifier. */
+    78→        id: z.string().uuid(),
+    79→        /** @description Optional user comment. */
+    80→        comment: z.string().optional(),
+    81→      });
+    82→      /** @description TS Type for MyData. @see {@link MyDataSchema} */
+    83→      export type MyData = z.infer<typeof MyDataSchema>;
+    84→      ```
+    85→
+    86→- **Function Length**: Keep functions concise, focused on a single task. Refactor large functions.
+    87→- **Code Comments**: Use `//` or `/* ... */` to explain *why* (non-obvious logic, workarounds), not *what*.
+    88→
+    89→## React/Frontend Specific (If Applicable)
+    90→
+    91→- **Component Props**: Define explicit `interface` or `type` for component props.
+    92→- **Hooks**: Follow Rules of Hooks. Use built-in hooks effectively.
+    93→- **State Management**: Adhere to project's state management patterns (see `docs/core/Frontend-Technical-Spec.md`).
+    94→- **CSS/Styling**: Follow project styling conventions (see `docs/core/Frontend-Design.md`).
+    95→
+    96→Following these practices helps build a robust, maintainable, and type-safe TypeScript codebase.
+    97→
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>

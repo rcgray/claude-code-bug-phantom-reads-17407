@@ -9,7 +9,12 @@
       "Skill(wsd:boot)",
       "Skill(wsd:onboard)",
       "WebFetch(domain:docs.anthropic.com)",
-      "WebFetch(domain:www.anthropic.com)"
+      "WebFetch(domain:www.anthropic.com)",
+      "Bash(test:*)",
+      "Bash(ls:*)",
+      "Bash(grep:*)",
+      "Bash(fi)",
+      "Bash(wc:*)"
     ],
     "deny": [
       "Read(./.env)",

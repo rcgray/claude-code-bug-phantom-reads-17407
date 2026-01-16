@@ -1,0 +1,1255 @@
+     1→# Test Environment Isolation Standards (TypeScript/Jest/Vitest)
+     2→
+     3→## Overview
+     4→
+     5→This document establishes mandatory standards for test environment isolation in TypeScript projects using Jest or Vitest. These standards ensure that tests are deterministic, reproducible, and independent of developer machine configuration.
+     6→
+     7→### Core Principle
+     8→
+     9→**Tests must pass identically on any machine, regardless of local environment configuration.**
+    10→
+    11→A test suite that depends on a developer's specific setup is not truly automated—it's a source of false failures, CI/CD instability, and developer friction.
+    12→
+    13→## Why Test Isolation Matters
+    14→
+    15→### Problems Caused by Poor Isolation
+    16→
+    17→1. **Non-deterministic failures**: Tests pass on one machine, fail on another
+    18→2. **CI/CD brittleness**: Build servers require special configuration to match developer environments
+    19→3. **Onboarding friction**: New developers encounter mysterious test failures
+    20→4. **Hidden bugs**: Tests may pass due to "lucky" local config, hiding real issues
+    21→5. **Debugging overhead**: Hours wasted investigating environment-dependent failures
+    22→
+    23→### Benefits of Proper Isolation
+    24→
+    25→1. **Confidence**: Green tests mean the code works, red tests mean it doesn't
+    26→2. **Portability**: Tests run anywhere—local machines, CI/CD, containers
+    27→3. **Maintainability**: Tests explicitly declare their dependencies
+    28→4. **Debugging**: Failures are reproducible and clearly caused by code changes
+    29→
+    30→## Standard 1: Environment Variable Isolation
+    31→
+    32→### Mandatory Practice
+    33→
+    34→**Every test must explicitly control its environment variables.**
+    35→
+    36→Tests fall into two categories:
+    37→
+    38→#### 1A: Tests of Default Behavior (No Environment Variables Set)
+    39→
+    40→These tests verify behavior when environment variables are NOT set. They must clear the environment:
+    41→
+    42→```typescript
+    43→import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+    44→
+    45→describe('Default cache directory behavior', () => {
+    46→    const originalEnv = process.env;
+    47→
+    48→    beforeEach(() => {
+    49→        // Reset to clean environment
+    50→        process.env = {};
+    51→    });
+    52→
+    53→    afterEach(() => {
+    54→        // Restore original environment
+    55→        process.env = originalEnv;
+    56→    });
+    57→
+    58→    it('should use default cache directory when HF_HOME is not set', () => {
+    59→        const tokenizer = new HuggingFaceTokenizer('meta-llama/Llama-2-7b-hf');
+    60→        const cacheDir = tokenizer.getCacheDir();
+    61→
+    62→        // Now we KNOW HF_HOME was not set
+    63→        expect(cacheDir).toBe(path.join(os.homedir(), '.cache', 'huggingface', 'hub'));
+    64→    });
+    65→});
+    66→```
+    67→
+    68→**Why**: Without clearing the environment, the test inherits the developer's shell environment, making it non-deterministic.
+    69→
+    70→#### 1B: Tests of Environment-Dependent Behavior
+    71→
+    72→These tests verify behavior when specific environment variables ARE set. They must explicitly set only what's needed:
+    73→
+    74→```typescript
+    75→describe('Custom cache directory behavior', () => {
+    76→    const originalEnv = process.env;
+    77→
+    78→    beforeEach(() => {
+    79→        // Set specific environment variable
+    80→        process.env = { HF_HOME: '/custom/path' };
+    81→    });
+    82→
+    83→    afterEach(() => {
+    84→        process.env = originalEnv;
+    85→    });
+    86→
+    87→    it('should use custom cache directory when HF_HOME is set', () => {
+    88→        const tokenizer = new HuggingFaceTokenizer('meta-llama/Llama-2-7b-hf');
+    89→        const cacheDir = tokenizer.getCacheDir();
+    90→
+    91→        // Now we KNOW exactly what HF_HOME is
+    92→        expect(cacheDir).toBe(path.join('/custom/path', 'hub'));
+    93→    });
+    94→});
+    95→```
+    96→
+    97→### Common Environment Variables in TypeScript Projects
+    98→
+    99→When testing code that reads these variables, always control them explicitly:
+   100→
+   101→- API keys (e.g., `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`) - Must be mocked unless in opt-in integration test
+   102→- `HF_HOME` - Must be explicitly set or cleared
+   103→- `NODE_ENV` - Must be controlled for environment-specific behavior
+   104→- `CONFIG_PATH` or custom config paths - Must be controlled, typically with temporary directories
+   105→- Cache directory variables - Must be controlled, typically with `tmp()` directories
+   106→
+   107→### Anti-Pattern Example
+   108→
+   109→```typescript
+   110→// ❌ BAD: This test will fail if developer has HF_HOME set
+   111→it('should use default cache directory', () => {
+   112→    const tokenizer = new HuggingFaceTokenizer('meta-llama/Llama-2-7b-hf');
+   113→    const cacheDir = tokenizer.getCacheDir();
+   114→    expect(cacheDir).toBe(path.join(os.homedir(), '.cache', 'huggingface', 'hub'));
+   115→});
+   116→```
+   117→
+   118→### Correct Pattern
+   119→
+   120→```typescript
+   121→// ✅ GOOD: Environment is explicitly controlled
+   122→describe('Cache directory behavior', () => {
+   123→    beforeEach(() => {
+   124→        process.env = {}; // Clear all environment variables
+   125→    });
+   126→
+   127→    it('should use default cache directory', () => {
+   128→        const tokenizer = new HuggingFaceTokenizer('meta-llama/Llama-2-7b-hf');
+   129→        const cacheDir = tokenizer.getCacheDir();
+   130→        expect(cacheDir).toBe(path.join(os.homedir(), '.cache', 'huggingface', 'hub'));
+   131→    });
+   132→});
+   133→```
+   134→
+   135→### Alternative: Using Jest Mock Functions
+   136→
+   137→```typescript
+   138→describe('Environment variable handling', () => {
+   139→    const originalEnv = process.env;
+   140→
+   141→    afterEach(() => {
+   142→        process.env = originalEnv;
+   143→    });
+   144→
+   145→    it('should handle missing API key', () => {
+   146→        process.env = { ...originalEnv };
+   147→        delete process.env.API_KEY;
+   148→
+   149→        expect(() => new ApiClient()).toThrow('API_KEY environment variable is required');
+   150→    });
+   151→
+   152→    it('should use API key when provided', () => {
+   153→        process.env = { ...originalEnv, API_KEY: 'test-key-123' };
+   154→
+   155→        const client = new ApiClient();
+   156→        expect(client.apiKey).toBe('test-key-123');
+   157→    });
+   158→});
+   159→```
+   160→
+   161→## Standard 2: File System Isolation
+   162→
+   163→### Mandatory Practice
+   164→
+   165→**Tests must never read from or write to actual user directories.**
+   166→
+   167→### Using Temporary Directories
+   168→
+   169→All file operations should use temporary directories. For Vitest, you can use the `os.tmpdir()` function and clean up after tests:
+   170→
+   171→```typescript
+   172→import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+   173→import { mkdtempSync, rmSync, writeFileSync } from 'fs';
+   174→import { join } from 'path';
+   175→import { tmpdir } from 'os';
+   176→
+   177→describe('Config file loading', () => {
+   178→    let tempDir: string;
+   179→
+   180→    beforeEach(() => {
+   181→        // Create unique temporary directory
+   182→        tempDir = mkdtempSync(join(tmpdir(), 'test-'));
+   183→    });
+   184→
+   185→    afterEach(() => {
+   186→        // Clean up temporary directory
+   187→        rmSync(tempDir, { recursive: true, force: true });
+   188→    });
+   189→
+   190→    it('should load configuration from file', () => {
+   191→        // Create temporary config file
+   192→        const configFile = join(tempDir, 'config.json');
+   193→        writeFileSync(configFile, JSON.stringify({
+   194→            defaultProvider: 'openai'
+   195→        }));
+   196→
+   197→        // Test with temporary file
+   198→        const config = ConfigManager.load(configFile);
+   199→        expect(config.defaultProvider).toBe('openai');
+   200→    });
+   201→});
+   202→```
+   203→
+   204→### Using temp-fs or temp-dir Libraries
+   205→
+   206→For more convenient temporary file handling:
+   207→
+   208→```typescript
+   209→import tmp from 'tmp-promise';
+   210→
+   211→describe('Config file operations', () => {
+   212→    it('should load configuration from file', async () => {
+   213→        // Create temporary directory with automatic cleanup
+   214→        await tmp.withDir(async ({ path: tempDir }) => {
+   215→            const configFile = join(tempDir, 'config.json');
+   216→            await fs.writeFile(configFile, JSON.stringify({
+   217→                defaultProvider: 'openai'
+   218→            }));
+   219→
+   220→            const config = await ConfigManager.load(configFile);
+   221→            expect(config.defaultProvider).toBe('openai');
+   222→        }, { unsafeCleanup: true });
+   223→    });
+   224→});
+   225→```
+   226→
+   227→### Never Access Real User Directories
+   228→
+   229→```typescript
+   230→// ❌ BAD: Reads from actual user config directory
+   231→it('should load user config', () => {
+   232→    const configPath = join(os.homedir(), '.config', 'myapp', 'config.json');
+   233→    const config = ConfigManager.load(configPath);
+   234→    // What if user doesn't have this file? Or has different settings?
+   235→});
+   236→
+   237→// ✅ GOOD: Uses temporary directory
+   238→it('should load config from file', () => {
+   239→    const tempDir = mkdtempSync(join(tmpdir(), 'test-'));
+   240→    process.env = { CONFIG_HOME: tempDir };
+   241→
+   242→    const configFile = join(tempDir, 'config.json');
+   243→    writeFileSync(configFile, JSON.stringify({ defaultProvider: 'openai' }));
+   244→
+   245→    const config = ConfigManager.load(configFile);
+   246→    expect(config.defaultProvider).toBe('openai');
+   247→
+   248→    rmSync(tempDir, { recursive: true, force: true });
+   249→});
+   250→```
+   251→
+   252→### Test Fixtures Location
+   253→
+   254→Permanent test data files belong in `tests/fixtures/` or `tests/test-data/`:
+   255→
+   256→```
+   257→tests/
+   258→├── fixtures/
+   259→│   ├── sample-config.json
+   260→│   ├── external-model-data.json
+   261→│   └── models/
+   262→│       └── minimal-test.bin
+   263→```
+   264→
+   265→These are **version-controlled fixtures**, not developer configuration files.
+   266→
+   267→## Standard 3: Configuration File Isolation
+   268→
+   269→### Mandatory Practice
+   270→
+   271→**Tests must never depend on developer's actual configuration files.**
+   272→
+   273→### Pattern: Mock Config Loading
+   274→
+   275→```typescript
+   276→import { vi } from 'vitest';
+   277→
+   278→describe('CLI with config', () => {
+   279→    it('should use config values', async () => {
+   280→        // Create mock config in memory
+   281→        const mockConfig = {
+   282→            defaultProvider: 'anthropic',
+   283→            getAlias: vi.fn().mockReturnValue('claude-3-opus-20240229')
+   284→        };
+   285→
+   286→        vi.spyOn(ConfigManager, 'load').mockResolvedValue(mockConfig);
+   287→
+   288→        const result = await cli.execute(['chat', '--model', 'opus']);
+   289→        expect(result.exitCode).toBe(0);
+   290→    });
+   291→});
+   292→```
+   293→
+   294→### Pattern: Temporary Config Files
+   295→
+   296→```typescript
+   297→describe('Config manager platform-specific behavior', () => {
+   298→    let tempDir: string;
+   299→
+   300→    beforeEach(() => {
+   301→        tempDir = mkdtempSync(join(tmpdir(), 'config-test-'));
+   302→        process.env = { CONFIG_HOME: tempDir };
+   303→    });
+   304→
+   305→    afterEach(() => {
+   306→        rmSync(tempDir, { recursive: true, force: true });
+   307→    });
+   308→
+   309→    it('should load aliases from config file', async () => {
+   310→        const configPath = join(tempDir, 'config.json');
+   311→        await fs.writeFile(configPath, JSON.stringify({
+   312→            aliases: {
+   313→                gpt4: 'gpt-4-turbo'
+   314→            }
+   315→        }));
+   316→
+   317→        const manager = new ConfigManager();
+   318→        const aliases = await manager.loadAliases();
+   319→        expect(aliases).toEqual({ gpt4: 'gpt-4-turbo' });
+   320→    });
+   321→});
+   322→```
+   323→
+   324→### Never Test Against Real User Files
+   325→
+   326→```typescript
+   327→// ❌ BAD: Depends on developer's actual .env file
+   328→it('should discover API key', () => {
+   329→    const apiKey = loadEnvFile('.env');
+   330→    expect(apiKey).toBeDefined();
+   331→    // What if developer doesn't have .env? Or uses .env.local?
+   332→});
+   333→
+   334→// ✅ GOOD: Creates temporary .env file
+   335→it('should load API key from env file', () => {
+   336→    const tempDir = mkdtempSync(join(tmpdir(), 'env-test-'));
+   337→    const envFile = join(tempDir, '.env');
+   338→    writeFileSync(envFile, 'API_KEY=test-key-123');
+   339→
+   340→    const config = loadEnvFile(envFile);
+   341→    expect(config.API_KEY).toBe('test-key-123');
+   342→
+   343→    rmSync(tempDir, { recursive: true, force: true });
+   344→});
+   345→```
+   346→
+   347→## Standard 4: Network Isolation
+   348→
+   349→### Mandatory Practice
+   350→
+   351→**Unit tests must mock all network calls. Integration tests requiring network must be opt-in.**
+   352→
+   353→### Unit Tests: Always Mock Network
+   354→
+   355→```typescript
+   356→import { vi } from 'vitest';
+   357→import axios from 'axios';
+   358→
+   359→vi.mock('axios');
+   360→
+   361→describe('Anthropic tokenization (mocked)', () => {
+   362→    it('should count tokens using mocked API', async () => {
+   363→        // Mock the API response
+   364→        (axios.post as any).mockResolvedValue({
+   365→            data: {
+   366→                token_count: 42
+   367→            }
+   368→        });
+   369→
+   370→        const tokenizer = new AnthropicTokenizer('claude-3-opus-20240229');
+   371→        const count = await tokenizer.countTokens('Hello world');
+   372→
+   373→        expect(count).toBe(42);
+   374→        expect(axios.post).toHaveBeenCalledOnce();
+   375→    });
+   376→});
+   377→```
+   378→
+   379→### Using MSW (Mock Service Worker) for HTTP Mocking
+   380→
+   381→```typescript
+   382→import { rest } from 'msw';
+   383→import { setupServer } from 'msw/node';
+   384→
+   385→const server = setupServer(
+   386→    rest.post('https://api.anthropic.com/v1/messages/count_tokens', (req, res, ctx) => {
+   387→        return res(ctx.json({ token_count: 42 }));
+   388→    })
+   389→);
+   390→
+   391→beforeAll(() => server.listen());
+   392→afterEach(() => server.resetHandlers());
+   393→afterAll(() => server.close());
+   394→
+   395→describe('Anthropic API integration (mocked with MSW)', () => {
+   396→    it('should count tokens', async () => {
+   397→        const tokenizer = new AnthropicTokenizer('claude-3-opus-20240229');
+   398→        const count = await tokenizer.countTokens('Hello world');
+   399→        expect(count).toBe(42);
+   400→    });
+   401→});
+   402→```
+   403→
+   404→### Integration Tests: Opt-in with describe.skipIf
+   405→
+   406→For tests that genuinely need network access:
+   407→
+   408→```typescript
+   409→const hasApiKey = !!process.env.ANTHROPIC_API_KEY;
+   410→
+   411→describe.skipIf(!hasApiKey)('Anthropic API integration (real)', () => {
+   412→    it('should count tokens with real API', async () => {
+   413→        const tokenizer = new AnthropicTokenizer('claude-3-opus-20240229');
+   414→        const count = await tokenizer.countTokens('Hello world');
+   415→        expect(count).toBeGreaterThan(0);
+   416→    });
+   417→});
+   418→```
+   419→
+   420→### Custom Test Runner Configuration
+   421→
+   422→```typescript
+   423→// vitest.config.ts
+   424→export default defineConfig({
+   425→    test: {
+   426→        testMatch: ['**/*.test.ts'],
+   427→        exclude: ['**/*.integration.test.ts'], // Skip integration tests by default
+   428→    },
+   429→});
+   430→
+   431→// vitest.integration.config.ts
+   432→export default defineConfig({
+   433→    test: {
+   434→        testMatch: ['**/*.integration.test.ts'], // Only run integration tests
+   435→    },
+   436→});
+   437→```
+   438→
+   439→Run tests:
+   440→```bash
+   441→# Skip integration tests (default)
+   442→npm test
+   443→
+   444→# Run only integration tests
+   445→npm run test:integration
+   446→```
+   447→
+   448→## Standard 5: Test Categories and Isolation Levels
+   449→
+   450→### Unit Tests (Default)
+   451→
+   452→**Characteristics:**
+   453→- No network access (mock all external APIs)
+   454→- No file system access to user directories (use temporary directories)
+   455→- No environment variable dependencies (explicitly control `process.env`)
+   456→- Fast execution (milliseconds)
+   457→- No external dependencies
+   458→
+   459→**Isolation Requirements:**
+   460→- ✅ Environment variables cleared or explicitly set
+   461→- ✅ File system isolated to temporary directories
+   462→- ✅ Network calls mocked
+   463→- ✅ No reading from actual config files
+   464→
+   465→**Run by default:**
+   466→```bash
+   467→npm test  # Runs all unit tests
+   468→```
+   469→
+   470→### Integration Tests (Opt-in)
+   471→
+   472→**Characteristics:**
+   473→- May use real network calls to test actual API integration
+   474→- Still use controlled environments (not developer's personal config)
+   475→- Require explicit opt-in (via flags, separate test files, or environment variables)
+   476→- Slower execution (seconds to minutes)
+   477→
+   478→**Isolation Requirements:**
+   479→- ✅ Still avoid developer's personal config
+   480→- ✅ Use test-specific credentials
+   481→- ✅ Clean up any created resources
+   482→- ⚠️ May make real network calls
+   483→
+   484→**Run explicitly:**
+   485→```bash
+   486→npm run test:integration
+   487→# Or with environment variable
+   488→WITH_API_KEYS=true npm test
+   489→```
+   490→
+   491→### End-to-End Tests (Separate)
+   492→
+   493→**Characteristics:**
+   494→- Test entire system in production-like environment
+   495→- May use real services, databases, APIs
+   496→- Significantly slower
+   497→- Run in CI/CD only or on-demand
+   498→
+   499→**Best Practice:** Keep these completely separate from unit/integration tests.
+   500→
+   501→## Standard 6: Common Patterns and Fixtures
+   502→
+   503→### Reusable Test Fixtures
+   504→
+   505→```typescript
+   506→// tests/helpers/fixtures.ts
+   507→import { mkdtempSync, writeFileSync, rmSync } from 'fs';
+   508→import { join } from 'path';
+   509→import { tmpdir } from 'os';
+   510→
+   511→export function createTempConfig(config: object): { path: string; cleanup: () => void } {
+   512→    const tempDir = mkdtempSync(join(tmpdir(), 'config-'));
+   513→    const configPath = join(tempDir, 'config.json');
+   514→    writeFileSync(configPath, JSON.stringify(config));
+   515→
+   516→    return {
+   517→        path: configPath,
+   518→        cleanup: () => rmSync(tempDir, { recursive: true, force: true })
+   519→    };
+   520→}
+   521→
+   522→export function withTempConfig<T>(config: object, fn: (configPath: string) => T): T {
+   523→    const { path: configPath, cleanup } = createTempConfig(config);
+   524→    try {
+   525→        return fn(configPath);
+   526→    } finally {
+   527→        cleanup();
+   528→    }
+   529→}
+   530→```
+   531→
+   532→Usage:
+   533→
+   534→```typescript
+   535→describe('Config loading', () => {
+   536→    it('should load config', () => {
+   537→        withTempConfig({ provider: 'openai' }, (configPath) => {
+   538→            const config = ConfigManager.load(configPath);
+   539→            expect(config.provider).toBe('openai');
+   540→        });
+   541→    });
+   542→});
+   543→```
+   544→
+   545→### Environment Variable Helper
+   546→
+   547→```typescript
+   548→// tests/helpers/env.ts
+   549→export function withEnv<T>(
+   550→    env: Record<string, string | undefined>,
+   551→    fn: () => T
+   552→): T {
+   553→    const originalEnv = process.env;
+   554→    try {
+   555→        process.env = { ...env };
+   556→        return fn();
+   557→    } finally {
+   558→        process.env = originalEnv;
+   559→    }
+   560→}
+   561→
+   562→export function withClearEnv<T>(fn: () => T): T {
+   563→    return withEnv({}, fn);
+   564→}
+   565→```
+   566→
+   567→Usage:
+   568→
+   569→```typescript
+   570→describe('Environment handling', () => {
+   571→    it('should use custom cache dir', () => {
+   572→        withEnv({ CACHE_DIR: '/custom/cache' }, () => {
+   573→            const cache = new CacheManager();
+   574→            expect(cache.cacheDir).toBe('/custom/cache');
+   575→        });
+   576→    });
+   577→
+   578→    it('should use default when env not set', () => {
+   579→        withClearEnv(() => {
+   580→            const cache = new CacheManager();
+   581→            expect(cache.cacheDir).toContain('.cache');
+   582→        });
+   583→    });
+   584→});
+   585→```
+   586→
+   587→### Mock API Helper
+   588→
+   589→```typescript
+   590→// tests/helpers/mockApi.ts
+   591→import { vi } from 'vitest';
+   592→
+   593→export function mockApiResponse<T>(response: T) {
+   594→    return vi.fn().mockResolvedValue({ data: response });
+   595→}
+   596→
+   597→export function mockApiError(error: Error) {
+   598→    return vi.fn().mockRejectedValue(error);
+   599→}
+   600→```
+   601→
+   602→## Standard 7: Anti-Patterns to Avoid
+   603→
+   604→### Anti-Pattern 1: Assuming Developer Environment
+   605→
+   606→```typescript
+   607→// ❌ BAD: Assumes developer has specific directory structure
+   608→it('should find user config', () => {
+   609→    const config = findConfig(); // Looks in process.cwd() or home directory
+   610→    expect(config).toBeDefined();
+   611→});
+   612→
+   613→// ✅ GOOD: Explicitly creates test environment
+   614→it('should find config in specified directory', () => {
+   615→    const tempDir = mkdtempSync(join(tmpdir(), 'test-'));
+   616→    const configFile = join(tempDir, 'config.json');
+   617→    writeFileSync(configFile, '{}');
+   618→
+   619→    const config = findConfig(tempDir);
+   620→    expect(config).toBeDefined();
+   621→
+   622→    rmSync(tempDir, { recursive: true, force: true });
+   623→});
+   624→```
+   625→
+   626→### Anti-Pattern 2: Tests That Require Manual Setup
+   627→
+   628→```typescript
+   629→// ❌ BAD: Requires developer to manually set environment variable
+   630→it('should connect to database', () => {
+   631→    // This test assumes DATABASE_URL is set in developer's environment
+   632→    const db = connectDatabase();
+   633→    expect(db.isConnected()).toBe(true);
+   634→});
+   635→
+   636→// ✅ GOOD: Test provides all necessary configuration
+   637→it('should connect to test database', () => {
+   638→    process.env = { DATABASE_URL: 'sqlite::memory:' };
+   639→    const db = connectDatabase();
+   640→    expect(db.isConnected()).toBe(true);
+   641→});
+   642→```
+   643→
+   644→### Anti-Pattern 3: Shared Mutable State Between Tests
+   645→
+   646→```typescript
+   647→// ❌ BAD: Tests share state
+   648→let sharedCache: Cache;
+   649→
+   650→beforeAll(() => {
+   651→    sharedCache = new Cache();
+   652→});
+   653→
+   654→it('test 1', () => {
+   655→    sharedCache.set('key', 'value1');
+   656→    // ...
+   657→});
+   658→
+   659→it('test 2', () => {
+   660→    // This test depends on state from test 1!
+   661→    const value = sharedCache.get('key');
+   662→    expect(value).toBe('value1'); // Brittle!
+   663→});
+   664→
+   665→// ✅ GOOD: Each test is independent
+   666→describe('Cache operations', () => {
+   667→    let cache: Cache;
+   668→
+   669→    beforeEach(() => {
+   670→        cache = new Cache();
+   671→    });
+   672→
+   673→    it('should set and get values', () => {
+   674→        cache.set('key', 'value1');
+   675→        expect(cache.get('key')).toBe('value1');
+   676→    });
+   677→
+   678→    it('should handle missing keys', () => {
+   679→        expect(cache.get('nonexistent')).toBeUndefined();
+   680→    });
+   681→});
+   682→```
+   683→
+   684→### Anti-Pattern 4: Not Cleaning Up After Tests
+   685→
+   686→```typescript
+   687→// ❌ BAD: Leaves files and processes running
+   688→it('should start server', async () => {
+   689→    const server = await startServer();
+   690→    expect(server.isRunning()).toBe(true);
+   691→    // Server never stopped!
+   692→});
+   693→
+   694→// ✅ GOOD: Always clean up
+   695→it('should start server', async () => {
+   696→    const server = await startServer();
+   697→    try {
+   698→        expect(server.isRunning()).toBe(true);
+   699→    } finally {
+   700→        await server.stop();
+   701→    }
+   702→});
+   703→```
+   704→
+   705→### Anti-Pattern 5: Hardcoded Paths
+   706→
+   707→```typescript
+   708→// ❌ BAD: Hardcoded absolute paths
+   709→it('should load fixture', () => {
+   710→    const data = readFileSync('/Users/developer/project/tests/fixtures/data.json');
+   711→    // Breaks on other machines!
+   712→});
+   713→
+   714→// ✅ GOOD: Relative to project root or __dirname
+   715→it('should load fixture', () => {
+   716→    const data = readFileSync(join(__dirname, '../fixtures/data.json'));
+   717→    // Works anywhere
+   718→});
+   719→```
+   720→
+   721→## Standard 8: Case Study - Environment Variable Issues
+   722→
+   723→### The Problem
+   724→
+   725→Consider a service that uses an environment variable to determine its cache directory:
+   726→
+   727→```typescript
+   728→class CacheService {
+   729→    getCacheDir(): string {
+   730→        return process.env.CACHE_HOME || join(os.homedir(), '.cache', 'myapp');
+   731→    }
+   732→}
+   733→```
+   734→
+   735→### The Failing Test
+   736→
+   737→```typescript
+   738→// ❌ This test fails if developer has CACHE_HOME set
+   739→it('should use default cache directory', () => {
+   740→    const service = new CacheService();
+   741→    expect(service.getCacheDir()).toBe(join(os.homedir(), '.cache', 'myapp'));
+   742→});
+   743→```
+   744→
+   745→### Why It Fails
+   746→
+   747→If the developer has `CACHE_HOME=/custom/cache` in their shell:
+   748→- Test expects: `~/.cache/myapp`
+   749→- Test gets: `/custom/cache`
+   750→- Result: ❌ Test fails
+   751→
+   752→### The Fix
+   753→
+   754→```typescript
+   755→// ✅ Explicitly control environment
+   756→describe('CacheService default behavior', () => {
+   757→    beforeEach(() => {
+   758→        process.env = {}; // Clear environment
+   759→    });
+   760→
+   761→    it('should use default cache directory when CACHE_HOME not set', () => {
+   762→        const service = new CacheService();
+   763→        expect(service.getCacheDir()).toBe(join(os.homedir(), '.cache', 'myapp'));
+   764→    });
+   765→});
+   766→
+   767→describe('CacheService with custom CACHE_HOME', () => {
+   768→    beforeEach(() => {
+   769→        process.env = { CACHE_HOME: '/custom/cache' };
+   770→    });
+   771→
+   772→    it('should use custom cache directory when CACHE_HOME is set', () => {
+   773→        const service = new CacheService();
+   774→        expect(service.getCacheDir()).toBe('/custom/cache');
+   775→    });
+   776→});
+   777→```
+   778→
+   779→### Lessons Learned
+   780→
+   781→1. **Always control environment variables explicitly**
+   782→2. **Test both "set" and "unset" scenarios**
+   783→3. **Don't assume clean environment**
+   784→4. **Separate tests for different environment configurations**
+   785→
+   786→## Standard 9: Cache State Isolation
+   787→
+   788→### Mandatory Practice
+   789→
+   790→**Tests must not depend on or modify persistent cache state.**
+   791→
+   792→### Pattern: Temporary Cache Directories
+   793→
+   794→```typescript
+   795→describe('Cache operations', () => {
+   796→    let tempCacheDir: string;
+   797→    let cache: CacheManager;
+   798→
+   799→    beforeEach(() => {
+   800→        tempCacheDir = mkdtempSync(join(tmpdir(), 'cache-'));
+   801→        cache = new CacheManager(tempCacheDir);
+   802→    });
+   803→
+   804→    afterEach(() => {
+   805→        rmSync(tempCacheDir, { recursive: true, force: true });
+   806→    });
+   807→
+   808→    it('should store and retrieve cached values', async () => {
+   809→        await cache.set('key1', { data: 'value1' });
+   810→        const result = await cache.get('key1');
+   811→        expect(result).toEqual({ data: 'value1' });
+   812→    });
+   813→
+   814→    it('should handle cache misses', async () => {
+   815→        const result = await cache.get('nonexistent');
+   816→        expect(result).toBeUndefined();
+   817→    });
+   818→});
+   819→```
+   820→
+   821→### Pattern: In-Memory Cache for Tests
+   822→
+   823→```typescript
+   824→class TestCache implements CacheInterface {
+   825→    private store = new Map<string, any>();
+   826→
+   827→    async get(key: string): Promise<any> {
+   828→        return this.store.get(key);
+   829→    }
+   830→
+   831→    async set(key: string, value: any): Promise<void> {
+   832→        this.store.set(key, value);
+   833→    }
+   834→
+   835→    async clear(): Promise<void> {
+   836→        this.store.clear();
+   837→    }
+   838→}
+   839→
+   840→describe('Service with caching', () => {
+   841→    let cache: TestCache;
+   842→    let service: MyService;
+   843→
+   844→    beforeEach(() => {
+   845→        cache = new TestCache();
+   846→        service = new MyService(cache);
+   847→    });
+   848→
+   849→    it('should use cached values', async () => {
+   850→        await cache.set('key1', 'cached-value');
+   851→        const result = await service.getValue('key1');
+   852→        expect(result).toBe('cached-value');
+   853→    });
+   854→});
+   855→```
+   856→
+   857→### Never Use Shared Persistent Cache
+   858→
+   859→```typescript
+   860→// ❌ BAD: Uses shared cache directory
+   861→it('should cache results', async () => {
+   862→    const cache = new CacheManager(); // Uses ~/.cache/myapp
+   863→    await cache.set('test-key', 'value');
+   864→    // Pollutes developer's cache, may conflict with other tests
+   865→});
+   866→
+   867→// ✅ GOOD: Uses isolated cache
+   868→it('should cache results', async () => {
+   869→    const tempDir = mkdtempSync(join(tmpdir(), 'cache-'));
+   870→    const cache = new CacheManager(tempDir);
+   871→
+   872→    await cache.set('test-key', 'value');
+   873→    expect(await cache.get('test-key')).toBe('value');
+   874→
+   875→    rmSync(tempDir, { recursive: true, force: true });
+   876→});
+   877→```
+   878→
+   879→## Standard 10: Global State and Singleton Isolation
+   880→
+   881→### Mandatory Practice
+   882→
+   883→**Tests must reset or mock global state and singletons.**
+   884→
+   885→### Pattern: Resetting Singletons
+   886→
+   887→```typescript
+   888→// Singleton implementation
+   889→class ConfigManager {
+   890→    private static instance: ConfigManager | null = null;
+   891→    private config: Config;
+   892→
+   893→    static getInstance(): ConfigManager {
+   894→        if (!ConfigManager.instance) {
+   895→            ConfigManager.instance = new ConfigManager();
+   896→        }
+   897→        return ConfigManager.instance;
+   898→    }
+   899→
+   900→    // For testing only
+   901→    static resetInstance(): void {
+   902→        ConfigManager.instance = null;
+   903→    }
+   904→}
+   905→
+   906→// Test usage
+   907→describe('ConfigManager singleton', () => {
+   908→    afterEach(() => {
+   909→        ConfigManager.resetInstance();
+   910→    });
+   911→
+   912→    it('should return same instance', () => {
+   913→        const instance1 = ConfigManager.getInstance();
+   914→        const instance2 = ConfigManager.getInstance();
+   915→        expect(instance1).toBe(instance2);
+   916→    });
+   917→
+   918→    it('should be independent test', () => {
+   919→        // This test gets fresh instance due to afterEach reset
+   920→        const instance = ConfigManager.getInstance();
+   921→        expect(instance).toBeDefined();
+   922→    });
+   923→});
+   924→```
+   925→
+   926→### Pattern: Dependency Injection for Testability
+   927→
+   928→```typescript
+   929→// Instead of singleton, use dependency injection
+   930→class MyService {
+   931→    constructor(private config: ConfigManager) {}
+   932→
+   933→    doSomething(): string {
+   934→        return this.config.getValue('key');
+   935→    }
+   936→}
+   937→
+   938→// Easy to test
+   939→describe('MyService', () => {
+   940→    it('should use injected config', () => {
+   941→        const mockConfig = {
+   942→            getValue: vi.fn().mockReturnValue('test-value')
+   943→        };
+   944→
+   945→        const service = new MyService(mockConfig as any);
+   946→        expect(service.doSomething()).toBe('test-value');
+   947→    });
+   948→});
+   949→```
+   950→
+   951→### Pattern: Mocking Global Variables
+   952→
+   953→```typescript
+   954→describe('Global state handling', () => {
+   955→    const originalFetch = global.fetch;
+   956→
+   957→    afterEach(() => {
+   958→        global.fetch = originalFetch;
+   959→    });
+   960→
+   961→    it('should use mocked fetch', async () => {
+   962→        global.fetch = vi.fn().mockResolvedValue({
+   963→            json: async () => ({ data: 'test' })
+   964→        });
+   965→
+   966→        const result = await fetchData();
+   967→        expect(result.data).toBe('test');
+   968→    });
+   969→});
+   970→```
+   971→
+   972→## Standard 11: Working Directory Isolation
+   973→
+   974→### Mandatory Practice
+   975→
+   976→**Tests must not depend on the current working directory.**
+   977→
+   978→### Pattern: Always Use Absolute Paths
+   979→
+   980→```typescript
+   981→// ❌ BAD: Depends on cwd
+   982→it('should load config', () => {
+   983→    const config = loadConfig('config.json'); // Looks in cwd
+   984→    // Fails if test is run from different directory
+   985→});
+   986→
+   987→// ✅ GOOD: Uses absolute path
+   988→it('should load config', () => {
+   989→    const configPath = join(__dirname, '../fixtures/config.json');
+   990→    const config = loadConfig(configPath);
+   991→    expect(config).toBeDefined();
+   992→});
+   993→```
+   994→
+   995→### Pattern: Temporarily Change Working Directory
+   996→
+   997→```typescript
+   998→describe('CWD-dependent operations', () => {
+   999→    const originalCwd = process.cwd();
+  1000→    let tempDir: string;
+  1001→
+  1002→    beforeEach(() => {
+  1003→        tempDir = mkdtempSync(join(tmpdir(), 'cwd-test-'));
+  1004→        process.chdir(tempDir);
+  1005→    });
+  1006→
+  1007→    afterEach(() => {
+  1008→        process.chdir(originalCwd);
+  1009→        rmSync(tempDir, { recursive: true, force: true });
+  1010→    });
+  1011→
+  1012→    it('should find config in cwd', () => {
+  1013→        writeFileSync(join(tempDir, 'config.json'), '{"key":"value"}');
+  1014→        const config = findConfigInCwd();
+  1015→        expect(config.key).toBe('value');
+  1016→    });
+  1017→});
+  1018→```
+  1019→
+  1020→### Using __dirname and import.meta.url
+  1021→
+  1022→```typescript
+  1023→// For CommonJS
+  1024→const fixtureDir = join(__dirname, '../fixtures');
+  1025→
+  1026→// For ES modules
+  1027→import { fileURLToPath } from 'url';
+  1028→import { dirname } from 'path';
+  1029→
+  1030→const __filename = fileURLToPath(import.meta.url);
+  1031→const __dirname = dirname(__filename);
+  1032→const fixtureDir = join(__dirname, '../fixtures');
+  1033→```
+  1034→
+  1035→## Standard 12: Standard Stream Isolation (CLI Testing)
+  1036→
+  1037→### Mandatory Practice
+  1038→
+  1039→**CLI tests must capture stdout/stderr and not pollute test output.**
+  1040→
+  1041→### Pattern: Capture Console Output
+  1042→
+  1043→```typescript
+  1044→describe('CLI output', () => {
+  1045→    let consoleLogSpy: any;
+  1046→    let consoleErrorSpy: any;
+  1047→
+  1048→    beforeEach(() => {
+  1049→        consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+  1050→        consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+  1051→    });
+  1052→
+  1053→    afterEach(() => {
+  1054→        consoleLogSpy.mockRestore();
+  1055→        consoleErrorSpy.mockRestore();
+  1056→    });
+  1057→
+  1058→    it('should output success message', () => {
+  1059→        cli.execute(['success']);
+  1060→        expect(consoleLogSpy).toHaveBeenCalledWith('Operation successful');
+  1061→    });
+  1062→
+  1063→    it('should output error message', () => {
+  1064→        cli.execute(['error']);
+  1065→        expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining('Error:'));
+  1066→    });
+  1067→});
+  1068→```
+  1069→
+  1070→### Pattern: Capture Process Streams
+  1071→
+  1072→```typescript
+  1073→import { Writable } from 'stream';
+  1074→
+  1075→class StringWritable extends Writable {
+  1076→    private chunks: string[] = [];
+  1077→
+  1078→    _write(chunk: any, encoding: string, callback: () => void) {
+  1079→        this.chunks.push(chunk.toString());
+  1080→        callback();
+  1081→    }
+  1082→
+  1083→    getOutput(): string {
+  1084→        return this.chunks.join('');
+  1085→    }
+  1086→}
+  1087→
+  1088→describe('CLI with stream capture', () => {
+  1089→    let stdout: StringWritable;
+  1090→    let stderr: StringWritable;
+  1091→
+  1092→    beforeEach(() => {
+  1093→        stdout = new StringWritable();
+  1094→        stderr = new StringWritable();
+  1095→    });
+  1096→
+  1097→    it('should output to stdout', async () => {
+  1098→        const cli = new CLI({ stdout, stderr });
+  1099→        await cli.execute(['info']);
+  1100→
+  1101→        expect(stdout.getOutput()).toContain('Information message');
+  1102→        expect(stderr.getOutput()).toBe('');
+  1103→    });
+  1104→});
+  1105→```
+  1106→
+  1107→### Pattern: Test Exit Codes Without Exiting
+  1108→
+  1109→```typescript
+  1110→describe('CLI exit codes', () => {
+  1111→    let exitSpy: any;
+  1112→
+  1113→    beforeEach(() => {
+  1114→        exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
+  1115→            throw new Error('process.exit called');
+  1116→        });
+  1117→    });
+  1118→
+  1119→    afterEach(() => {
+  1120→        exitSpy.mockRestore();
+  1121→    });
+  1122→
+  1123→    it('should exit with code 0 on success', async () => {
+  1124→        try {
+  1125→            await cli.execute(['success']);
+  1126→        } catch (e: any) {
+  1127→            expect(e.message).toBe('process.exit called');
+  1128→        }
+  1129→        expect(exitSpy).toHaveBeenCalledWith(0);
+  1130→    });
+  1131→
+  1132→    it('should exit with code 1 on error', async () => {
+  1133→        try {
+  1134→            await cli.execute(['error']);
+  1135→        } catch (e: any) {
+  1136→            expect(e.message).toBe('process.exit called');
+  1137→        }
+  1138→        expect(exitSpy).toHaveBeenCalledWith(1);
+  1139→    });
+  1140→});
+  1141→```
+  1142→
+  1143→### Using Testing Libraries for CLI
+  1144→
+  1145→For more robust CLI testing, consider libraries like:
+  1146→
+  1147→```typescript
+  1148→import { execa } from 'execa';
+  1149→
+  1150→describe('CLI integration', () => {
+  1151→    it('should execute CLI command', async () => {
+  1152→        const { stdout, exitCode } = await execa('node', ['dist/cli.js', '--version']);
+  1153→        expect(exitCode).toBe(0);
+  1154→        expect(stdout).toMatch(/\d+\.\d+\.\d+/);
+  1155→    });
+  1156→
+  1157→    it('should handle errors', async () => {
+  1158→        try {
+  1159→            await execa('node', ['dist/cli.js', 'invalid-command']);
+  1160→        } catch (error: any) {
+  1161→            expect(error.exitCode).toBe(1);
+  1162→            expect(error.stderr).toContain('Unknown command');
+  1163→        }
+  1164→    });
+  1165→});
+  1166→```
+  1167→
+  1168→---
+  1169→
+  1170→## Summary: The Golden Rules
+  1171→
+  1172→### 1. Environment Variables
+  1173→- ✅ **DO** clear environment with `process.env = {}` before tests
+  1174→- ✅ **DO** explicitly set required variables
+  1175→- ✅ **DO** restore original environment in `afterEach`
+  1176→- ❌ **DON'T** assume any environment variable is set or unset
+  1177→
+  1178→### 2. File System
+  1179→- ✅ **DO** use temporary directories for all file operations
+  1180→- ✅ **DO** clean up temporary files in `afterEach`
+  1181→- ✅ **DO** use version-controlled fixtures for test data
+  1182→- ❌ **DON'T** read from or write to user directories
+  1183→
+  1184→### 3. Configuration
+  1185→- ✅ **DO** create temporary config files for tests
+  1186→- ✅ **DO** mock configuration loading
+  1187→- ✅ **DO** use dependency injection for testability
+  1188→- ❌ **DON'T** depend on developer's actual config files
+  1189→
+  1190→### 4. Network
+  1191→- ✅ **DO** mock all network calls in unit tests
+  1192→- ✅ **DO** use MSW or similar tools for HTTP mocking
+  1193→- ✅ **DO** make integration tests opt-in
+  1194→- ❌ **DON'T** make real API calls in unit tests
+  1195→
+  1196→### 5. State Management
+  1197→- ✅ **DO** reset singletons between tests
+  1198→- ✅ **DO** use `beforeEach` and `afterEach` for setup/teardown
+  1199→- ✅ **DO** ensure tests are independent
+  1200→- ❌ **DON'T** share mutable state between tests
+  1201→
+  1202→### 6. Working Directory
+  1203→- ✅ **DO** use absolute paths relative to `__dirname`
+  1204→- ✅ **DO** restore original CWD if changed
+  1205→- ❌ **DON'T** depend on `process.cwd()`
+  1206→
+  1207→### 7. Standard Streams
+  1208→- ✅ **DO** capture console output in tests
+  1209→- ✅ **DO** mock `process.exit` to test exit codes
+  1210→- ✅ **DO** use proper CLI testing libraries
+  1211→- ❌ **DON'T** pollute test output with CLI logs
+  1212→
+  1213→---
+  1214→
+  1215→## Testing the Tests
+  1216→
+  1217→**How to verify your tests are properly isolated:**
+  1218→
+  1219→1. **Run tests in random order**
+  1220→   ```bash
+  1221→   # Vitest
+  1222→   vitest --sequence.shuffle
+  1223→   ```
+  1224→
+  1225→2. **Run tests in different directories**
+  1226→   ```bash
+  1227→   cd /tmp && npm test
+  1228→   ```
+  1229→
+  1230→3. **Run with cleared environment**
+  1231→   ```bash
+  1232→   env -i npm test
+  1233→   ```
+  1234→
+  1235→4. **Run in fresh Docker container**
+  1236→   ```bash
+  1237→   docker run --rm -v $(pwd):/app -w /app node:20 npm test
+  1238→   ```
+  1239→
+  1240→If tests pass in all these scenarios, they're properly isolated!
+  1241→
+  1242→---
+  1243→
+  1244→## Conclusion
+  1245→
+  1246→These standards ensure that TypeScript tests are deterministic, portable, and maintainable. By explicitly controlling all external dependencies—environment variables, file systems, network calls, and configuration—we create test suites that provide genuine confidence in code quality.
+  1247→
+  1248→**Remember:** If a test fails only on certain machines or requires manual setup, it's not a proper automated test—it's a maintenance burden. Fix it by applying these isolation standards.
+  1249→
+  1250→**The ultimate test of test quality:** Can a new developer clone the repository and run `npm test` successfully on the first try, without any setup? If yes, you've achieved proper test isolation.
+  1251→
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>

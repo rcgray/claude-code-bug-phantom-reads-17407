@@ -1,0 +1,23 @@
+1158:class InstallationMode:
+1316:def detect_installation_mode(target_dir: Path) -> InstallationMode:
+1496:def check_version_compatibility(installed_version: str, update_version: str) -> bool:
+1519:def format_downgrade_warning(installed_version: str, update_version: str) -> str:
+1553:def confirm_downgrade(installed_version: str, update_version: str) -> bool:
+1591:def detect_concurrent_update(manifest_path: Path) -> bool:
+1623:def warn_concurrent_update() -> None:
+1636:def confirm_concurrent_update() -> bool:
+1659:def has_temp_update_files(target_dir: Path) -> bool:
+1686:def warn_temp_update_files(target_dir: Path) -> None:
+1906:def validate_update_preconditions(  # noqa: PLR0912, PLR0915
+2080:def categorize_update_files(
+2208:class UpdateStatistics:
+2373:def execute_file_updates(  # noqa: PLR0912, PLR0915
+2686:def create_updated_manifest(
+2954:def rollback_partial_installation(copied_files: list[Path]) -> None:
+3381:def extract_preserved_content(destination_file: Path, update_tag_ids: set[str]) -> dict[str, str]:
+3480:def preserve_tag_content(update_file: Path, destination_file: Path) -> str:
+4059:def calculate_required_disk_space(source_dir: Path, installation_only: list[str]) -> int:
+4202:def report_installation_error(
+4241:def install_files(source_dir: Path, target_dir: Path, force: bool = False) -> list[str]:  # noqa: PLR0912, PLR0915
+4648:def handle_install_command(args: list[str]) -> None:  # noqa: PLR0912, PLR0915
+4752:def handle_update_command(args: list[str]) -> None:  # noqa: PLR0912, PLR0915
