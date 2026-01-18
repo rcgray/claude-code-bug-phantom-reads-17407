@@ -210,6 +210,7 @@ The refactoring maintains all existing functionality while providing a foundatio
 
 ## In-Flight Failures (IFF)
 
+<!-- This section is required and should be left blank -->
 
 ## Implementation Plan
 

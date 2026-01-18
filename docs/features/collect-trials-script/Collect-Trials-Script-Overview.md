@@ -1,7 +1,7 @@
 # Collect Trials Script Specification
 
-**Version:** 1.1.0
-**Date:** 2026-01-15
+**Version:** 1.2.0
+**Date:** 2026-01-18
 **Status:** Draft
 
 ## Overview
@@ -385,6 +385,192 @@ Processed exports are deleted to enable clean batch workflows:
 - **Clear separation**: Exports directory contains only unprocessed files
 - **Explicit deletion**: Only occurs after successful collection, never on error
 
+## Testing Architecture
+
+This section defines the testing strategy, dependency injection requirements, and test organization for the collect_trials.py script.
+
+### Testing Approach: Phase-Aligned Testing
+
+Tests are written alongside implementation in each phase, following a test plan created upfront. This approach:
+
+- Keeps test context fresh (same agent writes code and tests)
+- Ensures each phase ends with passing tests (QA-friendly)
+- Avoids IFF documentation overhead
+- Builds coverage incrementally
+
+Each implementation phase includes corresponding test tasks. Integration tests are consolidated in a dedicated final phase.
+
+### Dependency Injection Requirements
+
+To enable isolated unit testing without accessing real file systems or directories, the implementation must support dependency injection for external dependencies.
+
+#### Required Injection Points
+
+| Parameter | Type | Default | Purpose |
+|-----------|------|---------|---------|
+| `cwd_path` | `Path \| None` | `Path.cwd()` | Current working directory for session path derivation |
+| `home_path` | `Path \| None` | `Path.home()` | Home directory for `~/.claude/projects/` path |
+| `copy_file` | `Callable \| None` | `shutil.copy2` | File copy function |
+| `copy_tree` | `Callable \| None` | `shutil.copytree` | Directory copy function |
+| `remove_file` | `Callable \| None` | `Path.unlink` | File deletion function |
+
+#### Function Signatures with DI
+
+```python
+def derive_session_directory(
+    cwd_path: Path | None = None,
+    home_path: Path | None = None,
+) -> Path:
+    """Derive Claude Code session directory from current working directory."""
+
+def copy_session_files(
+    session_uuid: str,
+    session_dir: Path,
+    trial_dir: Path,
+    copy_file: Callable[[Path, Path], None] | None = None,
+    copy_tree: Callable[[Path, Path], None] | None = None,
+) -> None:
+    """Copy all session files using unified algorithm."""
+
+def collect_single_trial(
+    workscope_id: str,
+    export_path: Path,
+    session_dir: Path,
+    destination_dir: Path,
+    copy_file: Callable[[Path, Path], None] | None = None,
+    copy_tree: Callable[[Path, Path], None] | None = None,
+    remove_file: Callable[[Path], None] | None = None,
+) -> TrialResult:
+    """Collect a single trial's artifacts."""
+
+def collect_trials(
+    exports_dir: Path,
+    destination_dir: Path,
+    cwd_path: Path | None = None,
+    home_path: Path | None = None,
+) -> CollectionResult:
+    """Main entry point for trial collection."""
+```
+
+### Test Fixtures
+
+The test suite requires these pytest fixtures:
+
+```python
+@pytest.fixture
+def tmp_exports_dir(tmp_path: Path) -> Path:
+    """Provide a temporary exports directory for testing.
+
+    Args:
+        tmp_path: Pytest fixture providing temporary directory for test files.
+
+    Returns:
+        Path to temporary exports directory (created but empty).
+    """
+
+@pytest.fixture
+def tmp_destination_dir(tmp_path: Path) -> Path:
+    """Provide a temporary destination directory for collected trials.
+
+    Args:
+        tmp_path: Pytest fixture providing temporary directory for test files.
+
+    Returns:
+        Path to temporary destination directory (created but empty).
+    """
+
+@pytest.fixture
+def tmp_session_dir(tmp_path: Path) -> Path:
+    """Provide a temporary session directory mimicking ~/.claude/projects/.
+
+    Args:
+        tmp_path: Pytest fixture providing temporary directory for test files.
+
+    Returns:
+        Path to temporary session directory structure.
+    """
+
+@pytest.fixture
+def flat_session_structure(tmp_session_dir: Path) -> dict[str, Path]:
+    """Create flat session structure files and return paths.
+
+    Creates:
+        - {SESSION_UUID}.jsonl with Workscope ID
+        - agent-{xxx}.jsonl files with sessionId field
+
+    Args:
+        tmp_session_dir: Pytest fixture providing temporary session directory.
+
+    Returns:
+        Dictionary mapping file types to their paths.
+    """
+
+@pytest.fixture
+def hybrid_session_structure(tmp_session_dir: Path) -> dict[str, Path]:
+    """Create hybrid session structure files and return paths.
+
+    Creates:
+        - {SESSION_UUID}.jsonl with Workscope ID
+        - {SESSION_UUID}/ directory with tool-results/
+        - agent-{xxx}.jsonl files at root level
+
+    Args:
+        tmp_session_dir: Pytest fixture providing temporary session directory.
+
+    Returns:
+        Dictionary mapping file types to their paths.
+    """
+
+@pytest.fixture
+def hierarchical_session_structure(tmp_session_dir: Path) -> dict[str, Path]:
+    """Create hierarchical session structure files and return paths.
+
+    Creates:
+        - {SESSION_UUID}.jsonl with Workscope ID
+        - {SESSION_UUID}/ directory with subagents/ and tool-results/
+
+    Args:
+        tmp_session_dir: Pytest fixture providing temporary session directory.
+
+    Returns:
+        Dictionary mapping file types to their paths.
+    """
+
+@pytest.fixture
+def sample_export_content() -> Callable[[str], str]:
+    """Provide factory for sample chat export content with Workscope ID.
+
+    Returns:
+        Function that takes workscope_id and returns export file content.
+    """
+
+@pytest.fixture
+def sample_session_content() -> Callable[[str], str]:
+    """Provide factory for sample session .jsonl content with Workscope ID.
+
+    Returns:
+        Function that takes workscope_id and returns session file content.
+    """
+```
+
+### Test Categories
+
+Tests are organized into these categories, implemented across phases:
+
+| Category | Phase | Test Count | Focus |
+|----------|-------|------------|-------|
+| Input Validation | 1 | 5 | Argument parsing, directory existence |
+| Path Encoding | 1 | 3 | `encode_project_path()`, session directory derivation |
+| Export Scanning | 2 | 8 | Workscope ID regex, both formats, edge cases |
+| Session Discovery | 3 | 4 | Grep for Workscope ID, UUID extraction |
+| File Copying | 4 | 6 | Unified algorithm, all three structures |
+| Trial Collection | 4 | 6 | Directory creation, file naming, orchestration |
+| Idempotency | 4 | 3 | Skip existing, re-run safety, export cleanup |
+| Reporting | 5 | 4 | Counts and error messages |
+| Integration | 6 | 4 | Full workflows, mixed structures |
+
+**Total: ~43 test cases**
+
 ## Testing Scenarios
 
 ### Basic Collection Tests
@@ -454,26 +640,38 @@ Processed exports are deleted to enable clean batch workflows:
 
 *This specification defines the authoritative rules for the Collect Trials Script including CLI interface, collection algorithm, session structure handling, and output organization. All implementations must conform to these specifications.*
 
+## In-Flight Failures (IFF)
+
+*No in-flight failures currently documented.*
+
 ## Feature Implementation Plan (FIP)
 
 ### Phase 1: Core Script Structure
 
-- [*] **1.1** - Create `src/collect_trials.py` with argument parsing
-  - [*] **1.1.1** - Add shebang line (`#!/usr/bin/env python`)
-  - [*] **1.1.2** - Implement argument parser with `-e/--exports` and `-d/--destination` required arguments
-  - [*] **1.1.3** - Add directory existence validation for both arguments
-  - [*] **1.1.4** - Implement exit codes (0 for success, 1 for error)
-- [*] **1.2** - Implement `encode_project_path()` function
-  - [*] **1.2.1** - Copy pattern from `archive_claude_sessions.py` for consistency
-  - [*] **1.2.2** - Add function to derive session directory from cwd
+- [x] **1.1** - Create `src/collect_trials.py` with argument parsing
+  - [x] **1.1.1** - Add shebang line (`#!/usr/bin/env python`) and module docstring
+  - [x] **1.1.2** - Implement argument parser with `-e/--exports` and `-d/--destination` required arguments
+  - [x] **1.1.3** - Add directory existence validation for both arguments
+  - [x] **1.1.4** - Implement exit codes (0 for success, 1 for error)
+- [x] **1.2** - Implement path encoding functions
+  - [x] **1.2.1** - Implement `encode_project_path()` function
+  - [x] **1.2.2** - Implement `derive_session_directory()` with DI support for `cwd_path` and `home_path`
+- [x] **1.3** - Create `tests/test_collect_trials.py` with Phase 1 tests
+  - [x] **1.3.1** - Create test file with module docstring and imports
+  - [x] **1.3.2** - Implement `TestArgumentParsing` class (5 tests: missing args, invalid paths, valid args)
+  - [x] **1.3.3** - Implement `TestEncodeProjectPath` class (3 tests: basic encoding, edge cases)
+  - [x] **1.3.4** - Implement `TestDeriveSessionDirectory` class (2 tests: with DI, path construction)
 
 ### Phase 2: Export Scanning
 
-- [ ] **2.1** - Implement export scanning functionality
-  - [ ] **2.1.1** - Implement glob for `*.txt` files in exports directory
-  - [ ] **2.1.2** - Implement Workscope ID regex extraction (pattern: `r'Workscope ID:?\s*(?:Workscope-)?(\d{8}-\d{6})'`)
-  - [ ] **2.1.3** - Add warning output for exports without valid Workscope ID
-  - [ ] **2.1.4** - Build and return list of `(workscope_id, export_path)` tuples
+- [x] **2.1** - Implement export scanning functionality
+  - [x] **2.1.1** - Implement glob for `*.txt` files in exports directory
+  - [x] **2.1.2** - Implement Workscope ID regex extraction (pattern: `r'Workscope ID:?\s*(?:Workscope-)?(\d{8}-\d{6})'`)
+  - [x] **2.1.3** - Add warning output for exports without valid Workscope ID
+  - [x] **2.1.4** - Build and return list of `(workscope_id, export_path)` tuples
+- [x] **2.2** - Implement Phase 2 tests
+  - [x] **2.2.1** - Create `tmp_exports_dir` and `sample_export_content` fixtures
+  - [x] **2.2.2** - Implement `TestExportScanning` class (8 tests: valid ID, both formats, no ID, multiple exports, empty dir, unreadable file, multiple IDs in one file, non-txt files ignored)
 
 ### Phase 3: Session File Discovery
 
@@ -481,6 +679,9 @@ Processed exports are deleted to enable clean batch workflows:
   - [ ] **3.1.1** - Search all `.jsonl` files for Workscope ID string
   - [ ] **3.1.2** - Extract Session UUID from matching filename
   - [ ] **3.1.3** - Handle case where no session file contains Workscope ID
+- [ ] **3.2** - Implement Phase 3 tests
+  - [ ] **3.2.1** - Create `tmp_session_dir` and `sample_session_content` fixtures
+  - [ ] **3.2.2** - Implement `TestSessionFileDiscovery` class (4 tests: found, not found, multiple files, UUID extraction)
 
 ### Phase 4: Trial Collection
 
@@ -489,13 +690,19 @@ Processed exports are deleted to enable clean batch workflows:
   - [ ] **4.1.2** - Skip if trial directory already exists (idempotency)
   - [ ] **4.1.3** - Copy chat export as `{WORKSCOPE_ID}.txt`
   - [ ] **4.1.4** - Copy main session `.jsonl` file (preserve UUID filename)
-  - [ ] **4.1.5** - Copy session subdirectory if it exists (handles tool-results/ and subagents/)
-  - [ ] **4.1.6** - Search and copy root-level `agent-*.jsonl` files matching session UUID
-  - [ ] **4.1.7** - Delete source export only after successful copy
+  - [ ] **4.1.5** - Implement `copy_session_files()` with DI support for copy functions
+  - [ ] **4.1.6** - Copy session subdirectory if it exists (handles tool-results/ and subagents/)
+  - [ ] **4.1.7** - Search and copy root-level `agent-*.jsonl` files matching session UUID
+  - [ ] **4.1.8** - Delete source export only after successful copy
 - [ ] **4.2** - Implement batch collection loop
   - [ ] **4.2.1** - Iterate over all scanned exports
   - [ ] **4.2.2** - Track collected, skipped, and failed counts
   - [ ] **4.2.3** - Continue processing on individual trial errors
+- [ ] **4.3** - Implement Phase 4 tests
+  - [ ] **4.3.1** - Create `flat_session_structure`, `hybrid_session_structure`, `hierarchical_session_structure` fixtures
+  - [ ] **4.3.2** - Implement `TestCopySessionFiles` class (6 tests: flat, hybrid, hierarchical, agent matching, no subdirectory, no root agents)
+  - [ ] **4.3.3** - Implement `TestCollectSingleTrial` class (6 tests: success, directory creation, file naming, export deletion, skip existing)
+  - [ ] **4.3.4** - Implement `TestIdempotency` class (3 tests: re-run skips, export cleanup, partial recovery)
 
 ### Phase 5: Output and Reporting
 
@@ -508,9 +715,23 @@ Processed exports are deleted to enable clean batch workflows:
   - [ ] **5.2.2** - Report count of exports skipped (no Workscope ID)
   - [ ] **5.2.3** - Report count of trials skipped (already exist)
   - [ ] **5.2.4** - Report any errors with details
+- [ ] **5.3** - Implement Phase 5 tests
+  - [ ] **5.3.1** - Implement `TestProgressOutput` class (3 tests: collection messages, copy messages, warnings)
+  - [ ] **5.3.2** - Implement `TestSummaryReport` class (4 tests: collected count, skipped count, error details, zero case)
 
-### Phase 6: Documentation Updates
+### Phase 6: Integration Tests
 
-- [ ] **6.1** - Update `docs/core/Experiment-Methodology-02.md`
-  - [ ] **6.1.1** - Add section on using `collect_trials.py` for artifact collection
-  - [ ] **6.1.2** - Document recommended workflow with exports and collection
+- [ ] **6.1** - Implement comprehensive integration tests
+  - [ ] **6.1.1** - Implement `TestIntegrationSingleTrial` (end-to-end single trial collection)
+  - [ ] **6.1.2** - Implement `TestIntegrationMultipleTrials` (batch collection with mixed outcomes)
+  - [ ] **6.1.3** - Implement `TestIntegrationMixedStructures` (flat + hybrid + hierarchical in same batch)
+  - [ ] **6.1.4** - Implement `TestIntegrationErrorRecovery` (partial failures, continuation)
+- [ ] **6.2** - Final test coverage verification
+  - [ ] **6.2.1** - Run full test suite and verify all tests pass
+  - [ ] **6.2.2** - Verify test coverage meets project standards
+
+### Phase 7: Documentation Updates
+
+- [ ] **7.1** - Update `docs/core/Experiment-Methodology-02.md`
+  - [ ] **7.1.1** - Add section on using `collect_trials.py` for artifact collection
+  - [ ] **7.1.2** - Document recommended workflow with exports and collection

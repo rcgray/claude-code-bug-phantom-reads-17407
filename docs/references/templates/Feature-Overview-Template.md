@@ -529,6 +529,7 @@ See Writing Guide § Cross-Referencing Strategy.
 
 ## In-Flight Failures (IFF)
 
+<!-- This section is required and should be left blank -->
 
 ## Feature Implementation Plan (FIP)
 
