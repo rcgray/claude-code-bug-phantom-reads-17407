@@ -1,1 +1,1 @@
-# Tests package for claude-code-bug-phantom-reads project.
+"""Tests package for claude-code-bug-phantom-reads project."""

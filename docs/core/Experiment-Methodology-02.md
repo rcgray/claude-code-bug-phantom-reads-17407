@@ -31,6 +31,32 @@ Summary:
 4. Install target version: `npm install -g @anthropic-ai/claude-code@<version>`
 5. Verify: `claude --version`
 
+### Using the Version Management Script
+
+The `cc_version.py` script automates the environment setup process, handling auto-update settings and version installation through a single command interface. This eliminates the risk of forgotten steps or typos during manual setup.
+
+**Recommended workflow:**
+
+```bash
+# Disable auto-updates to prevent mid-trial version changes
+./src/cc_version.py --disable-auto-update
+
+# Install the target version for testing
+./src/cc_version.py --install 2.0.58
+
+# Verify your configuration before running trials
+./src/cc_version.py --status
+
+# ... run your trials ...
+
+# Restore defaults when investigation is complete
+./src/cc_version.py --reset
+```
+
+The `--status` command displays auto-update state, installed version, and latest available version in a single view. Use `--list` to see all available versions from the npm registry.
+
+For complete documentation of all commands and options, see `docs/features/cc-version-script/CC-Version-Script-Overview.md`.
+
 ## Trial Protocol
 
 Each trial follows this standardized sequence:

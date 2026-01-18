@@ -28,22 +28,32 @@ import json
 import shutil
 import subprocess
 import sys
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 
-def check_npm_available() -> bool:
+def check_npm_available(
+    run_command: Callable[..., subprocess.CompletedProcess[str]] | None = None,
+) -> bool:
     """Check if npm is available on the system.
 
     Executes 'npm --version' to verify npm is installed and accessible
     in the system PATH.
 
+    Args:
+        run_command: Optional command execution function for testing. If None,
+            uses subprocess.run with default settings. Must accept same
+            signature as subprocess.run.
+
     Returns:
         True if npm command executes successfully, False otherwise.
     """
+    runner = run_command if run_command is not None else subprocess.run
+
     try:
-        result = subprocess.run(
+        result = runner(
             ["npm", "--version"],
             capture_output=True,
             text=True,
@@ -54,17 +64,26 @@ def check_npm_available() -> bool:
         return False
 
 
-def check_claude_available() -> bool:
+def check_claude_available(
+    run_command: Callable[..., subprocess.CompletedProcess[str]] | None = None,
+) -> bool:
     """Check if Claude Code CLI is available on the system.
 
     Executes 'claude --version' to verify Claude Code is installed and
     accessible in the system PATH.
 
+    Args:
+        run_command: Optional command execution function for testing. If None,
+            uses subprocess.run with default settings. Must accept same
+            signature as subprocess.run.
+
     Returns:
         True if claude command executes successfully, False otherwise.
     """
+    runner = run_command if run_command is not None else subprocess.run
+
     try:
-        result = subprocess.run(
+        result = runner(
             ["claude", "--version"],
             capture_output=True,
             text=True,
@@ -75,18 +94,25 @@ def check_claude_available() -> bool:
         return False
 
 
-def validate_prerequisites() -> bool:
+def validate_prerequisites(
+    run_command: Callable[..., subprocess.CompletedProcess[str]] | None = None,
+) -> bool:
     """Validate that all required tools are available.
 
     Checks for npm and claude CLI availability. Prints helpful error
     messages to stderr if either tool is missing.
+
+    Args:
+        run_command: Optional command execution function for testing. If None,
+            uses subprocess.run with default settings. Passed through to
+            check_npm_available() and check_claude_available().
 
     Returns:
         True if all prerequisites are met, False otherwise.
     """
     all_valid = True
 
-    if not check_npm_available():
+    if not check_npm_available(run_command=run_command):
         print(
             "Error: npm is not installed or not in PATH.\n"
             "Please install Node.js and npm before using this script.",
@@ -94,7 +120,7 @@ def validate_prerequisites() -> bool:
         )
         all_valid = False
 
-    if not check_claude_available():
+    if not check_claude_available(run_command=run_command):
         print(
             "Error: Claude Code is not installed.\nRun: npm install -g @anthropic-ai/claude-code",
             file=sys.stderr,
@@ -113,7 +139,7 @@ def get_settings_path() -> Path:
     return Path.home() / ".claude" / "settings.json"
 
 
-def create_backup(settings_path: Path) -> Path:
+def create_backup(settings_path: Path, timestamp: str | None = None) -> Path:
     """Create a timestamped backup of the settings file.
 
     Creates a backup with format: settings.json.YYYYMMDD_HHMMSS.cc_version_backup
@@ -121,6 +147,8 @@ def create_backup(settings_path: Path) -> Path:
 
     Args:
         settings_path: Path to the settings file to backup.
+        timestamp: Optional timestamp string in YYYYMMDD_HHMMSS format for testing.
+            If None, generates current timestamp.
 
     Returns:
         Path to the created backup file.
@@ -128,7 +156,9 @@ def create_backup(settings_path: Path) -> Path:
     Raises:
         OSError: If backup file cannot be created.
     """
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    if timestamp is None:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
     backup_filename = f"settings.json.{timestamp}.cc_version_backup"
     backup_path = settings_path.parent / backup_filename
 
@@ -136,11 +166,15 @@ def create_backup(settings_path: Path) -> Path:
     return backup_path
 
 
-def read_settings() -> dict[str, Any]:
+def read_settings(settings_path: Path | None = None) -> dict[str, Any]:
     """Read Claude Code settings from JSON file.
 
-    Loads and parses the settings.json file from ~/.claude/ directory.
-    Provides detailed error messages for various failure conditions.
+    Loads and parses the settings.json file. Provides detailed error messages
+    for various failure conditions.
+
+    Args:
+        settings_path: Optional path to settings file for testing. If None,
+            uses ~/.claude/settings.json.
 
     Returns:
         Dictionary containing settings data.
@@ -150,7 +184,8 @@ def read_settings() -> dict[str, Any]:
         ValueError: If settings file is empty or contains invalid JSON.
         OSError: If file cannot be read due to permissions.
     """
-    settings_path = get_settings_path()
+    if settings_path is None:
+        settings_path = get_settings_path()
 
     if not settings_path.exists():
         raise FileNotFoundError(
@@ -176,7 +211,7 @@ def read_settings() -> dict[str, Any]:
     return settings
 
 
-def write_settings(settings: dict[str, Any]) -> None:
+def write_settings(settings: dict[str, Any], settings_path: Path | None = None) -> None:
     """Write settings to Claude Code settings file with backup.
 
     Creates a backup of the existing settings file before writing,
@@ -184,12 +219,15 @@ def write_settings(settings: dict[str, Any]) -> None:
 
     Args:
         settings: Dictionary of settings to write.
+        settings_path: Optional path to settings file for testing. If None,
+            uses ~/.claude/settings.json.
 
     Raises:
         OSError: If backup cannot be created or file cannot be written.
         TypeError: If settings contains non-serializable values.
     """
-    settings_path = get_settings_path()
+    if settings_path is None:
+        settings_path = get_settings_path()
 
     # Validate env structure if present
     if "env" in settings and not isinstance(settings["env"], dict):
@@ -205,12 +243,18 @@ def write_settings(settings: dict[str, Any]) -> None:
         f.write("\n")  # Trailing newline for POSIX compliance
 
 
-def disable_auto_update() -> None:
+def disable_auto_update(
+    settings_path: Path | None = None,
+) -> None:
     """Disable Claude Code auto-updates.
 
     Modifies ~/.claude/settings.json to set env.DISABLE_AUTOUPDATER to "1".
     Creates a timestamped backup before modification. Operation is idempotent -
     running when already disabled exits successfully with a message.
+
+    Args:
+        settings_path: Optional path to settings file for testing. If None,
+            uses ~/.claude/settings.json.
 
     Returns:
         None
@@ -221,7 +265,7 @@ def disable_auto_update() -> None:
         TypeError: If env key exists but is not a dictionary.
         OSError: If file cannot be read or written due to permissions.
     """
-    settings = read_settings()
+    settings = read_settings(settings_path=settings_path)
 
     # Check if already disabled - exit early with success if so
     if settings.get("env", {}).get("DISABLE_AUTOUPDATER") == "1":
@@ -234,17 +278,23 @@ def disable_auto_update() -> None:
 
     settings["env"]["DISABLE_AUTOUPDATER"] = "1"
 
-    write_settings(settings)
+    write_settings(settings, settings_path=settings_path)
     print("Auto-update disabled.")
 
 
-def enable_auto_update() -> None:
+def enable_auto_update(
+    settings_path: Path | None = None,
+) -> None:
     """Enable Claude Code auto-updates.
 
     Modifies ~/.claude/settings.json to remove env.DISABLE_AUTOUPDATER key.
     Creates a timestamped backup before modification. Operation is idempotent -
     running when already enabled exits successfully with a message. Cleans up
     empty env dict if no other keys remain.
+
+    Args:
+        settings_path: Optional path to settings file for testing. If None,
+            uses ~/.claude/settings.json.
 
     Returns:
         None
@@ -255,7 +305,7 @@ def enable_auto_update() -> None:
         TypeError: If env key exists but is not a dictionary.
         OSError: If file cannot be read or written due to permissions.
     """
-    settings = read_settings()
+    settings = read_settings(settings_path=settings_path)
 
     # Check if already enabled (key missing or not "1") - exit early with success if so
     if "env" not in settings or "DISABLE_AUTOUPDATER" not in settings["env"]:
@@ -269,16 +319,23 @@ def enable_auto_update() -> None:
     if not settings["env"]:
         del settings["env"]
 
-    write_settings(settings)
+    write_settings(settings, settings_path=settings_path)
     print("Auto-update enabled.")
 
 
-def list_versions() -> None:
+def list_versions(
+    run_command: Callable[..., subprocess.CompletedProcess[str]] | None = None,
+) -> None:
     """List all available Claude Code versions from npm registry.
 
     Executes 'npm view @anthropic-ai/claude-code versions' and passes
     the human-readable output directly to stdout. This provides users
     with a quick view of all available versions without JSON parsing.
+
+    Args:
+        run_command: Optional command execution function for testing. If None,
+            uses subprocess.run with default settings. Must accept same
+            signature as subprocess.run.
 
     Returns:
         None
@@ -286,7 +343,8 @@ def list_versions() -> None:
     Raises:
         SystemExit: If npm command fails, exits with code 1.
     """
-    result = subprocess.run(
+    runner = run_command if run_command is not None else subprocess.run
+    result = runner(
         ["npm", "view", "@anthropic-ai/claude-code", "versions"],
         capture_output=True,
         text=True,
@@ -305,11 +363,17 @@ def list_versions() -> None:
     print(result.stdout, end="")
 
 
-def get_auto_update_status() -> str:
+def get_auto_update_status(
+    settings_path: Path | None = None,
+) -> str:
     """Get the current auto-update status from settings.
 
     Reads ~/.claude/settings.json and checks if env.DISABLE_AUTOUPDATER
     is set to "1".
+
+    Args:
+        settings_path: Optional path to settings file for testing. If None,
+            uses ~/.claude/settings.json.
 
     Returns:
         "Disabled" if auto-update is disabled, "Enabled" otherwise.
@@ -319,17 +383,24 @@ def get_auto_update_status() -> str:
         ValueError: If settings.json is empty or contains invalid JSON.
         TypeError: If env key exists but is not a dictionary.
     """
-    settings = read_settings()
+    settings = read_settings(settings_path=settings_path)
     if settings.get("env", {}).get("DISABLE_AUTOUPDATER") == "1":
         return "Disabled"
     return "Enabled"
 
 
-def get_installed_version() -> str:
+def get_installed_version(
+    run_command: Callable[..., subprocess.CompletedProcess[str]] | None = None,
+) -> str:
     """Get the currently installed Claude Code version.
 
     Executes 'claude --version' and parses the output to extract
     the version number. Expected output format: "2.1.3 (Claude Code)"
+
+    Args:
+        run_command: Optional command execution function for testing. If None,
+            uses subprocess.run with default settings. Must accept same
+            signature as subprocess.run.
 
     Returns:
         Version string (e.g., "2.1.3").
@@ -337,7 +408,8 @@ def get_installed_version() -> str:
     Raises:
         RuntimeError: If claude command fails or output cannot be parsed.
     """
-    result = subprocess.run(
+    runner = run_command if run_command is not None else subprocess.run
+    result = runner(
         ["claude", "--version"],
         capture_output=True,
         text=True,
@@ -360,12 +432,19 @@ def get_installed_version() -> str:
     return version
 
 
-def get_available_versions() -> list[str]:
+def get_available_versions(
+    run_command: Callable[..., subprocess.CompletedProcess[str]] | None = None,
+) -> list[str]:
     """Fetch all available Claude Code versions from npm registry.
 
     Queries the npm registry for @anthropic-ai/claude-code package and
     returns the complete list of available versions for validation and
     installation purposes.
+
+    Args:
+        run_command: Optional command execution function for testing. If None,
+            uses subprocess.run with default settings. Must accept same
+            signature as subprocess.run.
 
     Returns:
         List of version strings sorted by npm (oldest to newest).
@@ -373,7 +452,8 @@ def get_available_versions() -> list[str]:
     Raises:
         RuntimeError: If npm command fails or output cannot be parsed.
     """
-    result = subprocess.run(
+    runner = run_command if run_command is not None else subprocess.run
+    result = runner(
         ["npm", "view", "@anthropic-ai/claude-code", "versions", "--json"],
         capture_output=True,
         text=True,
@@ -397,11 +477,18 @@ def get_available_versions() -> list[str]:
     return [str(v) for v in versions]
 
 
-def get_latest_version() -> str:
+def get_latest_version(
+    run_command: Callable[..., subprocess.CompletedProcess[str]] | None = None,
+) -> str:
     """Get the latest available Claude Code version from npm.
 
     Fetches the complete version list and returns the last element,
     which represents the most recent release.
+
+    Args:
+        run_command: Optional command execution function for testing. If None,
+            uses subprocess.run with default settings. Passed through to
+            get_available_versions().
 
     Returns:
         Latest version string (e.g., "2.1.6").
@@ -409,11 +496,14 @@ def get_latest_version() -> str:
     Raises:
         RuntimeError: If npm command fails or output cannot be parsed.
     """
-    versions = get_available_versions()
+    versions = get_available_versions(run_command=run_command)
     return versions[-1]
 
 
-def validate_version(version: str) -> bool:
+def validate_version(
+    version: str,
+    run_command: Callable[..., subprocess.CompletedProcess[str]] | None = None,
+) -> bool:
     """Validate that a version string exists in available npm versions.
 
     Checks the requested version against the list of versions available
@@ -421,6 +511,9 @@ def validate_version(version: str) -> bool:
 
     Args:
         version: Version string to validate (e.g., "2.0.58").
+        run_command: Optional command execution function for testing. If None,
+            uses subprocess.run with default settings. Passed through to
+            get_available_versions().
 
     Returns:
         True if version exists in available versions, False otherwise.
@@ -428,11 +521,15 @@ def validate_version(version: str) -> bool:
     Raises:
         RuntimeError: If npm command fails during version fetch.
     """
-    available_versions = get_available_versions()
+    available_versions = get_available_versions(run_command=run_command)
     return version in available_versions
 
 
-def install_version(version: str) -> None:
+def install_version(
+    version: str,
+    run_command: Callable[..., subprocess.CompletedProcess[str]] | None = None,
+    settings_path: Path | None = None,
+) -> None:
     """Install a specific Claude Code version.
 
     Orchestrates npm commands to install the specified version: uninstalls
@@ -441,6 +538,12 @@ def install_version(version: str) -> None:
 
     Args:
         version: Version string to install (e.g., "2.0.58").
+        run_command: Optional command execution function for testing. If None,
+            uses subprocess.run with default settings. Must accept same
+            signature as subprocess.run.
+        settings_path: Optional path to settings file for testing. If None,
+            uses ~/.claude/settings.json. Currently unused but accepted for
+            interface consistency with other command functions.
 
     Returns:
         None
@@ -448,10 +551,16 @@ def install_version(version: str) -> None:
     Raises:
         SystemExit: If version validation fails or any npm command fails.
     """
+    # settings_path is accepted for interface consistency but not used directly
+    # by this function (it doesn't modify settings)
+    _ = settings_path
+
+    runner = run_command if run_command is not None else subprocess.run
+
     # Validate version exists before attempting installation
     print(f"Validating version {version}...")
     try:
-        if not validate_version(version):
+        if not validate_version(version, run_command=run_command):
             print(
                 f"Error: Version '{version}' not found.\nUse --list to see available versions.",
                 file=sys.stderr,
@@ -463,7 +572,7 @@ def install_version(version: str) -> None:
 
     # Step 1: Uninstall current version
     print("Uninstalling current Claude Code version...")
-    result = subprocess.run(
+    result = runner(
         ["npm", "uninstall", "-g", "@anthropic-ai/claude-code"],
         capture_output=True,
         text=True,
@@ -480,7 +589,7 @@ def install_version(version: str) -> None:
 
     # Step 2: Clean npm cache
     print("Cleaning npm cache...")
-    result = subprocess.run(
+    result = runner(
         ["npm", "cache", "clean", "--force"],
         capture_output=True,
         text=True,
@@ -497,7 +606,7 @@ def install_version(version: str) -> None:
 
     # Step 3: Install specified version
     print(f"Installing Claude Code version {version}...")
-    result = subprocess.run(
+    result = runner(
         ["npm", "install", "-g", f"@anthropic-ai/claude-code@{version}"],
         capture_output=True,
         text=True,
@@ -515,7 +624,7 @@ def install_version(version: str) -> None:
     # Step 4: Verify installation
     print("Verifying installation...")
     try:
-        installed = get_installed_version()
+        installed = get_installed_version(run_command=run_command)
         if installed == version:
             print(f"Successfully installed Claude Code version {version}.")
         else:
@@ -529,7 +638,10 @@ def install_version(version: str) -> None:
         sys.exit(1)
 
 
-def reset_to_defaults() -> None:
+def reset_to_defaults(
+    run_command: Callable[..., subprocess.CompletedProcess[str]] | None = None,
+    settings_path: Path | None = None,
+) -> None:
     """Reset Claude Code to Anthropic-intended default state.
 
     Performs two operations in sequence:
@@ -537,6 +649,13 @@ def reset_to_defaults() -> None:
     2. Installs the latest available version
 
     This restores the system to the state Anthropic intends for normal operation.
+
+    Args:
+        run_command: Optional command execution function for testing. If None,
+            uses subprocess.run with default settings. Passed through to
+            get_latest_version() and install_version().
+        settings_path: Optional path to settings file for testing. If None,
+            uses ~/.claude/settings.json.
 
     Returns:
         None
@@ -547,14 +666,14 @@ def reset_to_defaults() -> None:
     # Step 1: Enable auto-updates
     print("Enabling auto-updates...")
     try:
-        settings = read_settings()
+        settings = read_settings(settings_path=settings_path)
 
         # Only modify if auto-update is currently disabled
         if settings.get("env", {}).get("DISABLE_AUTOUPDATER") == "1":
             del settings["env"]["DISABLE_AUTOUPDATER"]
             if not settings["env"]:
                 del settings["env"]
-            write_settings(settings)
+            write_settings(settings, settings_path=settings_path)
             print("Auto-update enabled.")
         else:
             print("Auto-update is already enabled.")
@@ -566,21 +685,31 @@ def reset_to_defaults() -> None:
     # Step 2: Install latest version
     print("Installing latest version...")
     try:
-        latest = get_latest_version()
+        latest = get_latest_version(run_command=run_command)
         print(f"Latest version is {latest}.")
     except RuntimeError as e:
         print(f"Error getting latest version: {e}", file=sys.stderr)
         sys.exit(1)
 
-    install_version(latest)
+    install_version(latest, run_command=run_command, settings_path=settings_path)
     print("Reset to defaults complete.")
 
 
-def show_status() -> None:
+def show_status(
+    run_command: Callable[..., subprocess.CompletedProcess[str]] | None = None,
+    settings_path: Path | None = None,
+) -> None:
     """Display current Claude Code installation status.
 
     Shows auto-updater state, installed version, and latest available
     version in a clear, readable format.
+
+    Args:
+        run_command: Optional command execution function for testing. If None,
+            uses subprocess.run with default settings. Passed through to
+            get_installed_version() and get_latest_version().
+        settings_path: Optional path to settings file for testing. If None,
+            uses ~/.claude/settings.json.
 
     Returns:
         None
@@ -589,19 +718,19 @@ def show_status() -> None:
         SystemExit: If any status check fails, exits with code 1.
     """
     try:
-        auto_update_status = get_auto_update_status()
+        auto_update_status = get_auto_update_status(settings_path=settings_path)
     except (FileNotFoundError, ValueError, TypeError) as e:
         print(f"Error checking auto-update status: {e}", file=sys.stderr)
         sys.exit(1)
 
     try:
-        installed_version = get_installed_version()
+        installed_version = get_installed_version(run_command=run_command)
     except RuntimeError as e:
         print(f"Error getting installed version: {e}", file=sys.stderr)
         sys.exit(1)
 
     try:
-        latest_version = get_latest_version()
+        latest_version = get_latest_version(run_command=run_command)
     except RuntimeError as e:
         print(f"Error getting latest version: {e}", file=sys.stderr)
         sys.exit(1)

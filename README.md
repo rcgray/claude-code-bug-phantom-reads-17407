@@ -74,6 +74,8 @@ The original experiment methodology is documented in [docs/core/Experiment-Metho
 
 The original conclusion that versions 2.0.58 and earlier were unaffected has been revised—subsequent testing confirmed phantom reads can occur in those versions via the Era 1 mechanism.
 
+For testing specific Claude Code versions, use the `cc_version.py` script (`src/cc_version.py`) to manage auto-update settings and version installation. Run `./src/cc_version.py --status` to check your current configuration, or see [docs/features/cc-version-script/CC-Version-Script-Overview.md](docs/features/cc-version-script/CC-Version-Script-Overview.md) for complete documentation.
+
 ## Symptoms You May Have Noticed
 
 If you've experienced any of these, phantom reads may be the cause:

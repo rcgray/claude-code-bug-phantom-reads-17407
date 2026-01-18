@@ -435,6 +435,110 @@ The script uses `~/.claude/` exclusively and does not detect or adapt to Windows
 
 *This specification defines the authoritative rules for the CC Version Script including CLI interface, settings management, npm orchestration, and error handling. All implementations must conform to these specifications.*
 
+## Testing Support
+
+This section describes the testability architecture that enables comprehensive automated unit testing of the CC Version Script. The implementation uses dependency injection patterns to isolate functions from external dependencies (filesystem, subprocess calls, system time), enabling thorough testing without requiring actual npm/claude installations or modifying real settings files.
+
+### Dependency Injection Strategy
+
+The script's functions interact with three categories of external dependencies that must be injectable for testing:
+
+| Dependency Type          | Affected Operations                       | Injection Mechanism                                |
+| ------------------------ | ----------------------------------------- | -------------------------------------------------- |
+| **Filesystem paths**     | Settings file read/write, backup creation | Optional `settings_path: Path \| None` parameter   |
+| **Subprocess execution** | npm commands, claude version check        | Optional `run_command: Callable \| None` parameter |
+| **System time**          | Backup timestamp generation               | Optional `timestamp: str \| None` parameter        |
+
+All injectable parameters default to `None`, preserving original behavior when called without arguments. When tests provide mock values, functions use those instead of real system resources.
+
+### Path Injection
+
+Functions that interact with the settings file accept an optional `settings_path` parameter:
+
+```python
+def read_settings(settings_path: Path | None = None) -> dict[str, Any]:
+    """Read Claude Code settings from JSON file.
+
+    Args:
+        settings_path: Optional path override for testing. If None, uses
+            ~/.claude/settings.json.
+    """
+    path = settings_path if settings_path is not None else get_settings_path()
+    ...
+```
+
+This pattern applies to: `read_settings()`, `write_settings()`, `disable_auto_update()`, `enable_auto_update()`, `get_auto_update_status()`, `reset_to_defaults()`, and `show_status()`.
+
+### Command Injection
+
+Functions that execute subprocess commands accept an optional `run_command` callable:
+
+```python
+def check_npm_available(
+    run_command: Callable[..., subprocess.CompletedProcess[str]] | None = None
+) -> bool:
+    """Check if npm is available on the system.
+
+    Args:
+        run_command: Optional command runner for testing. If None, uses
+            subprocess.run. Must accept same signature as subprocess.run.
+    """
+    runner = run_command if run_command is not None else subprocess.run
+    ...
+```
+
+This pattern applies to: `check_npm_available()`, `check_claude_available()`, `validate_prerequisites()`, `list_versions()`, `get_installed_version()`, `get_available_versions()`, `get_latest_version()`, `validate_version()`, `install_version()`, `reset_to_defaults()`, and `show_status()`.
+
+### Timestamp Injection
+
+The `create_backup()` function accepts an optional timestamp for deterministic backup naming in tests:
+
+```python
+def create_backup(settings_path: Path, timestamp: str | None = None) -> Path:
+    """Create a timestamped backup of the settings file.
+
+    Args:
+        settings_path: Path to the settings file to backup.
+        timestamp: Optional timestamp override for testing. If None, uses
+            current time in YYYYMMDD_HHMMSS format.
+    """
+    ts = timestamp if timestamp is not None else datetime.now().strftime("%Y%m%d_%H%M%S")
+    ...
+```
+
+### Test Architecture
+
+Tests are organized into categories matching the function groupings:
+
+1. **Settings File Utilities** - Tests for `read_settings()`, `write_settings()`, `create_backup()` using temporary directories
+2. **Auto-Update Functions** - Tests for `disable_auto_update()`, `enable_auto_update()` with various initial states
+3. **Version Query Functions** - Tests for `get_auto_update_status()`, `get_installed_version()`, `get_available_versions()`, `get_latest_version()`, `validate_version()` with mocked subprocess
+4. **Command Functions** - Tests for `list_versions()`, `install_version()`, `reset_to_defaults()`, `show_status()` with full mocking
+5. **Prerequisite Checking** - Tests for `check_npm_available()`, `check_claude_available()`, `validate_prerequisites()` with command injection
+6. **CLI** - Tests for `create_parser()` mutual exclusivity and `main()` dispatch logic
+7. **Integration** - End-to-end workflow tests with all dependencies mocked
+
+### Test Fixtures
+
+Tests use pytest fixtures for common test infrastructure:
+
+- `tmp_settings_dir` - Temporary directory with settings.json for filesystem tests
+- `mock_subprocess_run` - Configurable mock for subprocess.run returning specified outputs
+- `sample_settings` - Dictionary factory for common settings configurations
+- `mock_npm_versions` - Standard list of version strings for version-related tests
+
+### Idempotent Operation Testing
+
+Functions that call `sys.exit(0)` for idempotent early returns (e.g., "Auto-update is already disabled") are tested using pytest's `SystemExit` catching:
+
+```python
+def test_disable_auto_update_idempotent(tmp_settings_dir):
+    # Setup: settings already have DISABLE_AUTOUPDATER = "1"
+    with pytest.raises(SystemExit) as exc_info:
+        disable_auto_update(settings_path=tmp_settings_dir / "settings.json")
+    assert exc_info.value.code == 0
+```
+
 ## Feature Implementation Plan (FIP)
 
 ### Phase 1: Core Infrastructure
@@ -504,3 +608,111 @@ The script uses `~/.claude/` exclusively and does not detect or adapt to Windows
   - [x] **5.2.3** - Add `if __name__ == "__main__"` block
 - [x] **5.3** - Verify script is executable
   - [x] **5.3.1** - Ensure file has executable permissions (`chmod +x`)
+
+### Phase 6: Testing Support Infrastructure
+
+- [x] **6.1** - Add path injection to settings file functions
+  - [x] **6.1.1** - Update `read_settings()` signature to accept optional `settings_path: Path | None = None`
+  - [x] **6.1.2** - Update `write_settings()` signature to accept optional `settings_path: Path | None = None`
+  - [x] **6.1.3** - Update function bodies to use injected path when provided
+- [x] **6.2** - Add timestamp injection to backup function
+  - [x] **6.2.1** - Update `create_backup()` signature to accept optional `timestamp: str | None = None`
+  - [x] **6.2.2** - Update function body to use injected timestamp when provided
+- [x] **6.3** - Add command injection to prerequisite functions
+  - [x] **6.3.1** - Update `check_npm_available()` to accept optional `run_command: Callable | None = None`
+  - [x] **6.3.2** - Update `check_claude_available()` to accept optional `run_command: Callable | None = None`
+  - [x] **6.3.3** - Update `validate_prerequisites()` to accept and pass through `run_command`
+- [x] **6.4** - Add command injection to version query functions
+  - [x] **6.4.1** - Update `list_versions()` to accept optional `run_command`
+  - [x] **6.4.2** - Update `get_installed_version()` to accept optional `run_command`
+  - [x] **6.4.3** - Update `get_available_versions()` to accept optional `run_command`
+  - [x] **6.4.4** - Update `get_latest_version()` to pass through `run_command`
+  - [x] **6.4.5** - Update `validate_version()` to pass through `run_command`
+- [x] **6.5** - Add dependency injection to auto-update functions
+  - [x] **6.5.1** - Update `disable_auto_update()` to accept optional `settings_path`
+  - [x] **6.5.2** - Update `enable_auto_update()` to accept optional `settings_path`
+  - [x] **6.5.3** - Update `get_auto_update_status()` to accept optional `settings_path`
+- [x] **6.6** - Add dependency injection to command functions
+  - [x] **6.6.1** - Update `install_version()` to accept optional `run_command` and `settings_path`
+  - [x] **6.6.2** - Update `reset_to_defaults()` to accept optional `run_command` and `settings_path`
+  - [x] **6.6.3** - Update `show_status()` to accept optional `run_command` and `settings_path`
+- [x] **6.7** - Update all affected docstrings
+  - [x] **6.7.1** - Add Args documentation for new optional parameters
+  - [x] **6.7.2** - Ensure Google-style docstring format is maintained
+- [x] **6.8** - Add Callable import
+  - [x] **6.8.1** - Add `from collections.abc import Callable` to imports
+
+### Phase 7: Test Implementation
+
+- [x] **7.1** - Create test file and fixtures
+  - [x] **7.1.1** - Create `tests/test_cc_version.py`
+  - [x] **7.1.2** - Implement `tmp_settings_dir` fixture using pytest's `tmp_path`
+  - [x] **7.1.3** - Implement `mock_subprocess_run` fixture factory
+  - [x] **7.1.4** - Implement `sample_settings` fixture factory
+  - [x] **7.1.5** - Implement `mock_npm_versions` fixture with standard version list
+- [x] **7.2** - Implement settings file utility tests
+  - [x] **7.2.1** - Test `get_settings_path()` returns correct path
+  - [x] **7.2.2** - Test `read_settings()` success case
+  - [x] **7.2.3** - Test `read_settings()` file not found error
+  - [x] **7.2.4** - Test `read_settings()` empty file error
+  - [x] **7.2.5** - Test `read_settings()` invalid JSON error
+  - [x] **7.2.6** - Test `read_settings()` non-dict root error
+  - [x] **7.2.7** - Test `write_settings()` creates backup
+  - [x] **7.2.8** - Test `write_settings()` formats JSON correctly
+  - [x] **7.2.9** - Test `write_settings()` invalid env type error
+  - [x] **7.2.10** - Test `create_backup()` timestamp format
+  - [x] **7.2.11** - Test `create_backup()` naming pattern
+- [x] **7.3** - Implement auto-update function tests
+  - [x] **7.3.1** - Test `disable_auto_update()` creates env key
+  - [x] **7.3.2** - Test `disable_auto_update()` sets correct value
+  - [x] **7.3.3** - Test `disable_auto_update()` idempotent behavior
+  - [x] **7.3.4** - Test `enable_auto_update()` removes key
+  - [x] **7.3.5** - Test `enable_auto_update()` cleans empty env dict
+  - [x] **7.3.6** - Test `enable_auto_update()` idempotent behavior
+  - [x] **7.3.7** - Test `enable_auto_update()` preserves other env keys
+- [x] **7.4** - Implement version query function tests
+  - [x] **7.4.1** - Test `get_auto_update_status()` returns "Disabled" when set
+  - [x] **7.4.2** - Test `get_auto_update_status()` returns "Enabled" when unset
+  - [x] **7.4.3** - Test `get_installed_version()` parses output correctly
+  - [x] **7.4.4** - Test `get_installed_version()` command failure error
+  - [x] **7.4.5** - Test `get_installed_version()` empty output error
+  - [x] **7.4.6** - Test `get_available_versions()` parses JSON array
+  - [x] **7.4.7** - Test `get_available_versions()` npm failure error
+  - [x] **7.4.8** - Test `get_available_versions()` invalid JSON error
+  - [x] **7.4.9** - Test `get_latest_version()` returns last element
+  - [x] **7.4.10** - Test `validate_version()` returns True for valid
+  - [x] **7.4.11** - Test `validate_version()` returns False for invalid
+- [x] **7.5** - Implement command function tests
+  - [x] **7.5.1** - Test `list_versions()` passes through npm output
+  - [x] **7.5.2** - Test `list_versions()` npm error handling
+  - [x] **7.5.3** - Test `install_version()` validates version first
+  - [x] **7.5.4** - Test `install_version()` invalid version exits
+  - [x] **7.5.5** - Test `install_version()` executes npm sequence
+  - [x] **7.5.6** - Test `install_version()` verifies installation
+  - [x] **7.5.7** - Test `reset_to_defaults()` enables auto-update
+  - [x] **7.5.8** - Test `reset_to_defaults()` installs latest
+  - [x] **7.5.9** - Test `show_status()` displays all info
+- [x] **7.6** - Implement prerequisite checking tests
+  - [x] **7.6.1** - Test `check_npm_available()` success
+  - [x] **7.6.2** - Test `check_npm_available()` not found
+  - [x] **7.6.3** - Test `check_claude_available()` success
+  - [x] **7.6.4** - Test `check_claude_available()` not found
+  - [x] **7.6.5** - Test `validate_prerequisites()` all pass
+  - [x] **7.6.6** - Test `validate_prerequisites()` npm missing
+  - [x] **7.6.7** - Test `validate_prerequisites()` claude missing
+- [x] **7.7** - Implement CLI tests
+  - [x] **7.7.1** - Test `create_parser()` mutual exclusivity
+  - [x] **7.7.2** - Test `create_parser()` requires command
+  - [x] **7.7.3** - Test `create_parser()` install accepts version
+  - [x] **7.7.4** - Test `main()` validates prerequisites first
+  - [x] **7.7.5** - Test `main()` dispatches to correct handlers
+- [x] **7.8** - Implement integration tests
+  - [x] **7.8.1** - Test full workflow: disable → install → status → reset
+  - [x] **7.8.2** - Test backup accumulation across operations
+  - [x] **7.8.3** - Test error propagation from settings
+  - [x] **7.8.4** - Test error propagation from npm
+
+### Phase 8: Testing Support Infrastructure
+
+- [x] **8.1** - Add notes to `docs/core/Experiment-Methodology-02.md` on using this script to disable CC auto-updater and set to the desired CC version.
+- [x] **8.2** - Add mention of this script to `README.md` on using this script to setup on CC for an experiment.

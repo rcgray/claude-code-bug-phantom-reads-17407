@@ -458,14 +458,14 @@ Processed exports are deleted to enable clean batch workflows:
 
 ### Phase 1: Core Script Structure
 
-- [ ] **1.1** - Create `src/collect_trials.py` with argument parsing
-  - [ ] **1.1.1** - Add shebang line (`#!/usr/bin/env python`)
-  - [ ] **1.1.2** - Implement argument parser with `-e/--exports` and `-d/--destination` required arguments
-  - [ ] **1.1.3** - Add directory existence validation for both arguments
-  - [ ] **1.1.4** - Implement exit codes (0 for success, 1 for error)
-- [ ] **1.2** - Implement `encode_project_path()` function
-  - [ ] **1.2.1** - Copy pattern from `archive_claude_sessions.py` for consistency
-  - [ ] **1.2.2** - Add function to derive session directory from cwd
+- [*] **1.1** - Create `src/collect_trials.py` with argument parsing
+  - [*] **1.1.1** - Add shebang line (`#!/usr/bin/env python`)
+  - [*] **1.1.2** - Implement argument parser with `-e/--exports` and `-d/--destination` required arguments
+  - [*] **1.1.3** - Add directory existence validation for both arguments
+  - [*] **1.1.4** - Implement exit codes (0 for success, 1 for error)
+- [*] **1.2** - Implement `encode_project_path()` function
+  - [*] **1.2.1** - Copy pattern from `archive_claude_sessions.py` for consistency
+  - [*] **1.2.2** - Add function to derive session directory from cwd
 
 ### Phase 2: Export Scanning
 
