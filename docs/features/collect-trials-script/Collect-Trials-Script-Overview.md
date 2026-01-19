@@ -31,7 +31,7 @@ This specification establishes the authoritative definition of the trial collect
 ### Command Signature
 
 ```
-./src/collect_trials.py -e <exports-dir> -d <destination-dir>
+./src/collect_trials.py -e <exports-dir> -d <destination-dir> [-v]
 ```
 
 ### Arguments
@@ -40,6 +40,7 @@ This specification establishes the authoritative definition of the trial collect
 | --------------------- | ----- | --------------- | -------- | ----------------------------------------------------- |
 | Exports Directory     | `-e`  | `--exports`     | Yes      | Path to directory containing chat export `.txt` files |
 | Destination Directory | `-d`  | `--destination` | Yes      | Path to destination directory for collected trials    |
+| Verbose Output        | `-v`  | `--verbose`     | No       | Print detailed progress messages during collection    |
 
 ### Execution Context
 
@@ -51,6 +52,23 @@ The script MUST be run from the project root directory where trials were conduct
 | ---- | ------------------------------------------------------------------------- |
 | 0    | Success (all trials collected, or no exports to process)                  |
 | 1    | Error (missing required arguments, invalid paths, or collection failures) |
+
+## Data Structures
+
+### CollectionResult
+
+The `CollectionResult` dataclass tracks the outcome of a single trial collection attempt.
+
+**Fields:**
+- `workscope_id` (str): The Workscope ID of the trial (YYYYMMDD-HHMMSS format)
+- `status` (str): Collection outcome - "collected", "skipped", or "failed"
+- `files_copied` (list[str]): List of file paths that were successfully copied
+- `error` (str | None): Error message if collection failed, None otherwise
+
+**Status Values:**
+- **"collected"**: Trial was successfully collected, all files copied, source export deleted
+- **"skipped"**: Trial directory already exists (idempotency), no files copied
+- **"failed"**: Collection failed due to missing session files or copy errors
 
 ## Collection Algorithm
 
@@ -429,8 +447,13 @@ def copy_session_files(
     trial_dir: Path,
     copy_file: Callable[[Path, Path], None] | None = None,
     copy_tree: Callable[[Path, Path], None] | None = None,
-) -> None:
-    """Copy all session files using unified algorithm."""
+    verbose: bool = False,
+) -> list[str]:
+    """Copy all session files using unified algorithm.
+    
+    Returns:
+        List of file paths that were copied.
+    """
 
 def collect_single_trial(
     workscope_id: str,
@@ -440,8 +463,14 @@ def collect_single_trial(
     copy_file: Callable[[Path, Path], None] | None = None,
     copy_tree: Callable[[Path, Path], None] | None = None,
     remove_file: Callable[[Path], None] | None = None,
-) -> TrialResult:
-    """Collect a single trial's artifacts."""
+    verbose: bool = False,
+) -> CollectionResult:
+    """Collect a single trial's artifacts.
+
+    Returns:
+        CollectionResult containing status ('collected', 'skipped', or 'failed'),
+        list of files copied, and error message if failed.
+    """
 
 def collect_trials(
     exports_dir: Path,
@@ -675,49 +704,49 @@ Tests are organized into these categories, implemented across phases:
 
 ### Phase 3: Session File Discovery
 
-- [ ] **3.1** - Implement session file search
-  - [ ] **3.1.1** - Search all `.jsonl` files for Workscope ID string
-  - [ ] **3.1.2** - Extract Session UUID from matching filename
-  - [ ] **3.1.3** - Handle case where no session file contains Workscope ID
-- [ ] **3.2** - Implement Phase 3 tests
-  - [ ] **3.2.1** - Create `tmp_session_dir` and `sample_session_content` fixtures
-  - [ ] **3.2.2** - Implement `TestSessionFileDiscovery` class (4 tests: found, not found, multiple files, UUID extraction)
+- [x] **3.1** - Implement session file search
+  - [x] **3.1.1** - Search all `.jsonl` files for Workscope ID string
+  - [x] **3.1.2** - Extract Session UUID from matching filename
+  - [x] **3.1.3** - Handle case where no session file contains Workscope ID
+- [x] **3.2** - Implement Phase 3 tests
+  - [x] **3.2.1** - Create `tmp_session_dir` and `sample_session_content` fixtures
+  - [x] **3.2.2** - Implement `TestSessionFileDiscovery` class (4 tests: found, not found, multiple files, UUID extraction)
 
 ### Phase 4: Trial Collection
 
-- [ ] **4.1** - Implement single trial collection using unified algorithm
-  - [ ] **4.1.1** - Create trial directory `{destination}/{WORKSCOPE_ID}/`
-  - [ ] **4.1.2** - Skip if trial directory already exists (idempotency)
-  - [ ] **4.1.3** - Copy chat export as `{WORKSCOPE_ID}.txt`
-  - [ ] **4.1.4** - Copy main session `.jsonl` file (preserve UUID filename)
-  - [ ] **4.1.5** - Implement `copy_session_files()` with DI support for copy functions
-  - [ ] **4.1.6** - Copy session subdirectory if it exists (handles tool-results/ and subagents/)
-  - [ ] **4.1.7** - Search and copy root-level `agent-*.jsonl` files matching session UUID
-  - [ ] **4.1.8** - Delete source export only after successful copy
-- [ ] **4.2** - Implement batch collection loop
-  - [ ] **4.2.1** - Iterate over all scanned exports
-  - [ ] **4.2.2** - Track collected, skipped, and failed counts
-  - [ ] **4.2.3** - Continue processing on individual trial errors
-- [ ] **4.3** - Implement Phase 4 tests
-  - [ ] **4.3.1** - Create `flat_session_structure`, `hybrid_session_structure`, `hierarchical_session_structure` fixtures
-  - [ ] **4.3.2** - Implement `TestCopySessionFiles` class (6 tests: flat, hybrid, hierarchical, agent matching, no subdirectory, no root agents)
-  - [ ] **4.3.3** - Implement `TestCollectSingleTrial` class (6 tests: success, directory creation, file naming, export deletion, skip existing)
-  - [ ] **4.3.4** - Implement `TestIdempotency` class (3 tests: re-run skips, export cleanup, partial recovery)
+- [x] **4.1** - Implement single trial collection using unified algorithm
+  - [x] **4.1.1** - Create trial directory `{destination}/{WORKSCOPE_ID}/`
+  - [x] **4.1.2** - Skip if trial directory already exists (idempotency)
+  - [x] **4.1.3** - Copy chat export as `{WORKSCOPE_ID}.txt`
+  - [x] **4.1.4** - Copy main session `.jsonl` file (preserve UUID filename)
+  - [x] **4.1.5** - Implement `copy_session_files()` with DI support for copy functions
+  - [x] **4.1.6** - Copy session subdirectory if it exists (handles tool-results/ and subagents/)
+  - [x] **4.1.7** - Search and copy root-level `agent-*.jsonl` files matching session UUID
+  - [x] **4.1.8** - Delete source export only after successful copy
+- [x] **4.2** - Implement batch collection loop
+  - [x] **4.2.1** - Iterate over all scanned exports
+  - [x] **4.2.2** - Track collected, skipped, and failed counts
+  - [x] **4.2.3** - Continue processing on individual trial errors
+- [x] **4.3** - Implement Phase 4 tests
+  - [x] **4.3.1** - Create `flat_session_structure`, `hybrid_session_structure`, `hierarchical_session_structure` fixtures
+  - [x] **4.3.2** - Implement `TestCopySessionFiles` class (6 tests: flat, hybrid, hierarchical, agent matching, no subdirectory, no root agents)
+  - [x] **4.3.3** - Implement `TestCollectSingleTrial` class (6 tests: success, directory creation, file naming, export deletion, skip existing)
+  - [x] **4.3.4** - Implement `TestIdempotency` class (3 tests: re-run skips, export cleanup, partial recovery)
 
 ### Phase 5: Output and Reporting
 
-- [ ] **5.1** - Implement progress output
-  - [ ] **5.1.1** - Print each trial being collected with workscope ID
-  - [ ] **5.1.2** - Print files being copied
-  - [ ] **5.1.3** - Print warnings for skipped exports
-- [ ] **5.2** - Implement summary report
-  - [ ] **5.2.1** - Report count of trials collected
-  - [ ] **5.2.2** - Report count of exports skipped (no Workscope ID)
-  - [ ] **5.2.3** - Report count of trials skipped (already exist)
-  - [ ] **5.2.4** - Report any errors with details
-- [ ] **5.3** - Implement Phase 5 tests
-  - [ ] **5.3.1** - Implement `TestProgressOutput` class (3 tests: collection messages, copy messages, warnings)
-  - [ ] **5.3.2** - Implement `TestSummaryReport` class (4 tests: collected count, skipped count, error details, zero case)
+- [x] **5.1** - Implement progress output
+  - [x] **5.1.1** - Print each trial being collected with workscope ID
+  - [x] **5.1.2** - Print files being copied
+  - [x] **5.1.3** - Print warnings for skipped exports
+- [x] **5.2** - Implement summary report
+  - [x] **5.2.1** - Report count of trials collected
+  - [x] **5.2.2** - Report count of exports skipped (no Workscope ID)
+  - [x] **5.2.3** - Report count of trials skipped (already exist)
+  - [x] **5.2.4** - Report any errors with details
+- [x] **5.3** - Implement Phase 5 tests
+  - [x] **5.3.1** - Implement `TestProgressOutput` class (3 tests: collection messages, copy messages, warnings)
+  - [x] **5.3.2** - Implement `TestSummaryReport` class (4 tests: collected count, skipped count, error details, zero case)
 
 ### Phase 6: Integration Tests
 
