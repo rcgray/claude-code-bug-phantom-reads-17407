@@ -1,0 +1,53 @@
+The file /Users/gray/Projects/claude-bug/dev/journal/archive/Journal-Workscope-20260119-133726.md has been updated. Here's the result of running `cat -n` on a snippet of the edited file:
+     1→# Work Journal - 2026-01-19 13:37
+     2→## Workscope ID: Workscope-20260119-133726
+     3→
+     4→## Initialization Phase
+     5→
+     6→**Mode**: Custom workscope (--custom flag)
+     7→
+     8→### System Files Read (via /wsd:boot)
+     9→- `docs/read-only/Agent-System.md` - Elite team coordination model
+    10→- `docs/read-only/Agent-Rules.md` - Strict rules for all agents
+    11→- `docs/core/Design-Decisions.md` - 12 project-specific design philosophies
+    12→- `docs/read-only/Documentation-System.md` - Directory purposes and lifecycle
+    13→- `docs/read-only/Checkboxlist-System.md` - Five checkbox states and navigation
+    14→- `docs/read-only/Workscope-System.md` - Workscope file format and lifecycle
+    15→
+    16→### Onboarding Phase (via /wsd:onboard)
+    17→
+    18→**Project-Bootstrapper provided comprehensive onboarding including:**
+    19→
+    20→#### Critical Rules to Avoid Violations:
+    21→1. **Rule 5.1** - NO backward compatibility concerns (app has not shipped)
+    22→2. **Rule 3.4** - NO meta-process references in product artifacts
+    23→3. **Rule 3.11** - Copy write-protected files to workbench for editing
+    24→4. **Rule 6.1** - WSD Runtime (`source/`) vs WSD Development distinction
+    25→
+    26→#### Key Architecture Understanding:
+    27→- **WSD Runtime** = `source/` directory (the shipping product)
+    28→- **WSD Development** = This repository (builds the Runtime)
+    29→- **Dogfood** = Root-level `wsd.py` and `scripts/` (READ-ONLY)
+    30→- ALL code changes target `source/`, NEVER dogfood copies
+    31→- ALL tests import from `source/`, NEVER from dogfood
+    32→
+    33→#### Standards Files Read:
+    34→- `docs/read-only/standards/Coding-Standards.md`
+    35→- `docs/read-only/standards/Python-Standards.md`
+    36→- `docs/read-only/standards/TypeScript-Standards.md`
+    37→- `docs/read-only/standards/Python-Test-Environment-Isolation-Standards.md`
+    38→- `docs/read-only/standards/TypeScript-Test-Environment-Isolation-Standards.md`
+    39→- `docs/read-only/standards/Process-Integrity-Standards.md`
+    40→
+    41→#### Additional Standards Available (read if relevant to workscope):
+    42→- `docs/read-only/standards/Data-Structure-Documentation-Standards.md`
+    43→- `docs/read-only/standards/Environment-and-Config-Variable-Standards.md`
+    44→- `docs/read-only/standards/Python-Testing-Configuration-Variables-Standards.md`
+    45→- `docs/read-only/standards/TypeScript-Testing-Configuration-Variables-Standards.md`
+    46→- `docs/read-only/standards/Specification-Maintenance-Standards.md`
+    47→
+    48→---
+    49→
+    50→**STATUS**: Awaiting custom workscope from User.
+    51→
+    52→

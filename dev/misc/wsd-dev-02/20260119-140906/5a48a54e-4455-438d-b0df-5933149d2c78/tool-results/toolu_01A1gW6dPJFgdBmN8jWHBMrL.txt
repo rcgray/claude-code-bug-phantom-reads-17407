@@ -1,0 +1,72 @@
+The file /Users/gray/Projects/claude-bug/dev/journal/archive/Journal-Workscope-20260119-140906.md has been updated. Here's the result of running `cat -n` on a snippet of the edited file:
+     1→# Work Journal - 2026-01-19 14:09
+     2→## Workscope ID: Workscope-20260119-140906
+     3→
+     4→---
+     5→
+     6→## Initialization Phase
+     7→
+     8→**Mode:** Custom workscope (`--custom` flag)
+     9→
+    10→### System Files Read (via `/wsd:boot`):
+    11→1. `docs/read-only/Agent-System.md` - Elite team coordination model
+    12→2. `docs/read-only/Agent-Rules.md` - Strict rules governing agent behavior
+    13→3. `docs/core/Design-Decisions.md` - 12 project-specific design philosophies
+    14→4. `docs/read-only/Documentation-System.md` - Document organization by permanence
+    15→5. `docs/read-only/Checkboxlist-System.md` - Five-state checkbox system
+    16→6. `docs/read-only/Workscope-System.md` - Formal work assignment system
+    17→
+    18→### Project Introduction Read:
+    19→- `docs/core/PRD.md` - Workscope-Dev Product Requirements Document
+    20→
+    21→---
+    22→
+    23→## Onboarding Phase (via `/wsd:onboard`)
+    24→
+    25→### Project-Bootstrapper Consultation Complete
+    26→
+    27→**Files Read per Project-Bootstrapper Guidance:**
+    28→
+    29→**Mandatory Standards (Read in Full):**
+    30→1. `docs/read-only/standards/Coding-Standards.md` - General coding guidelines
+    31→2. `docs/read-only/standards/Python-Standards.md` - Python-specific best practices
+    32→3. `docs/read-only/standards/Specification-Maintenance-Standards.md` - Spec sync requirements
+    33→4. `docs/read-only/standards/Process-Integrity-Standards.md` - Tool accuracy standards
+    34→
+    35→**Conditional Standards (to read if workscope involves these areas):**
+    36→- Testing: `Python-Test-Environment-Isolation-Standards.md`, `Python-Testing-Configuration-Variables-Standards.md`
+    37→- Configuration: `Environment-and-Config-Variable-Standards.md`
+    38→- Data Structures: `Data-Structure-Documentation-Standards.md`
+    39→- TypeScript/JavaScript: `TypeScript-Standards.md`, `TypeScript-Test-Environment-Isolation-Standards.md`, `TypeScript-Testing-Configuration-Variables-Standards.md`
+    40→
+    41→### Key Rules and Violations to Avoid:
+    42→
+    43→**CRITICAL RULES:**
+    44→1. **Rule 5.1** - NO backward compatibility code (app hasn't shipped yet)
+    45→2. **Rule 3.4** - NO meta-process references in product artifacts (no phase numbers in code)
+    46→3. **Rule 3.11** - Copy protected files to `docs/workbench/` for editing
+    47→4. **Rule 6.1** - WSD Runtime vs Development distinction:
+    48→   - Edit `source/` (the product), NOT root-level dogfood copies
+    49→   - Tests import from `source/`, NOT root `scripts/`
+    50→   - Quality tools target `source/` and `tests/` explicitly
+    51→
+    52→**BEHAVIORAL EXPECTATIONS:**
+    53→- Rule 3.15-3.16: Report ALL discoveries to User (not just workscope items)
+    54→- Rule 3.17: Tool exceptions require User approval
+    55→- Rule 4.7: Own warnings - resolve before completing workscope
+    56→- Rule 4.8: Follow User's lead over workscope boundaries
+    57→- Rule 4.9: Report ALL QA discoveries in USER ACTION ITEMS
+    58→
+    59→**SPECIAL AGENT PROOF-OF-WORK:**
+    60→- Test-Guardian: Must show test summary line (e.g., "140 passed in 0.23s")
+    61→- Health-Inspector: Must show full HEALTH CHECK SUMMARY table
+    62→- Context-Librarian/Codebase-Surveyor: Must provide actual file paths
+    63→- Task-Master: Must provide workscope file path
+    64→
+    65→---
+    66→
+    67→## Status: AWAITING CUSTOM WORKSCOPE FROM USER
+    68→
+    69→Onboarding complete. Ready to receive custom workscope assignment.
+    70→
+    71→

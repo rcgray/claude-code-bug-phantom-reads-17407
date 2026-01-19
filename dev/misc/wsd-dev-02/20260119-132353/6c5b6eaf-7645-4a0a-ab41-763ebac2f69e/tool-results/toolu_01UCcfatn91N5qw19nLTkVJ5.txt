@@ -1,0 +1,103 @@
+The file /Users/gray/Projects/claude-bug/dev/journal/archive/Journal-Workscope-20260119-132353.md has been updated. Here's the result of running `cat -n` on a snippet of the edited file:
+     1→# Work Journal - 2026-01-19 13:23
+     2→## Workscope ID: Workscope-20260119-132353
+     3→
+     4→## Initialization
+     5→
+     6→- Workscope ID generated: 20260119-132353
+     7→- Work Journal initialized at: dev/journal/archive/Journal-Workscope-20260119-132353.md
+     8→- Custom workscope mode (`--custom` flag): Will receive workscope from User after initialization
+     9→
+    10→## System Documentation Read
+    11→
+    12→**Core WSD Platform Documentation:**
+    13→1. docs/core/PRD.md - Product Requirements Document
+    14→2. docs/read-only/Agent-System.md - Agent collaboration system
+    15→3. docs/read-only/Agent-Rules.md - Strict rules for all agents
+    16→4. docs/core/Design-Decisions.md - Project-specific design philosophies
+    17→5. docs/read-only/Documentation-System.md - Documentation organization
+    18→6. docs/read-only/Checkboxlist-System.md - Task management system
+    19→7. docs/read-only/Workscope-System.md - Work assignment system
+    20→
+    21→## Project-Bootstrapper Onboarding Report
+    22→
+    23→### Mandatory Standards Files Read:
+    24→1. docs/read-only/standards/Coding-Standards.md
+    25→2. docs/read-only/standards/Python-Standards.md
+    26→3. docs/read-only/standards/Python-Test-Environment-Isolation-Standards.md
+    27→4. docs/read-only/standards/Specification-Maintenance-Standards.md
+    28→5. docs/read-only/standards/Process-Integrity-Standards.md
+    29→
+    30→### Critical Rules Emphasized:
+    31→
+    32→**Rule 5.1 - NO BACKWARD COMPATIBILITY (MOST VIOLATED)**
+    33→- This app has NOT shipped yet
+    34→- No migration solutions, legacy support, or backward compatibility
+    35→- Violations result in IMMEDIATE REJECTION
+    36→
+    37→**Rule 3.4 - NO META-PROCESS REFERENCES IN PRODUCT ARTIFACTS**
+    38→- Source code, tests, scripts must NOT reference phase numbers, task IDs, ticket numbers
+    39→- Only process documents (specs, tickets, Action Plans) should contain these
+    40→
+    41→**Rule 3.11 - WRITE-PROTECTED FILES**
+    42→- If cannot write to docs/read-only/ or .claude/, copy to docs/workbench/ with exact same filename
+    43→
+    44→**Rule 6.1 - WSD DEVELOPMENT VS WSD RUNTIME**
+    45→- All code changes target `source/` directory (the product)
+    46→- Root `wsd.py` and `scripts/` are dogfood copies (read-only)
+    47→- Tests import from `source/` or `source/scripts/`, never from root
+    48→- Quality tools explicitly target `source/` and `tests/`
+    49→
+    50→**Rule 4.4 - cat >> EOF IS FORBIDDEN**
+    51→- Use Edit tool for file modifications, never terminal commands
+    52→
+    53→**Proof of Work Requirements (Rule 3.12):**
+    54→- Test-Guardian: Must show test summary line (e.g., "140 passed in 0.23s")
+    55→- Health-Inspector: Must show complete HEALTH CHECK SUMMARY table
+    56→- Reject approvals without proper evidence
+    57→
+    58→**QA Discovery Reporting (Rules 4.9, 3.15, 3.16):**
+    59→- Report ALL issues to User, even if "not my workscope"
+    60→- User has no visibility into tool outputs or Special Agent conversations
+    61→- Information that dies with session is lost forever
+    62→
+    63→### Key Standards Summary:
+    64→
+    65→**Coding Standards:**
+    66→- Fail at point of failure, don't create workarounds
+    67→- Trust documented guarantees
+    68→- Use comment blocks, check them after edits
+    69→- 4 spaces for indentation
+    70→
+    71→**Python Standards:**
+    72→- Use `uv` for dependency management
+    73→- Type hints mandatory, lowercase type parameters (list[int] not List[int])
+    74→- ALL functions must have explicit return type annotations
+    75→- Google-style docstrings with Args, Returns, Raises sections
+    76→
+    77→**Test Environment Isolation:**
+    78→- Tests must pass identically on any machine
+    79→- Environment variables: use @patch.dict(os.environ, {}, clear=True)
+    80→- File operations: always use tmp_path fixture
+    81→- Network calls: mock in unit tests
+    82→- Module-level derived constants: patch ALL constants in dependency chain
+    83→
+    84→**Specification Maintenance:**
+    85→- Specs are sources of truth
+    86→- Code changes require spec updates in same workscope
+    87→- Specification drift = critical violation
+    88→
+    89→**Process Integrity:**
+    90→- Automated tools must match direct tool execution
+    91→- No silent error suppression
+    92→- All exceptions require explicit User approval
+    93→
+    94→### Checkpoint Confirmations:
+    95→1. ✅ Rule 5.1 violations result in immediate rejection of ALL work
+    96→2. ✅ Must provide actual tool output evidence from Special Agents
+    97→3. ✅ Understand WSD Development vs WSD Runtime distinction
+    98→4. ✅ `[%]` tasks require full implementation responsibility
+    99→
+   100→## Status: AWAITING CUSTOM WORKSCOPE FROM USER
+   101→
+   102→

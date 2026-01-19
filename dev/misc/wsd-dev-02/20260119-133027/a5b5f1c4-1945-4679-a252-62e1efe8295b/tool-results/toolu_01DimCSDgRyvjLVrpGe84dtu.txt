@@ -1,0 +1,1018 @@
+     1→"""WSD utility functions for language detection, configuration, and file operations.
+     2→
+     3→Provides centralized utility functions for detecting project language type
+     4→based on actual source file presence rather than configuration files alone.
+     5→These functions are used by wsd.py and other WSD tools to adapt their
+     6→behavior appropriately for each project type.
+     7→
+     8→Public Functions:
+     9→    calculate_file_hash: Calculate SHA-256 content hash for a file
+    10→    get_check_dirs: Read configured check directories from pyproject.toml (for Python)
+    11→    get_node_check_dirs: Read configured check directories from package.json (for Node.js)
+    12→    has_typescript_files: Scan directories for .ts files
+    13→    collect_python_files: Collect all documentable Python files from check directories
+    14→    detect_project_languages: Detect all programming languages present in a project
+    15→    detect_package_manager: Detect which Node.js package manager is in use
+    16→    is_tool_available: Check if a Python package is available for import
+    17→    is_script_available: Check if a script is defined in package.json
+    18→    collect_wsd_files: Validate and collect WSD Runtime files from a directory
+    19→
+    20→Public Classes:
+    21→    WsdCollectionError: Exception raised when WSD file collection encounters invalid content
+    22→
+    23→Internal Functions (private):
+    24→    _find_package_json_root: Find directory containing package.json for Node.js detection
+    25→    _find_python_project_root: Find directory containing pyproject.toml for Python detection
+    26→    _is_python_project: Determine if project is Python vs just having WSD installed
+    27→    _detect_node_language: Determine if project is TypeScript or JavaScript
+    28→    _is_binary_file: Detect if file is binary (not text)
+    29→    _parse_wsdignore: Parse .wsdignore file and return list of patterns
+    30→    _is_safe_filename: Check if filename contains only safe characters
+    31→"""
+    32→
+    33→import fnmatch
+    34→import hashlib
+    35→import json
+    36→import re
+    37→import sys
+    38→from pathlib import Path
+    39→
+    40→
+    41→def calculate_file_hash(file_path: Path) -> str:
+    42→    """Calculate SHA-256 content hash for a file.
+    43→
+    44→    Reads the file in binary mode for cross-platform consistency and returns
+    45→    the hash in a prefixed format suitable for storage in wsd.json.
+    46→
+    47→    Args:
+    48→        file_path: Absolute or relative path to the file to hash.
+    49→
+    50→    Returns:
+    51→        Hash string in format 'sha256:<64_lowercase_hex_chars>'.
+    52→
+    53→    Raises:
+    54→        FileNotFoundError: If file_path does not exist.
+    55→        IOError: If file cannot be read.
+    56→    """
+    57→    hasher = hashlib.sha256()
+    58→
+    59→    with file_path.open("rb") as f:
+    60→        while chunk := f.read(8192):
+    61→            hasher.update(chunk)
+    62→
+    63→    return f"sha256:{hasher.hexdigest()}"
+    64→
+    65→
+    66→def get_check_dirs(project_root: Path | None = None) -> list[str]:
+    67→    """Read check directories from pyproject.toml [tool.wsd].check_dirs configuration.
+    68→
+    69→    Reads the configured directories that WSD tools should check for source files.
+    70→    This is the primary function for Python scripts to retrieve directory configuration.
+    71→
+    72→    The function searches for pyproject.toml starting from the current working directory
+    73→    (or provided project_root) and walking up the directory tree. If found, it reads
+    74→    the [tool.wsd].check_dirs configuration. If the configuration is missing or not
+    75→    found, returns an empty list.
+    76→
+    77→    Args:
+    78→        project_root: Root directory of the project. If None, searches from
+    79→            current working directory up the tree for pyproject.toml.
+    80→
+    81→    Returns:
+    82→        List of directory paths relative to project root, or empty list if not configured.
+    83→    """
+    84→    # Import tomllib conditionally for Python 3.10 compatibility
+    85→    try:
+    86→        import tomllib  # type: ignore[import-not-found]  # noqa: PLC0415
+    87→    except ModuleNotFoundError:
+    88→        import tomli as tomllib  # noqa: PLC0415
+    89→
+    90→    # Find project root by searching for pyproject.toml
+    91→    pyproject_path: Path | None = None
+    92→    if project_root is not None:
+    93→        candidate = project_root / "pyproject.toml"
+    94→        if candidate.exists():
+    95→            pyproject_path = candidate
+    96→    else:
+    97→        current_dir = Path.cwd()
+    98→        while current_dir != current_dir.parent:
+    99→            candidate = current_dir / "pyproject.toml"
+   100→            if candidate.exists():
+   101→                pyproject_path = candidate
+   102→                break
+   103→            current_dir = current_dir.parent
+   104→
+   105→    if pyproject_path is None:
+   106→        print(
+   107→            "Note: [tool.wsd].check_dirs not configured. Code quality tools will be skipped.",
+   108→            file=sys.stderr,
+   109→        )
+   110→        return []
+   111→
+   112→    try:
+   113→        with pyproject_path.open("rb") as f:
+   114→            config = tomllib.load(f)
+   115→    except Exception as e:
+   116→        print(f"Warning: Failed to parse pyproject.toml: {e}", file=sys.stderr)
+   117→        return []
+   118→
+   119→    wsd_config = config.get("tool", {}).get("wsd", {})
+   120→    check_dirs = wsd_config.get("check_dirs")
+   121→
+   122→    if check_dirs is None:
+   123→        print(
+   124→            "Note: [tool.wsd].check_dirs not configured. Code quality tools will be skipped.",
+   125→            file=sys.stderr,
+   126→        )
+   127→        return []
+   128→
+   129→    if not isinstance(check_dirs, list):
+   130→        print(
+   131→            "Warning: [tool.wsd].check_dirs must be a list in pyproject.toml.",
+   132→            file=sys.stderr,
+   133→        )
+   134→        return []
+   135→
+   136→    # Filter and validate entries
+   137→    valid_dirs = [str(d) for d in check_dirs if isinstance(d, str)]
+   138→    if not valid_dirs:
+   139→        print(
+   140→            "Note: [tool.wsd].check_dirs not configured. Code quality tools will be skipped.",
+   141→            file=sys.stderr,
+   142→        )
+   143→        return []
+   144→
+   145→    return valid_dirs
+   146→
+   147→
+   148→def _print_node_config_help() -> None:
+   149→    """Print helpful configuration message for Node.js projects."""
+   150→    print(
+   151→        "Note: wsd.checkDirs not configured in package.json.",
+   152→        file=sys.stderr,
+   153→    )
+   154→    print(
+   155→        "Add this to your package.json:",
+   156→        file=sys.stderr,
+   157→    )
+   158→    print(
+   159→        '  "wsd": { "checkDirs": ["src", "tests"] }',
+   160→        file=sys.stderr,
+   161→    )
+   162→
+   163→
+   164→def get_node_check_dirs(project_root: Path | None = None) -> list[str]:
+   165→    """Read check directories from package.json wsd.checkDirs configuration.
+   166→
+   167→    Reads the configured directories that WSD tools should check for source files
+   168→    in Node.js (TypeScript/JavaScript) projects. This is the Node.js equivalent
+   169→    of get_check_dirs() for Python projects.
+   170→
+   171→    The function searches for package.json starting from the current working directory
+   172→    (or provided project_root) and walking up the directory tree. If found, it reads
+   173→    the wsd.checkDirs configuration. If the configuration is missing or not found,
+   174→    returns an empty list.
+   175→
+   176→    Args:
+   177→        project_root: Root directory of the project. If None, searches from
+   178→            current working directory up the tree for package.json.
+   179→
+   180→    Returns:
+   181→        List of directory paths relative to project root, or empty list if not configured.
+   182→    """
+   183→    # Find project root by searching for package.json
+   184→    package_json_path: Path | None = None
+   185→    if project_root is not None:
+   186→        candidate = project_root / "package.json"
+   187→        if candidate.exists():
+   188→            package_json_path = candidate
+   189→    else:
+   190→        search_root = _find_package_json_root()
+   191→        candidate = search_root / "package.json"
+   192→        if candidate.exists():
+   193→            package_json_path = candidate
+   194→
+   195→    if package_json_path is None:
+   196→        print(
+   197→            "Note: wsd.checkDirs not configured. Code quality tools will be skipped.",
+   198→            file=sys.stderr,
+   199→        )
+   200→        return []
+   201→
+   202→    # Try to parse package.json
+   203→    try:
+   204→        with package_json_path.open(encoding="utf-8") as f:
+   205→            package_json = json.load(f)
+   206→    except (json.JSONDecodeError, OSError) as e:
+   207→        print(f"Warning: Failed to read/parse package.json: {e}", file=sys.stderr)
+   208→        return []
+   209→
+   210→    # Validate wsd config structure and extract checkDirs
+   211→    wsd_config = package_json.get("wsd", {})
+   212→    if not isinstance(wsd_config, dict):
+   213→        print(
+   214→            "Warning: wsd field in package.json must be an object.",
+   215→            file=sys.stderr,
+   216→        )
+   217→        return []
+   218→
+   219→    check_dirs = wsd_config.get("checkDirs")
+   220→    if check_dirs is None:
+   221→        _print_node_config_help()
+   222→        return []
+   223→
+   224→    if not isinstance(check_dirs, list):
+   225→        print(
+   226→            "Warning: wsd.checkDirs must be an array in package.json.",
+   227→            file=sys.stderr,
+   228→        )
+   229→        return []
+   230→
+   231→    # Filter and validate entries - return valid strings or empty list with help
+   232→    valid_dirs = [str(d) for d in check_dirs if isinstance(d, str)]
+   233→    if not valid_dirs:
+   234→        _print_node_config_help()
+   235→    return valid_dirs
+   236→
+   237→
+   238→def _find_package_json_root() -> Path:
+   239→    """Find the directory containing package.json for Node.js language detection.
+   240→
+   241→    Internal helper function used by Node.js detection functions to locate
+   242→    the package.json file. Walks up the directory tree from the current
+   243→    working directory until it finds a directory containing package.json.
+   244→
+   245→    This function specifically searches for package.json, not the general
+   246→    project root (which could be indicated by pyproject.toml for Python).
+   247→
+   248→    Returns:
+   249→        Path to directory containing package.json, or current directory if not found.
+   250→    """
+   251→    current_dir = Path.cwd()
+   252→    while current_dir != current_dir.parent:
+   253→        if (current_dir / "package.json").exists():
+   254→            return current_dir
+   255→        current_dir = current_dir.parent
+   256→    # Fallback: return current working directory
+   257→    return Path.cwd()
+   258→
+   259→
+   260→def _has_files_with_extension(directory: Path, extension: str, exclude_dirs: set[str]) -> bool:
+   261→    """Recursively scan a directory for files matching an extension.
+   262→
+   263→    Args:
+   264→        directory: Directory path to scan (absolute path).
+   265→        extension: File extension to match (e.g., '.ts').
+   266→        exclude_dirs: Set of directory names to exclude from scanning.
+   267→
+   268→    Returns:
+   269→        True if any matching files found, False otherwise.
+   270→    """
+   271→    if not directory.exists():
+   272→        return False
+   273→
+   274→    try:
+   275→        for entry in directory.iterdir():
+   276→            if entry.is_dir():
+   277→                if entry.name in exclude_dirs:
+   278→                    continue
+   279→                if _has_files_with_extension(entry, extension, exclude_dirs):
+   280→                    return True
+   281→            elif entry.is_file() and entry.name.endswith(extension):
+   282→                return True
+   283→    except OSError:
+   284→        return False
+   285→
+   286→    return False
+   287→
+   288→
+   289→def has_typescript_files(check_dirs: list[str]) -> bool:
+   290→    """Scan directories for TypeScript files (.ts).
+   291→
+   292→    Recursively scans the provided directories looking for any .ts files.
+   293→    Excludes node_modules/ and dist/ directories from scanning.
+   294→    Type declaration files (.d.ts) are included in the scan.
+   295→
+   296→    Args:
+   297→        check_dirs: Directories to scan (relative to project root).
+   298→
+   299→    Returns:
+   300→        True if any .ts files found, False otherwise.
+   301→    """
+   302→    project_root = _find_package_json_root()
+   303→    exclude_dirs = {"node_modules", "dist"}
+   304→
+   305→    for dir_name in check_dirs:
+   306→        full_path = project_root / dir_name
+   307→        if _has_files_with_extension(full_path, ".ts", exclude_dirs):
+   308→            return True
+   309→
+   310→    return False
+   311→
+   312→
+   313→def collect_python_files(
+   314→    check_dirs: list[str],
+   315→    project_root: Path | None = None,
+   316→) -> list[Path]:
+   317→    """Collect all documentable Python files from check directories.
+   318→
+   319→    Recursively searches each directory in check_dirs for .py files,
+   320→    filtering out non-documentable files like __pycache__, test files,
+   321→    and build artifacts. This function is the Python equivalent of the
+   322→    directory-based pattern used in codedocs_typedoc.js and codedocs_jsdoc.js.
+   323→
+   324→    Args:
+   325→        check_dirs: List of directory paths to search (relative to project root).
+   326→        project_root: Optional explicit project root. If None, searches from
+   327→            current working directory up the tree for pyproject.toml.
+   328→
+   329→    Returns:
+   330→        List of Path objects for all documentable Python files found, sorted
+   331→        alphabetically by path for deterministic ordering.
+   332→    """
+   333→    if project_root is None:
+   334→        project_root = _find_python_project_root()
+   335→
+   336→    # Directories to exclude from scanning
+   337→    exclude_dirs = {
+   338→        "__pycache__",
+   339→        ".eggs",
+   340→        "dist",
+   341→        "build",
+   342→        "node_modules",
+   343→        ".git",
+   344→        ".venv",
+   345→        "venv",
+   346→        "env",
+   347→    }
+   348→
+   349→    # File patterns to exclude (test files)
+   350→    def _is_test_file(file_path: Path) -> bool:
+   351→        """Check if a file is a test file based on naming conventions."""
+   352→        name = file_path.name
+   353→        # Exclude test_*.py and *_test.py patterns
+   354→        if name.startswith("test_") or name.endswith("_test.py"):
+   355→            return True
+   356→        # Exclude conftest.py (pytest configuration)
+   357→        return name == "conftest.py"
+   358→
+   359→    def _is_in_excluded_dir(file_path: Path) -> bool:
+   360→        """Check if a file is in an excluded directory."""
+   361→        for part in file_path.parts:
+   362→            if part in exclude_dirs:
+   363→                return True
+   364→            # Exclude .egg-info directories
+   365→            if part.endswith(".egg-info"):
+   366→                return True
+   367→        return False
+   368→
+   369→    def _is_in_test_directory(file_path: Path, base_dir: Path) -> bool:
+   370→        """Check if a file is in a test directory."""
+   371→        # Get the relative path from base_dir
+   372→        try:
+   373→            rel_path = file_path.relative_to(base_dir)
+   374→        except ValueError:
+   375→            return False
+   376→        # Check if any parent directory is named 'test' or 'tests'
+   377→        return any(part in ("test", "tests") for part in rel_path.parts[:-1])
+   378→
+   379→    python_files: list[Path] = []
+   380→
+   381→    for dir_name in check_dirs:
+   382→        dir_path = project_root / dir_name
+   383→        if not dir_path.exists():
+   384→            continue
+   385→
+   386→        for py_file in dir_path.rglob("*.py"):
+   387→            # Skip if in excluded directory
+   388→            if _is_in_excluded_dir(py_file):
+   389→                continue
+   390→            # Skip test files
+   391→            if _is_test_file(py_file):
+   392→                continue
+   393→            # Skip files in test directories
+   394→            if _is_in_test_directory(py_file, dir_path):
+   395→                continue
+   396→            python_files.append(py_file)
+   397→
+   398→    # Sort for deterministic ordering
+   399→    return sorted(python_files)
+   400→
+   401→
+   402→def _find_python_project_root() -> Path:
+   403→    """Find the directory containing pyproject.toml for Python project detection.
+   404→
+   405→    Internal helper function used by Python detection functions to locate
+   406→    the pyproject.toml file. Walks up the directory tree from the current
+   407→    working directory until it finds a directory containing pyproject.toml.
+   408→
+   409→    Returns:
+   410→        Path to directory containing pyproject.toml, or current directory if not found.
+   411→    """
+   412→    current_dir = Path.cwd()
+   413→    while current_dir != current_dir.parent:
+   414→        if (current_dir / "pyproject.toml").exists():
+   415→            return current_dir
+   416→        current_dir = current_dir.parent
+   417→    # Fallback: return current working directory
+   418→    return Path.cwd()
+   419→
+   420→
+   421→def _detect_node_language(project_root: Path | None = None) -> str | None:
+   422→    """Detect whether the project is TypeScript or JavaScript.
+   423→
+   424→    Internal helper function - use detect_project_languages() for public API.
+   425→
+   426→    Determines the project's language type based on the presence of .ts files
+   427→    in the configured check directories from package.json wsd.checkDirs.
+   428→
+   429→    If wsd.checkDirs is not configured, no directories are scanned and the
+   430→    project defaults to JavaScript (no .ts files found in empty directory set).
+   431→
+   432→    A project is classified as TypeScript if ANY .ts files exist in the check
+   433→    directories. Otherwise, it is classified as JavaScript.
+   434→
+   435→    Args:
+   436→        project_root: Root directory of the project. If None, uses _find_package_json_root()
+   437→            to locate the directory containing package.json.
+   438→
+   439→    Returns:
+   440→        'typescript', 'javascript', or None if no package.json exists.
+   441→    """
+   442→    if project_root is None:
+   443→        project_root = _find_package_json_root()
+   444→    package_json_path = project_root / "package.json"
+   445→
+   446→    if not package_json_path.exists():
+   447→        return None
+   448→
+   449→    # Try to read wsd.checkDirs from package.json
+   450→    check_dirs: list[str] = []
+   451→    try:
+   452→        with package_json_path.open(encoding="utf-8") as f:
+   453→            package_json = json.load(f)
+   454→        wsd_config: dict[str, object] = package_json.get("wsd", {})
+   455→        configured_dirs = wsd_config.get("checkDirs", [])
+   456→        if isinstance(configured_dirs, list):
+   457→            check_dirs = [str(d) for d in configured_dirs if isinstance(d, str)]
+   458→    except (json.JSONDecodeError, OSError):
+   459→        pass
+   460→
+   461→    # Scan for TypeScript files in configured directories only
+   462→    if has_typescript_files(check_dirs):
+   463→        return "typescript"
+   464→
+   465→    return "javascript"
+   466→
+   467→
+   468→def _is_python_project(project_root: Path | None = None) -> bool:
+   469→    """Determine if this is a Python project vs just having WSD installed.
+   470→
+   471→    Internal helper function - use detect_project_languages() for public API.
+   472→
+   473→    A project is considered a Python project if:
+   474→    1. pyproject.toml has a [project] section (PEP 621 metadata), OR
+   475→    2. There are .py files in the configured check_dirs
+   476→
+   477→    The mere presence of pyproject.toml does NOT make it a Python project,
+   478→    since WSD requires pyproject.toml for its own dependencies.
+   479→
+   480→    Args:
+   481→        project_root: Root directory of the project. If None, searches from
+   482→            current working directory up the tree for pyproject.toml.
+   483→
+   484→    Returns:
+   485→        True if this is a Python project, False otherwise.
+   486→    """
+   487→    # Import tomllib conditionally for Python 3.10 compatibility
+   488→    # Note: type ignore includes unused-ignore for mypy quirk with duplicate imports
+   489→    try:
+   490→        import tomllib  # type: ignore[import-not-found,unused-ignore]  # noqa: PLC0415
+   491→    except ModuleNotFoundError:
+   492→        import tomli as tomllib  # noqa: PLC0415
+   493→
+   494→    # Find project root by searching for pyproject.toml
+   495→    if project_root is None:
+   496→        current_dir = Path.cwd()
+   497→        while current_dir != current_dir.parent:
+   498→            if (current_dir / "pyproject.toml").exists():
+   499→                project_root = current_dir
+   500→                break
+   501→            current_dir = current_dir.parent
+   502→
+   503→    if project_root is None:
+   504→        return False
+   505→
+   506→    pyproject_path = project_root / "pyproject.toml"
+   507→    if not pyproject_path.exists():
+   508→        return False
+   509→
+   510→    try:
+   511→        with pyproject_path.open("rb") as f:
+   512→            pyproject = tomllib.load(f)
+   513→    except Exception:
+   514→        return False
+   515→
+   516→    # Check 1: Has [project] section = actual Python project (PEP 621)
+   517→    if "project" in pyproject:
+   518→        return True
+   519→
+   520→    # Check 2: Has Python source files in check_dirs
+   521→    check_dirs = pyproject.get("tool", {}).get("wsd", {}).get("check_dirs", [])
+   522→    for dir_name in check_dirs:
+   523→        dir_path = project_root / dir_name
+   524→        # Check for any .py files (not exhaustive, just existence check)
+   525→        if dir_path.exists() and any(dir_path.rglob("*.py")):
+   526→            return True
+   527→
+   528→    return False
+   529→
+   530→
+   531→def detect_project_languages(project_root: Path | None = None) -> set[str]:
+   532→    """Detect all programming languages present in the project.
+   533→
+   534→    Returns set of detected languages: {"python", "typescript", "javascript"}
+   535→    Returns empty set for codeless projects.
+   536→
+   537→    Detection logic:
+   538→    - Python: Has [project] section in pyproject.toml OR .py files in check_dirs
+   539→    - TypeScript: Has .ts files in configured check directories
+   540→    - JavaScript: Has package.json but no .ts files in check directories
+   541→
+   542→    Args:
+   543→        project_root: Root directory of the project. If None, searches from
+   544→            current working directory up the tree for configuration files.
+   545→
+   546→    Returns:
+   547→        Set of detected language identifiers, empty set if codeless project.
+   548→    """
+   549→    languages: set[str] = set()
+   550→
+   551→    # Use _is_python_project() to distinguish actual Python projects from
+   552→    # projects that just have pyproject.toml for WSD dependencies
+   553→    if _is_python_project(project_root):
+   554→        languages.add("python")
+   555→
+   556→    # Use file-based detection to distinguish TypeScript from JavaScript
+   557→    node_language = _detect_node_language(project_root)
+   558→    if node_language is not None:
+   559→        languages.add(node_language)
+   560→
+   561→    return languages
+   562→
+   563→
+   564→def detect_package_manager() -> str | None:
+   565→    """Detect which Node.js package manager is in use.
+   566→
+   567→    Checks for lock files in this order:
+   568→    1. pnpm-lock.yaml → pnpm
+   569→    2. package-lock.json → npm
+   570→    3. yarn.lock → yarn
+   571→    4. bun.lockb → bun
+   572→
+   573→    Returns:
+   574→        Package manager command ("pnpm", "npm", "yarn", or "bun"),
+   575→        or None if no lock file is found.
+   576→    """
+   577→    project_root = _find_package_json_root()
+   578→
+   579→    if (project_root / "pnpm-lock.yaml").exists():
+   580→        return "pnpm"
+   581→    if (project_root / "package-lock.json").exists():
+   582→        return "npm"
+   583→    if (project_root / "yarn.lock").exists():
+   584→        return "yarn"
+   585→    if (project_root / "bun.lockb").exists():
+   586→        return "bun"
+   587→
+   588→    return None
+   589→
+   590→
+   591→def is_tool_available(package_name: str) -> bool:
+   592→    """Check if a Python package is available for import.
+   593→
+   594→    Determines whether a package can be imported in the current Python
+   595→    environment. This is the Python equivalent of isToolAvailable() in
+   596→    wsd_utils.js, enabling consistent tool availability checking across
+   597→    both ecosystems.
+   598→
+   599→    Args:
+   600→        package_name: Name of the package to check (e.g., 'pdoc', 'sphinx').
+   601→
+   602→    Returns:
+   603→        True if the package can be imported, False otherwise.
+   604→    """
+   605→    try:
+   606→        __import__(package_name)
+   607→        return True
+   608→    except ImportError:
+   609→        return False
+   610→
+   611→
+   612→def is_script_available(script_name: str) -> bool:
+   613→    """Check if a script is defined in the project's package.json.
+   614→
+   615→    Examines the scripts section of package.json to determine if a specific
+   616→    script name is available for execution via the package manager.
+   617→
+   618→    Args:
+   619→        script_name: Name of the script to check (e.g., 'build', 'test', 'typedoc').
+   620→
+   621→    Returns:
+   622→        True if the script exists in package.json scripts, False otherwise.
+   623→
+   624→    Remarks:
+   625→        Returns False if package.json doesn't exist or cannot be parsed.
+   626→    """
+   627→    package_json_path = _find_package_json_root() / "package.json"
+   628→
+   629→    if not package_json_path.exists():
+   630→        return False
+   631→
+   632→    try:
+   633→        with package_json_path.open(encoding="utf-8") as f:
+   634→            package_json = json.load(f)
+   635→        return bool(package_json.get("scripts", {}).get(script_name))
+   636→    except Exception:
+   637→        return False
+   638→
+   639→
+   640→# ==============================================================================
+   641→# WSD FILE COLLECTION
+   642→# ==============================================================================
+   643→
+   644→# VCS directories that are silently skipped during file collection.
+   645→# These directories contain version control metadata and are never part of
+   646→# the WSD Runtime distribution.
+   647→VCS_DIRECTORIES: set[str] = {".git", ".svn", ".hg", ".bzr", "CVS"}
+   648→
+   649→# Suspicious directory patterns that indicate build artifacts or development
+   650→# pollution that should never exist in WSD Runtime directories.
+   651→SUSPICIOUS_DIRECTORY_PATTERNS: set[str] = {
+   652→    "node_modules",
+   653→    "dist",
+   654→    "build",
+   655→}
+   656→
+   657→# Suspicious directory suffix patterns that indicate build artifacts.
+   658→SUSPICIOUS_DIRECTORY_SUFFIXES: tuple[str, ...] = (".egg-info",)
+   659→
+   660→# Suspicious file patterns that indicate OS artifacts, editor artifacts,
+   661→# or development pollution that should never exist in WSD Runtime directories.
+   662→# These use glob-style matching against the filename.
+   663→SUSPICIOUS_FILE_PATTERNS: tuple[str, ...] = (
+   664→    ".DS_Store",
+   665→    "desktop.ini",
+   666→    "Thumbs.db",
+   667→    "*~",
+   668→    ".*.swp",
+   669→    ".*.swo",
+   670→    "*.pyc",
+   671→    "*.pyo",
+   672→    "package-lock.json",
+   673→    ".package-lock.json",
+   674→)
+   675→
+   676→# Pattern for detecting special characters in filenames that could cause
+   677→# cross-platform issues. Allows: alphanumeric, dash, underscore, dot.
+   678→SAFE_FILENAME_PATTERN: re.Pattern[str] = re.compile(r"^[a-zA-Z0-9._-]+$")
+   679→
+   680→
+   681→class WsdCollectionError(Exception):
+   682→    """Exception raised when WSD file collection encounters invalid content.
+   683→
+   684→    This exception indicates a structural violation or safeguard failure in
+   685→    the WSD Runtime directory. Unlike items that are silently skipped (VCS
+   686→    directories, .wsdignore matches), these conditions should never occur
+   687→    and indicate a problem that needs to be resolved.
+   688→
+   689→    Attributes:
+   690→        message: Description of the error.
+   691→        path: Path that caused the error.
+   692→    """
+   693→
+   694→    def __init__(self, message: str, path: Path) -> None:
+   695→        """Initialize the collection error.
+   696→
+   697→        Args:
+   698→            message: Description of the error.
+   699→            path: Path that caused the error.
+   700→        """
+   701→        self.message = message
+   702→        self.path = path
+   703→        super().__init__(f"{message}: {path}")
+   704→
+   705→
+   706→def _is_binary_file(path: Path) -> bool:
+   707→    """Detect if file is binary (not text).
+   708→
+   709→    Uses heuristic approach: reads first 8KB of file and checks for null bytes
+   710→    or high proportion of non-text characters. WSD Runtime files should be
+   711→    text-only, so binary files indicate invalid content.
+   712→
+   713→    Args:
+   714→        path: File path to check.
+   715→
+   716→    Returns:
+   717→        True if file appears to be binary, False if appears to be text.
+   718→    """
+   719→    try:
+   720→        # Read first 8KB for detection
+   721→        chunk_size = 8192
+   722→        with path.open("rb") as f:
+   723→            chunk = f.read(chunk_size)
+   724→
+   725→        if not chunk:
+   726→            # Empty file treated as text
+   727→            return False
+   728→
+   729→        # Check for null bytes (strong binary indicator)
+   730→        if b"\x00" in chunk:
+   731→            return True
+   732→
+   733→        # Count non-text bytes
+   734→        # Text files should be mostly printable ASCII + common whitespace
+   735→        text_chars = bytes(range(32, 127)) + b"\n\r\t\b"
+   736→        non_text_count = sum(1 for byte in chunk if byte not in text_chars)
+   737→
+   738→        # If more than 30% non-text characters, likely binary
+   739→        return non_text_count / len(chunk) > 0.30
+   740→
+   741→    except (OSError, UnicodeDecodeError):
+   742→        # If we can't read it, assume binary
+   743→        return True
+   744→
+   745→
+   746→def _parse_wsdignore(directory: Path) -> list[str]:
+   747→    """Parse .wsdignore file and return list of patterns to skip.
+   748→
+   749→    The .wsdignore file lists files that legitimately exist in a WSD Runtime
+   750→    directory but should not be included in file collection. Each line
+   751→    contains a file path relative to the directory root.
+   752→
+   753→    Args:
+   754→        directory: Root directory containing .wsdignore.
+   755→
+   756→    Returns:
+   757→        List of file paths to ignore (relative to directory). Returns empty
+   758→        list if .wsdignore does not exist.
+   759→    """
+   760→    wsdignore_path = directory / ".wsdignore"
+   761→
+   762→    if not wsdignore_path.exists():
+   763→        return []
+   764→
+   765→    entries: list[str] = []
+   766→    try:
+   767→        with wsdignore_path.open(encoding="utf-8") as f:
+   768→            for raw_line in f:
+   769→                # Strip whitespace
+   770→                line = raw_line.strip()
+   771→                # Skip empty lines
+   772→                if not line:
+   773→                    continue
+   774→                # Skip comments
+   775→                if line.startswith("#"):
+   776→                    continue
+   777→                entries.append(line)
+   778→    except OSError:
+   779→        # If we can't read .wsdignore, treat as empty
+   780→        return []
+   781→
+   782→    return entries
+   783→
+   784→
+   785→def _is_safe_filename(filename: str) -> bool:
+   786→    """Check if filename contains only safe characters.
+   787→
+   788→    Safe filenames contain only alphanumeric characters, dashes, underscores,
+   789→    and dots. This ensures cross-platform compatibility and prevents issues
+   790→    with special characters in file paths.
+   791→
+   792→    Args:
+   793→        filename: Filename to check (not full path, just the name).
+   794→
+   795→    Returns:
+   796→        True if filename is safe, False if it contains unsafe characters.
+   797→    """
+   798→    return bool(SAFE_FILENAME_PATTERN.match(filename))
+   799→
+   800→
+   801→def _is_suspicious_directory(dirname: str) -> bool:
+   802→    """Check if a directory name matches suspicious patterns.
+   803→
+   804→    Suspicious directories are development artifacts that should never exist
+   805→    in WSD Runtime directories.
+   806→
+   807→    Args:
+   808→        dirname: Name of the directory (not full path, just the name).
+   809→
+   810→    Returns:
+   811→        True if directory matches suspicious patterns, False otherwise.
+   812→    """
+   813→    if dirname in SUSPICIOUS_DIRECTORY_PATTERNS:
+   814→        return True
+   815→    return any(dirname.endswith(suffix) for suffix in SUSPICIOUS_DIRECTORY_SUFFIXES)
+   816→
+   817→
+   818→def _is_suspicious_file(filename: str) -> bool:
+   819→    """Check if a filename matches suspicious file patterns.
+   820→
+   821→    Suspicious files are OS artifacts, editor artifacts, or development
+   822→    pollution that should never exist in WSD Runtime directories.
+   823→
+   824→    Args:
+   825→        filename: Name of the file (not full path, just the name).
+   826→
+   827→    Returns:
+   828→        True if filename matches suspicious patterns, False otherwise.
+   829→    """
+   830→    return any(fnmatch.fnmatch(filename, pattern) for pattern in SUSPICIOUS_FILE_PATTERNS)
+   831→
+   832→
+   833→def _validate_directory_entry(entry: Path, entry_name: str) -> bool:
+   834→    """Validate a directory entry for WSD Runtime compliance.
+   835→
+   836→    Args:
+   837→        entry: Full path to directory entry.
+   838→        entry_name: Name of the directory.
+   839→
+   840→    Returns:
+   841→        True if directory should be processed, False if it should be skipped.
+   842→
+   843→    Raises:
+   844→        WsdCollectionError: Directory violates WSD Runtime rules.
+   845→    """
+   846→    # Skip Python cache directories silently
+   847→    if entry_name == "__pycache__":
+   848→        return False
+   849→
+   850→    # Error on suspicious directories
+   851→    if _is_suspicious_directory(entry_name):
+   852→        raise WsdCollectionError(
+   853→            "Development artifact directory detected",
+   854→            entry,
+   855→        )
+   856→
+   857→    # Check for empty directories (error - should have .wsdkeep)
+   858→    try:
+   859→        contents = list(entry.iterdir())
+   860→    except OSError as e:
+   861→        raise WsdCollectionError(
+   862→            f"Cannot read directory: {e}",
+   863→            entry,
+   864→        ) from e
+   865→
+   866→    if len(contents) == 0:
+   867→        raise WsdCollectionError(
+   868→            "Empty directory without .wsdkeep placeholder",
+   869→            entry,
+   870→        )
+   871→
+   872→    return True
+   873→
+   874→
+   875→def _validate_file_entry(entry: Path, entry_name: str) -> None:
+   876→    """Validate a file entry for WSD Runtime compliance.
+   877→
+   878→    Args:
+   879→        entry: Full path to file entry.
+   880→        entry_name: Name of the file.
+   881→
+   882→    Raises:
+   883→        WsdCollectionError: File violates WSD Runtime rules.
+   884→    """
+   885→    # Error on suspicious files
+   886→    if _is_suspicious_file(entry_name):
+   887→        raise WsdCollectionError(
+   888→            "Development artifact file detected",
+   889→            entry,
+   890→        )
+   891→
+   892→    # Error on unsafe filenames
+   893→    if not _is_safe_filename(entry_name):
+   894→        raise WsdCollectionError(
+   895→            "Unsafe filename with special characters",
+   896→            entry,
+   897→        )
+   898→
+   899→    # Error on binary files
+   900→    if _is_binary_file(entry):
+   901→        raise WsdCollectionError(
+   902→            "Binary file detected (WSD Runtime is text-only)",
+   903→            entry,
+   904→        )
+   905→
+   906→
+   907→def collect_wsd_files(directory: Path) -> list[Path]:
+   908→    """Validate and collect WSD Runtime files from a directory.
+   909→
+   910→    Recursively scans a directory and returns a sorted list of valid file
+   911→    paths relative to the directory root. This function enforces the universal
+   912→    rules for what constitutes valid WSD Runtime content.
+   913→
+   914→    The function distinguishes between two types of exclusions:
+   915→
+   916→    **Silently skipped** (legitimately expected, not part of WSD Runtime):
+   917→        - VCS directories (.git, .svn, .hg, .bzr, CVS) and their contents
+   918→        - Python bytecode cache directories (__pycache__)
+   919→        - Files matching patterns in .wsdignore (if present)
+   920→        - The .wsdignore file itself
+   921→
+   922→    **Raises WsdCollectionError** (safeguard failures / structural violations):
+   923→        - OS artifacts (.DS_Store, Thumbs.db, desktop.ini)
+   924→        - Editor artifacts (*~, .*.swp, .*.swo)
+   925→        - Build artifacts (node_modules, dist, build, *.egg-info)
+   926→        - Python bytecode files (*.pyc, *.pyo)
+   927→        - Package locks (package-lock.json)
+   928→        - Symlinks (never valid in WSD Runtime)
+   929→        - Empty directories without .wsdkeep placeholder
+   930→        - Binary files (WSD Runtime is text-only)
+   931→        - Unsafe filenames (special characters that cause cross-platform issues)
+   932→
+   933→    Args:
+   934→        directory: Root directory to scan.
+   935→
+   936→    Returns:
+   937→        Sorted list of Path objects relative to the directory root.
+   938→
+   939→    Raises:
+   940→        WsdCollectionError: Invalid content found (structural violation).
+   941→        FileNotFoundError: Directory does not exist.
+   942→        NotADirectoryError: Path exists but is not a directory.
+   943→    """
+   944→    if not directory.exists():
+   945→        error_msg = f"Directory does not exist: {directory}"
+   946→        raise FileNotFoundError(error_msg)
+   947→
+   948→    if not directory.is_dir():
+   949→        error_msg = f"Path is not a directory: {directory}"
+   950→        raise NotADirectoryError(error_msg)
+   951→
+   952→    # Load .wsdignore patterns
+   953→    wsdignore_entries = _parse_wsdignore(directory)
+   954→
+   955→    # Build set of .wsdignore patterns for efficient lookup
+   956→    wsdignore_set = set(wsdignore_entries)
+   957→
+   958→    files: list[Path] = []
+   959→
+   960→    def process_directory(dir_path: Path, relative_prefix: str) -> None:
+   961→        """Recursively process a directory.
+   962→
+   963→        Args:
+   964→            dir_path: Absolute path to directory to process.
+   965→            relative_prefix: Path prefix relative to root (e.g., "scripts/").
+   966→        """
+   967→        try:
+   968→            entries = sorted(dir_path.iterdir())
+   969→        except OSError as e:
+   970→            raise WsdCollectionError(f"Cannot read directory: {e}", dir_path) from e
+   971→
+   972→        for entry in entries:
+   973→            entry_name = entry.name
+   974→            relative_path = f"{relative_prefix}{entry_name}" if relative_prefix else entry_name
+   975→
+   976→            # Check for symlinks first (error - never valid)
+   977→            if entry.is_symlink():
+   978→                raise WsdCollectionError(
+   979→                    "Symlinks are not allowed in WSD Runtime",
+   980→                    entry,
+   981→                )
+   982→
+   983→            if entry.is_dir():
+   984→                # Skip VCS directories silently
+   985→                if entry_name in VCS_DIRECTORIES:
+   986→                    continue
+   987→
+   988→                # Validate directory entry (returns False if should be skipped)
+   989→                if not _validate_directory_entry(entry, entry_name):
+   990→                    continue
+   991→
+   992→                # Recurse into directory
+   993→                process_directory(entry, f"{relative_path}/")
+   994→            elif entry.is_file():
+   995→                # Skip .wsdignore file itself
+   996→                if entry_name == ".wsdignore":
+   997→                    continue
+   998→
+   999→                # Skip files matching .wsdignore patterns
+  1000→                if relative_path in wsdignore_set:
+  1001→                    continue
+  1002→
+  1003→                # Validate file entry
+  1004→                _validate_file_entry(entry, entry_name)
+  1005→
+  1006→                # Valid file - add to results
+  1007→                files.append(Path(relative_path))
+  1008→
+  1009→    # Start recursive processing from root
+  1010→    process_directory(directory, "")
+  1011→
+  1012→    # Return sorted list for deterministic ordering
+  1013→    return sorted(files)
+  1014→
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>

@@ -1,0 +1,104 @@
+  2080→def categorize_update_files(
+  2081→    installed_files: list[str],
+  2082→    update_source_dir: Path,
+  2083→    update_metadata: WsdMetadata,
+  2084→    target_dir: Path,
+  2085→) -> FileCategorization:
+  2086→    """Categorize files for update operation based on set operations, protection, and hashes.
+  2087→
+  2088→    Implements file comparison algorithm from Update-System.md § File Comparison Algorithm
+  2089→    with content hash comparison from Content-Hashing-Overview.md. Compares installed files
+  2090→    against update source files, performs set operations to determine which files need to be
+  2091→    deleted/added/updated, applies no_overwrite protection policies, and uses content hash
+  2092→    comparison to skip files with identical content.
+  2093→
+  2094→    This function returns ALL files in their natural categories. Note that .wsdkeep
+  2095→    files are no longer tracked in file_hashes; directory requirements are declared
+  2096→    via the required_directories field in wsd.json. The update workflow filters out
+  2097→    .wsdkeep files from these categories and handles directories separately.
+  2098→
+  2099→    Algorithm:
+  2100→    1. Read installation_only list from UPDATE's wsd.json
+  2101→    2. Extract file paths from installed manifest
+  2102→    3. Collect all update files and filter out installation_only files
+  2103→    4. Perform set operations (delete = installed - update)
+  2104→    5. Perform set operations (add = update - installed)
+  2105→    6. Identify files in both (in_both = installed ∩ update)
+  2106→    7. Read no_overwrite list from UPDATE's wsd.json
+  2107→    8. Read file_hashes from UPDATE's wsd.json for content comparison
+  2108→    9. Filter in_both files:
+  2109→       - Protected by no_overwrite → to_skip
+  2110→       - Content hash matches → to_skip_unchanged
+  2111→       - Content differs or hash missing → to_update
+  2112→    10. Return categorized file lists (including .wsdkeep files)
+  2113→
+  2114→    Args:
+  2115→        installed_files: List of file paths from installed manifest
+  2116→        update_source_dir: Path to WSD Runtime root directory containing update files
+  2117→        update_metadata: Parsed wsd.json from update source containing protection policies
+  2118→        target_dir: Path to target directory where WSD is installed (for directory checks)
+  2119→
+  2120→    Returns:
+  2121→        FileCategorization object with categorized file lists:
+  2122→            - to_delete: Files to remove from target (includes .wsdkeep)
+  2123→            - to_add: Files to copy to target (includes .wsdkeep)
+  2124→            - to_update: Files to overwrite with tag preservation (content differs)
+  2125→            - to_skip: Files to leave unchanged (no_overwrite protected)
+  2126→            - to_skip_unchanged: Files to leave unchanged (content identical)
+  2127→
+  2128→    Raises:
+  2129→        FileNotFoundError: If update_source_dir does not exist
+  2130→        WsdCollectionError: If invalid content found in update source
+  2131→    """
+  2132→    # Read installation_only list from UPDATE's wsd.json
+  2133→    installation_only = update_metadata.installation_only
+  2134→    installation_only_set = set(installation_only)
+  2135→
+  2136→    # Extract file paths from installed manifest
+  2137→    installed_set = set(installed_files)
+  2138→
+  2139→    # Collect all update files and filter out installation_only files
+  2140→    all_update_files = collect_wsd_files(update_source_dir)
+  2141→    # Convert to strings and filter out installation_only files
+  2142→    update_files = {str(p) for p in all_update_files if str(p) not in installation_only_set}
+  2143→
+  2144→    # Perform set operations (delete = installed - update)
+  2145→    to_delete_set = installed_set - update_files
+  2146→
+  2147→    # Perform set operations (add = update - installed)
+  2148→    to_add_set = update_files - installed_set
+  2149→
+  2150→    # Identify files in both (in_both = installed ∩ update)
+  2151→    in_both = installed_set & update_files
+  2152→
+  2153→    # Read no_overwrite list from UPDATE's wsd.json
+  2154→    no_overwrite = set(update_metadata.no_overwrite)
+  2155→
+  2156→    # Read file_hashes from UPDATE's wsd.json for content comparison
+  2157→    source_hashes = update_metadata.file_hashes
+  2158→
+  2159→    # Filter in_both files using protection policies and content hash comparison
+  2160→    to_skip_list: list[str] = []
+  2161→    to_skip_unchanged_list: list[str] = []
+  2162→    to_update_list: list[str] = []
+  2163→
+  2164→    for file_path in in_both:
+  2165→        if file_path in no_overwrite:
+  2166→            # Protected by no_overwrite policy - skip updating regardless of content
+  2167→            to_skip_list.append(file_path)
+  2168→        else:
+  2169→            # Not protected - check content hash to determine if update needed
+  2170→            target_file_path = target_dir / file_path
+  2171→            source_hash = source_hashes.get(file_path)
+  2172→
+  2173→            if source_hash is None:
+  2174→                # Missing hash indicates manifest out of sync - halt per DD-12
+  2175→                error_msg = (
+  2176→                    f"Missing hash for '{file_path}' in wsd.json manifest. "
+  2177→                    "The manifest may be out of sync with source files. "
+  2178→                    "Regenerate wsd.json with pre_staging.py."
+  2179→                )
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>

@@ -1,0 +1,394 @@
+     1→# Manifest-Driven Pipeline Specification
+     2→
+     3→**Version:** 1.1.0
+     4→**Date:** 2026-01-09
+     5→**Status:** Draft
+     6→
+     7→## Overview
+     8→
+     9→The Manifest-Driven Pipeline establishes `wsd.json` as the single source of truth for WSD Runtime file membership throughout the entire distribution pipeline. After the Pre-Staging-Script feature populates `source/wsd.json` with `file_hashes`, all subsequent pipeline stages read their file lists from the manifest instead of re-scanning the filesystem using `collect_wsd_files()`.
+    10→
+    11→This specification defines the manifest-based file list retrieval pattern, the pipeline stages that must adopt it, the distinction between installable and stageable file lists, and the migration path from empirical scanning to manifest-driven operations.
+    12→
+    13→For broader architectural context on the WSD distribution pipeline, see **Stage-Release-Script-Overview.md** and **Build-System-Overview.md**.
+    14→
+    15→## Purpose
+    16→
+    17→The Manifest-Driven Pipeline serves four critical functions:
+    18→
+    19→1. **Single Source of Truth**: Establishes `file_hashes.keys()` from `wsd.json` as the authoritative list of WSD Runtime files, eliminating redundant scanning logic across pipeline stages
+    20→
+    21→2. **Consistency Guarantee**: Ensures all pipeline stages operate on the same file list, preventing subtle bugs from differing exclusion rule implementations or race conditions between stages
+    22→
+    23→3. **Simplification**: Removes duplicated `collect_wsd_files()` calls from multiple scripts, reducing code complexity and maintenance burden
+    24→
+    25→4. **Pipeline Integrity**: Ensures that files validated and hashed by `pre_staging.py` are exactly the files processed by subsequent stages, creating an unbroken chain of custody
+    26→
+    27→This specification establishes the authoritative definition of manifest-based file list derivation, the two file list categories (installable vs stageable), and which pipeline components must be modified to use manifest-based retrieval.
+    28→
+    29→## Prerequisite Dependency
+    30→
+    31→**STATUS**: The Pre-Staging-Script feature is **COMPLETE**. This feature builds upon that foundation.
+    32→
+    33→The Pre-Staging-Script feature (see **Pre-Staging-Script-Overview.md**) established:
+    34→
+    35→- `dev/scripts/pre_staging.py` scans `source/` and populates `wsd.json` with `file_hashes`
+    36→- Hash generation was removed from `stage_release.py`
+    37→- `stage_release.py` now copies `wsd.json` as a regular file (no modifications)
+    38→
+    39→With `file_hashes` populated in `wsd.json`, all downstream pipeline stages can now read file lists and hashes from the manifest instead of re-scanning or recomputing.
+    40→
+    41→**Key Principle**: After `pre_staging.py` runs, **no other part of the pipeline should ever recompute source file hashes**. The manifest is the single source of truth for both the file list AND the pre-computed hashes.
+    42→
+    43→## Manifest-Based File List Derivation
+    44→
+    45→### Core Principle
+    46→
+    47→After `pre_staging.py` runs, `source/wsd.json` contains a `file_hashes` object mapping relative file paths to their SHA-256 hashes. The keys of this object constitute the canonical list of files in the WSD Runtime (excluding `installation_only` files).
+    48→
+    49→**Derivation Formula**:
+    50→- **Installable files** = `file_hashes.keys()`
+    51→- **Stageable files** = `file_hashes.keys()` + `["wsd.json"]`
+    52→
+    53→**Note on `.wsdkeep` Files**: The `file_hashes` object does NOT include `.wsdkeep` files because directory requirements are declared via the `required_directories` field in `wsd.json`. The `.wsdkeep` files exist in `source/` as git placeholders, but during pre-staging they are scanned to populate `required_directories` and then excluded from hash generation. Install and update operations create `.wsdkeep` files locally based on directory state, not from the manifest file list. See **Template-System.md** for details on `.wsdkeep` handling.
+    54→
+    55→### Why Two Categories
+    56→
+    57→**Installable Files**: Files that get copied to end-user projects during `wsd.py install` and `wsd.py update`. This excludes `wsd.json` because it contains installation metadata that stays in the WSD Runtime source, not in client projects.
+    58→
+    59→**Stageable Files**: Files that get copied during staging and build operations. This includes `wsd.json` because it must be present in the staged output and the built package, even though it is not in `file_hashes` (it is listed in `installation_only`).
+    60→
+    61→**Terminology Note**: The `installation_only` array name can be confusing. It means files that exist "only in the installation package" (i.e., the WSD Runtime distribution) but are NOT copied to target projects. Alternatively, think of it as files included "only for facilitating installation" (like `wsd.json` which contains metadata needed by `wsd.py install` but isn't part of the actual WSD Runtime content delivered to users). Files in `installation_only` are explicitly excluded from `file_hashes`.
+    62→
+    63→### File List Retrieval Pattern
+    64→
+    65→Each component that needs a file list follows this pattern:
+    66→
+    67→**For Install/Update Operations** (installable files only):
+    68→```python
+    69→metadata = read_wsd_metadata(source_dir)
+    70→files = list(metadata.file_hashes.keys())
+    71→```
+    72→
+    73→**For Staging/Build Operations** (include wsd.json):
+    74→```python
+    75→metadata = load_wsd_json(source_dir)
+    76→file_hashes = metadata.get("file_hashes", {})
+    77→files = list(file_hashes.keys()) + ["wsd.json"]
+    78→```
+    79→
+    80→### Design Constraint: No Shared Utility Functions
+    81→
+    82→Per project design principles (YAGNI), do NOT create shared utility functions in `wsd_utils.py` like `get_installable_files()` or `get_manifest_file_list()`. Each component should read `metadata.file_hashes.keys()` directly.
+    83→
+    84→Local helper functions within individual scripts (like `get_stageable_files()` shown in the implementation patterns above) are acceptable for code organization, but avoid creating shared abstractions that all scripts import. The operation is simple enough that each script can implement it directly.
+    85→
+    86→### Manifest Trust Model
+    87→
+    88→**Constraint**: Pipeline stages MUST NOT validate that files listed in the manifest actually exist. If a file is missing, the copy operation will fail naturally with a clear error. The manifest is trusted after `pre_staging.py` validates it.
+    89→
+    90→**Rationale**:
+    91→- `pre_staging.py` already validates file existence during hash generation
+    92→- Adding redundant validation at each stage wastes cycles and duplicates logic
+    93→- Natural copy failures provide clear, actionable error messages
+    94→- The pipeline is designed to run in sequence; validation happens once at the source
+    95→
+    96→## Pipeline Stages Affected
+    97→
+    98→### Stage 1: pre_staging.py (No Changes)
+    99→
+   100→`pre_staging.py` is the ONLY script that scans for files using `collect_wsd_files()`. It populates `file_hashes` in `source/wsd.json`. This script is unaffected by this feature as it is the source of truth generator, not a consumer.
+   101→
+   102→### Stage 2: stage_release.py (Manifest Consumer)
+   103→
+   104→**Current Behavior**: Uses `collect_wsd_files()` to scan `source/` for files to stage.
+   105→
+   106→**Required Change**: Read file list from `source/wsd.json` manifest instead of scanning. Use `file_hashes.keys()` plus explicitly adding `wsd.json` (since it's in `installation_only` and not in `file_hashes`).
+   107→
+   108→**Files Affected**:
+   109→- `dev/scripts/stage_release.py`: Remove `collect_wsd_files()` call, add manifest reading
+   110→
+   111→### Stage 3: build_package.py (Manifest Consumer)
+   112→
+   113→**Current Behavior**: Uses `collect_wsd_files()` to scan `staging/` for files to package.
+   114→
+   115→**Required Change**: Read file list from `staging/wsd.json` manifest instead of scanning. Use `file_hashes.keys()` plus explicitly adding `wsd.json`.
+   116→
+   117→**Files Affected**:
+   118→- `dev/scripts/build_package.py`: Remove `collect_wsd_files()` call, add manifest reading
+   119→
+   120→### Stage 4: wsd.py Install/Update (Manifest Consumer)
+   121→
+   122→**Current Behavior**: Uses `collect_wsd_files()` in multiple locations:
+   123→- `detect_collisions()`: Scans source directory for collision detection during install
+   124→- `install_files()`: Scans source directory for file installation
+   125→- `calculate_required_disk_space()`: Scans source directory for disk space calculation
+   126→- `categorize_update_files()`: Scans source directory for update file categorization
+   127→
+   128→**Required Change**: Use `metadata.file_hashes.keys()` instead of scanning with `collect_wsd_files()` in all four functions.
+   129→
+   130→**Files Affected**:
+   131→- `source/wsd.py`: Update `detect_collisions()`, `install_files()`, `calculate_required_disk_space()`, `categorize_update_files()`
+   132→
+   133→### Out of Scope: diff_installation.py
+   134→
+   135→`diff_installation.py` is a development utility script for comparing WSD installations. While it currently uses `collect_wsd_files()`, updating it to use manifest-based file lists is deferred as a future consideration. This script is not part of the core distribution pipeline and does not affect end-user installations.
+   136→
+   137→## Error Handling
+   138→
+   139→### Error Categories
+   140→
+   141→#### 1. Missing Manifest Errors
+   142→
+   143→**Error**: `wsd.json` does not exist or cannot be read
+   144→
+   145→**Example Message**:
+   146→```
+   147→Error: Cannot read wsd.json at /path/to/source/wsd.json
+   148→This file must exist and contain file_hashes.
+   149→Run pre_staging.py first to generate the manifest.
+   150→```
+   151→
+   152→**Recovery**: Run `pre_staging.py` to generate `wsd.json` with `file_hashes`.
+   153→
+   154→#### 2. Missing or Empty file_hashes Field
+   155→
+   156→**Error**: `wsd.json` exists but `file_hashes` field is missing or empty
+   157→
+   158→**Example Messages**:
+   159→```
+   160→Error: wsd.json does not contain file_hashes field
+   161→The manifest appears to be from an older version or was not properly generated.
+   162→Run pre_staging.py to regenerate the manifest.
+   163→```
+   164→
+   165→```
+   166→Error: wsd.json contains empty file_hashes
+   167→The WSD Runtime must contain at least one file.
+   168→Run pre_staging.py to regenerate the manifest.
+   169→```
+   170→
+   171→**Recovery**: Run `pre_staging.py` to populate `file_hashes`.
+   172→
+   173→**Validation Requirement**: All pipeline stages that read the manifest MUST validate that `file_hashes` is both present AND non-empty. An empty `file_hashes` indicates a manifest that was not properly generated or a corrupt state—there is no valid "empty WSD Runtime" scenario.
+   174→
+   175→#### 3. Missing File During Copy
+   176→
+   177→**Error**: A file listed in `file_hashes` does not exist on disk
+   178→
+   179→**Example Message**:
+   180→```
+   181→Error: Cannot copy file: /path/to/source/.claude/agents/task-master.md
+   182→File is listed in wsd.json but does not exist.
+   183→This may indicate the manifest is out of sync with the filesystem.
+   184→Run pre_staging.py to resynchronize.
+   185→```
+   186→
+   187→**Recovery**: Run `pre_staging.py` to rescan and update the manifest.
+   188→
+   189→#### 4. Missing Hash Entry During Update
+   190→
+   191→**Error**: During install or update, a file path has no corresponding entry in `file_hashes`
+   192→
+   193→**Example Message**:
+   194→```
+   195→Error: Missing hash for 'scripts/health_check.py' in wsd.json manifest.
+   196→The manifest may be out of sync with source files.
+   197→Regenerate wsd.json with pre_staging.py.
+   198→```
+   199→
+   200→**Recovery**: Run `pre_staging.py` to regenerate the manifest with current file hashes.
+   201→
+   202→### Error Recovery Principles
+   203→
+   204→**Guarantee**: If the manifest is missing or malformed, operations fail fast with clear instructions to run `pre_staging.py`.
+   205→
+   206→**Contract**: Pipeline stages MUST NOT attempt to regenerate the manifest themselves. The authoritative manifest generation is the sole responsibility of `pre_staging.py`.
+   207→
+   208→## Design Decisions
+   209→
+   210→### Why Manifest-Based Instead of Scanning
+   211→
+   212→**Problem**: The pre-manifest approach had each pipeline stage independently scan for files using `collect_wsd_files()`. This created several issues:
+   213→
+   214→1. **Redundant Logic**: The same scanning and exclusion logic was executed 5+ times across the pipeline
+   215→2. **Inconsistency Risk**: Each stage could potentially implement exclusion rules differently
+   216→3. **Maintenance Burden**: Changes to file selection logic required updates in multiple places
+   217→4. **No Validation Chain**: Files could be added/removed between stages without detection
+   218→
+   219→**Solution**: Establish a single scanning point (`pre_staging.py`) that generates the authoritative file list. All subsequent stages read from this list, creating:
+   220→
+   221→1. **Single Source**: One scan, one list, consistent everywhere
+   222→2. **Guaranteed Consistency**: All stages see the same files
+   223→3. **Simplified Maintenance**: File selection logic exists in one place
+   224→4. **Validation Chain**: Hashes generated at scan time enable integrity checking
+   225→
+   226→### Why Not Create a Wrapper Function
+   227→
+   228→Per Design Decisions document (YAGNI principle), we use `metadata.file_hashes.keys()` directly rather than creating a utility function like `get_manifest_file_list()`.
+   229→
+   230→**Rationale**:
+   231→- The operation is simple and self-documenting
+   232→- No complex logic to encapsulate
+   233→- Adding abstraction for two-line operations adds unnecessary indirection
+   234→- If future needs require a wrapper, it can be added then
+   235→
+   236→### Why wsd.json Is Explicitly Added
+   237→
+   238→`wsd.json` is listed in `installation_only` (meaning it should not be copied to client projects), so it is not in `file_hashes`. However, for staging and build operations, we need `wsd.json` to be included in the output.
+   239→
+   240→**Solution**: Explicitly add `wsd.json` to the file list for staging/build operations:
+   241→```python
+   242→files = list(file_hashes.keys()) + ["wsd.json"]
+   243→```
+   244→
+   245→This is cleaner than special-casing `installation_only` handling and makes the intent explicit.
+   246→
+   247→## Testing Scenarios
+   248→
+   249→**IMPORTANT**: Per Rule 6.1.2, all tests must import from `source/` or `source/scripts/`, never from root-level dogfood directories. Example:
+   250→```python
+   251→# CORRECT:
+   252→sys.path.insert(0, str(Path(__file__).parent.parent / "source" / "scripts"))
+   253→
+   254→# INCORRECT:
+   255→sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
+   256→```
+   257→
+   258→### Basic Manifest Reading Tests
+   259→
+   260→1. **Valid Manifest Reading**: Read file list from valid `wsd.json` with `file_hashes`, verify list matches manifest keys
+   261→
+   262→2. **Stageable File List**: Get stageable files, verify `wsd.json` is included alongside `file_hashes.keys()`
+   263→
+   264→3. **Installable File List**: Get installable files, verify `wsd.json` is NOT included
+   265→
+   266→### Error Handling Tests
+   267→
+   268→1. **Missing wsd.json**: Attempt to read manifest from directory without `wsd.json`, verify clear error and instructions
+   269→
+   270→2. **Missing file_hashes**: Read `wsd.json` without `file_hashes` field, verify error points to `pre_staging.py`
+   271→
+   272→3. **Empty file_hashes**: Read `wsd.json` with empty `file_hashes`, verify error is raised (empty file_hashes is never valid)
+   273→
+   274→### Integration Tests
+   275→
+   276→1. **Full Pipeline Flow**: Run `pre_staging.py`, then `stage_release.py`, then `build_package.py`, verify all stages use manifest file list
+   277→
+   278→2. **Staged File Verification**: After staging, verify staged files exactly match `file_hashes.keys()` + `wsd.json`
+   279→
+   280→3. **Install File Verification**: After install, verify installed files exactly match `file_hashes.keys()` (without `wsd.json`)
+   281→
+   282→4. **Update File Verification**: Run update operation, verify file categorization uses manifest-based file list
+   283→
+   284→### Regression Tests
+   285→
+   286→1. **No collect_wsd_files Calls**: After implementation, grep codebase to verify `collect_wsd_files()` only called in `pre_staging.py`
+   287→
+   288→2. **Exclusion Consistency**: Verify files excluded by `pre_staging.py` (via `.wsdignore`, suspicious patterns) are consistently absent from all pipeline stages
+   289→
+   290→## Best Practices
+   291→
+   292→### For Pipeline Script Maintainers
+   293→
+   294→1. **Never Add New Scanning**: If you need a file list, read it from the manifest. Do not add new `collect_wsd_files()` calls.
+   295→
+   296→2. **Trust the Manifest**: Do not add redundant file existence checks. Let copy operations fail naturally if files are missing.
+   297→
+   298→3. **Run Pre-Staging First**: Before any pipeline operation, ensure `pre_staging.py` has been run to generate/update the manifest.
+   299→
+   300→### For Developers Modifying File Lists
+   301→
+   302→1. **Single Point of Change**: To add/remove files from WSD Runtime, modify the source directory and run `pre_staging.py`. The manifest updates automatically.
+   303→
+   304→2. **No Manual Manifest Edits**: Do not manually edit `file_hashes` in `wsd.json`. It is generated by `pre_staging.py`.
+   305→
+   306→3. **Use .wsdignore for Exclusions**: To exclude files from the WSD Runtime, add them to `.wsdignore` rather than adding special-case logic.
+   307→
+   308→## Related Specifications
+   309→
+   310→- **Pre-Staging-Script-Overview.md**: Prerequisite feature that populates `wsd.json` with `file_hashes`; the source of truth generator
+   311→- **Stage-Release-Script-Overview.md**: Will be updated to use manifest-based file list retrieval
+   312→- **Build-System-Overview.md**: Build process that consumes staged files
+   313→- **Installation-System.md**: Will be updated to use manifest-based installation
+   314→- **Update-System.md**: Will be updated to use manifest-based file categorization
+   315→- **WSD-Runtime-Metadata-Schema.md**: Documents `file_hashes` field and `installation_only` array
+   316→
+   317→---
+   318→
+   319→*This specification defines the authoritative rules for the Manifest-Driven Pipeline including manifest-based file list derivation, the two file list categories, pipeline stage modifications, and error handling. All implementations must conform to these specifications.*
+   320→
+   321→
+   322→## In-Flight Failures (IFF)
+   323→
+   324→
+   325→## Feature Implementation Plan (FIP)
+   326→
+   327→### Phase 1: Stage Release Script Updates
+   328→
+   329→- [ ] **1.1** - Remove `collect_wsd_files()` usage from `dev/scripts/stage_release.py`
+   330→  - [ ] **1.1.1** - Add function to read file list from manifest (`file_hashes.keys()` + `wsd.json`)
+   331→  - [ ] **1.1.2** - Update `stage_files()` to use manifest-derived file list
+   332→  - [ ] **1.1.3** - Remove or simplify verification logic that depended on scanning
+   333→  - [ ] **1.1.4** - Add error handling for missing/malformed/empty manifest
+   334→  - [ ] **1.1.5** - Remove unused `collect_wsd_files` import from script
+   335→- [ ] **1.2** - Update `tests/test_stage_release.py`
+   336→  - [ ] **1.2.1** - Add tests for manifest-based file list retrieval
+   337→  - [ ] **1.2.2** - Add tests for error handling (missing manifest, missing file_hashes, empty file_hashes)
+   338→  - [ ] **1.2.3** - Update existing tests to work with manifest-based approach
+   339→
+   340→### Phase 2: Build Package Script Updates
+   341→
+   342→- [ ] **2.1** - Remove `collect_wsd_files()` usage from `dev/scripts/build_package.py`
+   343→  - [ ] **2.1.1** - Add function to read file list from staging manifest
+   344→  - [ ] **2.1.2** - Update `copy_staged_files()` to use manifest-derived file list
+   345→  - [ ] **2.1.3** - Add error handling for missing/malformed/empty manifest
+   346→  - [ ] **2.1.4** - Remove unused `collect_wsd_files` import from script
+   347→- [ ] **2.2** - Update build package tests
+   348→  - [ ] **2.2.1** - Update `tests/test_build_package.py` for manifest-based file list
+   349→  - [ ] **2.2.2** - Update `tests/test_build_package_integration.py` for manifest approach
+   350→
+   351→### Phase 3: WSD Install/Update Operations
+   352→
+   353→- [ ] **3.1** - Update `source/wsd.py` install operations to use manifest-based file lists
+   354→  - [ ] **3.1.1** - Update `detect_collisions()` to use `metadata.file_hashes.keys()` for file list
+   355→  - [ ] **3.1.2** - Update `install_files()` to use `metadata.file_hashes.keys()` for file list
+   356→  - [ ] **3.1.3** - Update `calculate_required_disk_space()` to use `metadata.file_hashes.keys()` for file list
+   357→  - [ ] **3.1.4** - Add validation in `read_wsd_metadata()` that `file_hashes` is non-empty (empty manifest indicates `pre_staging.py` was not run or source has no files)
+   358→- [ ] **3.2** - Update `source/wsd.py` update operations to use manifest-based file lists
+   359→  - [ ] **3.2.1** - Update `categorize_update_files()` to use `update_metadata.file_hashes.keys()` for file list
+   360→- [ ] **3.3** - Remove unused `collect_wsd_files` import from `source/wsd.py`
+   361→- [ ] **3.4** - Update install/update tests in `tests/test_wsd_cli.py`
+   362→  - [ ] **3.4.1** - Update install tests for manifest-based file list
+   363→  - [ ] **3.4.2** - Update update tests for manifest-based file list
+   364→
+   365→### Phase 4: Documentation Updates
+   366→
+   367→- [%] **4.1** - Update `docs/features/stage-release-script/Stage-Release-Script-Overview.md`
+   368→  - [%] **4.1.1** - Document manifest-based file list retrieval
+   369→  - [%] **4.1.2** - Remove or update references to `collect_wsd_files()` scanning
+   370→- [ ] **4.2** - Update `docs/features/install-and-update/Installation-System.md`
+   371→  - [ ] **4.2.1** - Document manifest-based installation file list
+   372→- [ ] **4.3** - Update `docs/features/install-and-update/Update-System.md`
+   373→  - [ ] **4.3.1** - Document manifest-based update file categorization
+   374→- [ ] **4.4** - Update `docs/core/WSD-Runtime-Metadata-Schema.md`
+   375→  - [ ] **4.4.1** - Document that `file_hashes.keys()` serves as canonical installable file list
+   376→  - [ ] **4.4.2** - Document the two file list categories (installable vs stageable)
+   377→  - [ ] **4.4.3** - Fix incorrect statement that `stage_release.py` generates hashes (should reference `pre_staging.py`)
+   378→
+   379→### Phase 5: Verification and Cleanup
+   380→
+   381→- [ ] **5.1** - Verify no remaining `collect_wsd_files()` calls outside `pre_staging.py`
+   382→  - [ ] **5.1.1** - Grep codebase for `collect_wsd_files` usage
+   383→  - [ ] **5.1.2** - Confirm only `pre_staging.py` calls this function
+   384→- [ ] **5.2** - Run full test suite to verify no regressions
+   385→  - [ ] **5.2.1** - Run `./wsd.py test` and verify all tests pass
+   386→  - [ ] **5.2.2** - Run `./wsd.py health` and verify all checks pass
+   387→- [ ] **5.3** - Integration verification (MUST use isolated temporary directories, NOT live staging/dist)
+   388→  - [ ] **5.3.1** - Run full pipeline in temp dirs: `pre_staging.py` -> `stage_release.py` -> `build_package.py`
+   389→  - [ ] **5.3.2** - Verify staged and packaged files match manifest
+   390→
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>

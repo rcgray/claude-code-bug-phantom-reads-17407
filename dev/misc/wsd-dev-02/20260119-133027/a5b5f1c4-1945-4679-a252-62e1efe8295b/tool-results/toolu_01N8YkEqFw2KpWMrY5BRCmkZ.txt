@@ -1,0 +1,64 @@
+  4050→        error_msg = (
+  4051→            "Error: WSD source directory not found.\n"
+  4052→            "\n"
+  4053→            "This appears to be a packaging issue. Please reinstall WSD."
+  4054→        )
+  4055→        print(error_msg, file=sys.stderr)
+  4056→        sys.exit(1)
+  4057→
+  4058→
+  4059→def calculate_required_disk_space(source_dir: Path, installation_only: list[str]) -> int:
+  4060→    """Calculate total disk space required for installation.
+  4061→
+  4062→    Scans source directory and sums file sizes for all files that will be
+  4063→    installed (excluding installation_only files).
+  4064→
+  4065→    Args:
+  4066→        source_dir: Path to WSD Runtime root directory
+  4067→        installation_only: List of files to exclude from installation
+  4068→
+  4069→    Returns:
+  4070→        Total bytes required for installation
+  4071→
+  4072→    Raises:
+  4073→        OSError: If file size calculation fails
+  4074→        WsdCollectionError: If invalid content found in source directory
+  4075→    """
+  4076→    total_bytes = 0
+  4077→    installation_only_set = set(installation_only)
+  4078→
+  4079→    try:
+  4080→        all_source_files = collect_wsd_files(source_dir)
+  4081→        source_files = [p for p in all_source_files if str(p) not in installation_only_set]
+  4082→
+  4083→        for relative_path in source_files:
+  4084→            file_path = source_dir / relative_path
+  4085→            if file_path.exists():
+  4086→                total_bytes += file_path.stat().st_size
+  4087→
+  4088→    except OSError as e:
+  4089→        error_msg = f"Failed to calculate required disk space: {e}"
+  4090→        raise OSError(error_msg) from e
+  4091→
+  4092→    return total_bytes
+  4093→
+  4094→
+  4095→def get_available_disk_space(path: Path) -> int:
+  4096→    """Get available disk space at specified path.
+  4097→
+  4098→    Args:
+  4099→        path: Path to check available disk space (directory or file's parent)
+  4100→
+  4101→    Returns:
+  4102→        Available bytes on filesystem containing path
+  4103→
+  4104→    Raises:
+  4105→        OSError: If disk space check fails
+  4106→    """
+  4107→    try:
+  4108→        stat_result = os.statvfs(path if path.is_dir() else path.parent)
+  4109→        # Available space = fragment size * available fragments
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>

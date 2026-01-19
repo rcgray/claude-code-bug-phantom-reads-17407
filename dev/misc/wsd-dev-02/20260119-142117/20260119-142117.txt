@@ -1,0 +1,716 @@
+                                                                                
+ ▐▛███▜▌   Claude Code v2.1.6                                                   
+▝▜█████▛▘  Opus 4.5 · Claude Max                                                
+  ▘▘ ▝▝    ~/Projects/claude-bug                                                
+                                                                                
+❯ wsd:init --custom                                                             
+                                                                                
+⏺ Skill(wsd:init)                                                               
+  ⎿  Successfully loaded skill                                                  
+  ⎿  Read docs/core/PRD.md (411 lines)                                          
+                                                                                
+⏺ I acknowledge that I have read the content in the                             
+  wsd-init-project-introduction section and the PRD.md file. I understand that  
+  Workscope-Dev (WSD) is an AI orchestration system with a "WSD Runtime" (the   
+  shipping product in source/) and "WSD Development" (this repository that uses 
+  WSD to develop WSD). I understand the distinction between these two areas and 
+  the workscope-based workflow system.                                          
+                                                                                
+  Now let me run the /wsd:boot command to read the necessary system files.      
+                                                                                
+⏺ Skill(wsd:boot)                                                               
+  ⎿  Successfully loaded skill                                                  
+  ⎿  Read docs/read-only/Agent-System.md (616 lines)                            
+  ⎿  Read docs/read-only/Agent-Rules.md (161 lines)                             
+  ⎿  Read docs/core/Design-Decisions.md (440 lines)                             
+  ⎿  Read docs/read-only/Documentation-System.md (200 lines)                    
+  ⎿  Read docs/read-only/Checkboxlist-System.md (386 lines)                     
+  ⎿  Read docs/read-only/Workscope-System.md (551 lines)                        
+                                                                                
+⏺ I've completed reading the WSD Platform system documentation. Now let me      
+  continue with the initialization by generating a Workscope ID.                
+                                                                                
+⏺ Bash(date "+%Y%m%d-%H%M%S")                                                   
+  ⎿  20260119-142117                                                            
+                                                                                
+⏺ Workscope ID: 20260119-142117                                                 
+                                                                                
+  Now let me initialize the Work Journal.                                       
+                                                                                
+⏺ Bash(bash scripts/init_work_journal.sh "20260119-142117")                     
+  ⎿  Work Journal initialized: dev/journal/archive/Journal-Workscope-2026       
+     0119-142117.md                                                             
+     Timestamp: 2026-01-19 14:21                                                
+     … +3 lines (ctrl+o to expand)                                              
+                                                                                
+⏺ Let me verify the Work Journal was created properly.                          
+                                                                                
+⏺ Read(dev/journal/archive/Journal-Workscope-20260119-142117.md)                
+  ⎿  Read 4 lines                                                               
+                                                                                
+⏺ Work Journal created successfully at                                          
+  dev/journal/archive/Journal-Workscope-20260119-142117.md.                     
+                                                                                
+  Since --custom was provided, I'll now run the /wsd:onboard command to consult 
+  the Project-Bootstrapper for onboarding.                                      
+                                                                                
+⏺ Skill(wsd:onboard)                                                            
+  ⎿  Successfully loaded skill                                                  
+                                                                                
+⏺ project-bootstrapper(Project-Bootstrapper onboarding)                         
+  ⎿  Done (7 tool uses · 55.1k tokens · 1m 22s)                                 
+                                                                                
+⏺ I've received comprehensive onboarding from the Project-Bootstrapper. Let me  
+  update my Work Journal with this information.                                 
+                                                                                
+⏺ Update(dev/journal/archive/Journal-Workscope-20260119-142117.md)              
+  ⎿  Added 54 lines                                                             
+       1   # Work Journal - 2026-01-19 14:21                                    
+       2   ## Workscope ID: Workscope-20260119-142117                           
+       3                                                                        
+       4 + ## Initialization Phase                                              
+       5 +                                                                      
+       6 + **Mode:** Custom workscope (--custom flag)                           
+       7 +                                                                      
+       8 + ### System Files Read During Boot                                    
+       9 + - `docs/core/PRD.md` - Product Requirements Document                 
+      10 + - `docs/read-only/Agent-System.md` - Agent collaboration and         
+         +workflow                                                              
+      11 + - `docs/read-only/Agent-Rules.md` - Strict rules for all             
+         +agents                                                                
+      12 + - `docs/core/Design-Decisions.md` - Project-specific design          
+         +philosophies                                                          
+      13 + - `docs/read-only/Documentation-System.md` - Documentation           
+         +organization                                                          
+      14 + - `docs/read-only/Checkboxlist-System.md` - Task tracking            
+         +system                                                                
+      15 + - `docs/read-only/Workscope-System.md` - Work assignment             
+         +mechanism                                                             
+      16 +                                                                      
+      17 + ### Project-Bootstrapper Onboarding Complete                         
+      18 +                                                                      
+      19 + **Critical Rules Highlighted:**                                      
+      20 + - Rule 5.1: NO backward compatibility concerns (app hasn't           
+         +shipped)                                                              
+      21 + - Rule 3.4: NO meta-process references in product artifacts          
+      22 + - Rule 3.11: Use workbench for read-only file edits                  
+      23 + - Rule 3.17: Tool exceptions require User approval                   
+      24 + - Rule 4.4: FORBIDDEN - `cat >> file << EOF` patterns                
+      25 + - Rule 4.7: Own your warnings                                        
+      26 + - Rule 4.9: Report all QA discoveries to User                        
+      27 +                                                                      
+      28 + **Files to Read Based on Workscope Type (when assigned):**           
+      29 +                                                                      
+      30 + *Universal Standards:*                                               
+      31 + - `docs/read-only/standards/Coding-Standards.md`                     
+      32 + - `docs/read-only/standards/Specification-Maintenance-Standar        
+         +ds.md`                                                                
+      33 + - `docs/read-only/standards/Process-Integrity-Standards.md`          
+      34 +                                                                      
+      35 + *Python Standards:*                                                  
+      36 + - `docs/read-only/standards/Python-Standards.md`                     
+      37 + - `docs/read-only/standards/Python-Test-Environment-Isolation        
+         +-Standards.md`                                                        
+      38 + - `docs/read-only/standards/Python-Testing-Configuration-Vari        
+         +ables-Standards.md`                                                   
+      39 +                                                                      
+      40 + *TypeScript/JavaScript Standards:*                                   
+      41 + - `docs/read-only/standards/TypeScript-Standards.md`                 
+      42 + - `docs/read-only/standards/TypeScript-Test-Environment-Isola        
+         +tion-Standards.md`                                                    
+      43 + - `docs/read-only/standards/TypeScript-Testing-Configuration-        
+         +Variables-Standards.md`                                               
+      44 +                                                                      
+      45 + *Specialized Standards:*                                             
+      46 + - `docs/read-only/standards/Data-Structure-Documentation-Stan        
+         +dards.md`                                                             
+      47 + - `docs/read-only/standards/Environment-and-Config-Variable-S        
+         +tandards.md`                                                          
+      48 +                                                                      
+      49 + **Key Project Knowledge:**                                           
+      50 + - WSD Runtime = `source/` (the shipping product)                     
+      51 + - WSD Development = this repository (meta-project)                   
+      52 + - Dogfood files at root (`wsd.py`, `scripts/`) are READ-ONLY         
+      53 + - WSD Development scripts in `dev/scripts/` are EDITABLE             
+      54 + - Think "deployed state" not "development location" for              
+         +`source/` paths                                                       
+      55 +                                                                      
+      56 + **Awaiting:** Custom workscope assignment from User.                 
+      57 +                                                                      
+                                                                                
+⏺ I have completed the Project-Bootstrapper onboarding and recorded all         
+  materials in my Work Journal. I understand:                                   
+                                                                                
+  - The critical rules that cause rejection (5.1, 3.4, 3.11, 3.17, 4.4, 4.7,    
+  4.9)                                                                          
+  - The WSD Runtime vs WSD Development distinction                              
+  - The list of standards files to read based on workscope type                 
+  - The standard User Agent workflow even for custom workscopes                 
+                                                                                
+  "WORKSCOPE ONBOARDING (/wsd:onboard) COMPLETE."                               
+                                                                                
+  ---                                                                           
+  Initialization Summary                                                        
+  Item: System files read                                                       
+  Status: ✅ Complete                                                           
+  ────────────────────────────────────────                                      
+  Item: Workscope ID                                                            
+  Status: 20260119-142117                                                       
+  ────────────────────────────────────────                                      
+  Item: Work Journal                                                            
+  Status: dev/journal/archive/Journal-Workscope-20260119-142117.md              
+  ────────────────────────────────────────                                      
+  Item: Project-Bootstrapper onboarding                                         
+  Status: ✅ Complete                                                           
+  ────────────────────────────────────────                                      
+  Item: Task-Master assignment                                                  
+  Status: ⏭️ Skipped (--custom mode)                                            
+  "WORKSCOPE INITIALIZATION (/wsd:init) COMPLETE. To continue this work: propose
+   changes, describe the workscope, or /wsd:prepare. To abandon completely,     
+  /wsd:abort."                                                                  
+                                                                                
+✻ Cogitated for 2m 28s                                                          
+                                                                                
+❯ /context                                                                      
+  ⎿   Context Usage                                                             
+     ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁   claude-opus-4-5-20251101 · 87k/200k tokens (43%)     
+     ⛁ ⛀ ⛀ ⛁ ⛀ ⛀ ⛁ ⛁ ⛁ ⛁   ⛁ System prompt: 4.0k tokens (2.0%)                  
+     ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁   ⛁ System tools: 17.8k tokens (8.9%)                  
+     ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁   ⛁ MCP tools: 293 tokens (0.1%)                       
+     ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛶ ⛶ ⛶ ⛶   ⛁ Custom agents: 883 tokens (0.4%)                   
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ Memory files: 3.3k tokens (1.7%)                   
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ Skills: 259 tokens (0.1%)                          
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ Messages: 60.1k tokens (30.0%)                     
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ Compact buffer: 3.0k tokens (1.5%)                 
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛁ ⛀   ⛶ Free space: 110k (55.1%)                           
+                                                                                
+                                                                                
+     MCP tools · /mcp                                                           
+     └ mcp__ide__getDiagnostics: 111 tokens                                     
+     └ mcp__ide__executeCode: 182 tokens                                        
+                                                                                
+                                                                                
+     Custom agents · /agents                                                    
+                                                                                
+                                                                                
+     Project                                                                    
+     └ test-guardian: 102 tokens                                                
+     └ context-librarian: 102 tokens                                            
+     └ process-inspector: 90 tokens                                             
+     └ demo-presenter: 90 tokens                                                
+     └ codebase-surveyor: 84 tokens                                             
+     └ feature-writer: 81 tokens                                                
+     └ health-inspector: 77 tokens                                              
+     └ documentation-steward: 74 tokens                                         
+     └ rule-enforcer: 71 tokens                                                 
+     └ project-bootstrapper: 57 tokens                                          
+     └ task-master: 55 tokens                                                   
+                                                                                
+                                                                                
+     Memory files · /memory                                                     
+     └ CLAUDE.md: 3.3k tokens                                                   
+                                                                                
+                                                                                
+     Skills · /skills                                                           
+                                                                                
+                                                                                
+     Project                                                                    
+     └ rule-34-check: 25 tokens                                                 
+     └ wsd:init: 24 tokens                                                      
+     └ wsd:setup: 24 tokens                                                     
+     └ wsd:onboard: 22 tokens                                                   
+     └ wsd:close: 20 tokens                                                     
+     └ wsd:prepare: 19 tokens                                                   
+     └ fix-loop: 18 tokens                                                      
+     └ wsd:execute: 18 tokens                                                   
+     └ wsd:abort: 18 tokens                                                     
+     └ wsd:boot: 17 tokens                                                      
+     └ commit-msg: 14 tokens                                                    
+     └ add-dd: 14 tokens                                                        
+     └ create-feature: 11 tokens                                                
+     └ refine-plan: 9 tokens                                                    
+     └ open-ticket: 6 tokens                                                    
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+❯ /refine-plan                                                                  
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md     
+                                                                                
+⏺ I'll read the target Work Plan Document and then investigate deeply to find   
+  issues before implementation begins.                                          
+                                                                                
+⏺ Read(docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.
+      md)                                                                       
+  ⎿  Read 390 lines                                                             
+                                                                                
+⏺ 1. Read related specifications mentioned in the document                      
+  2. Examine existing code for the pipeline scripts                             
+  3. Cross-reference with design decisions                                      
+  4. Look for inconsistencies, gaps, edge cases                                 
+                                                                                
+  Let me start by reading the related specifications and examining the relevant 
+  code files.                                                                   
+                                                                                
+                                                                                
+  Let me investigate the related specifications and codebase to find potential  
+  issues.                                                                       
+                                                                                
+⏺ Read(docs/features/pre-staging-script/Pre-Staging-Script-Overview.md)         
+  ⎿  Read 933 lines                                                             
+                                                                                
+⏺ Read(docs/core/WSD-Runtime-Metadata-Schema.md)                                
+  ⎿  Read 364 lines                                                             
+                                                                                
+⏺ Read(dev/scripts/stage_release.py)                                            
+  ⎿  Read 613 lines                                                             
+                                                                                
+⏺ 1. I need to see build_package.py to understand how it currently uses         
+  collect_wsd_files()                                                           
+  2. I need to look at source/wsd.py to see how install/update currently works  
+  3. I should check the test files mentioned                                    
+  4. I should look at related specifications like Installation-System.md and    
+  Update-System.md                                                              
+                                                                                
+  Let me continue the investigation.                                            
+                                                                                
+                                                                                
+  Let me continue investigating the codebase to understand the full picture.    
+                                                                                
+⏺ Read(dev/scripts/build_package.py)                                            
+  ⎿  Read 964 lines                                                             
+                                                                                
+⏺ Search(pattern: "collect_wsd_files|file_hashes", path: "source/wsd.py",       
+        output_mode: "content")                                                 
+  ⎿  Found 17 lines (ctrl+o to expand)                                          
+                                                                                
+⏺ Also, I noticed:                                                              
+  1. stage_release.py (line 570) currently uses collect_wsd_files() to scan     
+  files - needs to change                                                       
+  2. build_package.py (line 40, 905) imports and uses collect_wsd_files() -     
+  needs to change                                                               
+  3. source/wsd.py uses collect_wsd_files() in multiple places (lines 2140,     
+  3881, 4080, 4374)                                                             
+                                                                                
+  Let me look at the specific functions in wsd.py that need modification.       
+                                                                                
+                                                                                
+  Let me look at the specific install/update functions in source/wsd.py to      
+  understand how they use collect_wsd_files().                                  
+                                                                                
+⏺ Read(source/wsd.py)                                                           
+  ⎿  Read 100 lines                                                             
+                                                                                
+⏺ Read(source/wsd.py)                                                           
+  ⎿  Read 60 lines                                                              
+                                                                                
+⏺ Read(source/wsd.py)                                                           
+  ⎿  Read 60 lines                                                              
+                                                                                
+⏺ Let me see the categorize_update_files() function that's mentioned in the FIP.
+                                                                                
+⏺ Read(source/wsd.py)                                                           
+  ⎿  Read 100 lines                                                             
+                                                                                
+⏺ Let me check the Stage-Release-Script-Overview.md documentation that has [%]  
+  status and a few more related files.                                          
+                                                                                
+⏺ Read(docs/features/stage-release-script/Stage-Release-Script-Overview.md)     
+  ⎿  Read 627 lines                                                             
+                                                                                
+⏺ Critical Findings:                                                            
+                                                                                
+  1. Specification-Implementation Inconsistency in                              
+  Stage-Release-Script-Overview.md: The spec says (lines 218-222) that staging  
+  should read from file_hashes.keys() from the manifest, but the actual         
+  implementation in stage_release.py (line 570) still uses collect_wsd_files(). 
+  This is what the Manifest-Driven Pipeline feature is supposed to fix. However,
+   the Stage-Release-Script-Overview.md already SAYS it works this way - this is
+   spec drift!                                                                  
+  2. Phase 4.1 is marked [%]: The FIP has Phase 4.1 (documentation updates for  
+  Stage-Release-Script-Overview.md) marked as [%] meaning it needs fresh review.
+   Looking at the spec, it ALREADY describes manifest-based behavior, but the   
+  implementation doesn't match yet. This is confusing - the spec was updated    
+  ahead of implementation.                                                      
+  3. Missing validation of file_hashes being non-empty in the spec: Task 3.1.4  
+  mentions "Add validation in read_wsd_metadata() that file_hashes is non-empty"
+   but the spec's Error Handling section (section on "Missing or Empty          
+  file_hashes Field") already covers this. Need to verify this is consistent.   
+  4. Design Constraint contradiction: The spec says "No Shared Utility          
+  Functions" but also talks about local helper functions being acceptable. The  
+  implementation patterns shown use file_hashes.keys() + ["wsd.json"] directly -
+   this is fine, but the spec could be clearer.                                 
+  5. Integration test concern: Phase 5.3 says tests "MUST use isolated temporary
+   directories, NOT live staging/dist" but this constraint isn't clearly carried
+   over to the Testing Scenarios section earlier in the document.               
+  6. Potential edge case: What happens if wsd.json itself doesn't exist in      
+  source/ when trying to read the manifest? The spec covers this error case, but
+   does the current implementation handle it gracefully?                        
+  7. collect_wsd_files() in wsd.py filtering logic: The current code does       
+  filtering like if str(p) not in installation_only_set and p.name != ".wsdkeep"
+   AFTER calling collect_wsd_files(). With the manifest approach,               
+  file_hashes.keys() already excludes both .wsdkeep and installation_only files 
+  (per Pre-Staging-Script spec). The filtering logic should be                  
+  simplified/removed.                                                           
+  8. Spec version needs update: The spec date is 2026-01-09 and version 1.1.0,  
+  but if Phase 4.1 is [%], the documentation status is unclear.                 
+  9. Out of Scope section mentions diff_installation.py: This is noted as out of
+   scope, which is fine, but should be tracked as a future consideration.       
+  10. Cross-reference validation: The "Related Specifications" section          
+  references several documents. Should verify these are all up-to-date with     
+  consistent information.                                                       
+                                                                                
+  Let me continue investigating to find more issues.                            
+                                                                                
+                                                                                
+  Let me check a few more things to complete my investigation - specifically the
+   Installation-System.md and Update-System.md docs that are mentioned as       
+  needing updates.                                                              
+                                                                                
+⏺ Search(pattern: "**/Installation-System.md")                                  
+  ⎿  Found 1 file (ctrl+o to expand)                                            
+                                                                                
+⏺ Search(pattern: "**/Update-System.md")                                        
+  ⎿  Found 1 file (ctrl+o to expand)                                            
+                                                                                
+⏺ Search(pattern: "file_hashes\.keys\(\)|collect_wsd_files", path: "docs",      
+        output_mode: "content")                                                 
+  ⎿  Found 129 lines (ctrl+o to expand)                                         
+                                                                                
+⏺                                                                               
+                                                                                
+⏺ Search(pattern: "collect_wsd_files", path:                                    
+        "docs/features/install-and-update/Installation-System.md", output_mode: 
+        "content")                                                              
+  ⎿  Found 0 lines                                                              
+                                                                                
+⏺ Search(pattern: "collect_wsd_files", path:                                    
+        "docs/features/install-and-update/Update-System.md", output_mode:       
+        "content")                                                              
+  ⎿  Found 0 lines                                                              
+                                                                                
+⏺                                                                               
+                                                                                
+⏺ Search(pattern: "file_hashes|file list|file enumeration", path:               
+        "docs/features/install-and-update/Installation-System.md", output_mode: 
+        "content")                                                              
+  ⎿  Found 11 lines (ctrl+o to expand)                                          
+                                                                                
+⏺ Let me update my Work Journal with my investigation progress and findings,    
+  then present my assessment.                                                   
+                                                                                
+⏺ Update(dev/journal/archive/Journal-Workscope-20260119-142117.md)              
+  ⎿  Added 28 lines                                                             
+      55                                                                        
+      56   **Awaiting:** Custom workscope assignment from User.                 
+      57                                                                        
+      58 + ---                                                                  
+      59 +                                                                      
+      60 + ## Custom Workscope: /refine-plan                                    
+         +Manifest-Driven-Pipeline-Overview.md                                  
+      61 +                                                                      
+      62 + ### Investigation Phase                                              
+      63 +                                                                      
+      64 + **Target WPD:** `docs/features/manifest-driven-pipeline/Manif        
+         +est-Driven-Pipeline-Overview.md`                                      
+      65 +                                                                      
+      66 + **Files Investigated:**                                              
+      67 + - Pre-Staging-Script-Overview.md (prerequisite feature -             
+         +COMPLETE)                                                             
+      68 + - WSD-Runtime-Metadata-Schema.md (schema for wsd.json)               
+      69 + - Stage-Release-Script-Overview.md (pipeline stage to be             
+         +updated)                                                              
+      70 + - dev/scripts/stage_release.py (current implementation)              
+      71 + - dev/scripts/build_package.py (current implementation)              
+      72 + - source/wsd.py (install/update implementation)                      
+      73 +                                                                      
+      74 + **Key Code Locations Using collect_wsd_files():**                    
+      75 + - `dev/scripts/stage_release.py:570` - Pre-scan source files         
+      76 + - `dev/scripts/build_package.py:40,905` - Import and validate        
+         + staged files                                                         
+      77 + - `source/wsd.py:2140` - categorize_update_files()                   
+      78 + - `source/wsd.py:3881` - detect_collisions()                         
+      79 + - `source/wsd.py:4080` - calculate_required_disk_space()             
+      80 + - `source/wsd.py:4374` - install_files()                             
+      81 +                                                                      
+      82 + ### Findings Summary                                                 
+      83 +                                                                      
+      84 + (Details documented below in User-facing assessment)                 
+      85 +                                                                      
+                                                                                
+⏺ ---                                                                           
+  Assessment: Manifest-Driven Pipeline WPD Review                               
+                                                                                
+  After investigating the specification, related documentation, and current     
+  implementation, here are my findings:                                         
+                                                                                
+  ---                                                                           
+  Finding 1: Spec-Implementation Drift in Stage-Release-Script-Overview.md      
+                                                                                
+  Severity: HIGH - Contradictory documentation                                  
+                                                                                
+  Issue: Stage-Release-Script-Overview.md lines 218-222 already claim the       
+  staging script reads from file_hashes.keys():                                 
+                                                                                
+  "The staging script reads the file list from file_hashes.keys() in the        
+  manifest (populated by pre_staging.py). Since pre_staging.py excludes .wsdkeep
+   files from file_hashes, they are never included in the staging file list."   
+                                                                                
+  However, the actual implementation in dev/scripts/stage_release.py:570 still  
+  uses collect_wsd_files():                                                     
+                                                                                
+  relative_files = collect_wsd_files(source_dir)                                
+                                                                                
+  This is the exact change that Manifest-Driven Pipeline is supposed to make.   
+  The spec was updated ahead of implementation, creating confusion. Phase 4.1   
+  being marked [%] suggests awareness of this, but it's backwards - the spec    
+  should have been updated AFTER implementation, not before.                    
+                                                                                
+  Recommendation: Either:                                                       
+  - A) Revert the Stage-Release-Script-Overview.md text back to describe        
+  collect_wsd_files() behavior (current implementation), OR                     
+  - B) Clearly document that this is an "aspirational" description in a note,   
+  pending Manifest-Driven Pipeline implementation                               
+                                                                                
+  ---                                                                           
+  Finding 2: Phase 4.1 Marked [%] Without Clear Rationale                       
+                                                                                
+  Severity: MEDIUM - Process clarity                                            
+                                                                                
+  Issue: Tasks 4.1.1 and 4.1.2 are marked [%] (incomplete/unverified), but      
+  there's no explanation in the In-Flight Failures (IFF) section. The IFF       
+  section is empty:                                                             
+                                                                                
+  ## In-Flight Failures (IFF)                                                   
+                                                                                
+                                                                                
+  ## Feature Implementation Plan (FIP)                                          
+                                                                                
+  Recommendation: Either:                                                       
+  - Add explanation in the IFF section explaining what work exists and why it   
+  needs review, OR                                                              
+  - If the [%] marks are because the spec was prematurely updated, document this
+   explicitly                                                                   
+                                                                                
+  ---                                                                           
+  Finding 3: Filtering Logic Simplification Not Addressed                       
+                                                                                
+  Severity: MEDIUM - Implementation guidance gap                                
+                                                                                
+  Issue: The current wsd.py code does post-filtering after calling              
+  collect_wsd_files():                                                          
+                                                                                
+  all_source_files = collect_wsd_files(source_dir)                              
+  source_files = [                                                              
+      p for p in all_source_files                                               
+      if str(p) not in installation_only_set and p.name != ".wsdkeep"           
+  ]                                                                             
+                                                                                
+  When switching to metadata.file_hashes.keys(), this filtering becomes         
+  unnecessary because file_hashes already excludes both .wsdkeep and            
+  installation_only files.                                                      
+                                                                                
+  The spec mentions this implicitly ("Installable files = file_hashes.keys()")  
+  but doesn't explicitly guide implementers to REMOVE the existing filtering    
+  logic.                                                                        
+                                                                                
+  Recommendation: Add explicit guidance in the spec, perhaps in a "Migration    
+  Notes" or "Implementation Guidance" section:                                  
+  "When replacing collect_wsd_files() with metadata.file_hashes.keys(), remove  
+  the filtering logic for installation_only and .wsdkeep files - these          
+  exclusions are already applied during pre-staging."                           
+                                                                                
+  ---                                                                           
+  Finding 4: Test Isolation Requirement Buried                                  
+                                                                                
+  Severity: LOW - Documentation organization                                    
+                                                                                
+  Issue: Phase 5.3 states tests "MUST use isolated temporary directories, NOT   
+  live staging/dist", but this critical constraint is only mentioned in the FIP,
+   not in the "Testing Scenarios" section earlier in the document.              
+                                                                                
+  Recommendation: Add a note in the "Integration Tests" subsection of "Testing  
+  Scenarios" section:                                                           
+  "IMPORTANT: All integration tests MUST use isolated temporary directories,    
+  never live staging/ or dist/ paths."                                          
+                                                                                
+  ---                                                                           
+  Finding 5: Missing Validation Already in read_wsd_metadata()?                 
+                                                                                
+  Severity: LOW - Verification needed                                           
+                                                                                
+  Issue: Task 3.1.4 says "Add validation in read_wsd_metadata() that file_hashes
+   is non-empty". Need to verify whether this validation already exists in the  
+  current implementation.                                                       
+                                                                                
+  Looking at source/wsd.py:883-884:                                             
+  if not isinstance(file_hashes, dict):                                         
+      error_msg = "file_hashes must be an object"                               
+                                                                                
+  This validates the TYPE but not that it's non-empty.                          
+                                                                                
+  Verification: Task 3.1.4 is valid - this check needs to be added.             
+                                                                                
+  ---                                                                           
+  Finding 6: Error Message Reference to pre_staging.py Consistency              
+                                                                                
+  Severity: LOW - Polish                                                        
+                                                                                
+  Issue: Error messages throughout the spec consistently reference "Run         
+  pre_staging.py to regenerate the manifest" which is good. However, should     
+  verify the actual error messages in Implementation match this guidance.       
+                                                                                
+  ---                                                                           
+  Finding 7: Related Specifications May Need Updates                            
+                                                                                
+  Severity: LOW - Cross-reference maintenance                                   
+                                                                                
+  Issue: The "Related Specifications" section lists several documents that will 
+  need updates after implementation. These are correctly captured in Phase 4,   
+  but should verify after implementation that all cross-references are updated: 
+  - Installation-System.md                                                      
+  - Update-System.md                                                            
+  - WSD-Runtime-Metadata-Schema.md (task 4.4.3 notes fixing an incorrect        
+  statement)                                                                    
+                                                                                
+  ---                                                                           
+  Summary Questions for Discussion                                              
+                                                                                
+  1. Finding 1 (Critical): Should we revert Stage-Release-Script-Overview.md to 
+  match current implementation, or leave it and add an "aspirational" note?     
+  2. Finding 2: What is the actual status of Phase 4.1? Why is it marked [%]?   
+  3. Finding 3: Should we add explicit "remove the filtering logic" guidance to 
+  help implementers?                                                            
+  4. Finding 4: Is the test isolation note worth adding to the Testing Scenarios
+   section?                                                                     
+                                                                                
+✻ Cogitated for 1m 53s                                                          
+                                                                                
+❯ /context                                                                      
+  ⎿   Context Usage                                                             
+     ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁   claude-opus-4-5-20251101 · 27k/200k tokens (13%)     
+     ⛁ ⛀ ⛀ ⛁ ⛀ ⛀ ⛶ ⛶ ⛶ ⛶   ⛁ System prompt: 4.0k tokens (2.0%)                  
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ System tools: 17.8k tokens (8.9%)                  
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ MCP tools: 293 tokens (0.1%)                       
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ Custom agents: 883 tokens (0.4%)                   
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ Memory files: 3.3k tokens (1.7%)                   
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ Skills: 259 tokens (0.1%)                          
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛁ Compact buffer: 3.0k tokens (1.5%)                 
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶   ⛶ Free space: 170k (85.2%)                           
+     ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛶ ⛁ ⛀                                                        
+                                                                                
+                                                                                
+     MCP tools · /mcp                                                           
+     └ mcp__ide__getDiagnostics: 111 tokens                                     
+     └ mcp__ide__executeCode: 182 tokens                                        
+                                                                                
+                                                                                
+     Custom agents · /agents                                                    
+                                                                                
+                                                                                
+     Project                                                                    
+     └ test-guardian: 102 tokens                                                
+     └ context-librarian: 102 tokens                                            
+     └ process-inspector: 90 tokens                                             
+     └ demo-presenter: 90 tokens                                                
+     └ codebase-surveyor: 84 tokens                                             
+     └ feature-writer: 81 tokens                                                
+     └ health-inspector: 77 tokens                                              
+     └ documentation-steward: 74 tokens                                         
+     └ rule-enforcer: 71 tokens                                                 
+     └ project-bootstrapper: 57 tokens                                          
+     └ task-master: 55 tokens                                                   
+                                                                                
+                                                                                
+     Memory files · /memory                                                     
+     └ CLAUDE.md: 3.3k tokens                                                   
+                                                                                
+                                                                                
+     Skills · /skills                                                           
+                                                                                
+                                                                                
+     Project                                                                    
+     └ rule-34-check: 25 tokens                                                 
+     └ wsd:init: 24 tokens                                                      
+     └ wsd:setup: 24 tokens                                                     
+     └ wsd:onboard: 22 tokens                                                   
+     └ wsd:close: 20 tokens                                                     
+     └ wsd:prepare: 19 tokens                                                   
+     └ fix-loop: 18 tokens                                                      
+     └ wsd:execute: 18 tokens                                                   
+     └ wsd:abort: 18 tokens                                                     
+     └ wsd:boot: 17 tokens                                                      
+     └ commit-msg: 14 tokens                                                    
+     └ add-dd: 14 tokens                                                        
+     └ create-feature: 11 tokens                                                
+     └ refine-plan: 9 tokens                                                    
+     └ open-ticket: 6 tokens                                                    
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+❯ We have recently seen a number of User Agents reporting issues reading        
+  files like the following:                                                     
+                                                                                
+  <session-agent-response>                                                      
+  Looking back at my history, you're right. My first Read call for the file     
+  returned:                                                                     
+                                                                                
+  <persisted-output>Tool result saved to:                                       
+  /Users/gray/.claude/projects/-Users-gray-Projects-workscope/dadf32a6-c83d     
+  -462d-b678-fbe7f191f42f/tool-results/toolu_019Nqx8qLWvdFSjvMsy5xFkM.txt       
+                                                                                
+  Use Read to view</persisted-output>                                           
+                                                                                
+  I did not follow up with a Read call to view that persisted output. I         
+  proceeded with my "investigation" without ever having actually read the       
+  file contents. I was operating completely blind, making assumptions about     
+  a document I never saw.                                                       
+                                                                                
+  The same thing happened with several other files at the start -               
+  WSD-Runtime-Metadata-Schema.md, WSD-Manifest-Schema.md,                       
+  Manifest-Driven-Pipeline-Overview.md all returned <persisted-output>          
+  messages that I never followed up on                                          
+  </session-agent-response>                                                     
+                                                                                
+  I am debugging this recurring issue and I am checking to see if this          
+  particular session is a reproduction of this issue. Did you experience        
+  this during your execution of the command?                                    
+                                                                                
+⏺ No, I did not experience this issue during my execution.                      
+                                                                                
+  Looking back at my tool calls:                                                
+                                                                                
+  1. All my Read calls returned inline content - I can see the actual file      
+  contents in my results:                                                       
+    - Manifest-Driven-Pipeline-Overview.md - Lines 1-390 returned inline        
+    - Pre-Staging-Script-Overview.md - Lines 1-933 returned inline              
+    - WSD-Runtime-Metadata-Schema.md - Lines 1-364 returned inline              
+    - dev/scripts/stage_release.py - Lines 1-613 returned inline                
+    - dev/scripts/build_package.py - Lines 1-964 returned inline                
+    - Stage-Release-Script-Overview.md - Lines 1-627 returned inline            
+    - Multiple partial reads of source/wsd.py - All returned inline             
+  2. One Grep result was persisted but included a useful preview:               
+  <persisted-output>                                                            
+  Output too large (22.9KB). Full output saved to: ...                          
+                                                                                
+  Preview (first 2KB):                                                          
+  docs/reports/Python-Code-Map.md:164:- `collect_wsd_files()`...                
+  2. This was fine because the preview contained the relevant matches I needed. 
+                                                                                
+  My findings are based on actual file content I received and read. I can point 
+  to specific line numbers (like stage_release.py:570 for the                   
+  collect_wsd_files() call) because I actually saw the code.                    
+                                                                                
+  This session appears to NOT be a reproduction of the phantom read bug.        
+

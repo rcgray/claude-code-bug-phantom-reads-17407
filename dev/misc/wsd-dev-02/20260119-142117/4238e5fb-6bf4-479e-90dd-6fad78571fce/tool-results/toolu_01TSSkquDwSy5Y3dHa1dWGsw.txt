@@ -1,0 +1,129 @@
+docs/reports/Python-Code-Map.md:164:- `collect_wsd_files()`: Validate and collect WSD Runtime files from a directory.
+docs/features/stage-release-script/Stage-Release-Script-Overview.md:220:The staging script reads the file list from `file_hashes.keys()` in the manifest (populated by `pre_staging.py`). Since `pre_staging.py` excludes .wsdkeep files from `file_hashes`, they are never included in the staging file list.
+docs/features/pre-staging-script/Pre-Staging-Script-Overview.md:75:| File collection   | Uses `wsd_utils.collect_wsd_files()`                                  |
+docs/features/pre-staging-script/Pre-Staging-Script-Overview.md:128:    files = collect_wsd_files(source_dir)
+docs/features/pre-staging-script/Pre-Staging-Script-Overview.md:183:The script MUST use `wsd_utils.collect_wsd_files()` to obtain the list of valid files in `source/`:
+docs/features/pre-staging-script/Pre-Staging-Script-Overview.md:186:from wsd_utils import collect_wsd_files, WsdCollectionError
+docs/features/pre-staging-script/Pre-Staging-Script-Overview.md:189:    files = collect_wsd_files(source_dir)
+docs/features/pre-staging-script/Pre-Staging-Script-Overview.md:663:**Error:** `collect_wsd_files()` raises `WsdCollectionError`
+docs/features/pre-staging-script/Pre-Staging-Script-Overview.md:792:3. **Collection Error**: Create __pycache__ in source/, verify error from collect_wsd_files
+docs/features/pre-staging-script/Pre-Staging-Script-Overview.md:866:  - [x] **3.1.1** - Import and use wsd_utils.collect_wsd_files()
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:9:The Manifest-Driven Pipeline establishes `wsd.json` as the single source of truth for WSD Runtime file membership throughout the entire distribution pipeline. After the Pre-Staging-Script feature populates `source/wsd.json` with `file_hashes`, all subsequent pipeline stages read their file lists from the manifest instead of re-scanning the filesystem using `collect_wsd_files()`.
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:19:1. **Single Source of Truth**: Establishes `file_hashes.keys()` from `wsd.json` as the authoritative list of WSD Runtime files, eliminating redundant scanning logic across pipeline stages
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:23:3. **Simplification**: Removes duplicated `collect_wsd_files()` calls from multiple scripts, reducing code complexity and maintenance burden
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:50:- **Installable files** = `file_hashes.keys()`
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:51:- **Stageable files** = `file_hashes.keys()` + `["wsd.json"]`
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:70:files = list(metadata.file_hashes.keys())
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:77:files = list(file_hashes.keys()) + ["wsd.json"]
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:82:Per project design principles (YAGNI), do NOT create shared utility functions in `wsd_utils.py` like `get_installable_files()` or `get_manifest_file_list()`. Each component should read `metadata.file_hashes.keys()` directly.
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:100:`pre_staging.py` is the ONLY script that scans for files using `collect_wsd_files()`. It populates `file_hashes` in `source/wsd.json`. This script is unaffected by this feature as it is the source of truth generator, not a consumer.
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:104:**Current Behavior**: Uses `collect_wsd_files()` to scan `source/` for files to stage.
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:106:**Required Change**: Read file list from `source/wsd.json` manifest instead of scanning. Use `file_hashes.keys()` plus explicitly adding `wsd.json` (since it's in `installation_only` and not in `file_hashes`).
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:109:- `dev/scripts/stage_release.py`: Remove `collect_wsd_files()` call, add manifest reading
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:113:**Current Behavior**: Uses `collect_wsd_files()` to scan `staging/` for files to package.
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:115:**Required Change**: Read file list from `staging/wsd.json` manifest instead of scanning. Use `file_hashes.keys()` plus explicitly adding `wsd.json`.
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:118:- `dev/scripts/build_package.py`: Remove `collect_wsd_files()` call, add manifest reading
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:122:**Current Behavior**: Uses `collect_wsd_files()` in multiple locations:
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:128:**Required Change**: Use `metadata.file_hashes.keys()` instead of scanning with `collect_wsd_files()` in all four functions.
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:135:`diff_installation.py` is a development utility script for comparing WSD installations. While it currently uses `collect_wsd_files()`, updating it to use manifest-based file lists is deferred as a future consideration. This script is not part of the core distribution pipeline and does not affect end-user installations.
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:212:**Problem**: The pre-manifest approach had each pipeline stage independently scan for files using `collect_wsd_files()`. This created several issues:
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:228:Per Design Decisions document (YAGNI principle), we use `metadata.file_hashes.keys()` directly rather than creating a utility function like `get_manifest_file_list()`.
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:242:files = list(file_hashes.keys()) + ["wsd.json"]
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:262:2. **Stageable File List**: Get stageable files, verify `wsd.json` is included alongside `file_hashes.keys()`
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:278:2. **Staged File Verification**: After staging, verify staged files exactly match `file_hashes.keys()` + `wsd.json`
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:280:3. **Install File Verification**: After install, verify installed files exactly match `file_hashes.keys()` (without `wsd.json`)
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:286:1. **No collect_wsd_files Calls**: After implementation, grep codebase to verify `collect_wsd_files()` only called in `pre_staging.py`
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:294:1. **Never Add New Scanning**: If you need a file list, read it from the manifest. Do not add new `collect_wsd_files()` calls.
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:329:- [ ] **1.1** - Remove `collect_wsd_files()` usage from `dev/scripts/stage_release.py`
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:330:  - [ ] **1.1.1** - Add function to read file list from manifest (`file_hashes.keys()` + `wsd.json`)
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:334:  - [ ] **1.1.5** - Remove unused `collect_wsd_files` import from script
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:342:- [ ] **2.1** - Remove `collect_wsd_files()` usage from `dev/scripts/build_package.py`
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:346:  - [ ] **2.1.4** - Remove unused `collect_wsd_files` import from script
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:354:  - [ ] **3.1.1** - Update `detect_collisions()` to use `metadata.file_hashes.keys()` for file list
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:355:  - [ ] **3.1.2** - Update `install_files()` to use `metadata.file_hashes.keys()` for file list
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:356:  - [ ] **3.1.3** - Update `calculate_required_disk_space()` to use `metadata.file_hashes.keys()` for file list
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:359:  - [ ] **3.2.1** - Update `categorize_update_files()` to use `update_metadata.file_hashes.keys()` for file list
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:360:- [ ] **3.3** - Remove unused `collect_wsd_files` import from `source/wsd.py`
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:369:  - [%] **4.1.2** - Remove or update references to `collect_wsd_files()` scanning
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:375:  - [ ] **4.4.1** - Document that `file_hashes.keys()` serves as canonical installable file list
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:381:- [ ] **5.1** - Verify no remaining `collect_wsd_files()` calls outside `pre_staging.py`
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:382:  - [ ] **5.1.1** - Grep codebase for `collect_wsd_files` usage
+docs/tickets/closed/exclude-vcs-directories-from-build-package.md:14:- Creates a single `collect_wsd_files()` function that all file scanning operations will use
+docs/tickets/closed/introduce-required-directories-field-replace-wsdkeep-tracking.md:9:The current implementation tracks `.wsdkeep` files in `source/wsd.json`'s `file_hashes` as if they were regular content files. With the upcoming Manifest-Driven Pipeline (where `file_hashes.keys()` becomes the canonical file list), this creates conceptual and practical issues:
+docs/tickets/closed/introduce-required-directories-field-replace-wsdkeep-tracking.md:51:**`collect_wsd_files()`**: Returns `.wsdkeep` files and validates empty directories have them (lines 857-868 in `wsd_utils.py`)
+docs/tickets/closed/introduce-required-directories-field-replace-wsdkeep-tracking.md:55:The Manifest-Driven Pipeline feature establishes that `file_hashes.keys()` is the canonical file list for all pipeline stages after `pre_staging.py`. This means:
+docs/tickets/closed/introduce-required-directories-field-replace-wsdkeep-tracking.md:165:- `source/scripts/wsd_utils.py` - `.wsdkeep` files still collected by `collect_wsd_files()` for empty directory validation; exclusion happens at hash generation time in `pre_staging.py`
+docs/tickets/closed/introduce-required-directories-field-replace-wsdkeep-tracking.md:175:- `tests/test_wsd_utils.py` - KEEP tests for `collect_wsd_files()` empty directory validation (behavior unchanged)
+docs/tickets/closed/introduce-required-directories-field-replace-wsdkeep-tracking.md:180:This ticket addresses how `.wsdkeep` files flow through the WSD pipeline. With the Manifest-Driven Pipeline making `file_hashes.keys()` the canonical file list, we had a design choice:
+docs/tickets/closed/introduce-required-directories-field-replace-wsdkeep-tracking.md:189:1. `collect_wsd_files()` continues to return `.wsdkeep` files - this is correct because `pre_staging.py` needs them to discover required directories
+docs/tickets/closed/introduce-required-directories-field-replace-wsdkeep-tracking.md:200:   - `collect_wsd_files()` returns `.wsdkeep` files (correct - it's the filesystem scanner)
+docs/tickets/closed/introduce-required-directories-field-replace-wsdkeep-tracking.md:203:   - Downstream stages read from `file_hashes.keys()`, so they never see `.wsdkeep`
+docs/tickets/closed/introduce-required-directories-field-replace-wsdkeep-tracking.md:206:5. **Coordination with Manifest-Driven Pipeline:** This ticket and the MDP feature will be executed back-to-back. After this ticket completes, `stage_release.py` still uses `collect_wsd_files()` (so `.wsdkeep` would still be staged). After MDP completes, `stage_release.py` uses `file_hashes.keys()` (so `.wsdkeep` is not staged). The full benefit materializes after both features are complete.
+docs/tickets/closed/introduce-required-directories-field-replace-wsdkeep-tracking.md:312:  - [x] **4.5.1** - Replace `TestWsdkeepStagingBehavior` class (4 tests) - these test outdated behavior where `.wsdkeep` flows through staging. Note: Tests verifying `.wsdkeep` is NOT in staged output are DEFERRED to the Manifest-Driven Pipeline ticket (stage_release.py still uses `collect_wsd_files()` until MDP completes)
+docs/tickets/closed/introduce-required-directories-field-replace-wsdkeep-tracking.md:341:  - [x] **5.5.1** - Manifest-Driven-Pipeline-Overview.md: note that `file_hashes.keys()` does NOT include `.wsdkeep` files due to `required_directories` design
+docs/tickets/closed/pre-staging-validate-installation-only-hash-exclusivity.md:37:1. `sync_file_hashes()` collects files via `collect_wsd_files()`
+docs/tickets/closed/pre-staging-validate-installation-only-hash-exclusivity.md:65:1. Extract the set of file paths from `file_hashes.keys()`
+docs/tickets/closed/pre-staging-validate-installation-only-hash-exclusivity.md:144:  - [x] **1.1.2** - Extract `file_hashes.keys()` as a set
+docs/tickets/closed/fix-noreturn-type-annotations-error-reporters.md:42:    source_files = collect_wsd_files(source_dir)
+docs/tickets/closed/unify-wsd-file-collection-into-single-function.md:109:Create a single unified `collect_wsd_files()` function in `source/scripts/wsd_utils.py` that:
+docs/tickets/closed/unify-wsd-file-collection-into-single-function.md:127:def collect_wsd_files(directory: Path) -> list[Path]:
+docs/tickets/closed/unify-wsd-file-collection-into-single-function.md:204:- `source/scripts/wsd_utils.py` - Add `collect_wsd_files()` and `WsdCollectionError`
+docs/tickets/closed/unify-wsd-file-collection-into-single-function.md:239:from wsd_utils import collect_wsd_files, WsdCollectionError
+docs/tickets/closed/unify-wsd-file-collection-into-single-function.md:249:No issues discovered during validation. The `collect_wsd_files()` function consolidation is complete and all refactored components are working correctly.
+docs/tickets/closed/unify-wsd-file-collection-into-single-function.md:264:- [x] **1.6** - Implement `collect_wsd_files()` using iterdir() recursively
+docs/tickets/closed/unify-wsd-file-collection-into-single-function.md:288:- [x] **3.1** - Import `collect_wsd_files`, `WsdCollectionError` from wsd_utils
+docs/tickets/closed/unify-wsd-file-collection-into-single-function.md:292:- [x] **3.5** - Update `perform_full_update()` to use `collect_wsd_files()`
+docs/tickets/closed/unify-wsd-file-collection-into-single-function.md:293:- [x] **3.6** - Update `detect_collisions()` to use `collect_wsd_files()`
+docs/tickets/closed/unify-wsd-file-collection-into-single-function.md:294:- [x] **3.7** - Update `calculate_required_disk_space()` to use `collect_wsd_files()`
+docs/tickets/closed/unify-wsd-file-collection-into-single-function.md:295:- [x] **3.8** - Update `install_files()` to use `collect_wsd_files()`
+docs/tickets/closed/unify-wsd-file-collection-into-single-function.md:302:- [x] **4.2** - Import `collect_wsd_files`, `WsdCollectionError`
+docs/tickets/closed/unify-wsd-file-collection-into-single-function.md:306:- [x] **4.6** - Update main staging workflow to use `collect_wsd_files()`
+docs/tickets/closed/unify-wsd-file-collection-into-single-function.md:313:- [x] **5.2** - Import `collect_wsd_files`, `WsdCollectionError`
+docs/tickets/closed/unify-wsd-file-collection-into-single-function.md:314:- [x] **5.3** - Update `copy_staged_files()` to use `collect_wsd_files()`
+docs/tickets/closed/unify-wsd-file-collection-into-single-function.md:315:- [x] **5.4** - Remove or simplify `scan_for_special_characters()` (filename safety now in collect_wsd_files)
+docs/tickets/closed/unify-wsd-file-collection-into-single-function.md:323:- [x] **6.2** - Import `collect_wsd_files`, `WsdCollectionError`
+docs/tickets/closed/unify-wsd-file-collection-into-single-function.md:325:- [x] **6.4** - Update callers to use `collect_wsd_files()`
+docs/tickets/closed/refactor-wsdkeep-as-structural-artifact-not-tracked-file.md:65:    # collect_wsd_files() STILL returns .wsdkeep files (no change needed)
+docs/tickets/closed/refactor-wsdkeep-as-structural-artifact-not-tracked-file.md:66:    all_files = collect_wsd_files(source_dir)
+docs/tickets/closed/refactor-wsdkeep-as-structural-artifact-not-tracked-file.md:118:**1. File Collection - NO CHANGE to `collect_wsd_files()`**
+docs/tickets/closed/refactor-wsdkeep-as-structural-artifact-not-tracked-file.md:120:`collect_wsd_files()` continues to return `.wsdkeep` files. The `.wsdkeep` files in source ARE the markers for required directories - we need them in the list to process them.
+docs/tickets/closed/refactor-wsdkeep-as-structural-artifact-not-tracked-file.md:167:- `source/scripts/wsd_utils.py` - NO CHANGES (`collect_wsd_files()` continues to return `.wsdkeep`)
+docs/tickets/closed/refactor-wsdkeep-as-structural-artifact-not-tracked-file.md:206:  - [x] **1.1.1** - Partition `collect_wsd_files()` result into `regular_files` and `wsdkeep_candidates`
+docs/tickets/closed/refactor-wsdkeep-as-structural-artifact-not-tracked-file.md:247:  - [x] **3.1.2** - Verify `collect_wsd_files()` behavior unchanged
+docs/archive/pre-staging-script-feature-brief.md:33:1. Collects valid files from `source/` using existing `wsd_utils.collect_wsd_files()`
+docs/archive/pre-staging-script-feature-brief.md:52:- `wsd_utils.collect_wsd_files()` - File collection with suspicious file detection and `.wsdkeep` validation
+docs/archive/pre-staging-script-feature-brief.md:87:- File collection via `wsd_utils.collect_wsd_files()`
+docs/archive/pre-staging-script-feature-brief.md:128:- File collection via `collect_wsd_files()`
+docs/archive/pre-staging-script-feature-brief.md:175:3. **Reuse Existing Utilities**: Must use `wsd_utils.collect_wsd_files()` and `wsd_utils.calculate_file_hash()` - no reimplementation.
+docs/archive/hash-computation-audit.md:149:These tasks may ALSO be unnecessary if the implementation is already correct. However, that feature focuses on using `metadata.file_hashes.keys()` for the FILE LIST (not just hashes), which IS still pending work (the code currently uses `collect_wsd_files()` for file enumeration).
+docs/archive/manifest-driven-pipeline-feature-brief.md:11:Replace empirical file scanning (`collect_wsd_files()`) throughout the WSD distribution pipeline with manifest-based file list retrieval from `wsd.json`, establishing the manifest as the single source of truth for WSD Runtime file membership.
+docs/archive/manifest-driven-pipeline-feature-brief.md:17:The current WSD distribution pipeline re-scans for file membership at every stage using `collect_wsd_files()`. After the Pre-Staging-Script feature completes, `source/wsd.json` will contain `file_hashes` with a hash for every file in the WSD Runtime. This means we have an explicit, authoritative list of files from the very beginning of the pipeline, yet subsequent stages still redundantly scan for files.
+docs/archive/manifest-driven-pipeline-feature-brief.md:19:**Current redundant `collect_wsd_files()` calls (after Pre-Staging feature):**
+docs/archive/manifest-driven-pipeline-feature-brief.md:41:3. The canonical installable file list is `file_hashes.keys()` from the manifest
+docs/archive/manifest-driven-pipeline-feature-brief.md:42:4. For stages that need `wsd.json` itself (staging, build), explicitly include it alongside `file_hashes.keys()`
+docs/archive/manifest-driven-pipeline-feature-brief.md:45:- **Installable files** (for install/update to client projects): `file_hashes.keys()`
+docs/archive/manifest-driven-pipeline-feature-brief.md:46:- **Stageable files** (for staging and build): `file_hashes.keys()` + `wsd.json`
+docs/archive/manifest-driven-pipeline-feature-brief.md:60:- Removing remaining `collect_wsd_files()` calls from `stage_release.py`
+docs/archive/manifest-driven-pipeline-feature-brief.md:61:- Removing `collect_wsd_files()` calls from `build_package.py`
+docs/archive/manifest-driven-pipeline-feature-brief.md:62:- Removing `collect_wsd_files()` calls from `source/wsd.py` install/update operations
+docs/archive/manifest-driven-pipeline-feature-brief.md:63:- Removing `collect_wsd_files()` calls from `diff_installation.py`
+docs/archive/manifest-driven-pipeline-feature-brief.md:73:| `docs/core/WSD-Runtime-Metadata-Schema.md` | Will document that `file_hashes.keys()` serves as canonical file list |
+docs/archive/manifest-driven-pipeline-feature-brief.md:82:- Remove `collect_wsd_files()` call at line 747
+docs/archive/manifest-driven-pipeline-feature-brief.md:83:- Add function to read file list from manifest (`file_hashes.keys()` + `wsd.json`)
+docs/archive/manifest-driven-pipeline-feature-brief.md:95:- Remove `collect_wsd_files()` call at line 905
+docs/archive/manifest-driven-pipeline-feature-brief.md:96:- Read file list from `staging/wsd.json` (`file_hashes.keys()` + `wsd.json`)
+docs/archive/manifest-driven-pipeline-feature-brief.md:102:- `install_files()` (line 4320): Replace `collect_wsd_files()` with `metadata.file_hashes.keys()`
+docs/archive/manifest-driven-pipeline-feature-brief.md:103:- `categorize_update_files()` (line 2128): Replace `collect_wsd_files()` with `update_metadata.file_hashes.keys()`
+docs/archive/manifest-driven-pipeline-feature-brief.md:104:- `detect_collisions()` (line 3831): Replace `collect_wsd_files()` with manifest reading
+docs/archive/manifest-driven-pipeline-feature-brief.md:109:- Remove `collect_wsd_files()` call at line 1287
+docs/archive/manifest-driven-pipeline-feature-brief.md:127:- `docs/core/WSD-Runtime-Metadata-Schema.md` - Document that `file_hashes.keys()` is the canonical installable file list
+docs/archive/manifest-driven-pipeline-feature-brief.md:135:After this feature, `collect_wsd_files()` should ONLY be called by `pre_staging.py`. All other pipeline stages MUST use the manifest.
+docs/archive/manifest-driven-pipeline-feature-brief.md:141:files_to_stage = list(file_hashes.keys()) + ["wsd.json"]
+docs/archive/manifest-driven-pipeline-feature-brief.md:144:### Constraint 3: Direct `file_hashes.keys()` Usage
+docs/archive/manifest-driven-pipeline-feature-brief.md:146:Per discussion with User, use `metadata.file_hashes.keys()` directly rather than creating a wrapper function. YAGNI - the abstraction isn't needed yet.
+docs/archive/manifest-driven-pipeline-feature-brief.md:168:3. **New utility functions in wsd_utils.py** - Direct `file_hashes.keys()` usage preferred
+docs/archive/manifest-driven-pipeline-feature-brief.md:177:1. **Zero `collect_wsd_files()` calls outside `pre_staging.py`** - All pipeline stages use manifest
+docs/archive/manifest-driven-pipeline-feature-brief.md:215:files = list(metadata.file_hashes.keys())
+docs/archive/manifest-driven-pipeline-feature-brief.md:220:files = list(file_hashes.keys()) + ["wsd.json"]
+docs/archive/manifest-driven-pipeline-feature-brief.md:231:For staging and build, we need `file_hashes.keys()` (all hashed files) + `wsd.json` (exists but not hashed).
+docs/archive/manifest-driven-pipeline-feature-brief.md:232:For install/update, we need only `file_hashes.keys()` (wsd.json stays in source, not copied to client).

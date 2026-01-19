@@ -1,0 +1,9 @@
+56:    collect_wsd_files,
+2080:def categorize_update_files(
+2140:    all_update_files = collect_wsd_files(update_source_dir)
+3833:def detect_collisions(source_dir: Path, target_dir: Path) -> tuple[list[str], list[str]]:
+3881:    all_source_files = collect_wsd_files(source_dir)
+4059:def calculate_required_disk_space(source_dir: Path, installation_only: list[str]) -> int:
+4080:        all_source_files = collect_wsd_files(source_dir)
+4241:def install_files(source_dir: Path, target_dir: Path, force: bool = False) -> list[str]:  # noqa: PLR0912, PLR0915
+4374:        all_source_files = collect_wsd_files(source_dir)

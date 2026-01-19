@@ -1,0 +1,584 @@
+2.0.60.bad.txt:367:  collect_wsd_files() which DOES include .wsdkeep files, then filters them
+2.0.60.bad.txt:447:  collect_wsd_files()
+2.0.60.bad.txt:453:  collect_wsd_files(staging_dir) at line 905 to get the file list.
+2.0.60.bad.txt:475:  corrupted/missing? The current behavior with collect_wsd_files() would
+2.0.60.bad.txt:523:  Currently, collect_wsd_files() returns .wsdkeep files, and install/update
+Good-27eaff45-a330-4a88-9213-3725c9f420d0.txt:242:⏺ Now let me examine the source/wsd.py to understand the current install/update operations and how collect_wsd_files is currently used there.
+Good-27eaff45-a330-4a88-9213-3725c9f420d0.txt:244:⏺ Search(pattern: "collect_wsd_files|file_hashes", path: "source/wsd.py",
+Good-27eaff45-a330-4a88-9213-3725c9f420d0.txt:315:      60 + 1. **stage_release.py** currently uses `collect_wsd_files()`  
+Good-27eaff45-a330-4a88-9213-3725c9f420d0.txt:317:      61 + 2. **build_package.py** currently uses `collect_wsd_files()`  
+Good-27eaff45-a330-4a88-9213-3725c9f420d0.txt:319:      62 + 3. **source/wsd.py** uses `collect_wsd_files()` in four       
+Good-27eaff45-a330-4a88-9213-3725c9f420d0.txt:344:  However, stage_release.py currently still uses collect_wsd_files() (line 570), NOT the manifest. The spec was updated to anticipate this feature's changes but describes behavior that doesn't exist yet.
+Good-27eaff45-a330-4a88-9213-3725c9f420d0.txt:364:  Finding 4: Specification Drift Risk - Current collect_wsd_files() Implementation
+Good-27eaff45-a330-4a88-9213-3725c9f420d0.txt:369:  However, the current code already imports and uses collect_wsd_files() from wsd_utils.py extensively. The refactor would replace these calls with direct metadata.file_hashes.keys() access, which is consistent with this guidance. This is fine but worth noting.
+Good-27eaff45-a330-4a88-9213-3725c9f420d0.txt:391:  relative_files = collect_wsd_files(source_dir)
+Good-27eaff45-a330-4a88-9213-3725c9f420d0.txt:398:  Issue: The spec correctly marks diff_installation.py as out of scope (lines 133-136). However, after this feature is complete, diff_installation.py will be the ONLY script still using collect_wsd_files() directly. This could cause subtle bugs if:
+Good-27eaff45-a330-4a88-9213-3725c9f420d0.txt:400:  2. Exclusion patterns in collect_wsd_files() are updated but not synced with manifest
+2.1.6-bad.txt:238:⏺ Search(pattern: "collect_wsd_files", path: "source/wsd.py", output_mode:
+2.1.6-bad.txt:266:⏺ Now let me examine the collect_wsd_files function more closely since this is a key function being replaced.
+2.1.6-bad.txt:271:⏺ Search(pattern: "def collect_wsd_files|class WsdCollectionError", path:
+2.1.6-bad.txt:325:      83 + - `source/wsd.py` - `collect_wsd_files`, `detect_collisions`, 
+2.1.6-bad.txt:329:      84 + - `source/scripts/wsd_utils.py` - `collect_wsd_files`,        
+2.1.6-bad.txt:383:  Related to #3, the FIP tasks for Phase 1 (stage_release.py updates) mention removing collect_wsd_files() but don't explicitly mention removing or deprecating the .wsdignore parsing and suspicious file detection logic. This is a significant amount of code that would become dead if manifest-based retrieval is implemented.
+2.1.6-bad.txt:408:  7. collect_wsd_files() Still Needed for Pre-Staging Script
+2.1.6-bad.txt:410:  The spec correctly states that pre_staging.py will continue to use collect_wsd_files(). However, it also lists task 5.1.2 as "Confirm only pre_staging.py calls this function."
+2.1.6-bad.txt:412:  If collect_wsd_files() is only called by pre_staging.py after this feature, should the function remain in wsd_utils.py (which is part of WSD Runtime) or be moved to dev/scripts/ (since it's only used by a dev tool)?
+2.1.6-bad.txt:414:  This creates a question: Is collect_wsd_files() part of WSD Runtime's public API or just an internal development tool?
+2.0.58-bad.txt:233:⏺ Search(pattern: "collect_wsd_files")
+2.0.58-bad.txt:242:⏺ Now let me examine the wsd_utils.py to understand collect_wsd_files:
+2.0.58-bad.txt:247:⏺ Search(pattern: "def collect_wsd_files", path: "source/scripts/wsd_utils.py",
+2.0.58-bad.txt:309:       58 +  9. source/scripts/wsd_utils.py (collect_wsd_files 
+2.0.58-bad.txt:329:  - Phase 1 (collect_wsd_files): Already implemented in
+2.0.58-bad.txt:341:  dev/scripts/stage_release.py already uses collect_wsd_files() for
+2.0.58-bad.txt:370:  - source/scripts/wsd_utils.py - collect_wsd_files() function
+2.0.58-bad.txt:376:  The FIP says Phase 1 task 1.1 is to "Move collect_wsd_files() from
+2.0.58-bad.txt:378:  - collect_wsd_files() is already in source/scripts/wsd_utils.py
+2.0.58-bad.txt:390:  collect_wsd_files
+docs/reports/Python-Code-Map.md:164:- `collect_wsd_files()`: Validate and collect WSD Runtime files from a directory.
+2.0.60-good.txt:259:  use collect_wsd_files:
+2.0.60-good.txt:261:⏺ Search(pattern: "collect_wsd_files", path: "source/wsd.py", output_mode:
+2.0.60-good.txt:290:  collect_wsd_files(). This is exactly the kind of spec drift the WPD is
+2.0.60-good.txt:293:⏺ Search(pattern: "file_hashes|collect_wsd_files", path:
+2.0.60-good.txt:343:          + `collect_wsd_files()`
+2.0.60-good.txt:345:          + `collect_wsd_files()`
+2.0.60-good.txt:346:       73 +  - `source/wsd.py` - 4 locations using `collect_wsd_files()`
+2.0.60-good.txt:358:       82 +  relative_files = collect_wsd_files(source_dir)
+2.0.60-good.txt:371:          + `collect_wsd_files()` scanning
+2.0.60-good.txt:397:  But stage_release.py line 570 actually uses collect_wsd_files(source_dir).
+docs/features/pre-staging-script/Pre-Staging-Script-Overview.md:75:| File collection   | Uses `wsd_utils.collect_wsd_files()`                                  |
+docs/features/pre-staging-script/Pre-Staging-Script-Overview.md:128:    files = collect_wsd_files(source_dir)
+docs/features/pre-staging-script/Pre-Staging-Script-Overview.md:183:The script MUST use `wsd_utils.collect_wsd_files()` to obtain the list of valid files in `source/`:
+docs/features/pre-staging-script/Pre-Staging-Script-Overview.md:186:from wsd_utils import collect_wsd_files, WsdCollectionError
+docs/features/pre-staging-script/Pre-Staging-Script-Overview.md:189:    files = collect_wsd_files(source_dir)
+docs/features/pre-staging-script/Pre-Staging-Script-Overview.md:663:**Error:** `collect_wsd_files()` raises `WsdCollectionError`
+docs/features/pre-staging-script/Pre-Staging-Script-Overview.md:792:3. **Collection Error**: Create __pycache__ in source/, verify error from collect_wsd_files
+docs/features/pre-staging-script/Pre-Staging-Script-Overview.md:866:  - [x] **3.1.1** - Import and use wsd_utils.collect_wsd_files()
+2.1.6-good.txt:183:⏺ Search(pattern: "collect_wsd_files")
+2.1.6-good.txt:186:⏺ Let me examine the current implementation in source/wsd.py to understand how collect_wsd_files() is currently used, and also check the current state of stage_release.py and build_package.py.
+2.1.6-good.txt:188:⏺ Search(pattern: "collect_wsd_files", path: "source/wsd.py", output_mode:
+2.1.6-good.txt:192:⏺ Search(pattern: "collect_wsd_files", path: "dev/scripts/stage_release.py",
+2.1.6-good.txt:196:⏺ Search(pattern: "collect_wsd_files", path: "dev/scripts/build_package.py",
+2.1.6-good.txt:226:⏺ Search(pattern: "collect_wsd_files", path:
+2.1.6-good.txt:252:  However, the actual implementation in dev/scripts/stage_release.py still uses collect_wsd_files() (line 570). This creates a documentation-implementation mismatch.
+2.1.6-good.txt:280:  5. Ambiguity: "Remove unused collect_wsd_files import" vs "Only pre_staging.py Should Call It"
+2.1.6-good.txt:283:  - 1.1.5: Remove unused collect_wsd_files import from stage_release.py
+2.1.6-good.txt:284:  - 2.1.4: Remove unused collect_wsd_files import from build_package.py
+2.1.6-good.txt:285:  - 3.3: Remove unused collect_wsd_files import from source/wsd.py
+2.1.6-good.txt:287:  But the specification says (line 100): "pre_staging.py is the ONLY script that scans for files using collect_wsd_files()"
+2.1.6-good.txt:289:  Question: Should collect_wsd_files be removed from wsd_utils.py's public API after this feature, or is it still needed for development tools like diff_installation.py?
+2.1.6-good.txt:291:  6. Missing Consideration: diff_installation.py Currently Uses collect_wsd_files()
+2.1.6-good.txt:300:  7. Testing Scenarios Missing: What If Manifest Was Generated with Different collect_wsd_files Logic?
+2.1.6-good.txt:302:  The Testing Scenarios include "No collect_wsd_files Calls" regression test, but they don't cover:
+wsd.py:56:    collect_wsd_files,
+wsd.py:2140:    all_update_files = collect_wsd_files(update_source_dir)
+wsd.py:3881:    all_source_files = collect_wsd_files(source_dir)
+wsd.py:4080:        all_source_files = collect_wsd_files(source_dir)
+wsd.py:4374:        all_source_files = collect_wsd_files(source_dir)
+scripts/wsd_utils.py:18:    collect_wsd_files: Validate and collect WSD Runtime files from a directory
+scripts/wsd_utils.py:907:def collect_wsd_files(directory: Path) -> list[Path]:
+dev/workscopes/archive/Workscope-20260105-153116.md:34:- [ ] **6.2** - Import `collect_wsd_files`, `WsdCollectionError`
+dev/workscopes/archive/Workscope-20260105-153116.md:36:- [ ] **6.4** - Update callers to use `collect_wsd_files()`
+dev/workscopes/archive/Workscope-20260105-153116.md:69:This workscope completes Phase 6 of the unified WSD file collection refactoring ticket. The goal is to refactor `dev/scripts/diff_installation.py` to use the new shared `collect_wsd_files()` utility function from `wsd_utils.py` instead of its local `walk_source_files()` implementation.
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:9:The Manifest-Driven Pipeline establishes `wsd.json` as the single source of truth for WSD Runtime file membership throughout the entire distribution pipeline. After the Pre-Staging-Script feature populates `source/wsd.json` with `file_hashes`, all subsequent pipeline stages read their file lists from the manifest instead of re-scanning the filesystem using `collect_wsd_files()`.
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:23:3. **Simplification**: Removes duplicated `collect_wsd_files()` calls from multiple scripts, reducing code complexity and maintenance burden
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:100:`pre_staging.py` is the ONLY script that scans for files using `collect_wsd_files()`. It populates `file_hashes` in `source/wsd.json`. This script is unaffected by this feature as it is the source of truth generator, not a consumer.
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:104:**Current Behavior**: Uses `collect_wsd_files()` to scan `source/` for files to stage.
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:109:- `dev/scripts/stage_release.py`: Remove `collect_wsd_files()` call, add manifest reading
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:113:**Current Behavior**: Uses `collect_wsd_files()` to scan `staging/` for files to package.
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:118:- `dev/scripts/build_package.py`: Remove `collect_wsd_files()` call, add manifest reading
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:122:**Current Behavior**: Uses `collect_wsd_files()` in multiple locations:
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:128:**Required Change**: Use `metadata.file_hashes.keys()` instead of scanning with `collect_wsd_files()` in all four functions.
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:135:`diff_installation.py` is a development utility script for comparing WSD installations. While it currently uses `collect_wsd_files()`, updating it to use manifest-based file lists is deferred as a future consideration. This script is not part of the core distribution pipeline and does not affect end-user installations.
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:212:**Problem**: The pre-manifest approach had each pipeline stage independently scan for files using `collect_wsd_files()`. This created several issues:
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:286:1. **No collect_wsd_files Calls**: After implementation, grep codebase to verify `collect_wsd_files()` only called in `pre_staging.py`
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:294:1. **Never Add New Scanning**: If you need a file list, read it from the manifest. Do not add new `collect_wsd_files()` calls.
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:329:- [ ] **1.1** - Remove `collect_wsd_files()` usage from `dev/scripts/stage_release.py`
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:334:  - [ ] **1.1.5** - Remove unused `collect_wsd_files` import from script
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:342:- [ ] **2.1** - Remove `collect_wsd_files()` usage from `dev/scripts/build_package.py`
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:346:  - [ ] **2.1.4** - Remove unused `collect_wsd_files` import from script
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:360:- [ ] **3.3** - Remove unused `collect_wsd_files` import from `source/wsd.py`
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:369:  - [%] **4.1.2** - Remove or update references to `collect_wsd_files()` scanning
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:381:- [ ] **5.1** - Verify no remaining `collect_wsd_files()` calls outside `pre_staging.py`
+docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md:382:  - [ ] **5.1.1** - Grep codebase for `collect_wsd_files` usage
+docs/archive/hash-computation-audit.md:149:These tasks may ALSO be unnecessary if the implementation is already correct. However, that feature focuses on using `metadata.file_hashes.keys()` for the FILE LIST (not just hashes), which IS still pending work (the code currently uses `collect_wsd_files()` for file enumeration).
+dev/scripts/stage_release.py:27:from wsd_utils import WsdCollectionError, collect_wsd_files
+dev/scripts/stage_release.py:570:        relative_files = collect_wsd_files(source_dir)
+dev/scripts/diff_installation.py:37:from wsd_utils import WsdCollectionError, collect_wsd_files
+dev/scripts/diff_installation.py:1287:        rel_paths = collect_wsd_files(source_dir)
+dev/scripts/build_package.py:40:from wsd_utils import WsdCollectionError, collect_wsd_files
+dev/scripts/build_package.py:435:        validated_files: List of validated relative file paths from collect_wsd_files().
+dev/scripts/build_package.py:494:        validated_files: List of validated relative file paths from collect_wsd_files().
+dev/scripts/build_package.py:905:        validated_files = collect_wsd_files(staging_dir)
+tests/test_stage_release.py:34:from wsd_utils import WsdCollectionError, collect_wsd_files
+tests/test_stage_release.py:165:    def test_collect_wsd_files_builds_file_list(self, mock_source_dir: Path) -> None:
+tests/test_stage_release.py:166:        """Test that collect_wsd_files builds a validated file list.
+tests/test_stage_release.py:171:        relative_files = collect_wsd_files(mock_source_dir)
+tests/test_stage_release.py:226:        # Get files to stage using collect_wsd_files and convert to absolute paths
+tests/test_stage_release.py:227:        relative_files = collect_wsd_files(mock_source_dir)
+tests/test_stage_release.py:249:        # Get files to stage using collect_wsd_files and convert to absolute paths
+tests/test_stage_release.py:250:        relative_files = collect_wsd_files(mock_source_dir)
+tests/test_stage_release.py:312:    def test_collect_wsd_files_detects_symlinks(self, tmp_path: Path) -> None:
+tests/test_stage_release.py:313:        """Test that collect_wsd_files errors on symlinks.
+tests/test_stage_release.py:330:            collect_wsd_files(source)
+tests/test_stage_release.py:334:    def test_collect_wsd_files_detects_empty_directories(self, tmp_path: Path) -> None:
+tests/test_stage_release.py:335:        """Test that collect_wsd_files errors on empty directories.
+tests/test_stage_release.py:348:            collect_wsd_files(source)
+tests/test_stage_release.py:352:    def test_collect_wsd_files_detects_suspicious_files(self, tmp_path: Path) -> None:
+tests/test_stage_release.py:353:        """Test that collect_wsd_files errors on suspicious files.
+tests/test_stage_release.py:365:            collect_wsd_files(source)
+tests/test_stage_release.py:392:        # Get files using collect_wsd_files and convert to absolute paths
+tests/test_stage_release.py:393:        relative_files = collect_wsd_files(mock_source_dir)
+tests/test_stage_release.py:414:        # Get files using collect_wsd_files and convert to absolute paths
+tests/test_stage_release.py:415:        relative_files = collect_wsd_files(mock_source_dir)
+tests/test_stage_release.py:588:    Note: These tests verify that collect_wsd_files() (from wsd_utils) handles
+tests/test_stage_release.py:611:        files = collect_wsd_files(source)
+tests/test_stage_release.py:634:            collect_wsd_files(source)
+tests/test_stage_release.py:808:        relative_files = collect_wsd_files(real_source_dir)
+tests/test_stage_release.py:857:        relative_files = collect_wsd_files(real_source_dir)
+tests/test_stage_release.py:898:        relative_files = collect_wsd_files(real_source_dir)
+tests/test_stage_release.py:1000:        relative_files = collect_wsd_files(real_source_dir)
+tests/test_stage_release.py:1008:        relative_files = collect_wsd_files(real_source_dir)
+tests/test_stage_release.py:1056:            collect_wsd_files(source)
+dev/scripts/pre_staging.py:31:from wsd_utils import WsdCollectionError, calculate_file_hash, collect_wsd_files
+dev/scripts/pre_staging.py:835:        files = collect_wsd_files(source_dir)
+dev/workscopes/archive/Workscope-20260105-102510.md:18:Phase 3: 3.1 - Import `collect_wsd_files`, `WsdCollectionError` from wsd_utils
+dev/workscopes/archive/Workscope-20260105-102510.md:37:- [ ] **1.6** - Implement `collect_wsd_files()` using iterdir() recursively
+tests/test_wsd_utils.py:28:    collect_wsd_files,
+tests/test_wsd_utils.py:1956:    """Tests for collect_wsd_files() function.
+tests/test_wsd_utils.py:1963:    collect_wsd_files() requires a clean directory to scan. The isolated_test_env
+tests/test_wsd_utils.py:1989:        files = collect_wsd_files(tmp_path)
+tests/test_wsd_utils.py:2016:        files = collect_wsd_files(tmp_path)
+tests/test_wsd_utils.py:2046:        files = collect_wsd_files(tmp_path)
+tests/test_wsd_utils.py:2073:        files = collect_wsd_files(tmp_path)
+tests/test_wsd_utils.py:2096:            collect_wsd_files(tmp_path)
+tests/test_wsd_utils.py:2118:            collect_wsd_files(tmp_path)
+tests/test_wsd_utils.py:2140:            collect_wsd_files(tmp_path)
+tests/test_wsd_utils.py:2161:            collect_wsd_files(tmp_path)
+tests/test_wsd_utils.py:2184:            collect_wsd_files(tmp_path)
+tests/test_wsd_utils.py:2205:            collect_wsd_files(tmp_path)
+tests/test_wsd_utils.py:2230:        files = collect_wsd_files(tmp_path)
+tests/test_wsd_utils.py:2253:            collect_wsd_files(tmp_path)
+tests/test_wsd_utils.py:2274:            collect_wsd_files(tmp_path)
+tests/test_wsd_utils.py:2300:        files = collect_wsd_files(tmp_path)
+tests/test_wsd_utils.py:2328:        files = collect_wsd_files(tmp_path)
+docs/archive/manifest-driven-pipeline-feature-brief.md:11:Replace empirical file scanning (`collect_wsd_files()`) throughout the WSD distribution pipeline with manifest-based file list retrieval from `wsd.json`, establishing the manifest as the single source of truth for WSD Runtime file membership.
+docs/archive/manifest-driven-pipeline-feature-brief.md:17:The current WSD distribution pipeline re-scans for file membership at every stage using `collect_wsd_files()`. After the Pre-Staging-Script feature completes, `source/wsd.json` will contain `file_hashes` with a hash for every file in the WSD Runtime. This means we have an explicit, authoritative list of files from the very beginning of the pipeline, yet subsequent stages still redundantly scan for files.
+docs/archive/manifest-driven-pipeline-feature-brief.md:19:**Current redundant `collect_wsd_files()` calls (after Pre-Staging feature):**
+docs/archive/manifest-driven-pipeline-feature-brief.md:60:- Removing remaining `collect_wsd_files()` calls from `stage_release.py`
+docs/archive/manifest-driven-pipeline-feature-brief.md:61:- Removing `collect_wsd_files()` calls from `build_package.py`
+docs/archive/manifest-driven-pipeline-feature-brief.md:62:- Removing `collect_wsd_files()` calls from `source/wsd.py` install/update operations
+docs/archive/manifest-driven-pipeline-feature-brief.md:63:- Removing `collect_wsd_files()` calls from `diff_installation.py`
+docs/archive/manifest-driven-pipeline-feature-brief.md:82:- Remove `collect_wsd_files()` call at line 747
+docs/archive/manifest-driven-pipeline-feature-brief.md:95:- Remove `collect_wsd_files()` call at line 905
+docs/archive/manifest-driven-pipeline-feature-brief.md:102:- `install_files()` (line 4320): Replace `collect_wsd_files()` with `metadata.file_hashes.keys()`
+docs/archive/manifest-driven-pipeline-feature-brief.md:103:- `categorize_update_files()` (line 2128): Replace `collect_wsd_files()` with `update_metadata.file_hashes.keys()`
+docs/archive/manifest-driven-pipeline-feature-brief.md:104:- `detect_collisions()` (line 3831): Replace `collect_wsd_files()` with manifest reading
+docs/archive/manifest-driven-pipeline-feature-brief.md:109:- Remove `collect_wsd_files()` call at line 1287
+docs/archive/manifest-driven-pipeline-feature-brief.md:135:After this feature, `collect_wsd_files()` should ONLY be called by `pre_staging.py`. All other pipeline stages MUST use the manifest.
+docs/archive/manifest-driven-pipeline-feature-brief.md:177:1. **Zero `collect_wsd_files()` calls outside `pre_staging.py`** - All pipeline stages use manifest
+dev/journal/archive/Journal-Workscope-20260109-192211.md:111:- source/scripts/wsd_utils.py - Contains `calculate_file_hash()`, `WsdCollectionError`, and `collect_wsd_files()`
+tests/test_pre_staging.py:47:from wsd_utils import WsdCollectionError, collect_wsd_files
+tests/test_pre_staging.py:894:        The pre_staging script calls collect_wsd_files which can raise
+tests/test_pre_staging.py:911:            collect_wsd_files(source)
+dev/workscopes/archive/Workscope-20260105-141858.md:42:- [ ] **5.2** - Import `collect_wsd_files`, `WsdCollectionError`
+dev/workscopes/archive/Workscope-20260105-141858.md:43:- [ ] **5.3** - Update `copy_staged_files()` to use `collect_wsd_files()`
+dev/workscopes/archive/Workscope-20260105-141858.md:44:- [ ] **5.4** - Remove or simplify `scan_for_special_characters()` (filename safety now in collect_wsd_files)
+dev/workscopes/archive/Workscope-20260105-141858.md:54:- `source/scripts/wsd_utils.py` - Contains the new `collect_wsd_files()` function
+dev/workscopes/archive/Workscope-20260105-141858.md:68:This workscope refactors `dev/scripts/build_package.py` to use the new unified `collect_wsd_files()` function from `source/scripts/wsd_utils.py`. This is part of a larger effort to consolidate five different implementations of WSD file collection logic into a single, well-tested function.
+dev/workscopes/archive/Workscope-20260105-141858.md:73:3. Remove redundant code (special character scanning is now handled by collect_wsd_files)
+dev/workscopes/archive/Workscope-20260105-111204.md:18:Phase 3: 3.1 - Import collect_wsd_files, WsdCollectionError from wsd_utils
+dev/workscopes/archive/Workscope-20260105-111204.md:25:FIRST AVAILABLE ITEM: 3.1 - Import collect_wsd_files, WsdCollectionError from wsd_utils
+dev/workscopes/archive/Workscope-20260105-111204.md:32:- [ ] **3.1** - Import `collect_wsd_files`, `WsdCollectionError` from wsd_utils
+dev/workscopes/archive/Workscope-20260105-111204.md:36:- [ ] **3.5** - Update `perform_full_update()` to use `collect_wsd_files()`
+dev/workscopes/archive/Workscope-20260105-111204.md:37:- [ ] **3.6** - Update `detect_collisions()` to use `collect_wsd_files()`
+dev/workscopes/archive/Workscope-20260105-111204.md:38:- [ ] **3.7** - Update `check_for_interrupted_update()` to use `collect_wsd_files()`
+dev/workscopes/archive/Workscope-20260105-111204.md:39:- [ ] **3.8** - Update `install_files()` to use `collect_wsd_files()`
+dev/workscopes/archive/Workscope-20260105-111204.md:66:- source/scripts/wsd_utils.py (contains new collect_wsd_files function)
+dev/workscopes/archive/Workscope-20260106-204703.md:22:FIRST AVAILABLE ITEM: 1.1.1 - Partition collect_wsd_files() result into regular_files and wsdkeep_candidates
+dev/workscopes/archive/Workscope-20260106-204703.md:29:- `[ ]` **1.1.1** - Partition `collect_wsd_files()` result into `regular_files` and `wsdkeep_candidates`
+dev/workscopes/archive/Workscope-20260105-134617.md:27:- [ ] **4.2** - Import `collect_wsd_files`, `WsdCollectionError`
+dev/workscopes/archive/Workscope-20260105-134617.md:31:- [ ] **4.6** - Update main staging workflow to use `collect_wsd_files()`
+dev/workscopes/archive/Workscope-20260105-134617.md:50:- `/Users/gray/Projects/workscope/source/scripts/wsd_utils.py` (contains `collect_wsd_files()`)
+dev/workscopes/archive/Workscope-20260105-134617.md:53:- `/Users/gray/Projects/workscope/tests/test_wsd_utils.py` (tests for `collect_wsd_files()`)
+dev/workscopes/archive/Workscope-20260105-134617.md:59:This workscope refactors `dev/scripts/stage_release.py` to use the newly created unified `collect_wsd_files()` function from `wsd_utils.py`. The work involves removing the old `prescan_source()` implementation and its helper functions, replacing them with the standardized file collection utility that provides consistent validation across all WSD pipeline stages.
+dev/journal/archive/Journal-Workscope-20260105-153116.md:51:- [ ] **6.2** - Import `collect_wsd_files`, `WsdCollectionError`
+dev/journal/archive/Journal-Workscope-20260105-153116.md:53:- [ ] **6.4** - Update callers to use `collect_wsd_files()`
+dev/journal/archive/Journal-Workscope-20260105-153116.md:86:This workscope completes Phase 6 of the unified WSD file collection refactoring ticket. The goal is to refactor `dev/scripts/diff_installation.py` to use the new shared `collect_wsd_files()` utility function from `wsd_utils.py` instead of its local `walk_source_files()` implementation.
+dev/journal/archive/Journal-Workscope-20260105-153116.md:143:- **Function to import:** `collect_wsd_files()` from source/scripts/wsd_utils.py
+dev/journal/archive/Journal-Workscope-20260105-153116.md:150:from wsd_utils import WsdCollectionError, collect_wsd_files
+dev/journal/archive/Journal-Workscope-20260105-153116.md:155:- Update to: `for rel_path in collect_wsd_files(source_dir):`
+dev/journal/archive/Journal-Workscope-20260105-153116.md:160:- `collect_wsd_files()` returns **relative paths** (list[Path] relative to directory)
+dev/journal/archive/Journal-Workscope-20260105-153116.md:167:2. **Rule 5.1 (Backward Compatibility):** Code should look like it always used `collect_wsd_files()`
+dev/journal/archive/Journal-Workscope-20260105-153116.md:183:4. Error handling changes - `collect_wsd_files()` raises `WsdCollectionError`
+dev/journal/archive/Journal-Workscope-20260105-153116.md:192:The ticket "Unify WSD File Collection into Single Function" aims to consolidate multiple independent WSD file collection implementations across the codebase into a single `collect_wsd_files()` function in `wsd_utils.py`. This eliminates duplicate code, fixes bugs (VCS exclusion missing in some scripts), and ensures consistent validation across all pipeline stages.
+dev/journal/archive/Journal-Workscope-20260105-153116.md:195:- **Phase 1:** Create core `collect_wsd_files()` function and `WsdCollectionError` in wsd_utils.py ✓
+dev/journal/archive/Journal-Workscope-20260105-153116.md:207:3. Update callers to use `collect_wsd_files()` instead
+dev/journal/archive/Journal-Workscope-20260105-153116.md:236:### Task 6.2: Import collect_wsd_files, WsdCollectionError
+dev/journal/archive/Journal-Workscope-20260105-153116.md:241:from wsd_utils import WsdCollectionError, collect_wsd_files
+dev/journal/archive/Journal-Workscope-20260105-153116.md:253:### Task 6.4: Update callers to use collect_wsd_files()
+dev/journal/archive/Journal-Workscope-20260105-153116.md:269:    rel_paths = collect_wsd_files(source_dir)
+dev/journal/archive/Journal-Workscope-20260105-153116.md:302:The script is working correctly with the new `collect_wsd_files()` function.
+dev/journal/archive/Journal-Workscope-20260105-153116.md:314:- Function replacement executed properly (walk_source_files → collect_wsd_files)
+dev/journal/archive/Journal-Workscope-20260105-153116.md:326:- Rule 5.1 (No Backward Compatibility References): COMPLIANT - Code looks like it always used collect_wsd_files()
+dev/journal/archive/Journal-Workscope-20260105-153116.md:342:- Updated tests in `test_diff_installation.py` to use `collect_wsd_files()` instead of removed `walk_source_files()`
+dev/journal/archive/Journal-Workscope-20260105-153116.md:343:- Added `.wsdkeep` placeholder files to mock directories for `collect_wsd_files()` validation
+dev/workscopes/archive/Workscope-20260107-085643.md:32:  - [ ] **3.1.2** - Verify `collect_wsd_files()` behavior unchanged
+dev/workscopes/archive/Workscope-20260107-085643.md:66:- source/scripts/wsd_utils.py (collect_wsd_files function)
+dev/workscopes/archive/Workscope-20260107-085643.md:81:- Verify `collect_wsd_files()` behavior is unchanged (still returns `.wsdkeep` files)
+dev/workscopes/archive/Workscope-20260108-193543.md:32:  - [ ] **3.1.1** - Import and use wsd_utils.collect_wsd_files()
+dev/workscopes/archive/Workscope-20260108-193543.md:67:- Requires `source/scripts/wsd_utils.py` with `collect_wsd_files()` and `calculate_file_hash()` functions
+dev/journal/archive/Journal-Workscope-20260106-183534.md:86:- `source/scripts/wsd_utils.py` - `collect_wsd_files()` function
+dev/journal/archive/Journal-Workscope-20260106-183534.md:99:- `tests/test_wsd_utils.py` - `collect_wsd_files()` tests
+dev/journal/archive/Journal-Workscope-20260106-183534.md:177:**Verification needed:** When `collect_wsd_files()` excludes `.wsdkeep`, the staging script's hash generation won't include them. This is correct (empty files have no meaningful hash), but we should verify the staging script doesn't fail when encountering files that exist in source but not in the collection list.
+dev/journal/archive/Journal-Workscope-20260106-183534.md:179:**Status:** LOW RISK - Staging script iterates over `collect_wsd_files()` result, so excluded files are simply never processed.
+dev/journal/archive/Journal-Workscope-20260106-183534.md:185:The ticket's proposed change to `collect_wsd_files()` excludes `.wsdkeep` from the RETURNED list but keeps existing validation that empty directories have `.wsdkeep` (raises error if missing). This is correct - the staging script's validation continues to work.
+dev/journal/archive/Journal-Workscope-20260106-183534.md:324:- Exclude `.wsdkeep` from `collect_wsd_files()`
+dev/journal/archive/Journal-Workscope-20260106-183534.md:330:- `collect_wsd_files()` UNCHANGED - still returns `.wsdkeep`
+tests/test_diff_installation.py:30:from wsd_utils import collect_wsd_files
+tests/test_diff_installation.py:788:        files = list(collect_wsd_files(mock_source_dir))
+tests/test_diff_installation.py:798:        Note: The collect_wsd_files function returns relative paths and does not
+tests/test_diff_installation.py:807:        files = list(collect_wsd_files(mock_source_dir))
+tests/test_diff_installation.py:1005:        for rel_path in collect_wsd_files(mock_source_dir):
+source/wsd.py:56:    collect_wsd_files,
+source/wsd.py:2140:    all_update_files = collect_wsd_files(update_source_dir)
+source/wsd.py:3881:    all_source_files = collect_wsd_files(source_dir)
+source/wsd.py:4080:        all_source_files = collect_wsd_files(source_dir)
+source/wsd.py:4374:        all_source_files = collect_wsd_files(source_dir)
+docs/archive/pre-staging-script-feature-brief.md:33:1. Collects valid files from `source/` using existing `wsd_utils.collect_wsd_files()`
+docs/archive/pre-staging-script-feature-brief.md:52:- `wsd_utils.collect_wsd_files()` - File collection with suspicious file detection and `.wsdkeep` validation
+docs/archive/pre-staging-script-feature-brief.md:87:- File collection via `wsd_utils.collect_wsd_files()`
+docs/archive/pre-staging-script-feature-brief.md:128:- File collection via `collect_wsd_files()`
+docs/archive/pre-staging-script-feature-brief.md:175:3. **Reuse Existing Utilities**: Must use `wsd_utils.collect_wsd_files()` and `wsd_utils.calculate_file_hash()` - no reimplementation.
+dev/workscopes/archive/Workscope-20260108-182143.md:63:- source/scripts/wsd_utils.py (for collect_wsd_files and calculate_file_hash)
+dev/workscopes/archive/Workscope-20260111-110004.md:51:  - [ ] **4.5.1** - Replace `TestWsdkeepStagingBehavior` class (4 tests) - these test outdated behavior where `.wsdkeep` flows through staging. Note: Tests verifying `.wsdkeep` is NOT in staged output are DEFERRED to the Manifest-Driven Pipeline ticket (stage_release.py still uses `collect_wsd_files()` until MDP completes)
+dev/workscopes/archive/Workscope-20260105-104702.md:18:Phase 3: 3.1 - Import `collect_wsd_files`, `WsdCollectionError` from wsd_utils
+dev/workscopes/archive/Workscope-20260105-104702.md:83:This workscope focuses on creating comprehensive test coverage for the newly implemented `collect_wsd_files()` function in `source/scripts/wsd_utils.py`. Phase 1 completed the implementation of the core function, and Phase 2 ensures it behaves correctly across all edge cases and validation scenarios.
+2.0.58-good.txt:256:   functions that use collect_wsd_files():
+2.0.58-good.txt:258:⏺ Search(pattern: "collect_wsd_files", path: "source/wsd.py", output_mode:
+2.0.58-good.txt:280:⏺ Search(pattern: "manifest-based|file_hashes\.keys|collect_wsd_files", path:
+2.0.58-good.txt:287:  actual code in stage_release.py, it still uses collect_wsd_files(). Let me
+2.0.58-good.txt:342:  manifest-based file list, but code still uses collect_wsd_files()
+2.0.58-good.txt:352:  relative_files = collect_wsd_files(source_dir)
+2.0.58-good.txt:374:  - The actual code still uses collect_wsd_files()
+2.0.58-good.txt:465:  However, if diff_installation.py continues using collect_wsd_files() while
+2.0.58-good.txt:496:  Finding 8: No mention of collect_wsd_files removal/deprecation
+2.0.58-good.txt:501:  collect_wsd_files() calls outside pre_staging.py", but there's no task to
+2.0.58-good.txt:503:  - Mark collect_wsd_files as deprecated
+2.0.58-good.txt:507:  Impact: Future developers might add new calls to collect_wsd_files() not
+2.0.58-good.txt:522:  code uses collect_wsd_files() |
+2.0.58-good.txt:535:  | 8   | MEDIUM   | Add task for collect_wsd_files usage
+Bad-504216d1-8285-4ec4-92be-0db8dc92a18a.txt:306:⏺ Search(pattern: "collect_wsd_files")
+Bad-504216d1-8285-4ec4-92be-0db8dc92a18a.txt:312:⏺ Let me examine the wsd_utils.py to understand collect_wsd_files and check the source wsd.py for the install/update logic.
+Bad-504216d1-8285-4ec4-92be-0db8dc92a18a.txt:353:⏺ Now let me also check the existing implementation in categorize_update_files more closely to understand what it's doing with collect_wsd_files:
+Bad-504216d1-8285-4ec4-92be-0db8dc92a18a.txt:394:      86 + 7. `source/scripts/wsd_utils.py` - collect_wsd_files          
+Bad-504216d1-8285-4ec4-92be-0db8dc92a18a.txt:421:  The WPD discusses the pre-staging script generating file_hashes in wsd.json but Phase 1 of the FIP (tasks 1.1-1.4) focuses on refactoring collect_wsd_files. The spec says the staging script will "read the file list from file_hashes.keys() in the manifest" but Phase 1 doesn't explicitly address how collect_wsd_files should interact with file_hashes (if at all). The relationship between manifest-driven enumeration vs. filesystem walking needs clarification.
+Bad-504216d1-8285-4ec4-92be-0db8dc92a18a.txt:425:  The spec title is "Manifest-Driven Pipeline" and mentions relying on file_hashes.keys() from wsd.json, but the FIP Phase 1 tasks are all about making collect_wsd_files (a filesystem walker) reusable. There's a conceptual tension:
+Bad-504216d1-8285-4ec4-92be-0db8dc92a18a.txt:427:  - Or is it driven by filesystem enumeration (what collect_wsd_files does)?
+Bad-504216d1-8285-4ec4-92be-0db8dc92a18a.txt:461:  - collect_wsd_files() walks the filesystem
+Bad-504216d1-8285-4ec4-92be-0db8dc92a18a.txt:465:  The WPD uses "manifest-driven" but the FIP focuses on collect_wsd_files (filesystem-driven). The terminology should be consistent.
+Bad-504216d1-8285-4ec4-92be-0db8dc92a18a.txt:469:  Phase 3 focuses on testing collect_wsd_files behavior (symlinks, suspicious files, etc.), but if the pipeline is truly "manifest-driven," there should be tests verifying:
+Bad-504216d1-8285-4ec4-92be-0db8dc92a18a.txt:476:  dev/scripts/build_package.py also uses collect_wsd_files() (line 905). The WPD doesn't mention whether/how the build script will adopt the manifest-driven approach or continue using filesystem enumeration.
+source/scripts/wsd_utils.py:18:    collect_wsd_files: Validate and collect WSD Runtime files from a directory
+source/scripts/wsd_utils.py:907:def collect_wsd_files(directory: Path) -> list[Path]:
+dev/journal/archive/Journal-Workscope-20260106-140708.md:95:- `source/scripts/wsd_utils.py` - `collect_wsd_files()` function
+dev/journal/archive/Journal-Workscope-20260106-140708.md:105:- `tests/test_wsd_utils.py` - `collect_wsd_files()` tests
+dev/journal/archive/Journal-Workscope-20260106-140708.md:119:1. `source/scripts/wsd_utils.py` - `collect_wsd_files()` **INCLUDES** `.wsdkeep` in returned file list
+dev/journal/archive/Journal-Workscope-20260106-140708.md:143:- `collect_wsd_files()` is in `wsd_utils.py` ✓
+dev/journal/archive/Journal-Workscope-20260106-140708.md:147:**RECOMMENDATION**: Add `get_required_wsd_directories()` to `source/scripts/wsd_utils.py` alongside `collect_wsd_files()` since both are about discovering source structure. Update Phase 1.2 to specify this.
+dev/journal/archive/Journal-Workscope-20260106-140708.md:196:- `collect_wsd_files()` is in `wsd_utils.py` (Python)
+docs/tickets/closed/introduce-required-directories-field-replace-wsdkeep-tracking.md:51:**`collect_wsd_files()`**: Returns `.wsdkeep` files and validates empty directories have them (lines 857-868 in `wsd_utils.py`)
+docs/tickets/closed/introduce-required-directories-field-replace-wsdkeep-tracking.md:165:- `source/scripts/wsd_utils.py` - `.wsdkeep` files still collected by `collect_wsd_files()` for empty directory validation; exclusion happens at hash generation time in `pre_staging.py`
+docs/tickets/closed/introduce-required-directories-field-replace-wsdkeep-tracking.md:175:- `tests/test_wsd_utils.py` - KEEP tests for `collect_wsd_files()` empty directory validation (behavior unchanged)
+docs/tickets/closed/introduce-required-directories-field-replace-wsdkeep-tracking.md:189:1. `collect_wsd_files()` continues to return `.wsdkeep` files - this is correct because `pre_staging.py` needs them to discover required directories
+docs/tickets/closed/introduce-required-directories-field-replace-wsdkeep-tracking.md:200:   - `collect_wsd_files()` returns `.wsdkeep` files (correct - it's the filesystem scanner)
+docs/tickets/closed/introduce-required-directories-field-replace-wsdkeep-tracking.md:206:5. **Coordination with Manifest-Driven Pipeline:** This ticket and the MDP feature will be executed back-to-back. After this ticket completes, `stage_release.py` still uses `collect_wsd_files()` (so `.wsdkeep` would still be staged). After MDP completes, `stage_release.py` uses `file_hashes.keys()` (so `.wsdkeep` is not staged). The full benefit materializes after both features are complete.
+docs/tickets/closed/introduce-required-directories-field-replace-wsdkeep-tracking.md:312:  - [x] **4.5.1** - Replace `TestWsdkeepStagingBehavior` class (4 tests) - these test outdated behavior where `.wsdkeep` flows through staging. Note: Tests verifying `.wsdkeep` is NOT in staged output are DEFERRED to the Manifest-Driven Pipeline ticket (stage_release.py still uses `collect_wsd_files()` until MDP completes)
+docs/tickets/closed/exclude-vcs-directories-from-build-package.md:14:- Creates a single `collect_wsd_files()` function that all file scanning operations will use
+docs/tickets/closed/fix-noreturn-type-annotations-error-reporters.md:42:    source_files = collect_wsd_files(source_dir)
+dev/journal/archive/Journal-Workscope-20260108-204120.md:132:  - `collect_wsd_files()` function (lines 907+)
+dev/journal/archive/Journal-Workscope-20260108-204120.md:436:- Moved `collect_wsd_files` import to module level (auto-fixed)
+docs/tickets/closed/pre-staging-validate-installation-only-hash-exclusivity.md:37:1. `sync_file_hashes()` collects files via `collect_wsd_files()`
+docs/tickets/closed/unify-wsd-file-collection-into-single-function.md:109:Create a single unified `collect_wsd_files()` function in `source/scripts/wsd_utils.py` that:
+docs/tickets/closed/unify-wsd-file-collection-into-single-function.md:127:def collect_wsd_files(directory: Path) -> list[Path]:
+docs/tickets/closed/unify-wsd-file-collection-into-single-function.md:204:- `source/scripts/wsd_utils.py` - Add `collect_wsd_files()` and `WsdCollectionError`
+docs/tickets/closed/unify-wsd-file-collection-into-single-function.md:239:from wsd_utils import collect_wsd_files, WsdCollectionError
+docs/tickets/closed/unify-wsd-file-collection-into-single-function.md:249:No issues discovered during validation. The `collect_wsd_files()` function consolidation is complete and all refactored components are working correctly.
+docs/tickets/closed/unify-wsd-file-collection-into-single-function.md:264:- [x] **1.6** - Implement `collect_wsd_files()` using iterdir() recursively
+docs/tickets/closed/unify-wsd-file-collection-into-single-function.md:288:- [x] **3.1** - Import `collect_wsd_files`, `WsdCollectionError` from wsd_utils
+docs/tickets/closed/unify-wsd-file-collection-into-single-function.md:292:- [x] **3.5** - Update `perform_full_update()` to use `collect_wsd_files()`
+docs/tickets/closed/unify-wsd-file-collection-into-single-function.md:293:- [x] **3.6** - Update `detect_collisions()` to use `collect_wsd_files()`
+docs/tickets/closed/unify-wsd-file-collection-into-single-function.md:294:- [x] **3.7** - Update `calculate_required_disk_space()` to use `collect_wsd_files()`
+docs/tickets/closed/unify-wsd-file-collection-into-single-function.md:295:- [x] **3.8** - Update `install_files()` to use `collect_wsd_files()`
+docs/tickets/closed/unify-wsd-file-collection-into-single-function.md:302:- [x] **4.2** - Import `collect_wsd_files`, `WsdCollectionError`
+docs/tickets/closed/unify-wsd-file-collection-into-single-function.md:306:- [x] **4.6** - Update main staging workflow to use `collect_wsd_files()`
+docs/tickets/closed/unify-wsd-file-collection-into-single-function.md:313:- [x] **5.2** - Import `collect_wsd_files`, `WsdCollectionError`
+docs/tickets/closed/unify-wsd-file-collection-into-single-function.md:314:- [x] **5.3** - Update `copy_staged_files()` to use `collect_wsd_files()`
+docs/tickets/closed/unify-wsd-file-collection-into-single-function.md:315:- [x] **5.4** - Remove or simplify `scan_for_special_characters()` (filename safety now in collect_wsd_files)
+docs/tickets/closed/unify-wsd-file-collection-into-single-function.md:323:- [x] **6.2** - Import `collect_wsd_files`, `WsdCollectionError`
+docs/tickets/closed/unify-wsd-file-collection-into-single-function.md:325:- [x] **6.4** - Update callers to use `collect_wsd_files()`
+docs/tickets/closed/refactor-wsdkeep-as-structural-artifact-not-tracked-file.md:65:    # collect_wsd_files() STILL returns .wsdkeep files (no change needed)
+docs/tickets/closed/refactor-wsdkeep-as-structural-artifact-not-tracked-file.md:66:    all_files = collect_wsd_files(source_dir)
+docs/tickets/closed/refactor-wsdkeep-as-structural-artifact-not-tracked-file.md:118:**1. File Collection - NO CHANGE to `collect_wsd_files()`**
+docs/tickets/closed/refactor-wsdkeep-as-structural-artifact-not-tracked-file.md:120:`collect_wsd_files()` continues to return `.wsdkeep` files. The `.wsdkeep` files in source ARE the markers for required directories - we need them in the list to process them.
+docs/tickets/closed/refactor-wsdkeep-as-structural-artifact-not-tracked-file.md:167:- `source/scripts/wsd_utils.py` - NO CHANGES (`collect_wsd_files()` continues to return `.wsdkeep`)
+docs/tickets/closed/refactor-wsdkeep-as-structural-artifact-not-tracked-file.md:206:  - [x] **1.1.1** - Partition `collect_wsd_files()` result into `regular_files` and `wsdkeep_candidates`
+docs/tickets/closed/refactor-wsdkeep-as-structural-artifact-not-tracked-file.md:247:  - [x] **3.1.2** - Verify `collect_wsd_files()` behavior unchanged
+dev/journal/archive/Journal-Workscope-20260108-184658.md:92:- `source/scripts/wsd_utils.py` - Contains `collect_wsd_files()` function (lines 907-1013), `WsdCollectionError`, `calculate_file_hash()`
+dev/journal/archive/Journal-Workscope-20260108-184658.md:160:   - `WsdCollectionError` and `collect_wsd_files` from `wsd_utils`
+dev/journal/archive/Journal-Workscope-20260108-184658.md:183:   - Integrated file collection with `collect_wsd_files()`
+dev/journal/archive/Journal-Workscope-20260107-203618.md:100:- Collects files from `source/` using `collect_wsd_files()`
+dev/journal/archive/Journal-Workscope-20260107-203618.md:123:5. **`.wsdkeep` validation preserved** - Already in `wsd_utils.collect_wsd_files()` (lines 857-868)
+dev/journal/archive/Journal-Workscope-20260105-102510.md:25:Phase 3: 3.1 - Import `collect_wsd_files`, `WsdCollectionError` from wsd_utils
+dev/journal/archive/Journal-Workscope-20260105-102510.md:44:- [ ] **1.6** - Implement `collect_wsd_files()` using iterdir() recursively
+dev/journal/archive/Journal-Workscope-20260105-102510.md:171:3. `collect_wsd_files()` must use `iterdir()` NOT `rglob()`
+dev/journal/archive/Journal-Workscope-20260105-102510.md:181:- [ ] `collect_wsd_files()` uses `iterdir()` NOT `rglob()`
+dev/journal/archive/Journal-Workscope-20260105-102510.md:212:The ticket aims to create a single unified `collect_wsd_files()` function that replaces 5+ independent directory scanning implementations across the WSD codebase. This eliminates duplicate code, ensures consistent validation at all pipeline stages, and fixes bugs where some implementations lack VCS exclusion.
+dev/journal/archive/Journal-Workscope-20260105-102510.md:217:  - Main `collect_wsd_files()` function using iterdir() recursively
+dev/journal/archive/Journal-Workscope-20260105-102510.md:265:**1.6 - collect_wsd_files() function (lines 834-976)**
+dev/journal/archive/Journal-Workscope-20260105-102510.md:298:- Task 1.6 ✅ `collect_wsd_files()` function signature, behavior, and implementation match specification
+dev/journal/archive/Journal-Workscope-20260105-102510.md:321:- `collect_wsd_files()` docstring is exceptionally thorough (34 lines)
+dev/journal/archive/Journal-Workscope-20260113-125239.md:67:- `dev/scripts/stage_release.py` - Current implementation using `collect_wsd_files()`
+dev/journal/archive/Journal-Workscope-20260113-125239.md:68:- `dev/scripts/build_package.py` - Current implementation using `collect_wsd_files()`
+dev/journal/archive/Journal-Workscope-20260113-005714.md:77:5. `source/scripts/wsd_utils.py` - Utilities (collect_wsd_files, etc.)
+dev/journal/archive/Journal-Workscope-20260110-095736.md:96:- `collect_wsd_files()` returns .wsdkeep files - no change needed, filtering happens downstream
+dev/journal/archive/Journal-Workscope-20260110-095736.md:102:**Deep Dive #2 (`collect_wsd_files` Concept):** Verified correct. Function continues returning .wsdkeep files. Filtering happens in `pre_staging.py` (extract to `required_directories`, don't hash) and `wsd.py` (read `required_directories` for Stage 2).
+dev/journal/archive/Journal-Workscope-20260108-114919.md:126:- Conducted integration audit of all `collect_wsd_files()` call sites
+dev/journal/archive/Journal-Workscope-20260113-002024.md:79:- Searched for `collect_wsd_files` usage across codebase
+dev/journal/archive/Journal-Workscope-20260115-171955.md:86:7. `source/scripts/wsd_utils.py` - collect_wsd_files implementation
+dev/journal/archive/Journal-Workscope-20260111-185617.md:123:- `source/scripts/wsd_utils.py` (sections: collect_wsd_files(), is_directory_empty())
+dev/journal/archive/Journal-Workscope-20260110-155917.md:100:9. `source/scripts/wsd_utils.py` - collect_wsd_files() and validation logic
+dev/journal/archive/Journal-Workscope-20260109-180753.md:195:- `source/scripts/wsd_utils.py` (lines 907-1013): `collect_wsd_files()` function
+dev/journal/archive/Journal-Workscope-20260110-161255.md:94:   - `source/scripts/wsd_utils.py` (`collect_wsd_files()` function)
+dev/journal/archive/Journal-Workscope-20260107-081014.md:133:- `source/scripts/wsd_utils.py` - Contains `collect_wsd_files()` (NO CHANGES per ticket)
+dev/journal/archive/Journal-Workscope-20260110-131429.md:78:5. `collect_wsd_files()` validates empty directories have `.wsdkeep`
+dev/journal/archive/Journal-Workscope-20260109-173802.md:332:**Recommendation:** Mark these tasks as `[x]` completed (or `[-]` not needed) since the implementation already exists. However, the FILE LIST portion of Phase 3 (using `metadata.file_hashes.keys()` instead of `collect_wsd_files()`) is still valid pending work.
+dev/journal/archive/Journal-Workscope-20260105-104702.md:49:Phase 3: 3.1 - Import `collect_wsd_files`, `WsdCollectionError` from wsd_utils
+dev/journal/archive/Journal-Workscope-20260105-104702.md:114:This workscope focuses on creating comprehensive test coverage for the newly implemented `collect_wsd_files()` function in `source/scripts/wsd_utils.py`. Phase 1 completed the implementation of the core function, and Phase 2 ensures it behaves correctly across all edge cases and validation scenarios.
+dev/journal/archive/Journal-Workscope-20260105-104702.md:148:- `source/scripts/wsd_utils.py` (lines 640-1003) - `collect_wsd_files()` implementation with:
+dev/journal/archive/Journal-Workscope-20260105-104702.md:152:  - Main Function: `collect_wsd_files()` (lines 899-1003)
+dev/journal/archive/Journal-Workscope-20260105-104702.md:198:The ticket aims to **unify all WSD file collection logic into a single `collect_wsd_files()` function** in `source/scripts/wsd_utils.py`. This consolidation eliminates duplicate code across 5 different implementations, fixes VCS exclusion bugs, and creates a single source of truth for what constitutes valid WSD Runtime content.
+dev/journal/archive/Journal-Workscope-20260105-104702.md:223:- The `collect_wsd_files()` function **already exists** in Phase 1 (complete)
+dev/journal/archive/Journal-Workscope-20260105-104702.md:268:- Used `tmp_path` fixture instead of `isolated_test_env` because `collect_wsd_files()` scans the entire directory and the `isolated_test_env` fixture creates `config/`, `cache/`, `data/` subdirectories that interfere with testing
+dev/journal/archive/Journal-Workscope-20260105-104702.md:271:  - Call `collect_wsd_files(tmp_path)`
+dev/journal/archive/Journal-Workscope-20260105-104702.md:421:- 14 comprehensive test cases for `collect_wsd_files()` function
+dev/journal/archive/Journal-Workscope-20260113-135808.md:87:6. `source/scripts/wsd_utils.py` - Contains `collect_wsd_files()` function
+dev/journal/archive/Journal-Workscope-20260110-231456.md:92:12. `source/scripts/wsd_utils.py` - collect_wsd_files function
+dev/journal/archive/Journal-Workscope-20260108-182143.md:77:- source/scripts/wsd_utils.py (for collect_wsd_files and calculate_file_hash)
+dev/journal/archive/Journal-Workscope-20260108-182143.md:109:7. `source/scripts/wsd_utils.py` - Contains `collect_wsd_files()` and `calculate_file_hash()`
+dev/journal/archive/Journal-Workscope-20260108-182143.md:122:- `source/scripts/wsd_utils.py` - For `collect_wsd_files()` and `calculate_file_hash()`
+dev/journal/archive/Journal-Workscope-20260110-205015.md:90:2. `dev/scripts/stage_release.py` - Current implementation (uses `collect_wsd_files()`)
+dev/journal/archive/Journal-Workscope-20260110-205015.md:91:3. `dev/scripts/build_package.py` - Current implementation (uses `collect_wsd_files()`)
+dev/journal/archive/Journal-Workscope-20260106-131642.md:92:- `source/scripts/wsd_utils.py` - `collect_wsd_files()` function
+dev/journal/archive/Journal-Workscope-20260106-131642.md:93:- `dev/scripts/stage_release.py` - Staging script (uses `collect_wsd_files()`)
+dev/journal/archive/Journal-Workscope-20260106-131642.md:103:**Current `collect_wsd_files()` Behavior (in `source/scripts/wsd_utils.py`):**
+dev/journal/archive/Journal-Workscope-20260106-131642.md:109:- Uses `collect_wsd_files()` to collect files
+dev/journal/archive/Journal-Workscope-20260106-131642.md:127:1. `tests/test_wsd_utils.py` - Tests for `collect_wsd_files()` behavior
+dev/journal/archive/Journal-Workscope-20260106-131642.md:147:### Finding 2: Missing `collect_wsd_files()` from Refactor Plan
+dev/journal/archive/Journal-Workscope-20260106-131642.md:154:**Reality:** The existing `collect_wsd_files()` function in `source/scripts/wsd_utils.py` is the actual workhorse used by:
+dev/journal/archive/Journal-Workscope-20260106-131642.md:159:1. Whether to modify `collect_wsd_files()` to exclude `.wsdkeep` from the return list
+dev/journal/archive/Journal-Workscope-20260106-131642.md:160:2. Or create a wrapper/filter function that uses `collect_wsd_files()` and filters out `.wsdkeep`
+dev/journal/archive/Journal-Workscope-20260106-131642.md:162:The ticket's pseudocode shows new functions but doesn't mention how they integrate with the existing `collect_wsd_files()` which is already doing file collection.
+dev/journal/archive/Journal-Workscope-20260106-131642.md:164:### Finding 3: No JavaScript Symmetry Concern for `collect_wsd_files()`
+dev/journal/archive/Journal-Workscope-20260106-131642.md:166:**Issue:** Per Design Decision 4 (Cross-Language Implementation Symmetry), if we modify `collect_wsd_files()` in Python, we should consider `wsd_utils.js`.
+dev/journal/archive/Journal-Workscope-20260106-131642.md:221:2. `tests/test_wsd_utils.py` - Has tests for `collect_wsd_files()` including `.wsdkeep`; will need updates
+dev/journal/archive/Journal-Workscope-20260106-131642.md:223:**Gap:** Action plan should include updating `test_wsd_utils.py` tests for the new `collect_wsd_files()` behavior (excluding `.wsdkeep` from return list while still validating empty directories).
+dev/journal/archive/Journal-Workscope-20260106-131642.md:256:   - `source/scripts/wsd_utils.py` - Where `collect_wsd_files()` lives
+dev/journal/archive/Journal-Workscope-20260106-131642.md:259:3. **Clarify `collect_wsd_files()` Strategy:**
+dev/journal/archive/Journal-Workscope-20260106-131642.md:260:   - Option A: Modify `collect_wsd_files()` to have an optional parameter `exclude_wsdkeep=False` (default False for backward compat during transition)
+dev/journal/archive/Journal-Workscope-20260106-131642.md:266:   - Update `tests/test_wsd_utils.py` to test new `collect_wsd_files()` behavior
+dev/journal/archive/Journal-Workscope-20260106-131642.md:288:3. Clarify integration with existing `collect_wsd_files()` function
+dev/journal/archive/Journal-Workscope-20260106-131642.md:337:   - Rewrote Phase 1 to focus on `collect_wsd_files()` modification and `get_required_wsd_directories()`
+dev/journal/archive/Journal-Workscope-20260110-153041.md:79:9. `source/scripts/wsd_utils.py` - collect_wsd_files() and file collection
+dev/journal/archive/Journal-Workscope-20260110-153041.md:86:- collect_wsd_files() includes .wsdkeep files in its output (they're valid files)
+dev/journal/archive/Journal-Workscope-20260108-201102.md:119:- `source/scripts/wsd_utils.py` - Contains `calculate_file_hash()` and `collect_wsd_files()` functions imported by stage_release.py
+dev/journal/archive/Journal-Workscope-20260105-124609.md:100:- Tasks focus on adding `__pycache__` directory skipping to `collect_wsd_files()`
+dev/journal/archive/Journal-Workscope-20260105-124609.md:113:  - Lines 899-1003: `collect_wsd_files()` function
+dev/journal/archive/Journal-Workscope-20260105-124609.md:162:The ticket aims to consolidate multiple independent implementations of directory scanning for WSD Runtime files into a single unified `collect_wsd_files()` function in `wsd_utils.py`. This provides consistent validation across all pipeline stages.
+dev/journal/archive/Journal-Workscope-20260105-124609.md:199:2. **Updated `collect_wsd_files()` function** (line 988-990):
+dev/journal/archive/Journal-Workscope-20260105-124609.md:212:   - Calls `collect_wsd_files()`
+dev/journal/archive/Journal-Workscope-20260105-124609.md:237:The Documentation-Steward identified that the `collect_wsd_files()` docstring (line 916-930) incorrectly documented `__pycache__` under "Raises WsdCollectionError" when it should be under "Silently skipped".
+dev/journal/archive/Journal-Workscope-20260105-124609.md:289:Fixed the `collect_wsd_files()` docstring in `source/scripts/wsd_utils.py` (lines 916-927):
+dev/journal/archive/Journal-Workscope-20260113-100413.md:83:- `source/wsd.py` - `collect_wsd_files`, `detect_collisions`, `install_files`, `calculate_required_disk_space`, `categorize_update_files`, `read_wsd_metadata`, `WsdMetadata` class
+dev/journal/archive/Journal-Workscope-20260113-100413.md:84:- `source/scripts/wsd_utils.py` - `collect_wsd_files`, `WsdCollectionError`, `_is_binary_file`, `_parse_wsdignore`
+dev/journal/archive/Journal-Workscope-20260113-015117.md:58:9. source/scripts/wsd_utils.py (collect_wsd_files implementation)
+dev/journal/archive/Journal-Workscope-20260104-090837.md:91:- **Design**: Zero-parameter `collect_wsd_files()` function that returns `list[Path]` or raises `WsdCollectionError`
+dev/journal/archive/Journal-Workscope-20260109-210630.md:71:9. `source/wsd.py` - Core implementation with `collect_wsd_files()` usage
+dev/journal/archive/Journal-Workscope-20260109-210630.md:72:10. `source/scripts/wsd_utils.py` - `collect_wsd_files()` implementation
+dev/journal/archive/Journal-Workscope-20260110-152227.md:115:10. `source/scripts/wsd_utils.py` - collect_wsd_files implementation
+dev/journal/archive/Journal-Workscope-20260113-133029.md:76:- `dev/scripts/stage_release.py` - Current implementation (uses collect_wsd_files)
+dev/journal/archive/Journal-Workscope-20260113-133029.md:77:- `dev/scripts/build_package.py` - Current implementation (uses collect_wsd_files)
+dev/journal/archive/Journal-Workscope-20260113-133029.md:78:- `source/wsd.py` - Main CLI with 4 collect_wsd_files call sites
+dev/journal/archive/Journal-Workscope-20260112-235854.md:90:- `dev/scripts/stage_release.py` - Current implementation using `collect_wsd_files()`
+dev/journal/archive/Journal-Workscope-20260112-235854.md:91:- `dev/scripts/build_package.py` - Current implementation using `collect_wsd_files()`
+dev/journal/archive/Journal-Workscope-20260112-235854.md:92:- `source/wsd.py` - Multiple `collect_wsd_files()` usage sites
+dev/journal/archive/Journal-Workscope-20260107-105509.md:188:1. `test_wsdkeep_files_included_in_staged_list` - Verifies `.wsdkeep` files are included in the collected file list from `collect_wsd_files()`
+dev/journal/archive/Journal-Workscope-20260113-004416.md:97:- `source/scripts/wsd_utils.py` - collect_wsd_files function
+dev/journal/archive/Journal-Workscope-20260110-153918.md:78:8. `source/scripts/wsd_utils.py` - collect_wsd_files() empty directory validation
+dev/journal/archive/Journal-Workscope-20260110-153918.md:85:- `collect_wsd_files()` in wsd_utils.py errors on empty directories without .wsdkeep
+dev/journal/archive/Journal-Workscope-20260109-141126.md:128:- `source/scripts/wsd_utils.py` - Shared utilities including collect_wsd_files
+dev/journal/archive/Journal-Workscope-20260113-014413.md:316:- `source/scripts/wsd_utils.py` - Current `collect_wsd_files()` implementation
+dev/journal/archive/Journal-Workscope-20260113-014413.md:320:- Searched for `collect_wsd_files` usage across codebase
+dev/journal/archive/Journal-Workscope-20260113-014413.md:322:- Current `collect_wsd_files()` is in `source/scripts/wsd_utils.py`
+dev/journal/archive/Journal-Workscope-20260108-193543.md:46:  - [ ] **3.1.1** - Import and use wsd_utils.collect_wsd_files()
+dev/journal/archive/Journal-Workscope-20260108-193543.md:81:- Requires `source/scripts/wsd_utils.py` with `collect_wsd_files()` and `calculate_file_hash()` functions
+dev/journal/archive/Journal-Workscope-20260108-193543.md:127:   - `collect_wsd_files()` (lines 907-1013) - Already imported in pre_staging.py
+dev/journal/archive/Journal-Workscope-20260111-084039.md:139:- `/Users/gray/Projects/workscope/source/scripts/wsd_utils.py` - Contains `collect_wsd_files()` and `calculate_file_hash()`
+dev/journal/archive/Journal-Workscope-20260111-084039.md:164:3. The `collect_wsd_files()` function already returns all files - filter for `.wsdkeep` entries
+dev/journal/archive/Journal-Workscope-20260111-110004.md:68:  - [ ] **4.5.1** - Replace `TestWsdkeepStagingBehavior` class (4 tests) - these test outdated behavior where `.wsdkeep` flows through staging. Note: Tests verifying `.wsdkeep` is NOT in staged output are DEFERRED to the Manifest-Driven Pipeline ticket (stage_release.py still uses `collect_wsd_files()` until MDP completes)
+dev/journal/archive/Journal-Workscope-20260111-110004.md:325:- Current staging still uses `collect_wsd_files()` which includes `.wsdkeep`
+dev/journal/archive/Journal-Workscope-20260111-110004.md:331:- This is CORRECT - `collect_wsd_files()` validates empty dirs have `.wsdkeep`
+dev/journal/archive/Journal-Workscope-20260111-110004.md:412:# collect_wsd_files() to manifest-driven staging.
+dev/journal/archive/Journal-Workscope-20260105-155348.md:113:- `source/scripts/wsd_utils.py` - New `collect_wsd_files()` function (lines 907-1013), `WsdCollectionError` exception (lines 681-703)
+dev/journal/archive/Journal-Workscope-20260105-155348.md:114:- `source/wsd.py` - Refactored to use `collect_wsd_files()` instead of removed `get_all_files()`
+dev/journal/archive/Journal-Workscope-20260105-155348.md:115:- `dev/scripts/stage_release.py` - Refactored to use `collect_wsd_files()`
+dev/journal/archive/Journal-Workscope-20260105-155348.md:116:- `dev/scripts/build_package.py` - Refactored to use `collect_wsd_files()`
+dev/journal/archive/Journal-Workscope-20260105-155348.md:117:- `dev/scripts/diff_installation.py` - Refactored to use `collect_wsd_files()`
+dev/journal/archive/Journal-Workscope-20260105-155348.md:120:- `tests/test_wsd_utils.py` - Comprehensive tests for `collect_wsd_files()`
+dev/journal/archive/Journal-Workscope-20260105-155348.md:129:**Files Read:** Read `collect_wsd_files()` function (lines 907-1013) to understand the core implementation.
+dev/journal/archive/Journal-Workscope-20260105-155348.md:158:This ticket aims to consolidate five independent implementations of WSD file collection into a single unified `collect_wsd_files()` function in `wsd_utils.py`. This eliminates duplicate code, ensures consistent validation across all pipeline stages, and fixes known bugs where some stages lacked VCS exclusion.
+dev/journal/archive/Journal-Workscope-20260105-155348.md:162:- **Phase 1**: Created core `collect_wsd_files()` function and `WsdCollectionError` exception - COMPLETE
+dev/journal/archive/Journal-Workscope-20260105-155348.md:278:- Test coverage confirmed (14 tests for `collect_wsd_files()`)
+dev/journal/archive/Journal-Workscope-20260107-151428.md:351:1. `categorize_update_files()` calls `collect_wsd_files(update_source_dir)`
+dev/journal/archive/Journal-Workscope-20260107-151428.md:352:2. `collect_wsd_files()` recursively scans the source directory
+dev/journal/archive/Journal-Workscope-20260105-181235.md:92:- `/Users/gray/Projects/workscope/source/scripts/wsd_utils.py` (lines 907-1013: `collect_wsd_files()`)
+dev/journal/archive/Journal-Workscope-20260107-085643.md:39:  - [ ] **3.1.2** - Verify `collect_wsd_files()` behavior unchanged
+dev/journal/archive/Journal-Workscope-20260107-085643.md:73:- source/scripts/wsd_utils.py (collect_wsd_files function)
+dev/journal/archive/Journal-Workscope-20260107-085643.md:88:- Verify `collect_wsd_files()` behavior is unchanged (still returns `.wsdkeep` files)
+dev/journal/archive/Journal-Workscope-20260107-085643.md:223:**3.1.2** - Verified all `collect_wsd_files()` tests pass (15 tests):
+dev/journal/archive/Journal-Workscope-20260107-085643.md:373:- Verified 15 `collect_wsd_files()` tests pass unchanged
+dev/journal/archive/Journal-Workscope-20260113-005128.md:63:- `source/scripts/wsd_utils.py` (contains `collect_wsd_files`)
+dev/journal/archive/Journal-Workscope-20260113-012125.md:82:9. `source/scripts/wsd_utils.py` - collect_wsd_files implementation
+dev/journal/archive/Journal-Workscope-20260105-134617.md:57:- [ ] **4.2** - Import `collect_wsd_files`, `WsdCollectionError`
+dev/journal/archive/Journal-Workscope-20260105-134617.md:61:- [ ] **4.6** - Update main staging workflow to use `collect_wsd_files()`
+dev/journal/archive/Journal-Workscope-20260105-134617.md:80:- `/Users/gray/Projects/workscope/source/scripts/wsd_utils.py` (contains `collect_wsd_files()`)
+dev/journal/archive/Journal-Workscope-20260105-134617.md:83:- `/Users/gray/Projects/workscope/tests/test_wsd_utils.py` (tests for `collect_wsd_files()`)
+dev/journal/archive/Journal-Workscope-20260105-134617.md:89:This workscope refactors `dev/scripts/stage_release.py` to use the newly created unified `collect_wsd_files()` function from `wsd_utils.py`. The work involves removing the old `prescan_source()` implementation and its helper functions, replacing them with the standardized file collection utility that provides consistent validation across all WSD pipeline stages.
+dev/journal/archive/Journal-Workscope-20260105-134617.md:123:  - Lines 907-1013: collect_wsd_files() main function
+dev/journal/archive/Journal-Workscope-20260105-134617.md:138:- New: `collect_wsd_files()` returns `list[Path]` (just files, relative paths)
+dev/journal/archive/Journal-Workscope-20260105-134617.md:161:from wsd_utils import collect_wsd_files, WsdCollectionError
+dev/journal/archive/Journal-Workscope-20260105-134617.md:168:- ✅ `/Users/gray/Projects/workscope/source/scripts/wsd_utils.py` (1014 lines - full file, contains collect_wsd_files)
+dev/journal/archive/Journal-Workscope-20260105-134617.md:186:The ticket `unify-wsd-file-collection-into-single-function.md` aims to **consolidate all WSD file collection logic into a single, reusable function** (`collect_wsd_files()` in `wsd_utils.py`). This eliminates code duplication across three scripts that currently have their own file collection implementations:
+dev/journal/archive/Journal-Workscope-20260105-134617.md:203:| **Phase 1** | Create `collect_wsd_files()` function in `wsd_utils.py` | ✅ COMPLETE |
+dev/journal/archive/Journal-Workscope-20260105-134617.md:205:| **Phase 3** | Refactor `source/wsd.py` to use `collect_wsd_files()` | ✅ COMPLETE |
+dev/journal/archive/Journal-Workscope-20260105-134617.md:206:| **Phase 4** | Refactor `dev/scripts/stage_release.py` to use `collect_wsd_files()` | ⬅️ **MY WORKSCOPE** |
+dev/journal/archive/Journal-Workscope-20260105-134617.md:207:| **Phase 5** | Refactor `dev/scripts/build_package.py` to use `collect_wsd_files()` | Pending |
+dev/journal/archive/Journal-Workscope-20260105-134617.md:208:| **Phase 6** | Refactor `dev/scripts/validate_package.py` to use `collect_wsd_files()` | Pending |
+dev/journal/archive/Journal-Workscope-20260105-134617.md:221:- Adding import for `collect_wsd_files` from `wsd_utils`
+dev/journal/archive/Journal-Workscope-20260105-134617.md:227:- **NEW**: `collect_wsd_files()` returns `list[Path]` (just files, relative paths)
+dev/journal/archive/Journal-Workscope-20260105-134617.md:249:✅ Updated line 28 to import `collect_wsd_files, WsdCollectionError` from `wsd_utils`
+dev/journal/archive/Journal-Workscope-20260105-134617.md:266:- Replaced `prescan_source()` call with `collect_wsd_files()`
+dev/journal/archive/Journal-Workscope-20260105-134617.md:268:- Converted relative paths from `collect_wsd_files()` to absolute paths for downstream functions
+dev/journal/archive/Journal-Workscope-20260105-134617.md:286:- Added imports: `collect_wsd_files`, `WsdCollectionError` from `wsd_utils`
+dev/journal/archive/Journal-Workscope-20260105-134617.md:289:- Updated `TestStagingOperations`: 3 tests updated to use `collect_wsd_files`
+dev/journal/archive/Journal-Workscope-20260105-134617.md:290:- Updated `TestErrorConditions`: 3 tests updated to use `collect_wsd_files` and `WsdCollectionError`
+dev/journal/archive/Journal-Workscope-20260105-134617.md:291:- Updated `TestDryRunMode`: 2 tests updated to use `collect_wsd_files`
+dev/journal/archive/Journal-Workscope-20260105-134617.md:292:- Updated `TestWsdignorePrecedence`: 2 tests updated to use `collect_wsd_files`
+dev/journal/archive/Journal-Workscope-20260105-134617.md:294:- Updated `TestIntegration`: 4 tests updated to use `collect_wsd_files`
+dev/journal/archive/Journal-Workscope-20260105-134617.md:308:**Verification:** The refactored staging workflow functions correctly using `collect_wsd_files()`.
+dev/journal/archive/Journal-Workscope-20260105-134617.md:326:- `main()` - uses `collect_wsd_files()` instead of `prescan_source()`
+dev/journal/archive/Journal-Workscope-20260105-134617.md:331:- File collection now uses unified `collect_wsd_files()` function from `wsd_utils`
+dev/journal/archive/Journal-Workscope-20260105-134617.md:347:- Updated comment to reference `collect_wsd_files()` instead
+dev/journal/archive/Journal-Workscope-20260105-134617.md:348:- Line 385: "filtered out by collect_wsd_files()" (was "filtered out by prescan_source()")
+dev/journal/archive/Journal-Workscope-20260105-134617.md:470:- ✅ 4.2 - Import collect_wsd_files, WsdCollectionError
+dev/journal/archive/Journal-Workscope-20260113-010330.md:71:- `dev/scripts/stage_release.py` - Currently uses `collect_wsd_files()`
+dev/journal/archive/Journal-Workscope-20260113-010330.md:72:- `dev/scripts/build_package.py` - Currently uses `collect_wsd_files()`
+dev/journal/archive/Journal-Workscope-20260113-010330.md:73:- `source/wsd.py` - 4 locations using `collect_wsd_files()`
+dev/journal/archive/Journal-Workscope-20260113-010330.md:82:relative_files = collect_wsd_files(source_dir)
+dev/journal/archive/Journal-Workscope-20260113-010330.md:91:- 4.1.2 - Remove or update references to `collect_wsd_files()` scanning
+dev/journal/archive/Journal-Workscope-20260110-150606.md:72:9. `source/scripts/wsd_utils.py` - collect_wsd_files function
+dev/journal/archive/Journal-Workscope-20260109-234652.md:103:- Grep for `collect_wsd_files` across codebase - found in 4 consumer scripts + tests
+dev/journal/archive/Journal-Workscope-20260109-234652.md:131:   - 1.1.5: Remove unused `collect_wsd_files` import from stage_release.py
+dev/journal/archive/Journal-Workscope-20260109-234652.md:132:   - 2.1.4: Remove unused `collect_wsd_files` import from build_package.py
+dev/journal/archive/Journal-Workscope-20260109-234652.md:133:   - 3.3: Remove unused `collect_wsd_files` import from source/wsd.py
+dev/journal/archive/Journal-Workscope-20260109-234652.md:134:   - 4.1.3: Remove unused `collect_wsd_files` import from diff_installation.py
+dev/journal/archive/Journal-Workscope-20260107-184310.md:86:1. `source/scripts/wsd_utils.py` - Core file collection logic (`collect_wsd_files()`)
+dev/journal/archive/Journal-Workscope-20260107-184310.md:88:3. `dev/scripts/stage_release.py` - Staging script (uses `collect_wsd_files()`)
+dev/journal/archive/Journal-Workscope-20260107-184310.md:89:4. `dev/scripts/build_package.py` - Build script (uses `collect_wsd_files()`)
+dev/journal/archive/Journal-Workscope-20260107-184310.md:96:**Four Categories of Items in `collect_wsd_files()`:**
+dev/journal/archive/Journal-Workscope-20260113-013816.md:87:10. `source/scripts/wsd_utils.py` - collect_wsd_files implementation
+dev/journal/archive/Journal-Workscope-20260106-204703.md:39:FIRST AVAILABLE ITEM: 1.1.1 - Partition collect_wsd_files() result into regular_files and wsdkeep_candidates
+dev/journal/archive/Journal-Workscope-20260106-204703.md:46:- `[ ]` **1.1.1** - Partition `collect_wsd_files()` result into `regular_files` and `wsdkeep_candidates`
+dev/journal/archive/Journal-Workscope-20260106-204703.md:108:- `source/scripts/wsd_utils.py` - `collect_wsd_files()` returns list including `.wsdkeep` files (NO CHANGES needed)
+dev/journal/archive/Journal-Workscope-20260106-204703.md:184:1. Gets all source files via `collect_wsd_files()`
+dev/journal/archive/Journal-Workscope-20260106-204703.md:340:- ✅ 1.1.1 - Partition `collect_wsd_files()` result
+dev/journal/archive/Journal-Workscope-20260110-151340.md:93:- Verified `collect_wsd_files()` validates empty directories have `.wsdkeep` files
+dev/journal/archive/Journal-Workscope-20260110-154646.md:72:9. `source/scripts/wsd_utils.py` - collect_wsd_files() behavior
+dev/journal/archive/Journal-Workscope-20260112-101603.md:79:- `source/scripts/wsd_utils.py` - `collect_wsd_files()` implementation
+dev/journal/archive/Journal-Workscope-20260112-101603.md:99:### Finding 2: Current Code Still Uses `collect_wsd_files()`
+dev/journal/archive/Journal-Workscope-20260112-101603.md:101:Scripts that still use `collect_wsd_files()` (need to be changed to manifest-based):
+dev/journal/archive/Journal-Workscope-20260112-101603.md:106:Exception (should continue using `collect_wsd_files()`):
+dev/journal/archive/Journal-Workscope-20260112-101603.md:113:But the actual `stage_release.py` code still uses `collect_wsd_files()`. The spec was updated ahead of the implementation.
+dev/journal/archive/Journal-Workscope-20260113-112439.md:97:6. source/wsd.py - Current implementation (searched for collect_wsd_files usage)
+dev/journal/archive/Journal-Workscope-20260113-112439.md:103:The code currently uses `collect_wsd_files()` in four locations in `source/wsd.py`:
+dev/journal/archive/Journal-Workscope-20260105-141858.md:49:- [ ] **5.2** - Import `collect_wsd_files`, `WsdCollectionError`
+dev/journal/archive/Journal-Workscope-20260105-141858.md:50:- [ ] **5.3** - Update `copy_staged_files()` to use `collect_wsd_files()`
+dev/journal/archive/Journal-Workscope-20260105-141858.md:51:- [ ] **5.4** - Remove or simplify `scan_for_special_characters()` (filename safety now in collect_wsd_files)
+dev/journal/archive/Journal-Workscope-20260105-141858.md:61:- `source/scripts/wsd_utils.py` - Contains the new `collect_wsd_files()` function
+dev/journal/archive/Journal-Workscope-20260105-141858.md:75:This workscope refactors `dev/scripts/build_package.py` to use the new unified `collect_wsd_files()` function from `source/scripts/wsd_utils.py`. This is part of a larger effort to consolidate five different implementations of WSD file collection logic into a single, well-tested function.
+dev/journal/archive/Journal-Workscope-20260105-141858.md:80:3. Remove redundant code (special character scanning is now handled by collect_wsd_files)
+dev/journal/archive/Journal-Workscope-20260105-141858.md:128:2. `/Users/gray/Projects/workscope/source/scripts/wsd_utils.py` - Contains `collect_wsd_files()`, `WsdCollectionError`, `SAFE_FILENAME_PATTERN`
+dev/journal/archive/Journal-Workscope-20260105-141858.md:143:- In `wsd_utils.py`: The `collect_wsd_files()` function, `WsdCollectionError`, and `SAFE_FILENAME_PATTERN`
+dev/journal/archive/Journal-Workscope-20260105-141858.md:161:   - ❌ DO NOT include comments like "Previously used inline scanning, now uses collect_wsd_files"
+dev/journal/archive/Journal-Workscope-20260105-141858.md:163:   - After refactor, code should read as if `collect_wsd_files()` was ALWAYS the design
+dev/journal/archive/Journal-Workscope-20260105-141858.md:167:   - ❌ DO NOT include comments like "# Task 5.3 - Updated to use collect_wsd_files()"
+dev/journal/archive/Journal-Workscope-20260105-141858.md:188:from wsd_utils import WsdCollectionError, calculate_file_hash, collect_wsd_files
+dev/journal/archive/Journal-Workscope-20260105-141858.md:203:The ticket "Unify WSD File Collection into Single Function" aims to consolidate five different implementations of WSD file collection logic (each with slightly different validation, exclusion patterns, and error handling) into a single, well-tested `collect_wsd_files()` function in `wsd_utils.py`. This eliminates code duplication, fixes bugs (like missing VCS exclusion in build_package.py), and ensures consistent validation across all pipeline stages.
+dev/journal/archive/Journal-Workscope-20260105-141858.md:206:- **Phase 1:** Create the unified `collect_wsd_files()` function in wsd_utils.py - COMPLETE
+dev/journal/archive/Journal-Workscope-20260105-141858.md:217:2. Import `collect_wsd_files`, `WsdCollectionError`
+dev/journal/archive/Journal-Workscope-20260105-141858.md:218:3. Update `copy_staged_files()` to use `collect_wsd_files()`
+dev/journal/archive/Journal-Workscope-20260105-141858.md:245:   from wsd_utils import WsdCollectionError, collect_wsd_files
+dev/journal/archive/Journal-Workscope-20260105-141858.md:248:2. **Task 5.2 - Imported unified functions:** `WsdCollectionError` and `collect_wsd_files`
+dev/journal/archive/Journal-Workscope-20260105-141858.md:260:   - Added call to `collect_wsd_files(staging_dir)` with error handling
+dev/journal/archive/Journal-Workscope-20260105-141858.md:263:6. **Task 5.4 - Removed scan_for_special_characters():** Function deleted (now handled by collect_wsd_files)
+dev/journal/archive/Journal-Workscope-20260105-141858.md:298:- **Calls collect_wsd_files() and validates 112 files:** ✅
+dev/journal/archive/Journal-Workscope-20260105-141858.md:304:1. **Bug Fix:** VCS directory exclusion (previously missing in build_package.py) now included via collect_wsd_files()
+dev/journal/archive/Journal-Workscope-20260105-141858.md:307:4. **Better Validation:** collect_wsd_files() includes additional checks (symlinks, empty directories, binary files) that were not in the original scan_for_special_characters()
+dev/journal/archive/Journal-Workscope-20260105-141858.md:436:- [x] **5.2** - Import `collect_wsd_files`, `WsdCollectionError`
+dev/journal/archive/Journal-Workscope-20260105-141858.md:437:- [x] **5.3** - Update `copy_staged_files()` to use `collect_wsd_files()`
+dev/journal/archive/Journal-Workscope-20260113-164027.md:74:- `dev/scripts/stage_release.py` - Current implementation (still uses collect_wsd_files)
+dev/journal/archive/Journal-Workscope-20260113-164027.md:75:- `dev/scripts/build_package.py` - Current implementation (still uses collect_wsd_files)
+dev/journal/archive/Journal-Workscope-20260113-164027.md:76:- `source/wsd.py` - Four locations using collect_wsd_files()
+dev/journal/archive/Journal-Workscope-20260113-164027.md:81:2. Both `stage_release.py` and `build_package.py` still import and use `collect_wsd_files()` from wsd_utils
+dev/journal/archive/Journal-Workscope-20260113-164027.md:82:3. `source/wsd.py` has 4 collect_wsd_files() calls in: `categorize_update_files`, `detect_collisions`, `install_files`, `calculate_required_disk_space`
+dev/journal/archive/Journal-Workscope-20260113-002747.md:81:1. `dev/scripts/stage_release.py` - Current implementation uses `collect_wsd_files()`
+dev/journal/archive/Journal-Workscope-20260113-002747.md:82:2. `dev/scripts/build_package.py` - Current implementation uses `collect_wsd_files()`
+dev/journal/archive/Journal-Workscope-20260113-002747.md:83:3. `source/wsd.py` - Has 4 usages of `collect_wsd_files()` at lines 2140, 3881, 4080, 4374
+dev/journal/archive/Journal-Workscope-20260115-171302.md:60:1. **stage_release.py** currently uses `collect_wsd_files()` to get file list
+dev/journal/archive/Journal-Workscope-20260115-171302.md:61:2. **build_package.py** currently uses `collect_wsd_files()` to get file list
+dev/journal/archive/Journal-Workscope-20260115-171302.md:62:3. **source/wsd.py** uses `collect_wsd_files()` in four functions:
+dev/journal/archive/Journal-Workscope-20260105-111204.md:25:Phase 3: 3.1 - Import collect_wsd_files, WsdCollectionError from wsd_utils
+dev/journal/archive/Journal-Workscope-20260105-111204.md:32:FIRST AVAILABLE ITEM: 3.1 - Import collect_wsd_files, WsdCollectionError from wsd_utils
+dev/journal/archive/Journal-Workscope-20260105-111204.md:39:- [ ] **3.1** - Import `collect_wsd_files`, `WsdCollectionError` from wsd_utils
+dev/journal/archive/Journal-Workscope-20260105-111204.md:43:- [ ] **3.5** - Update `perform_full_update()` to use `collect_wsd_files()`
+dev/journal/archive/Journal-Workscope-20260105-111204.md:44:- [ ] **3.6** - Update `detect_collisions()` to use `collect_wsd_files()`
+dev/journal/archive/Journal-Workscope-20260105-111204.md:45:- [ ] **3.7** - Update `check_for_interrupted_update()` to use `collect_wsd_files()`
+dev/journal/archive/Journal-Workscope-20260105-111204.md:46:- [ ] **3.8** - Update `install_files()` to use `collect_wsd_files()`
+dev/journal/archive/Journal-Workscope-20260105-111204.md:73:- source/scripts/wsd_utils.py (contains new collect_wsd_files function)
+dev/journal/archive/Journal-Workscope-20260105-111204.md:112:  - Line 52-56: Import section (add `collect_wsd_files`, `WsdCollectionError` imports)
+dev/journal/archive/Journal-Workscope-20260105-111204.md:129:  - Lines 640-1004: Complete `collect_wsd_files()` implementation with all helpers
+dev/journal/archive/Journal-Workscope-20260105-111204.md:138:1. **Rule 5.1: NO BACKWARD COMPATIBILITY** - Do not add migration notes, legacy support comments, or backward-compatible solutions. Write code as if `collect_wsd_files()` always existed.
+dev/journal/archive/Journal-Workscope-20260105-111204.md:148:- New: `collect_wsd_files()` has NO parameters - returns ALL valid files
+dev/journal/archive/Journal-Workscope-20260105-111204.md:156:The ticket aims to consolidate multiple independent implementations of directory scanning across the WSD codebase into a single unified `collect_wsd_files()` function in `wsd_utils.py`. This eliminates duplicate code, ensures consistent validation across all pipeline stages, and fixes known bugs in some implementations (missing VCS exclusion).
+dev/journal/archive/Journal-Workscope-20260105-111204.md:159:- **Phase 1** (COMPLETE): Create `WsdCollectionError` exception class, add constants, move `_is_binary_file()` helper, create parsing helpers, implement `collect_wsd_files()` with comprehensive docstring
+dev/journal/archive/Journal-Workscope-20260105-111204.md:187:**Task 3.1 - Import collect_wsd_files, WsdCollectionError from wsd_utils**
+dev/journal/archive/Journal-Workscope-20260105-111204.md:189:- Added `_is_binary_file`, `collect_wsd_files`, and `WsdCollectionError` imports
+dev/journal/archive/Journal-Workscope-20260105-111204.md:200:**Task 3.5 - Update perform_full_update() to use collect_wsd_files()**
+dev/journal/archive/Journal-Workscope-20260105-111204.md:201:- Updated to call `collect_wsd_files(update_source_dir)` then filter `installation_only` files
+dev/journal/archive/Journal-Workscope-20260105-111204.md:204:**Task 3.6 - Update detect_collisions() to use collect_wsd_files()**
+dev/journal/archive/Journal-Workscope-20260105-111204.md:205:- Updated to call `collect_wsd_files(source_dir)` then filter `installation_only` files
+dev/journal/archive/Journal-Workscope-20260105-111204.md:210:**Task 3.8 - Update install_files() to use collect_wsd_files()**
+dev/journal/archive/Journal-Workscope-20260105-111204.md:211:- Updated to call `collect_wsd_files(source_dir)` then filter `installation_only` files
+dev/journal/archive/Journal-Workscope-20260105-111204.md:217:  - Call `collect_wsd_files(directory)` to get all files
+dev/journal/archive/Journal-Workscope-20260105-111204.md:223:- Removed obsolete tests for `get_all_files()` from `tests/test_wsd_file_ops.py` (these tests now covered by `test_wsd_utils.py` for `collect_wsd_files()`)
+dev/journal/archive/Journal-Workscope-20260105-111204.md:228:All 7 failures are in `test_build_package_integration.py` and relate to `collect_wsd_files()` detecting `__pycache__` directories as development artifacts. This happens because:
+dev/journal/archive/Journal-Workscope-20260105-111204.md:231:3. `collect_wsd_files()` (from Phase 1-2) validates against development artifacts
+dev/journal/archive/Journal-Workscope-20260105-111204.md:258:- Rule 5.2 (No Old Design References): ✅ PASS - Code written as if `collect_wsd_files()` always existed
+dev/journal/archive/Journal-Workscope-20260105-111204.md:276:- Failures stem from `collect_wsd_files()` correctly rejecting `__pycache__` directories
+dev/journal/archive/Journal-Workscope-20260105-111204.md:324:- ✅ Task 3.1: Import collect_wsd_files, WsdCollectionError from wsd_utils
+dev/journal/archive/Journal-Workscope-20260105-111204.md:328:- ✅ Task 3.5: Update perform_full_update() to use collect_wsd_files()
+dev/journal/archive/Journal-Workscope-20260105-111204.md:329:- ✅ Task 3.6: Update detect_collisions() to use collect_wsd_files()
+dev/journal/archive/Journal-Workscope-20260105-111204.md:331:- ✅ Task 3.8: Update install_files() to use collect_wsd_files()
+dev/journal/archive/Journal-Workscope-20260105-111204.md:342:- source/wsd.py (refactored to use collect_wsd_files)
+dev/journal/archive/Journal-Workscope-20260105-111204.md:386:1. Refactored `source/wsd.py` to use unified `collect_wsd_files()` function
+dev/journal/archive/Journal-Workscope-20260107-162702.md:102:   - It copies files from `source/` using `collect_wsd_files()`
+dev/journal/archive/Journal-Workscope-20260107-162702.md:149:**Issue 2: A discovered gap** - `collect_wsd_files()` doesn't detect cache directories as suspicious:

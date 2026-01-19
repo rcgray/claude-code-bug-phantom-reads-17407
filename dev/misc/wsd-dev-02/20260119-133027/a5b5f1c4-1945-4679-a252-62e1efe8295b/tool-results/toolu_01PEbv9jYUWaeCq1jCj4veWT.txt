@@ -1,0 +1,617 @@
+     1→"""Stage Release Script for WSD Development.
+     2→
+     3→This script prepares WSD Runtime files for distribution by copying them from
+     4→the source/ directory to a staging directory (typically ../workscope-dev/).
+     5→The staging directory serves as the GitHub publishing conduit for the public
+     6→rcgray/workscope-dev repository.
+     7→
+     8→This script is a WSD Development tool and is NOT part of the WSD Runtime.
+     9→It operates ON source/ but is not distributed with the runtime.
+    10→
+    11→Usage:
+    12→    uv run dev/scripts/stage_release.py              # Stage to default ../workscope-dev/
+    13→    uv run dev/scripts/stage_release.py --dry-run    # Preview without making changes
+    14→    uv run dev/scripts/stage_release.py --target /path/to/dir  # Stage to custom location
+    15→"""
+    16→
+    17→import argparse
+    18→import json
+    19→import shutil
+    20→import stat
+    21→import sys
+    22→from pathlib import Path
+    23→
+    24→
+    25→# Add source/scripts to path for importing wsd_utils
+    26→sys.path.insert(0, str(Path(__file__).parent.parent.parent / "source" / "scripts"))
+    27→from wsd_utils import WsdCollectionError, collect_wsd_files
+    28→
+    29→
+    30→def get_project_root() -> Path:
+    31→    """Get the project root directory.
+    32→
+    33→    The script is located at dev/scripts/stage_release.py, so the project root
+    34→    is two directories up from the script's location.
+    35→
+    36→    Returns:
+    37→        Absolute path to the project root directory.
+    38→    """
+    39→    script_dir = Path(__file__).parent.resolve()
+    40→    return script_dir.parent.parent
+    41→
+    42→
+    43→def get_source_dir(project_root: Path) -> Path:
+    44→    """Get the source directory path.
+    45→
+    46→    Args:
+    47→        project_root: Path to the project root directory.
+    48→
+    49→    Returns:
+    50→        Path to the source/ directory within the project.
+    51→    """
+    52→    return project_root / "source"
+    53→
+    54→
+    55→def get_default_target_dir(project_root: Path) -> Path:
+    56→    """Get the default target directory path.
+    57→
+    58→    The default target is ../workscope-dev/ relative to the project root,
+    59→    which is a sibling directory to the WSD Development repository.
+    60→
+    61→    Args:
+    62→        project_root: Path to the project root directory.
+    63→
+    64→    Returns:
+    65→        Path to the default staging target directory.
+    66→    """
+    67→    return project_root.parent / "workscope-dev"
+    68→
+    69→
+    70→def validate_source_dir(source_dir: Path) -> None:
+    71→    """Validate that the source directory exists and is accessible.
+    72→
+    73→    Args:
+    74→        source_dir: Path to the source directory to validate.
+    75→
+    76→    Raises:
+    77→        SystemExit: If the source directory does not exist or is not a directory.
+    78→    """
+    79→    if not source_dir.exists():
+    80→        print(
+    81→            f"ERROR: Source directory does not exist: {source_dir}\n"
+    82→            "The source/ directory should contain the WSD Runtime files.",
+    83→            file=sys.stderr,
+    84→        )
+    85→        sys.exit(1)
+    86→
+    87→    if not source_dir.is_dir():
+    88→        print(
+    89→            f"ERROR: Source path is not a directory: {source_dir}\n"
+    90→            "Expected source/ to be a directory containing WSD Runtime files.",
+    91→            file=sys.stderr,
+    92→        )
+    93→        sys.exit(1)
+    94→
+    95→
+    96→def validate_target_exists(target_dir: Path) -> None:
+    97→    """Validate that the target directory exists.
+    98→
+    99→    The script will NOT create the target directory - it must already exist.
+   100→    This ensures the user has intentionally set up the staging location.
+   101→
+   102→    Args:
+   103→        target_dir: Path to the target directory to validate.
+   104→
+   105→    Raises:
+   106→        SystemExit: If the target directory does not exist.
+   107→    """
+   108→    if not target_dir.exists():
+   109→        print(
+   110→            f"ERROR: Target directory does not exist: {target_dir}\n"
+   111→            "This directory should be the GitHub repository for rcgray/workscope-dev.\n"
+   112→            "Please ensure the repository is cloned to the expected location.",
+   113→            file=sys.stderr,
+   114→        )
+   115→        sys.exit(1)
+   116→
+   117→    if not target_dir.is_dir():
+   118→        print(
+   119→            f"ERROR: Target path is not a directory: {target_dir}\n"
+   120→            "Expected target to be a directory for staging WSD Runtime files.",
+   121→            file=sys.stderr,
+   122→        )
+   123→        sys.exit(1)
+   124→
+   125→
+   126→def validate_target_git_not_symlink(target_dir: Path) -> None:
+   127→    """Validate that the target's .git/ directory is not a symlink.
+   128→
+   129→    A symlinked .git/ indicates a git worktree or other non-standard setup
+   130→    that could cause issues during staging operations.
+   131→
+   132→    Args:
+   133→        target_dir: Path to the target directory to validate.
+   134→
+   135→    Raises:
+   136→        SystemExit: If .git/ exists and is a symlink.
+   137→    """
+   138→    git_dir = target_dir / ".git"
+   139→
+   140→    if git_dir.is_symlink():
+   141→        # Resolve the symlink target for the error message
+   142→        try:
+   143→            symlink_target = git_dir.resolve()
+   144→        except OSError:
+   145→            symlink_target = Path("<unresolvable>")
+   146→
+   147→        print(
+   148→            f"ERROR: Target .git/ is a symlink: {git_dir} -> {symlink_target}\n"
+   149→            "The .git directory must be a real directory, not a symlink.\n"
+   150→            "This may indicate a git worktree or other non-standard setup.",
+   151→            file=sys.stderr,
+   152→        )
+   153→        sys.exit(1)
+   154→
+   155→
+   156→def warn_if_no_git(target_dir: Path) -> None:
+   157→    """Warn if the target directory does not contain a .git/ subdirectory.
+   158→
+   159→    A missing .git/ may indicate the wrong target directory was selected,
+   160→    though the operation will still proceed.
+   161→
+   162→    Args:
+   163→        target_dir: Path to the target directory to check.
+   164→    """
+   165→    git_dir = target_dir / ".git"
+   166→
+   167→    if not git_dir.exists():
+   168→        print(
+   169→            f"WARNING: Target directory has no .git/ subdirectory: {target_dir}\n"
+   170→            "This may indicate an incorrect target selection.\n"
+   171→            "The staging operation will proceed, but you may want to verify the target.",
+   172→            file=sys.stderr,
+   173→        )
+   174→
+   175→
+   176→# =============================================================================
+   177→# Target Cleaning and File Staging
+   178→# =============================================================================
+   179→
+   180→
+   181→def clean_target(
+   182→    target_dir: Path,
+   183→    preserve: list[str],
+   184→    dry_run: bool = False,
+   185→) -> dict[str, int]:
+   186→    """Clean the target directory, preserving specified items.
+   187→
+   188→    Removes all files and directories from the target directory except those
+   189→    listed in the preserve list (typically [".git"]). This ensures a clean
+   190→    staging area while maintaining repository history.
+   191→
+   192→    Args:
+   193→        target_dir: Path to the target directory to clean.
+   194→        preserve: List of item names to preserve (e.g., [".git"]).
+   195→        dry_run: If True, report what would be removed without actually removing.
+   196→
+   197→    Returns:
+   198→        Dictionary with counts: {"files_removed": int, "dirs_removed": int}
+   199→    """
+   200→    files_removed = 0
+   201→    dirs_removed = 0
+   202→
+   203→    action = "Would remove" if dry_run else "Removing"
+   204→    print(f"\n{'Would clean' if dry_run else 'Cleaning'} target directory...")
+   205→    print(f"  Preserved: {', '.join(preserve) if preserve else '(none)'}")
+   206→
+   207→    # Get all items in target directory
+   208→    try:
+   209→        items = list(target_dir.iterdir())
+   210→    except OSError as e:
+   211→        print(f"  ERROR: Cannot read target directory: {e}", file=sys.stderr)
+   212→        return {"files_removed": 0, "dirs_removed": 0}
+   213→
+   214→    for item in sorted(items):
+   215→        # Check if item should be preserved
+   216→        if item.name in preserve:
+   217→            continue
+   218→
+   219→        if item.is_file() or item.is_symlink():
+   220→            if not dry_run:
+   221→                try:
+   222→                    item.unlink()
+   223→                except OSError as e:
+   224→                    print(f"  WARNING: Failed to remove file {item.name}: {e}")
+   225→                    continue
+   226→            files_removed += 1
+   227→        elif item.is_dir():
+   228→            if not dry_run:
+   229→                try:
+   230→                    shutil.rmtree(item)
+   231→                except OSError as e:
+   232→                    print(f"  WARNING: Failed to remove directory {item.name}: {e}")
+   233→                    continue
+   234→            # Count all files and subdirectories within this directory
+   235→            try:
+   236→                for sub_item in item.rglob("*"):
+   237→                    if sub_item.is_file():
+   238→                        files_removed += 1
+   239→                    elif sub_item.is_dir():
+   240→                        dirs_removed += 1
+   241→            except OSError:
+   242→                pass
+   243→            dirs_removed += 1
+   244→
+   245→    print(f"  {action}: {files_removed} files, {dirs_removed} directories")
+   246→    return {"files_removed": files_removed, "dirs_removed": dirs_removed}
+   247→
+   248→
+   249→def stage_files(
+   250→    files_to_stage: list[Path],
+   251→    source_dir: Path,
+   252→    target_dir: Path,
+   253→    dry_run: bool = False,
+   254→) -> int:
+   255→    """Copy validated files from source to target directory.
+   256→
+   257→    Copies each file from the source directory to the target directory,
+   258→    preserving the relative path structure and file permissions using
+   259→    shutil.copy2().
+   260→
+   261→    Args:
+   262→        files_to_stage: List of absolute paths to files to stage.
+   263→        source_dir: Path to the source directory (for computing relative paths).
+   264→        target_dir: Path to the target staging directory.
+   265→        dry_run: If True, report what would be copied without actually copying.
+   266→
+   267→    Returns:
+   268→        Number of files staged (or that would be staged in dry-run mode).
+   269→    """
+   270→    staged_count = 0
+   271→    action = "WOULD STAGE" if dry_run else "STAGE"
+   272→
+   273→    print(f"\n{'Would stage' if dry_run else 'Staging'} files...")
+   274→
+   275→    for file_path in files_to_stage:
+   276→        # Compute relative path from source directory
+   277→        try:
+   278→            relative_path = file_path.relative_to(source_dir)
+   279→        except ValueError:
+   280→            print(f"  WARNING: File not under source dir: {file_path}", file=sys.stderr)
+   281→            continue
+   282→
+   283→        # Compute target path
+   284→        target_path = target_dir / relative_path
+   285→
+   286→        # Log the staging action
+   287→        print(f"  {action}: {relative_path}")
+   288→
+   289→        if not dry_run:
+   290→            # Create parent directories as needed
+   291→            target_path.parent.mkdir(parents=True, exist_ok=True)
+   292→
+   293→            # Copy file with permissions preserved
+   294→            try:
+   295→                shutil.copy2(file_path, target_path)
+   296→            except OSError as e:
+   297→                print(f"  ERROR: Failed to copy {relative_path}: {e}", file=sys.stderr)
+   298→                continue
+   299→
+   300→        staged_count += 1
+   301→
+   302→    print(f"\n  {'Would stage' if dry_run else 'Staged'}: {staged_count} files")
+   303→    return staged_count
+   304→
+   305→
+   306→# =============================================================================
+   307→# Verification and Reporting
+   308→# =============================================================================
+   309→
+   310→
+   311→def load_wsd_metadata(source_dir: Path) -> dict[str, object]:
+   312→    """Load the complete wsd.json metadata file.
+   313→
+   314→    Args:
+   315→        source_dir: Path to the source directory containing wsd.json.
+   316→
+   317→    Returns:
+   318→        Dictionary containing the parsed wsd.json content.
+   319→        Returns empty dict if wsd.json doesn't exist or cannot be parsed.
+   320→    """
+   321→    wsd_json_path = source_dir / "wsd.json"
+   322→
+   323→    if not wsd_json_path.exists():
+   324→        return {}
+   325→
+   326→    try:
+   327→        with wsd_json_path.open(encoding="utf-8") as f:
+   328→            data: dict[str, object] = json.load(f)
+   329→            return data
+   330→    except (OSError, json.JSONDecodeError) as e:
+   331→        print(f"WARNING: Failed to read wsd.json: {e}", file=sys.stderr)
+   332→        return {}
+   333→
+   334→
+   335→def load_executable_list(source_dir: Path) -> list[str]:
+   336→    """Load the list of executable files from wsd.json.
+   337→
+   338→    The wsd.json file contains an "executable" array listing files that
+   339→    should have executable permissions in the distributed runtime.
+   340→
+   341→    Args:
+   342→        source_dir: Path to the source directory containing wsd.json.
+   343→
+   344→    Returns:
+   345→        List of file paths (relative to source/) that should be executable.
+   346→        Returns empty list if wsd.json doesn't exist or has no executable list.
+   347→    """
+   348→    metadata = load_wsd_metadata(source_dir)
+   349→    executable_list = metadata.get("executable", [])
+   350→    if isinstance(executable_list, list):
+   351→        return [str(item) for item in executable_list if isinstance(item, str)]
+   352→    return []
+   353→
+   354→
+   355→def is_executable(file_path: Path) -> bool:
+   356→    """Check if a file has executable permission.
+   357→
+   358→    Args:
+   359→        file_path: Path to the file to check.
+   360→
+   361→    Returns:
+   362→        True if the file has any executable bit set (user, group, or other).
+   363→    """
+   364→    try:
+   365→        mode = file_path.stat().st_mode
+   366→        return bool(mode & (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH))
+   367→    except OSError:
+   368→        return False
+   369→
+   370→
+   371→def verify_staging(
+   372→    source_dir: Path,
+   373→    target_dir: Path,
+   374→    files_to_stage: list[Path],
+   375→    staged_count: int,
+   376→) -> dict[str, bool | int | list[str]]:
+   377→    """Verify the staging operation completed correctly.
+   378→
+   379→    Performs two verification checks:
+   380→    1. File count: Verifies staged file count matches the pre-validated list size
+   381→    2. Permissions: Verifies executable files retained their +x bit
+   382→
+   383→    Args:
+   384→        source_dir: Path to the source directory.
+   385→        target_dir: Path to the target staging directory.
+   386→        files_to_stage: List of files that were staged (absolute source paths).
+   387→        staged_count: Number of files that were actually staged.
+   388→
+   389→    Returns:
+   390→        Dictionary with verification results:
+   391→        {
+   392→            "file_count_ok": bool,
+   393→            "permissions_ok": bool,
+   394→            "executable_count": int,
+   395→            "permission_failures": list[str]
+   396→        }
+   397→    """
+   398→    print("\nVerifying staging...")
+   399→
+   400→    results: dict[str, bool | int | list[str]] = {
+   401→        "file_count_ok": False,
+   402→        "permissions_ok": False,
+   403→        "executable_count": 0,
+   404→        "permission_failures": [],
+   405→    }
+   406→
+   407→    # Verification 1: File count
+   408→    expected_count = len(files_to_stage)
+   409→    file_count_ok = staged_count == expected_count
+   410→    results["file_count_ok"] = file_count_ok
+   411→
+   412→    status = "OK" if file_count_ok else "FAILED"
+   413→    print(f"  File count: {staged_count} staged - {status}")
+   414→
+   415→    if not file_count_ok:
+   416→        print(
+   417→            f"    Expected {expected_count} files, but staged {staged_count}",
+   418→            file=sys.stderr,
+   419→        )
+   420→
+   421→    # Verification 2: Executable permissions
+   422→    executable_list = load_executable_list(source_dir)
+   423→    executable_count = 0
+   424→    permission_failures: list[str] = []
+   425→
+   426→    for exec_file in executable_list:
+   427→        source_path = source_dir / exec_file
+   428→        target_path = target_dir / exec_file
+   429→
+   430→        # Skip files that don't exist in source (may not be part of staging)
+   431→        if not source_path.exists():
+   432→            continue
+   433→
+   434→        # Skip files that weren't staged (e.g., in .wsdignore)
+   435→        if not target_path.exists():
+   436→            continue
+   437→
+   438→        executable_count += 1
+   439→
+   440→        # Check if source has executable bit
+   441→        source_is_exec = is_executable(source_path)
+   442→        target_is_exec = is_executable(target_path)
+   443→
+   444→        if source_is_exec and not target_is_exec:
+   445→            permission_failures.append(exec_file)
+   446→
+   447→    results["executable_count"] = executable_count
+   448→    results["permission_failures"] = permission_failures
+   449→    permissions_ok = len(permission_failures) == 0
+   450→    results["permissions_ok"] = permissions_ok
+   451→
+   452→    status = "OK" if permissions_ok else "FAILED"
+   453→    print(f"  Permissions: {executable_count} executable files verified - {status}")
+   454→
+   455→    if not permissions_ok:
+   456→        for failed_file in permission_failures:
+   457→            print(f"    FAILED: {failed_file} lost executable permission", file=sys.stderr)
+   458→
+   459→    return results
+   460→
+   461→
+   462→def generate_summary(
+   463→    target_dir: Path,
+   464→    staged_count: int,
+   465→    verification_results: dict[str, bool | int | list[str]] | None,
+   466→    dry_run: bool,
+   467→) -> None:
+   468→    """Generate and display the staging summary report.
+   469→
+   470→    Args:
+   471→        target_dir: Path to the target staging directory.
+   472→        staged_count: Number of files staged.
+   473→        verification_results: Results from verify_staging(), or None for dry-run.
+   474→        dry_run: Whether this was a dry-run operation.
+   475→    """
+   476→    if dry_run:
+   477→        print("\n=== Dry Run Complete ===")
+   478→        print(f"Would stage {staged_count} files to {target_dir}")
+   479→        print("\nNo changes made. Run without --dry-run to perform staging.")
+   480→    else:
+   481→        print("\n=== Staging Complete ===")
+   482→        print(f"Staged {staged_count} files to {target_dir}")
+   483→
+   484→        # Display verification results if available
+   485→        if verification_results:
+   486→            print("\nVerification:")
+   487→            print(f"  File count: {'OK' if verification_results['file_count_ok'] else 'FAILED'}")
+   488→            print(f"  Permissions: {'OK' if verification_results['permissions_ok'] else 'FAILED'}")
+   489→            if not verification_results["permissions_ok"]:
+   490→                failures = verification_results["permission_failures"]
+   491→                if failures and isinstance(failures, list):
+   492→                    print("\n  Permission failures:")
+   493→                    for failed_file in failures:
+   494→                        print(f"    - {failed_file}")
+   495→
+   496→        # Display next steps for git workflow
+   497→        print("\nNext steps:")
+   498→        print(f"  cd {target_dir}")
+   499→        print("  git status")
+   500→        print('  git add -A && git commit -m "Release vX.Y.Z"')
+   501→        print("  git push origin main")
+   502→
+   503→
+   504→def parse_arguments() -> argparse.Namespace:
+   505→    """Parse command-line arguments.
+   506→
+   507→    Returns:
+   508→        Parsed arguments namespace with dry_run and target attributes.
+   509→    """
+   510→    parser = argparse.ArgumentParser(
+   511→        description="Stage WSD Runtime files for distribution.",
+   512→        formatter_class=argparse.RawDescriptionHelpFormatter,
+   513→        epilog="""
+   514→Examples:
+   515→  uv run dev/scripts/stage_release.py              # Stage to default ../workscope-dev/
+   516→  uv run dev/scripts/stage_release.py --dry-run    # Preview without making changes
+   517→  uv run dev/scripts/stage_release.py --target /path/to/dir  # Stage to custom location
+   518→
+   519→The target directory must already exist. The script will not create it.
+   520→        """,
+   521→    )
+   522→
+   523→    parser.add_argument(
+   524→        "--dry-run",
+   525→        action="store_true",
+   526→        help="Preview staging operations without making any changes.",
+   527→    )
+   528→
+   529→    parser.add_argument(
+   530→        "--target",
+   531→        type=Path,
+   532→        default=None,
+   533→        help="Target directory for staging (default: ../workscope-dev/).",
+   534→    )
+   535→
+   536→    return parser.parse_args()
+   537→
+   538→
+   539→def main() -> None:
+   540→    """Main entry point for the stage release script."""
+   541→    args = parse_arguments()
+   542→
+   543→    # Get directory paths
+   544→    project_root = get_project_root()
+   545→    source_dir = get_source_dir(project_root)
+   546→    target_dir = args.target if args.target else get_default_target_dir(project_root)
+   547→
+   548→    # Convert to absolute path for consistent display
+   549→    # Use Path.absolute() instead of resolve() to avoid issues with non-existent paths
+   550→    if not target_dir.is_absolute():
+   551→        target_dir = Path.cwd() / target_dir
+   552→    target_dir = target_dir.absolute()
+   553→
+   554→    # Display mode
+   555→    mode = "DRY RUN" if args.dry_run else "STAGING"
+   556→    print(f"=== WSD Release Staging ({mode}) ===")
+   557→    print(f"Source: {source_dir}")
+   558→    print(f"Target: {target_dir}")
+   559→    print(flush=True)  # Flush stdout before validation writes to stderr
+   560→
+   561→    # Validate preconditions
+   562→    validate_source_dir(source_dir)
+   563→    validate_target_exists(target_dir)
+   564→    validate_target_git_not_symlink(target_dir)
+   565→    warn_if_no_git(target_dir)
+   566→
+   567→    # Collect and validate source files (before modifying target)
+   568→    print("Pre-scanning source...")
+   569→    try:
+   570→        relative_files = collect_wsd_files(source_dir)
+   571→    except WsdCollectionError as e:
+   572→        print(f"\nERROR: {e.message}", file=sys.stderr)
+   573→        sys.exit(1)
+   574→
+   575→    # Convert relative paths to absolute paths for staging functions
+   576→    files_to_stage = [source_dir / rel_path for rel_path in relative_files]
+   577→    print(f"  {len(files_to_stage)} files to stage")
+   578→
+   579→    print(f"\nValidation complete. {len(files_to_stage)} files ready for staging.")
+   580→
+   581→    # Clean target directory (preserve .git/)
+   582→    clean_target(target_dir, preserve=[".git"], dry_run=args.dry_run)
+   583→
+   584→    # Copy files to target (wsd.json is staged as a regular file)
+   585→    staged_count = stage_files(files_to_stage, source_dir, target_dir, dry_run=args.dry_run)
+   586→
+   587→    # Verify staging (only for actual staging, not dry-run)
+   588→    verification_results: dict[str, bool | int | list[str]] | None = None
+   589→    if not args.dry_run:
+   590→        verification_results = verify_staging(
+   591→            source_dir,
+   592→            target_dir,
+   593→            files_to_stage,
+   594→            staged_count,
+   595→        )
+   596→
+   597→    # Generate summary report
+   598→    generate_summary(target_dir, staged_count, verification_results, args.dry_run)
+   599→
+   600→
+   601→if __name__ == "__main__":
+   602→    try:
+   603→        main()
+   604→    except KeyboardInterrupt:
+   605→        print("\n\nStaging interrupted by user.", file=sys.stderr)
+   606→        sys.exit(1)
+   607→    except SystemExit:
+   608→        # Re-raise SystemExit to allow clean exit with proper code
+   609→        raise
+   610→    except Exception as e:
+   611→        print(f"\nUnexpected error during staging: {e}", file=sys.stderr)
+   612→        sys.exit(1)
+   613→
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>
