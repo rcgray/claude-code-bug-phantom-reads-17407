@@ -85,6 +85,7 @@ These are rules that govern general agent behavior and include more "evergreen" 
   - **Pre-Existing Failure**: An issue that existed BEFORE the current ticket/feature began and is completely unrelated to the current work arc.
 
   The phrase "pre-existing" must NEVER be used to describe issues introduced by earlier phases of the same ticket. Those are "in-flight failures" (IFFs). Using "pre-existing" to describe IFFs is a terminology violation that obscures accountability. When encountering test failures during QA, agents must categorize each failure as: (a) **INTRODUCED** - caused by the current workscope's changes, (b) **IFF** - caused by earlier phases of this ticket, scheduled for later resolution, or (c) **PRE-EXISTING** - existed before this ticket began, unrelated to current work.
+- **3.21** - You are operating as a single member of a _team_ of agents who has implemented your WPD. When an issue is discovered in previous work performed in your same WPD, while it is useful to note that your individual contribution (your specific workscope) did not cause the issue, it is still your responsibility to report it and (if the User so guides you) to fix it. Do not adopt an attitude of "I didn't introduce this" or "This is pre-existing" if it was introduced in the same WPD in which your workscope takes place.
 
 ## 4. LLM Model-Specific Quirks
 

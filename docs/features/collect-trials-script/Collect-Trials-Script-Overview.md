@@ -750,17 +750,17 @@ Tests are organized into these categories, implemented across phases:
 
 ### Phase 6: Integration Tests
 
-- [ ] **6.1** - Implement comprehensive integration tests
-  - [ ] **6.1.1** - Implement `TestIntegrationSingleTrial` (end-to-end single trial collection)
-  - [ ] **6.1.2** - Implement `TestIntegrationMultipleTrials` (batch collection with mixed outcomes)
-  - [ ] **6.1.3** - Implement `TestIntegrationMixedStructures` (flat + hybrid + hierarchical in same batch)
-  - [ ] **6.1.4** - Implement `TestIntegrationErrorRecovery` (partial failures, continuation)
-- [ ] **6.2** - Final test coverage verification
-  - [ ] **6.2.1** - Run full test suite and verify all tests pass
-  - [ ] **6.2.2** - Verify test coverage meets project standards
+- [x] **6.1** - Implement comprehensive integration tests
+  - [x] **6.1.1** - Implement `TestIntegrationSingleTrial` (end-to-end single trial collection)
+  - [x] **6.1.2** - Implement `TestIntegrationMultipleTrials` (batch collection with mixed outcomes)
+  - [x] **6.1.3** - Implement `TestIntegrationMixedStructures` (flat + hybrid + hierarchical in same batch)
+  - [x] **6.1.4** - Implement `TestIntegrationErrorRecovery` (partial failures, continuation)
+- [x] **6.2** - Final test coverage verification
+  - [x] **6.2.1** - Run full test suite and verify all tests pass
+  - [x] **6.2.2** - Verify test coverage meets project standards
 
 ### Phase 7: Documentation Updates
 
-- [ ] **7.1** - Update `docs/core/Experiment-Methodology-02.md`
-  - [ ] **7.1.1** - Add section on using `collect_trials.py` for artifact collection
-  - [ ] **7.1.2** - Document recommended workflow with exports and collection
+- [x] **7.1** - Update `docs/core/Experiment-Methodology-02.md`
+  - [x] **7.1.1** - Add section on using `collect_trials.py` for artifact collection
+  - [x] **7.1.2** - Document recommended workflow with exports and collection

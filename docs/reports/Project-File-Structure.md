@@ -56,7 +56,20 @@
 │   │       ├── Feature-Overview-Writing-Guide.md
 │   │       └── Ticket-Template.md
 │   ├── reports
-│   │   └── .wsdkeep
+│   │   ├── .wsdkeep
+│   │   ├── Core-Documentation.md
+│   │   ├── Health-Check-Summary.md
+│   │   ├── Project-Documentation.md
+│   │   ├── Project-File-Structure.md
+│   │   ├── Project-Tickets.md
+│   │   ├── Python-All-Code-Files.md
+│   │   ├── Python-Code-Map.md
+│   │   ├── Python-Core-Code-Files.md
+│   │   ├── Python-Coverage-Report.md
+│   │   ├── Python-Health-Check-Report.md
+│   │   ├── Python-Test-Files.md
+│   │   ├── Test-Summary.md
+│   │   └── Workbench-Status.md
 │   ├── specs
 │   │   ├── compliance-requirements.md
 │   │   ├── data-pipeline-overview.md
@@ -98,14 +111,16 @@
 │   └── wsd_utils.py
 ├── src
 │   ├── __init__.py
-│   └── cc_version.py
+│   ├── cc_version.py
+│   └── collect_trials.py
 ├── tests
 │   ├── __init__.py
-│   └── test_cc_version.py
+│   ├── test_cc_version.py
+│   └── test_collect_trials.py
 ├── uv.lock
 ├── WORKAROUND.md
 └── wsd.py
 
-23 directories, 83 files
+23 directories, 98 files
 
 ```

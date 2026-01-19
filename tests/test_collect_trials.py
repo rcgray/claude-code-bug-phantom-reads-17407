@@ -22,6 +22,7 @@ Test Categories:
     - Summary report (TestSummaryReport)
 """
 
+import re
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -46,6 +47,11 @@ from src.collect_trials import (
 # =============================================================================
 # Fixtures
 # =============================================================================
+
+
+# Test constants for integration tests
+EXPECTED_FILE_COUNT_FLAT = 4  # export + main session + 2 agent files
+EXPECTED_TRIAL_COUNT_PARTIAL_FAILURE = 3  # Three trials with mixed outcomes
 
 
 @pytest.fixture
@@ -1939,3 +1945,712 @@ class TestSummaryReport:
         assert failed_result.status == "failed"
         assert failed_result.error == "No session file found"
         assert failed_result.files_copied == []  # Default empty list
+
+
+# =============================================================================
+# End-to-End Integration Tests
+# =============================================================================
+
+
+@patch.dict("os.environ", {}, clear=True)
+class TestIntegrationSingleTrial:
+    """Integration tests for end-to-end single trial collection.
+
+    Tests complete workflow from export file to organized trial directory,
+    covering all three session storage structures (flat, hybrid, hierarchical).
+    """
+
+    def test_collect_single_trial_flat_structure(
+        self,
+        tmp_path: Path,
+        sample_export_content: Callable[[str], str],
+        sample_session_content: Callable[[str], str],
+    ) -> None:
+        """Test end-to-end collection of single trial with flat session structure.
+
+        Verifies complete workflow: export scanning, session discovery, file copying,
+        and export cleanup for a trial with flat session structure.
+
+        Args:
+            tmp_path: Pytest fixture providing temporary directory for test files.
+            sample_export_content: Pytest fixture providing factory for export content.
+            sample_session_content: Pytest fixture providing factory for session content.
+        """
+        # Setup directories
+        exports_dir = tmp_path / "exports"
+        destination_dir = tmp_path / "trials"
+        session_dir = tmp_path / "sessions"
+        exports_dir.mkdir()
+        destination_dir.mkdir()
+        session_dir.mkdir()
+
+        # Create export file with Workscope ID
+        workscope_id = "20260119-101500"
+        session_uuid = "abc123-flat"
+        export_file = exports_dir / "trial-export.txt"
+        export_file.write_text(sample_export_content(workscope_id))
+
+        # Create flat session structure
+        main_session = session_dir / f"{session_uuid}.jsonl"
+        main_session.write_text(sample_session_content(workscope_id))
+
+        agent1 = session_dir / "agent-001.jsonl"
+        agent1.write_text(f'{{"sessionId": "{session_uuid}"}}\n')
+
+        agent2 = session_dir / "agent-002.jsonl"
+        agent2.write_text(f'{{"sessionId": "{session_uuid}"}}\n')
+
+        # Execute collection
+        result = collect_single_trial(
+            workscope_id=workscope_id,
+            export_path=export_file,
+            session_dir=session_dir,
+            destination_dir=destination_dir,
+            verbose=False,
+        )
+
+        # Verify result
+        assert result.status == "collected"
+        assert result.workscope_id == workscope_id
+        assert result.error is None
+        assert len(result.files_copied) == EXPECTED_FILE_COUNT_FLAT
+
+        # Verify trial directory structure
+        trial_dir = destination_dir / workscope_id
+        assert trial_dir.exists()
+        assert (trial_dir / f"{workscope_id}.txt").exists()
+        assert (trial_dir / f"{session_uuid}.jsonl").exists()
+        assert (trial_dir / "agent-001.jsonl").exists()
+        assert (trial_dir / "agent-002.jsonl").exists()
+
+        # Verify export was deleted
+        assert not export_file.exists()
+
+    def test_collect_single_trial_hybrid_structure(
+        self,
+        tmp_path: Path,
+        sample_export_content: Callable[[str], str],
+        sample_session_content: Callable[[str], str],
+    ) -> None:
+        """Test end-to-end collection of single trial with hybrid session structure.
+
+        Verifies collection with session subdirectory containing tool-results
+        while agent files remain at root level.
+
+        Args:
+            tmp_path: Pytest fixture providing temporary directory for test files.
+            sample_export_content: Pytest fixture providing factory for export content.
+            sample_session_content: Pytest fixture providing factory for session content.
+        """
+        # Setup directories
+        exports_dir = tmp_path / "exports"
+        destination_dir = tmp_path / "trials"
+        session_dir = tmp_path / "sessions"
+        exports_dir.mkdir()
+        destination_dir.mkdir()
+        session_dir.mkdir()
+
+        # Create export file
+        workscope_id = "20260119-102000"
+        session_uuid = "def456-hybrid"
+        export_file = exports_dir / "hybrid-trial.txt"
+        export_file.write_text(sample_export_content(workscope_id))
+
+        # Create hybrid session structure
+        main_session = session_dir / f"{session_uuid}.jsonl"
+        main_session.write_text(sample_session_content(workscope_id))
+
+        # Session subdirectory with tool-results
+        session_subdir = session_dir / session_uuid
+        session_subdir.mkdir()
+        tool_results_dir = session_subdir / "tool-results"
+        tool_results_dir.mkdir()
+        (tool_results_dir / "toolu_001.txt").write_text("Tool output 1")
+        (tool_results_dir / "toolu_002.txt").write_text("Tool output 2")
+
+        # Agent files at root level
+        agent1 = session_dir / "agent-100.jsonl"
+        agent1.write_text(f'{{"sessionId": "{session_uuid}"}}\n')
+
+        # Execute collection
+        result = collect_single_trial(
+            workscope_id=workscope_id,
+            export_path=export_file,
+            session_dir=session_dir,
+            destination_dir=destination_dir,
+            verbose=False,
+        )
+
+        # Verify result
+        assert result.status == "collected"
+        assert result.error is None
+
+        # Verify trial directory structure
+        trial_dir = destination_dir / workscope_id
+        assert trial_dir.exists()
+        assert (trial_dir / f"{workscope_id}.txt").exists()
+        assert (trial_dir / f"{session_uuid}.jsonl").exists()
+        assert (trial_dir / session_uuid / "tool-results" / "toolu_001.txt").exists()
+        assert (trial_dir / session_uuid / "tool-results" / "toolu_002.txt").exists()
+        assert (trial_dir / "agent-100.jsonl").exists()
+
+        # Verify export was deleted
+        assert not export_file.exists()
+
+    def test_collect_single_trial_hierarchical_structure(
+        self,
+        tmp_path: Path,
+        sample_export_content: Callable[[str], str],
+        sample_session_content: Callable[[str], str],
+    ) -> None:
+        """Test end-to-end collection of single trial with hierarchical session structure.
+
+        Verifies collection with all content in session subdirectory including
+        both subagents and tool-results.
+
+        Args:
+            tmp_path: Pytest fixture providing temporary directory for test files.
+            sample_export_content: Pytest fixture providing factory for export content.
+            sample_session_content: Pytest fixture providing factory for session content.
+        """
+        # Setup directories
+        exports_dir = tmp_path / "exports"
+        destination_dir = tmp_path / "trials"
+        session_dir = tmp_path / "sessions"
+        exports_dir.mkdir()
+        destination_dir.mkdir()
+        session_dir.mkdir()
+
+        # Create export file
+        workscope_id = "20260119-103000"
+        session_uuid = "ghi789-hierarchical"
+        export_file = exports_dir / "hierarchical-trial.txt"
+        export_file.write_text(sample_export_content(workscope_id))
+
+        # Create hierarchical session structure
+        main_session = session_dir / f"{session_uuid}.jsonl"
+        main_session.write_text(sample_session_content(workscope_id))
+
+        # Session subdirectory with subagents and tool-results
+        session_subdir = session_dir / session_uuid
+        session_subdir.mkdir()
+
+        subagents_dir = session_subdir / "subagents"
+        subagents_dir.mkdir()
+        (subagents_dir / "agent-200.jsonl").write_text("agent content")
+        (subagents_dir / "agent-201.jsonl").write_text("agent content")
+
+        tool_results_dir = session_subdir / "tool-results"
+        tool_results_dir.mkdir()
+        (tool_results_dir / "toolu_010.txt").write_text("Tool output")
+
+        # Execute collection
+        result = collect_single_trial(
+            workscope_id=workscope_id,
+            export_path=export_file,
+            session_dir=session_dir,
+            destination_dir=destination_dir,
+            verbose=False,
+        )
+
+        # Verify result
+        assert result.status == "collected"
+        assert result.error is None
+
+        # Verify trial directory structure
+        trial_dir = destination_dir / workscope_id
+        assert trial_dir.exists()
+        assert (trial_dir / f"{workscope_id}.txt").exists()
+        assert (trial_dir / f"{session_uuid}.jsonl").exists()
+        assert (trial_dir / session_uuid / "subagents" / "agent-200.jsonl").exists()
+        assert (trial_dir / session_uuid / "subagents" / "agent-201.jsonl").exists()
+        assert (trial_dir / session_uuid / "tool-results" / "toolu_010.txt").exists()
+
+        # Verify no root-level agent files (harmless search in hierarchical)
+        assert not (trial_dir / "agent-200.jsonl").exists()
+
+        # Verify export was deleted
+        assert not export_file.exists()
+
+
+@patch.dict("os.environ", {}, clear=True)
+class TestIntegrationMultipleTrials:
+    """Integration tests for batch collection with mixed outcomes.
+
+    Tests scenarios with multiple trials having different outcomes including
+    successful collection, skipped duplicates, and missing session files.
+    """
+
+    def test_batch_collection_with_mixed_outcomes(
+        self,
+        tmp_path: Path,
+        sample_export_content: Callable[[str], str],
+        sample_session_content: Callable[[str], str],
+    ) -> None:
+        """Test batch collection with successful, skipped, and failed trials.
+
+        Verifies script continues processing after individual trial failures
+        and correctly tracks counts for each outcome type.
+
+        Args:
+            tmp_path: Pytest fixture providing temporary directory for test files.
+            sample_export_content: Pytest fixture providing factory for export content.
+            sample_session_content: Pytest fixture providing factory for session content.
+        """
+        # Setup directories
+        exports_dir = tmp_path / "exports"
+        destination_dir = tmp_path / "trials"
+        session_dir = tmp_path / "sessions"
+        exports_dir.mkdir()
+        destination_dir.mkdir()
+        session_dir.mkdir()
+
+        # Trial 1: Will succeed
+        workscope_1 = "20260119-110000"
+        session_1 = "uuid-trial-1"
+        (exports_dir / "trial1.txt").write_text(sample_export_content(workscope_1))
+        (session_dir / f"{session_1}.jsonl").write_text(sample_session_content(workscope_1))
+
+        # Trial 2: Will skip (already exists)
+        workscope_2 = "20260119-111000"
+        session_2 = "uuid-trial-2"
+        (exports_dir / "trial2.txt").write_text(sample_export_content(workscope_2))
+        (session_dir / f"{session_2}.jsonl").write_text(sample_session_content(workscope_2))
+        # Pre-create trial directory
+        (destination_dir / workscope_2).mkdir()
+
+        # Trial 3: Will fail (no session file)
+        workscope_3 = "20260119-112000"
+        (exports_dir / "trial3.txt").write_text(sample_export_content(workscope_3))
+        # No session file created
+
+        # Execute collections
+        result_1 = collect_single_trial(
+            workscope_id=workscope_1,
+            export_path=exports_dir / "trial1.txt",
+            session_dir=session_dir,
+            destination_dir=destination_dir,
+            verbose=False,
+        )
+
+        result_2 = collect_single_trial(
+            workscope_id=workscope_2,
+            export_path=exports_dir / "trial2.txt",
+            session_dir=session_dir,
+            destination_dir=destination_dir,
+            verbose=False,
+        )
+
+        result_3 = collect_single_trial(
+            workscope_id=workscope_3,
+            export_path=exports_dir / "trial3.txt",
+            session_dir=session_dir,
+            destination_dir=destination_dir,
+            verbose=False,
+        )
+
+        # Verify results
+        assert result_1.status == "collected"
+        assert result_1.error is None
+
+        assert result_2.status == "skipped"
+        assert result_2.error is None
+
+        assert result_3.status == "failed"
+        assert result_3.error is not None
+        assert "No session file found" in result_3.error
+
+        # Verify trial directories
+        assert (destination_dir / workscope_1).exists()
+        assert (destination_dir / workscope_2).exists()
+        assert not (destination_dir / workscope_3).exists()
+
+        # Verify export cleanup
+        assert not (exports_dir / "trial1.txt").exists()  # Collected
+        assert (exports_dir / "trial2.txt").exists()  # Skipped (not deleted)
+        assert (exports_dir / "trial3.txt").exists()  # Failed (not deleted)
+
+    def test_multiple_exports_same_workscope_id(
+        self,
+        tmp_path: Path,
+        sample_export_content: Callable[[str], str],
+        sample_session_content: Callable[[str], str],
+    ) -> None:
+        """Test handling of duplicate Workscope ID in multiple exports.
+
+        Verifies that second export with same Workscope ID is skipped due to
+        existing trial directory.
+
+        Args:
+            tmp_path: Pytest fixture providing temporary directory for test files.
+            sample_export_content: Pytest fixture providing factory for export content.
+            sample_session_content: Pytest fixture providing factory for session content.
+        """
+        # Setup directories
+        exports_dir = tmp_path / "exports"
+        destination_dir = tmp_path / "trials"
+        session_dir = tmp_path / "sessions"
+        exports_dir.mkdir()
+        destination_dir.mkdir()
+        session_dir.mkdir()
+
+        # Same Workscope ID, different export files
+        workscope_id = "20260119-120000"
+        session_uuid = "uuid-duplicate"
+
+        export_1 = exports_dir / "export-first.txt"
+        export_1.write_text(sample_export_content(workscope_id))
+
+        export_2 = exports_dir / "export-second.txt"
+        export_2.write_text(sample_export_content(workscope_id))
+
+        # Session file
+        (session_dir / f"{session_uuid}.jsonl").write_text(sample_session_content(workscope_id))
+
+        # Collect first export
+        result_1 = collect_single_trial(
+            workscope_id=workscope_id,
+            export_path=export_1,
+            session_dir=session_dir,
+            destination_dir=destination_dir,
+            verbose=False,
+        )
+
+        # Collect second export (should skip)
+        result_2 = collect_single_trial(
+            workscope_id=workscope_id,
+            export_path=export_2,
+            session_dir=session_dir,
+            destination_dir=destination_dir,
+            verbose=False,
+        )
+
+        # Verify results
+        assert result_1.status == "collected"
+        assert result_2.status == "skipped"
+
+        # Verify only one trial directory
+        assert (destination_dir / workscope_id).exists()
+
+        # Verify first export deleted, second not deleted (skipped)
+        assert not export_1.exists()
+        assert export_2.exists()
+
+
+@patch.dict("os.environ", {}, clear=True)
+class TestIntegrationMixedStructures:
+    """Integration tests for collecting trials with mixed session structures.
+
+    Tests batch collection where different trials have different session
+    storage structures in the same collection run.
+    """
+
+    def test_batch_with_flat_hybrid_hierarchical_structures(
+        self,
+        tmp_path: Path,
+        sample_export_content: Callable[[str], str],
+        sample_session_content: Callable[[str], str],
+    ) -> None:
+        """Test batch collection with all three session structures in same run.
+
+        Verifies unified collection algorithm correctly handles flat, hybrid,
+        and hierarchical structures without detection logic.
+
+        Args:
+            tmp_path: Pytest fixture providing temporary directory for test files.
+            sample_export_content: Pytest fixture providing factory for export content.
+            sample_session_content: Pytest fixture providing factory for session content.
+        """
+        # Setup directories
+        exports_dir = tmp_path / "exports"
+        destination_dir = tmp_path / "trials"
+        session_dir = tmp_path / "sessions"
+        exports_dir.mkdir()
+        destination_dir.mkdir()
+        session_dir.mkdir()
+
+        # Flat structure trial
+        flat_id = "20260119-130000"
+        flat_uuid = "uuid-flat-mixed"
+        (exports_dir / "flat.txt").write_text(sample_export_content(flat_id))
+        (session_dir / f"{flat_uuid}.jsonl").write_text(sample_session_content(flat_id))
+        (session_dir / "agent-flat-1.jsonl").write_text(f'{{"sessionId": "{flat_uuid}"}}\n')
+
+        # Hybrid structure trial
+        hybrid_id = "20260119-131000"
+        hybrid_uuid = "uuid-hybrid-mixed"
+        (exports_dir / "hybrid.txt").write_text(sample_export_content(hybrid_id))
+        (session_dir / f"{hybrid_uuid}.jsonl").write_text(sample_session_content(hybrid_id))
+        hybrid_subdir = session_dir / hybrid_uuid
+        hybrid_subdir.mkdir()
+        (hybrid_subdir / "tool-results").mkdir()
+        (hybrid_subdir / "tool-results" / "toolu_h1.txt").write_text("tool output")
+        (session_dir / "agent-hybrid-1.jsonl").write_text(f'{{"sessionId": "{hybrid_uuid}"}}\n')
+
+        # Hierarchical structure trial
+        hier_id = "20260119-132000"
+        hier_uuid = "uuid-hier-mixed"
+        (exports_dir / "hier.txt").write_text(sample_export_content(hier_id))
+        (session_dir / f"{hier_uuid}.jsonl").write_text(sample_session_content(hier_id))
+        hier_subdir = session_dir / hier_uuid
+        hier_subdir.mkdir()
+        (hier_subdir / "subagents").mkdir()
+        (hier_subdir / "subagents" / "agent-hier-1.jsonl").write_text("content")
+        (hier_subdir / "tool-results").mkdir()
+        (hier_subdir / "tool-results" / "toolu_h1.txt").write_text("tool output")
+
+        # Collect all three
+        flat_result = collect_single_trial(
+            workscope_id=flat_id,
+            export_path=exports_dir / "flat.txt",
+            session_dir=session_dir,
+            destination_dir=destination_dir,
+            verbose=False,
+        )
+
+        hybrid_result = collect_single_trial(
+            workscope_id=hybrid_id,
+            export_path=exports_dir / "hybrid.txt",
+            session_dir=session_dir,
+            destination_dir=destination_dir,
+            verbose=False,
+        )
+
+        hier_result = collect_single_trial(
+            workscope_id=hier_id,
+            export_path=exports_dir / "hier.txt",
+            session_dir=session_dir,
+            destination_dir=destination_dir,
+            verbose=False,
+        )
+
+        # Verify all succeeded
+        assert flat_result.status == "collected"
+        assert hybrid_result.status == "collected"
+        assert hier_result.status == "collected"
+
+        # Verify flat structure preserved
+        flat_dir = destination_dir / flat_id
+        assert (flat_dir / "agent-flat-1.jsonl").exists()
+        assert not (flat_dir / flat_uuid).exists()  # No subdirectory
+
+        # Verify hybrid structure preserved
+        hybrid_dir = destination_dir / hybrid_id
+        assert (hybrid_dir / "agent-hybrid-1.jsonl").exists()
+        assert (hybrid_dir / hybrid_uuid / "tool-results" / "toolu_h1.txt").exists()
+
+        # Verify hierarchical structure preserved
+        hier_dir = destination_dir / hier_id
+        assert (hier_dir / hier_uuid / "subagents" / "agent-hier-1.jsonl").exists()
+        assert (hier_dir / hier_uuid / "tool-results" / "toolu_h1.txt").exists()
+        assert not (hier_dir / "agent-hier-1.jsonl").exists()  # Not at root
+
+
+@patch.dict("os.environ", {}, clear=True)
+class TestIntegrationErrorRecovery:
+    """Integration tests for error recovery and idempotent re-runs.
+
+    Tests partial failure scenarios, continuation after errors, and
+    idempotent batch processing.
+    """
+
+    def test_partial_failure_continuation(
+        self,
+        tmp_path: Path,
+        sample_export_content: Callable[[str], str],
+        sample_session_content: Callable[[str], str],
+    ) -> None:
+        """Test that collection continues after individual trial failures.
+
+        Verifies script processes all exports even when some fail, enabling
+        recovery of successful trials from a mixed batch.
+
+        Args:
+            tmp_path: Pytest fixture providing temporary directory for test files.
+            sample_export_content: Pytest fixture providing factory for export content.
+            sample_session_content: Pytest fixture providing factory for session content.
+        """
+        # Setup directories
+        exports_dir = tmp_path / "exports"
+        destination_dir = tmp_path / "trials"
+        session_dir = tmp_path / "sessions"
+        exports_dir.mkdir()
+        destination_dir.mkdir()
+        session_dir.mkdir()
+
+        # Trial 1: Success
+        id_1 = "20260119-140000"
+        uuid_1 = "uuid-success-1"
+        (exports_dir / "export1.txt").write_text(sample_export_content(id_1))
+        (session_dir / f"{uuid_1}.jsonl").write_text(sample_session_content(id_1))
+
+        # Trial 2: Failure (missing session)
+        id_2 = "20260119-141000"
+        (exports_dir / "export2.txt").write_text(sample_export_content(id_2))
+
+        # Trial 3: Success
+        id_3 = "20260119-142000"
+        uuid_3 = "uuid-success-3"
+        (exports_dir / "export3.txt").write_text(sample_export_content(id_3))
+        (session_dir / f"{uuid_3}.jsonl").write_text(sample_session_content(id_3))
+
+        # Collect all three
+        results = []
+        for export_file in sorted(exports_dir.glob("*.txt")):
+            # Extract workscope ID from export
+            content = export_file.read_text()
+            match = re.search(r"Workscope ID:?\s*(?:Workscope-)?(\d{8}-\d{6})", content)
+            if match:
+                workscope_id = match.group(1)
+                result = collect_single_trial(
+                    workscope_id=workscope_id,
+                    export_path=export_file,
+                    session_dir=session_dir,
+                    destination_dir=destination_dir,
+                    verbose=False,
+                )
+                results.append(result)
+
+        # Verify outcomes
+        assert len(results) == EXPECTED_TRIAL_COUNT_PARTIAL_FAILURE
+        assert results[0].status == "collected"  # Trial 1
+        assert results[1].status == "failed"  # Trial 2
+        assert results[2].status == "collected"  # Trial 3
+
+        # Verify successful trials collected
+        assert (destination_dir / id_1).exists()
+        assert (destination_dir / id_3).exists()
+        assert not (destination_dir / id_2).exists()
+
+    def test_idempotent_rerun_after_success(
+        self,
+        tmp_path: Path,
+        sample_export_content: Callable[[str], str],
+        sample_session_content: Callable[[str], str],
+    ) -> None:
+        """Test idempotent re-run produces zero collected on second run.
+
+        Verifies that running collection twice with same inputs results in
+        all trials being skipped on the second run.
+
+        Args:
+            tmp_path: Pytest fixture providing temporary directory for test files.
+            sample_export_content: Pytest fixture providing factory for export content.
+            sample_session_content: Pytest fixture providing factory for session content.
+        """
+        # Setup directories
+        exports_dir = tmp_path / "exports"
+        destination_dir = tmp_path / "trials"
+        session_dir = tmp_path / "sessions"
+        exports_dir.mkdir()
+        destination_dir.mkdir()
+        session_dir.mkdir()
+
+        # Create trial
+        workscope_id = "20260119-150000"
+        session_uuid = "uuid-idempotent"
+        export_1 = exports_dir / "export-run1.txt"
+        export_1.write_text(sample_export_content(workscope_id))
+        (session_dir / f"{session_uuid}.jsonl").write_text(sample_session_content(workscope_id))
+
+        # First run - should collect
+        result_1 = collect_single_trial(
+            workscope_id=workscope_id,
+            export_path=export_1,
+            session_dir=session_dir,
+            destination_dir=destination_dir,
+            verbose=False,
+        )
+
+        assert result_1.status == "collected"
+        assert (destination_dir / workscope_id).exists()
+
+        # Create new export with same Workscope ID for second run
+        export_2 = exports_dir / "export-run2.txt"
+        export_2.write_text(sample_export_content(workscope_id))
+
+        # Second run - should skip
+        result_2 = collect_single_trial(
+            workscope_id=workscope_id,
+            export_path=export_2,
+            session_dir=session_dir,
+            destination_dir=destination_dir,
+            verbose=False,
+        )
+
+        assert result_2.status == "skipped"
+        assert len(result_2.files_copied) == 0
+
+    def test_rerun_after_partial_failure_collects_remaining(
+        self,
+        tmp_path: Path,
+        sample_export_content: Callable[[str], str],
+        sample_session_content: Callable[[str], str],
+    ) -> None:
+        """Test that re-run after partial failure collects only remaining trials.
+
+        Verifies recovery workflow where first run has failures, User fixes
+        issues, and second run collects previously failed trials.
+
+        Args:
+            tmp_path: Pytest fixture providing temporary directory for test files.
+            sample_export_content: Pytest fixture providing factory for export content.
+            sample_session_content: Pytest fixture providing factory for session content.
+        """
+        # Setup directories
+        exports_dir = tmp_path / "exports"
+        destination_dir = tmp_path / "trials"
+        session_dir = tmp_path / "sessions"
+        exports_dir.mkdir()
+        destination_dir.mkdir()
+        session_dir.mkdir()
+
+        # Trial 1: Will succeed on first run
+        id_1 = "20260119-160000"
+        uuid_1 = "uuid-first-success"
+        export_1 = exports_dir / "export1.txt"
+        export_1.write_text(sample_export_content(id_1))
+        (session_dir / f"{uuid_1}.jsonl").write_text(sample_session_content(id_1))
+
+        # Trial 2: Will fail on first run (missing session)
+        id_2 = "20260119-161000"
+        export_2 = exports_dir / "export2.txt"
+        export_2.write_text(sample_export_content(id_2))
+
+        # First run
+        result_1_run1 = collect_single_trial(
+            workscope_id=id_1,
+            export_path=export_1,
+            session_dir=session_dir,
+            destination_dir=destination_dir,
+            verbose=False,
+        )
+
+        result_2_run1 = collect_single_trial(
+            workscope_id=id_2,
+            export_path=export_2,
+            session_dir=session_dir,
+            destination_dir=destination_dir,
+            verbose=False,
+        )
+
+        # Verify first run outcomes
+        assert result_1_run1.status == "collected"
+        assert result_2_run1.status == "failed"
+
+        # Now add missing session file for Trial 2
+        uuid_2 = "uuid-second-success"
+        (session_dir / f"{uuid_2}.jsonl").write_text(sample_session_content(id_2))
+
+        # Second run (export2 still exists because failed collections don't delete)
+        result_2_run2 = collect_single_trial(
+            workscope_id=id_2,
+            export_path=export_2,
+            session_dir=session_dir,
+            destination_dir=destination_dir,
+            verbose=False,
+        )
+
+        # Verify second run collected the previously failed trial
+        assert result_2_run2.status == "collected"
+        assert (destination_dir / id_2).exists()

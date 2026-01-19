@@ -173,14 +173,72 @@ After all trials are complete, exports can be moved into the repository's `dev/m
 
 ### Step 8: Collect Session Files
 
-Copy the session `.jsonl` files from `~/.claude/projects/` to the repository.
+After exporting, collect the session `.jsonl` files that contain the raw tool call history needed for analysis.
 
-Session files are located in a project-specific directory under `~/.claude/projects/`. The exact path depends on the project location. Look for the directory containing recent `.jsonl` files matching your session UUID.
+#### Using the Collection Script (Recommended)
+
+The `collect_trials.py` script automates artifact collection, organizing files into Workscope ID-keyed directories:
+
+```bash
+./src/collect_trials.py -e ~/phantom-read-trials -d ./dev/misc/collected-trials -v
+```
+
+The script:
+- Scans the exports directory for chat export `.txt` files
+- Extracts the Workscope ID from each export
+- Locates the corresponding session `.jsonl` files in `~/.claude/projects/`
+- Copies all associated files (main session, subagents, tool-results) to the destination
+- Organizes artifacts into directories named by Workscope ID
+- Handles all Claude Code session storage structures (flat, hybrid, hierarchical) automatically
+
+**Important**: Run the script from the project root directory where trials were conducted. The script derives the session file location from the current working directory.
+
+For complete documentation, see `docs/features/collect-trials-script/Collect-Trials-Script-Overview.md`.
+
+#### Manual Collection
+
+Alternatively, copy session files manually from `~/.claude/projects/`. Session files are located in a project-specific directory. Look for recent `.jsonl` files matching your session UUID.
 
 Required files:
 - Main session `.jsonl` file (named with session UUID)
 - `subagents/` directory (if present)
 - `tool-results/` directory (if present)
+
+## Recommended Batch Workflow
+
+For running multiple trials efficiently, use the following batch workflow that separates trial execution from artifact collection:
+
+### During Trial Execution
+
+1. **Run trials sequentially**, completing Steps 1-7 for each trial
+2. **Export each trial** to a common exports directory (e.g., `~/phantom-read-trials/`)
+3. **Do not collect session files** between trials—continue to the next trial
+
+### After All Trials Complete
+
+1. **Run the collection script once** to batch-process all exports:
+
+```bash
+./src/collect_trials.py -e ~/phantom-read-trials -d ./dev/misc/collected-trials -v
+```
+
+2. **Review the summary** showing collected, skipped, and failed trials
+3. **Organize by version** if testing multiple Claude Code versions:
+
+```bash
+# Collect trials into version-specific directories
+./src/collect_trials.py -e ~/phantom-read-trials/v2.0.58 -d ./dev/misc/v2.0.58-trials -v
+./src/collect_trials.py -e ~/phantom-read-trials/v2.1.6 -d ./dev/misc/v2.1.6-trials -v
+```
+
+### Idempotent Re-runs
+
+The collection script supports safe re-execution:
+- **Already-collected trials are skipped**: If a trial directory exists, the script skips it
+- **Processed exports are removed**: Successfully collected exports are deleted from the source directory
+- **Failures don't block progress**: Individual trial failures don't stop the batch
+
+This enables workflows where you run trials incrementally and collect periodically without worrying about duplicates.
 
 ## Artifact Organization
 
@@ -196,6 +254,12 @@ dev/misc/
 │   │       └── subagents/
 │   ├── medium-1/
 │   └── hard-1/
+├── collected-trials/         # Batch-collected trials (by Workscope ID)
+│   ├── 20260115-143022/
+│   │   ├── 20260115-143022.txt
+│   │   ├── {uuid}.jsonl
+│   │   └── {uuid}/
+│   └── 20260115-152301/
 ├── wsd-dev-repeat/           # Trials on WSD Development project
 │   ├── 2.1.6-good/
 │   └── 2.1.6-bad/
@@ -326,4 +390,4 @@ To maintain clean trial isolation:
 
 ---
 
-*Version 2.0 - 2026-01-15*
+*Version 2.1 - 2026-01-19*

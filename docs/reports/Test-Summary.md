@@ -1,13 +1,13 @@
 # Test Summary Report
 
-**Generated at:** Sun Jan 18 13:51:16 PST 2026
+**Generated at:** Mon Jan 19 10:39:51 PST 2026
 
 ## Python Tests (pytest)
 
-- **Passed:** 60
+- **Passed:** 126
 - **Failed:** 0
-- **Total:** 60
-- **Duration:** 0.17s
+- **Total:** 126
+- **Duration:** 0.35s
 
 Raw output: [Test-Results-Pytest.log](../../dev/reports/Test-Results-Pytest.log)
 
@@ -15,7 +15,7 @@ Raw output: [Test-Results-Pytest.log](../../dev/reports/Test-Results-Pytest.log)
 
 ## Overall Summary
 
-**Total Passed:** 60
+**Total Passed:** 126
 **Total Failed:** 0
-**Grand Total:** 60
+**Grand Total:** 126
 
