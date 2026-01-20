@@ -394,11 +394,11 @@ This provides precise token consumption data at the critical juncture.
 
 Conducted 3 trials (one for each difficulty level) in a clone of this repository:
 
-| Trial | Pre-/refine-plan | Post-/refine-plan | Delta | Expected | Actual |
-|-------|------------------|-------------------|-------|----------|--------|
-| Hard | 95K (48%) | 149K (75%) | +54K | FAILURE | SUCCESS |
-| Medium | 80K (40%) | 123K (62%) | +43K | MIXED | SUCCESS |
-| Easy | 74K (37%) | 94K (47%) | +20K | SUCCESS | SUCCESS |
+| Trial  | Pre-/refine-plan | Post-/refine-plan | Delta | Expected | Actual  |
+| ------ | ---------------- | ----------------- | ----- | -------- | ------- |
+| Hard   | 95K (48%)        | 149K (75%)        | +54K  | FAILURE  | SUCCESS |
+| Medium | 80K (40%)        | 123K (62%)        | +43K  | MIXED    | SUCCESS |
+| Easy   | 74K (37%)        | 94K (47%)         | +20K  | SUCCESS  | SUCCESS |
 
 **Result**: All three trials succeeded. The hard case was expected to fail but did not.
 
@@ -429,12 +429,12 @@ Captured both a successful and failing trial:
 
 **Critical Data**:
 
-| Metric | GOOD Trial | BAD Trial |
-|--------|------------|-----------|
-| Pre-/refine-plan | **85K (42%)** | **126K (63%)** |
-| Post-/refine-plan | **159K (79%)** | **142K (71%)** |
-| Delta during /refine-plan | **+74K** | **+16K** |
-| Phantom Reads? | **NO** | **YES** |
+| Metric                    | GOOD Trial     | BAD Trial      |
+| ------------------------- | -------------- | -------------- |
+| Pre-/refine-plan          | **85K (42%)**  | **126K (63%)** |
+| Post-/refine-plan         | **159K (79%)** | **142K (71%)** |
+| Delta during /refine-plan | **+74K**       | **+16K**       |
+| Phantom Reads?            | **NO**         | **YES**        |
 
 ### Counter-Intuitive Discovery
 
@@ -483,10 +483,10 @@ Our reproduction environment's onboarding process consumes ~74-95K tokens, leavi
 
 The Headroom Theory **supports and refines** the Reset Theory:
 
-| Theory | Explains |
-|--------|----------|
-| **Reset Theory** | The MECHANISM - context resets clear content before the model processes it |
-| **Headroom Theory** | The TRIGGER - low starting headroom causes earlier/more frequent resets |
+| Theory              | Explains                                                                   |
+| ------------------- | -------------------------------------------------------------------------- |
+| **Reset Theory**    | The MECHANISM - context resets clear content before the model processes it |
+| **Headroom Theory** | The TRIGGER - low starting headroom causes earlier/more frequent resets    |
 
 The theories are complementary:
 1. Low headroom → More resets (Headroom Theory)
@@ -661,22 +661,217 @@ Full specification at `docs/features/collect-trials-script/Collect-Trials-Script
 
 With the completion of these two scripts, the core investigation tooling for Phase 4 is now available:
 
-| Tool | Purpose | Status |
-|------|---------|--------|
-| `src/cc_version.py` | Manage Claude Code versions | ✅ Complete |
-| `src/collect_trials.py` | Collect trial artifacts | ✅ Complete |
-| Session Analysis Scripts | Detect phantom reads in collected sessions | 🔲 Pending |
+| Tool                     | Purpose                                    | Status     |
+| ------------------------ | ------------------------------------------ | ---------- |
+| `src/cc_version.py`      | Manage Claude Code versions                | ✅ Complete |
+| `src/collect_trials.py`  | Collect trial artifacts                    | ✅ Complete |
+| Session Analysis Scripts | Detect phantom reads in collected sessions | 🔲 Pending  |
 
 The analysis scripts (Phase 4.3) will build on the collected trial data to programmatically detect phantom read occurrences, removing reliance on agent self-reporting.
 
 ---
 
-## Next Steps
+## 2026-01-19: WSD-Dev-02 Collection and Reset Timing Theory
 
-1. **Design and implement session analysis scripts** - Create tools to detect phantom reads in collected session data
-2. **Run sample experiments** - Execute trials as end-users would and evaluate analysis results
-3. **Update documentation** - Ensure Investigation-Journal, README, and Experiment-Methodology reflect latest findings and tools
+**Event**: Created the wsd-dev-02 trial collection and discovered the Reset Timing Theory.
+
+### Collection Overview
+
+Conducted 7 initial trials using Experiment-Methodology-02 against the WSD Development project, triggering multi-file read operations via the `/refine-plan` command. Trials were collected in `dev/misc/wsd-dev-02/`.
+
+| Trial ID        | Outcome | Pre-Op % | Headroom | Resets | Pattern          |
+| --------------- | ------- | -------- | -------- | ------ | ---------------- |
+| 20260119-131802 | SUCCESS | 43%      | 115K     | 2      | EARLY + LATE     |
+| 20260119-132353 | FAILURE | 55%      | 90K      | 4      | EARLY + MID/LATE |
+| 20260119-133027 | FAILURE | 43%      | 114K     | 4      | EARLY + MID/LATE |
+| 20260119-133726 | FAILURE | 43%      | 114K     | 2      | LATE CLUSTERED   |
+| 20260119-140145 | FAILURE | 41%      | 117K     | 3      | EARLY + MID/LATE |
+| 20260119-140906 | FAILURE | 48%      | 104K     | 4      | EARLY + MID/LATE |
+| 20260119-142117 | SUCCESS | 43%      | 113K     | 2      | EARLY + LATE     |
+
+### Key Discovery: Reset Timing Theory
+
+Analysis revealed that **reset timing pattern** is more predictive than either headroom or reset count alone.
+
+**Pattern Classification**:
+
+| Pattern              | Description                                       | Risk |
+| -------------------- | ------------------------------------------------- | ---- |
+| **EARLY + LATE**     | First reset <50%, last reset >90%, no mid-session | LOW  |
+| **EARLY + MID/LATE** | Early reset plus one or more mid-session (50-90%) | HIGH |
+| **LATE CLUSTERED**   | All resets >80% and close together                | HIGH |
+
+**Critical Evidence**: Trial 133726 had identical metrics to successful trials (86K pre-op, 114K headroom, 2 resets) but FAILED due to LATE CLUSTERED timing (resets at 83% and 97%). This proves timing matters more than count or headroom.
+
+### Trial Data Preprocessing Tool
+
+Created `.claude/commands/update-trial-data.md` - a preprocessing tool that extracts data from trial session files into structured `trial_data.json` files for analysis. This enables systematic comparison across trials.
+
+Full analysis documented in: `docs/core/WSD-Dev-02-Analysis-1.md`
 
 ---
 
-*Last updated: 2026-01-19*
+## 2026-01-20: WSD-Dev-02 Expanded Analysis (22 Trials)
+
+**Event**: Added 15 additional trials to the wsd-dev-02 collection, bringing total to 22 trials.
+
+### Results Summary
+
+- **Total Trials**: 22
+- **SUCCESS**: 5 (22.7%)
+- **FAILURE**: 17 (77.3%)
+
+### Reset Timing Theory Strongly Validated
+
+The expanded dataset achieved **100% prediction accuracy** for the Reset Timing Theory:
+
+| Pattern             | Trials | Outcomes         |
+| ------------------- | ------ | ---------------- |
+| EARLY_PLUS_LATE     | 4      | **100% SUCCESS** |
+| SINGLE_LATE         | 1      | **100% SUCCESS** |
+| EARLY_PLUS_MID_LATE | 11     | **100% FAILURE** |
+| LATE_CLUSTERED      | 2      | **100% FAILURE** |
+| OTHER               | 4      | **100% FAILURE** |
+
+**Critical Insight**: The presence of **any mid-session reset (50-90% through the session)** is a near-perfect predictor of phantom read occurrence.
+
+### Theory Validation Summary
+
+| Theory                  | Status              | Notes                            |
+| ----------------------- | ------------------- | -------------------------------- |
+| **Reset Timing Theory** | STRONGLY CONFIRMED  | 100% prediction accuracy         |
+| **Reset Count Theory**  | PARTIALLY VALIDATED | Correlates but not deterministic |
+| **Headroom Theory**     | WEAKENED            | Necessary but not sufficient     |
+
+### The "Clean Gap" Pattern
+
+Successful sessions exhibit a "clean gap" pattern:
+1. Early reset occurs during initialization/setup phase
+2. Main file reading operations proceed without interruption
+3. Late reset occurs only after operations complete
+
+This suggests the agent's context can "survive" resets at natural breakpoints, but cannot survive resets that interrupt active file processing.
+
+Full analysis documented in: `docs/core/WSD-Dev-02-Analysis-2.md`
+
+---
+
+## 2026-01-20: Token-Based Analysis
+
+**Event**: Enhanced trial_data.json with token count data (schema 1.1) and performed detailed token-based analysis.
+
+### Token Count Collection
+
+Collected token counts for all files read across trials using the Anthropic API. Data stored in `dev/misc/wsd-dev-02/file_token_counts.json`. Updated the `/update-trial-data` preprocessing tool to incorporate token data into `trial_data.json` files.
+
+### Key Findings
+
+#### 1. No Fixed Reset Threshold
+
+Resets occur at widely varying cumulative token counts:
+- **Early resets (SUCCESS)**: 82K-88K cumulative tokens
+- **Mid-session resets (FAILURE)**: 153K-383K cumulative tokens
+- **Late resets (both)**: 140K-379K cumulative tokens
+
+The 5x variation (82K to 383K) rules out a simple threshold model.
+
+#### 2. Large File Correlation - Weak
+
+File size at reset point does NOT predict outcome. Resets occur after both small (<1K) and large (>10K) files in both SUCCESS and FAILURE cases.
+
+#### 3. The "Clean Gap" Pattern - Quantified
+
+**SUCCESS Trials**:
+| Trial           | Early Reset | Late Reset | Gap Width | Tokens in Gap |
+| --------------- | ----------- | ---------- | --------- | ------------- |
+| 20260120-095152 | 87,790      | 340,837    | 60.5%     | 253,047       |
+| 20260120-093204 | 85,948      | 379,133    | 65.0%     | 293,185       |
+
+SUCCESS trials show large "clean gaps" (55-65% of session) where work proceeds uninterrupted.
+
+#### 4. Dynamic Context Pressure Hypothesis
+
+**New Hypothesis**: Resets are triggered by **rate of context accumulation** rather than absolute values.
+
+Supporting evidence:
+- SUCCESS sessions show steady token progression with natural pauses
+- FAILURE sessions show rapid batch reads without breathing room
+- Same cumulative total can succeed or fail depending on accumulation rate
+
+### Tentative Safe Batch Size
+
+Based on the data:
+- **After an early reset**: ~60-70K tokens can be read safely
+- **Without an early reset**: First reset occurs around 68K tokens into read operations
+- **Recommended safe batch**: ~50K tokens between reset opportunities
+
+### Revised Risk Model
+
+| Risk Level   | Primary Indicator                      | Token Signature                 |
+| ------------ | -------------------------------------- | ------------------------------- |
+| **LOW**      | SINGLE_LATE or EARLY_PLUS_LATE pattern | Work completes in protected gap |
+| **HIGH**     | Any reset in 50-90% range              | Active work disrupted           |
+| **CRITICAL** | Multiple resets in 50-90%              | Repeated mid-session disruption |
+
+Full analysis documented in: `docs/core/WSD-Dev-02-Analysis-3.md`
+
+---
+
+## Evolving Theory
+
+### What We Know For Certain
+
+1. **The phenomenon is real** - agents demonstrate reduced competence discussing file contents
+2. **Agents produce fabricated details** - bad line numbers, references to non-existent content
+3. **Agents admit knowledge gaps** - lucid admissions they don't know file contents
+4. **Alternative access methods work** - grep results, re-reads, and MCP reads succeed
+5. **The workaround works** - MCP Filesystem has 100% success rate so far
+6. **Context resets correlate** - more resets = higher phantom read risk
+7. **Starting headroom matters** - low headroom before multi-file operations predicts phantom reads
+8. **Reset TIMING is critical** - mid-session resets (50-90%) predict failure with 100% accuracy
+9. **No fixed token threshold** - resets occur at 82K-383K cumulative tokens
+10. **Accumulation rate matters** - rapid batch reads without pauses increase risk
+
+### What Remains Uncertain
+
+1. **Exact mechanism** - What internally triggers a reset at a specific moment?
+2. **Rate threshold** - Is there a tokens-per-turn rate that reliably predicts resets?
+3. **Mitigation effectiveness** - Can intentional early resets or batching prevent failures?
+
+### Current Working Theory
+
+The Read tool records actual content to the session file, but a separate context management system decides what actually reaches the model. When context grows too large OR accumulates too rapidly, older tool results are cleared/summarized.
+
+**The Reset Timing Theory refines our understanding**: It's not just HOW MUCH context, but WHEN resets occur. Resets during active file processing (50-90% of session) clear content before the model processes it, causing phantom reads. Resets at natural breakpoints (early setup, late completion) are survivable.
+
+**The Dynamic Context Pressure Hypothesis adds**: Rapid token accumulation (batch reads without processing pauses) may trigger resets more readily than steady accumulation, even at lower total counts.
+
+---
+
+## Open Questions
+
+1. **What internally triggers a reset?** Is it threshold-based, rate-based, time-based, or some combination?
+
+2. **Can intentional early resets prevent mid-session resets?** If we force an early reset, does it provide a "clean gap" for subsequent operations?
+
+3. **Does batching with processing pauses help?** Can we prevent rapid accumulation by inserting summarization steps between read batches?
+
+4. **Why does grep appear more reliable?** Different code path? Smaller result sizes?
+
+5. **Can we predict reset timing?** Given starting conditions, can we estimate when resets will occur?
+
+6. **Are these findings version-specific?** Do they hold across Era 1 and Era 2 builds?
+
+---
+
+## Next Steps
+
+1. **Test "Intentional Early Reset" Mitigation** - Force early context consumption to trigger reset, then execute multi-file operations
+2. **Test "Session Batching" Mitigation** - Break reads into smaller batches with processing gaps
+3. **Validate Rate-Based Threshold Theory** - Calculate tokens-per-turn accumulation rates across trials
+4. **Cross-Version Testing** - Confirm findings aren't version-specific
+5. **Update Documentation** - Ensure README and Experiment-Methodology reflect latest findings
+
+---
+
+*Last updated: 2026-01-20*

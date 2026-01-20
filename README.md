@@ -50,17 +50,46 @@ This repository serves three purposes:
 
 The investigation is ongoing and documented in [docs/core/Investigation-Journal.md](docs/core/Investigation-Journal.md).
 
+### Latest Progress: 22-Trial Analysis
+
+We conducted 22 controlled trials and discovered that **reset timing pattern** is the dominant predictor of phantom reads—achieving **100% prediction accuracy** on our dataset.
+
+| Pattern | Description | Outcome |
+|---------|-------------|---------|
+| EARLY + LATE | First reset <50%, last >95%, no mid-session | **100% SUCCESS** |
+| SINGLE_LATE | Single reset >95% | **100% SUCCESS** |
+| MID-SESSION | Any reset between 50-90% of session | **100% FAILURE** |
+
+The critical finding: **mid-session resets (50-90% through the session) predict phantom reads with near-perfect accuracy**, regardless of reset count or starting headroom.
+
 ### Key Findings
 
-- **Context resets correlate with phantom reads**: The `cache_read_input_tokens` field in session data shows context resets that predict phantom read risk
-- **Session files don't capture the bug**: The `.jsonl` session log records actual file content, but the model receives phantom read markers—the transformation happens after logging
-- **Grep appears more reliable**: Agents report that `grep` results succeed when `Read` operations fail
-- **CLAUDE.md warnings are ineffective**: Agents ignore warnings about phantom reads because they genuinely believe they read the files
+- **Reset timing is the dominant factor**: When resets occur matters more than how many occur or how much context is consumed
+- **The "Clean Gap" pattern**: Successful sessions have early resets (before main work) and late resets (after work completes), with no resets during active file reading
+- **No fixed token threshold**: Resets occur at widely varying cumulative token counts (82K-383K), ruling out a simple threshold model
+- **Accumulation rate matters**: Rapid batch reads without processing pauses appear to trigger mid-session resets more readily
+- **Session files don't capture the bug**: The `.jsonl` log records actual content, but phantom read markers appear after logging
 - **MCP bypass works**: The Filesystem MCP server provides 100% success rate in testing
 
 ### Current Working Theory
 
-The Read tool records actual content to the session file, but a separate context management system decides what actually reaches the model. When context grows too large, older tool results are cleared or summarized. The session file doesn't capture this transformation because it logs tool execution, not model context.
+The Read tool records actual content to the session file, but a separate context management system decides what actually reaches the model. **The critical factor is WHEN context resets occur during a session**:
+
+- **Resets during active file processing (50-90% of session)** → Content cleared before the model processes it → **Phantom reads**
+- **Resets at natural breakpoints (early setup, late completion)** → Content already processed → **Success**
+
+The "Clean Gap" pattern describes successful sessions: an early reset clears initialization overhead, then main file reading proceeds uninterrupted, with any final reset occurring only after operations complete.
+
+### Theories Summary
+
+| Theory | Status | Notes |
+|--------|--------|-------|
+| **Reset Timing Theory** | ✅ CONFIRMED | 100% prediction accuracy on 22 trials |
+| **Reset Count Theory** | ⚠️ PARTIAL | Correlates but not deterministic |
+| **Headroom Theory** | ⚠️ WEAKENED | Necessary but not sufficient |
+| **Dynamic Context Pressure** | 🔬 HYPOTHESIS | Rate of accumulation may trigger resets |
+
+See [docs/core/WSD-Dev-02-Analysis-3.md](docs/core/WSD-Dev-02-Analysis-3.md) for the full token-based analysis.
 
 ## Original Experiment
 
