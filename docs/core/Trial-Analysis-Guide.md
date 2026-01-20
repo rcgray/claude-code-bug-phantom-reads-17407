@@ -516,6 +516,105 @@ def analyze_trial(trial_dir):
 
 ---
 
+## Part 8: Token-Based Analysis
+
+With the addition of `file_token_counts.json`, we can now perform deeper analysis correlating file sizes with reset behavior.
+
+### 8.1 Token Count Data Source
+
+**Location**: `dev/misc/wsd-dev-02/file_token_counts.json`
+
+This file contains precise token counts (via Anthropic API) for all unique files read across the trial collection. Token counts are in Claude tokens, directly comparable to `cache_read_input_tokens` values in session files.
+
+**Notable Large Files**:
+| File | Tokens | Risk Factor |
+|------|--------|-------------|
+| source/wsd.py | 50,155 | Very High - single file is 25% of context |
+| tests/test_pre_staging.py | 15,701 | High |
+| docs/features/.../Update-System.md | 14,137 | High |
+| docs/features/.../Build-Package-Script-Overview.md | 12,689 | High |
+| docs/features/.../Install-And-Update-Overview.md | 12,402 | High |
+
+### 8.2 Questions Token Data Can Answer
+
+1. **Reset Threshold**: At what cumulative token count do resets typically occur?
+2. **Large File Correlation**: Do reads of files >10K tokens precede resets more often?
+3. **Safe Batch Size**: What's the maximum tokens readable without triggering mid-session reset?
+4. **Sequence Effects**: Does read order (large-first vs small-first) affect reset timing?
+
+### 8.3 Token Accumulation Analysis Procedure
+
+For trials with phantom reads, map the read sequence with token accumulation:
+
+```python
+def analyze_token_accumulation(trial_data, token_counts):
+    """
+    Map file reads to cumulative token consumption.
+
+    Args:
+        trial_data: Parsed trial_data.json
+        token_counts: Parsed file_token_counts.json
+
+    Returns:
+        List of (sequence, file_path, file_tokens, cumulative_estimate)
+    """
+    accumulation = []
+    cumulative = trial_data['context_metrics']['pre_operation_tokens']
+
+    for read in trial_data['file_reads']['reads']:
+        # Extract relative path from absolute path
+        rel_path = extract_relative_path(read['file_path'])
+        file_tokens = token_counts.get(rel_path, 0)
+        cumulative += file_tokens
+
+        accumulation.append({
+            'sequence': read['sequence'],
+            'file': rel_path,
+            'file_tokens': file_tokens,
+            'cumulative_estimate': cumulative,
+            'session_line': read['session_line']
+        })
+
+    return accumulation
+```
+
+### 8.4 Reset-to-Read Correlation
+
+Cross-reference reset positions with the token accumulation timeline:
+
+1. Identify reset session_line from `reset_analysis.resets`
+2. Find which reads occurred immediately before that line
+3. Calculate cumulative tokens at reset point
+4. Record which file (and its size) was being processed
+
+**Key Metrics to Extract**:
+- Cumulative tokens at each reset point
+- Size of file read immediately before reset
+- Token "delta" between last successful read and reset
+
+### 8.5 Reporting Token Analysis
+
+Add to trial analysis reports:
+
+```markdown
+### Token Accumulation Analysis
+
+| Seq | File | Tokens | Cumulative | Event |
+|-----|------|--------|------------|-------|
+| 1 | Journal-Workscope-xxx.md | 1,009 | 86,009 | Read |
+| 2 | Manifest-Driven-Pipeline-Overview.md | 5,783 | 91,792 | Read |
+| 3 | Pre-Staging-Script-Overview.md | 10,283 | 102,075 | Read |
+| - | - | - | 102,075 | **RESET** |
+| 4 | Stage-Release-Script-Overview.md | 7,366 | 28,620 | Read (post-reset) |
+
+**Observations**:
+- Reset occurred at estimated 102K cumulative tokens
+- Last file before reset was 10K tokens
+- Pattern suggests threshold around 100-105K
+```
+
+---
+
 ## Appendix A: Glossary
 
 | Term | Definition |
@@ -539,6 +638,7 @@ def analyze_trial(trial_dir):
 | Session file | `{trial-dir}/{uuid}.jsonl` |
 | Subagents | `{trial-dir}/{uuid}/subagents/` |
 | Tool results | `{trial-dir}/{uuid}/tool-results/` |
+| Token counts | `dev/misc/{collection-name}/file_token_counts.json` |
 
 ## Appendix C: Related Documents
 
@@ -552,8 +652,23 @@ For deeper background on specific topics:
 | `docs/core/Headroom-Theory.md` | Detailed Headroom Theory analysis |
 | `docs/core/Example-Session-Analysis.md` | Session file structure details |
 | `docs/core/Experiment-Methodology-02.md` | Trial execution protocol |
+| `docs/core/WSD-Dev-02-Analysis-1.md` | Initial 7-trial analysis, Reset Timing Theory origin |
+| `docs/core/WSD-Dev-02-Analysis-2.md` | Expanded 22-trial analysis, Reset Timing Theory validation |
+
+## Appendix D: Theory Status (as of 2026-01-20)
+
+Based on 22-trial analysis in WSD-Dev-02-Analysis-2.md:
+
+| Theory | Status | Prediction Accuracy |
+|--------|--------|---------------------|
+| **Reset Timing Theory** | STRONGLY CONFIRMED | 100% (22/22 trials) |
+| Reset Count Theory | Partially confirmed | Correlates but not deterministic |
+| Headroom Theory | Weakened | Insufficient alone; influences timing |
+
+**Key Finding**: Mid-session resets (50-90% through session) are the critical failure condition. Success requires either EARLY_PLUS_LATE or SINGLE_LATE reset patterns.
 
 ---
 
 *Document created: 2026-01-19*
+*Last updated: 2026-01-20 (Part 8, Appendix D added)*
 *Purpose: User Agent onboarding for Phantom Reads trial analysis*

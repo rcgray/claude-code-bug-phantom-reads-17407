@@ -34,8 +34,12 @@ Verify the folder contains:
 Extract:
 - `workscope_id` from folder name
 - `session_uuid` from the `.jsonl` filename (without extension)
+- `collection_dir` from parent directory (e.g., `dev/misc/wsd-dev-02`)
 
 Check for optional subdirectory `{uuid}/` containing `subagents/` or `tool-results/`.
+
+**Check for token counts file:**
+Look for `file_token_counts.json` in the `collection_dir`. If found, load it as `token_counts_data` for use in token analysis. If not found, token analysis will be skipped.
 
 If required files are missing, report the error and stop.
 
@@ -112,13 +116,65 @@ reset_positions_percent = [(reset.sequence / total_events) * 100 for each reset]
 - `total_operations` = count of all Read tool_use blocks
 - `unique_files` = deduplicated file paths
 
+### Step 5b: Compute Token Analysis (if token_counts_data available)
+
+If `file_token_counts.json` was loaded, perform token-based analysis:
+
+**Normalize file paths:**
+For each file in `file_reads`, extract the relative path by:
+1. Finding the project root pattern (e.g., `/Users/.../Projects/claude-bug/`)
+2. Extracting everything after the project root
+3. Matching against keys in `token_counts_data.project_files`
+
+**Build reads_with_tokens:**
+For each read operation, in sequence order:
+1. Look up token count from `token_counts_data` (use 0 if not found, -1 for ephemeral files)
+2. Calculate cumulative estimate: start with `pre_operation_tokens`, add each file's tokens in sequence
+3. Note: cumulative is an ESTIMATE - actual context includes more than just file content
+
+```
+reads_with_tokens = [
+  {
+    "sequence": <read sequence number>,
+    "file_path": "<relative path>",
+    "token_count": <from token_counts_data or 0>,
+    "cumulative_estimate": <running total>,
+    "session_line": <line number>
+  }
+]
+```
+
+**Build resets_with_context:**
+For each reset event:
+1. Find the last read operation BEFORE this reset (by session_line)
+2. Record cumulative token estimate at that point
+3. Record the file that was last read
+
+```
+resets_with_context = [
+  {
+    "reset_sequence": <reset sequence number>,
+    "session_line": <line number>,
+    "cumulative_tokens_before": <estimate at reset point>,
+    "last_file_read": "<relative path or null>",
+    "last_file_tokens": <token count or null>
+  }
+]
+```
+
+**Compute token statistics:**
+- `total_tokens_read`: Sum of all known file token counts (exclude -1 values)
+- `largest_file_tokens`: Maximum single file token count
+- `largest_file_path`: Path of the largest file
+- `unknown_token_files`: Count of files with 0 or -1 token count
+
 ### Step 6: Assemble Output Structure
 
 Create a JSON object with this structure:
 
 ```json
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "generated_at": "<current ISO timestamp>",
   "metadata": {
     "workscope_id": "<from folder name>",
@@ -184,7 +240,35 @@ Create a JSON object with this structure:
       "cache_read_tokens": <number>,
       "session_line": <number>
     }
-  ]
+  ],
+  "token_analysis": {
+    "available": <boolean - true if token_counts_data was loaded>,
+    "token_counts_file": "<path to file_token_counts.json or null>",
+    "statistics": {
+      "total_tokens_read": <sum of known file tokens>,
+      "largest_file_tokens": <max single file>,
+      "largest_file_path": "<path>",
+      "unknown_token_files": <count of files with 0 or -1>
+    },
+    "reads_with_tokens": [
+      {
+        "sequence": <number>,
+        "file_path": "<relative path>",
+        "token_count": <number>,
+        "cumulative_estimate": <number>,
+        "session_line": <number>
+      }
+    ],
+    "resets_with_context": [
+      {
+        "reset_sequence": <number>,
+        "session_line": <number>,
+        "cumulative_tokens_before": <number>,
+        "last_file_read": "<path or null>",
+        "last_file_tokens": <number or null>
+      }
+    ]
+  }
 }
 ```
 
@@ -200,6 +284,7 @@ For each top-level key, report:
 Format the change report:
 ```
 Changes to trial_data.json:
+  - schema_version: UPDATED (1.0 → 1.1)
   - metadata: UNCHANGED
   - outcome: UPDATED (self_reported: UNKNOWN → SUCCESS)
   - context_metrics: NEW
@@ -207,6 +292,7 @@ Changes to trial_data.json:
   - file_reads: UNCHANGED
   - timeline: UPDATED (added 5 events)
   - token_progression: UPDATED (added 12 data points)
+  - token_analysis: NEW (9 reads with tokens, 2 resets with context)
 ```
 
 If no existing file:
@@ -244,10 +330,21 @@ File Reads:
   Total operations: {total}
   Unique files: {unique}
 
+Token Analysis: {AVAILABLE | NOT AVAILABLE}
+  Total tokens read: {total_tokens_read}
+  Largest file: {largest_file_path} ({largest_file_tokens} tokens)
+  Unknown files: {unknown_token_files}
+
 Timeline Events: {count}
 
 Output: {path}/trial_data.json
 Status: {CREATED | UPDATED}
+```
+
+If token analysis is not available (no `file_token_counts.json`), show:
+```
+Token Analysis: NOT AVAILABLE
+  (No file_token_counts.json found in collection directory)
 ```
 
 ---
@@ -271,8 +368,9 @@ Validating trial folder...
   Chat export: 20260119-131802.txt ✓
   Session file: 637ef6e7-e740-4503-8ff8-5780d7c0918f.jsonl ✓
   Subdirectory: Not present
+  Token counts: file_token_counts.json ✓
 
-Checking for existing trial_data.json... Not found
+Checking for existing trial_data.json... Found (schema 1.0)
 
 Parsing session file (602KB)...
   Processed 1,247 lines
@@ -289,7 +387,14 @@ Computing metrics...
   Post-operation: 150K (75%)
   Pattern: EARLY_PLUS_LATE
 
-Creating new trial_data.json with all sections.
+Computing token analysis...
+  Matched 7/7 files to token counts
+  Calculated cumulative estimates for 9 reads
+  Annotated 2 resets with context
+
+Changes to trial_data.json:
+  - schema_version: UPDATED (1.0 → 1.1)
+  - token_analysis: NEW (9 reads with tokens, 2 resets with context)
 
 Trial Data Extraction Complete
 ==============================
@@ -312,8 +417,13 @@ File Reads:
   Total operations: 9
   Unique files: 7
 
+Token Analysis: AVAILABLE
+  Total tokens read: 54,996
+  Largest file: docs/features/install-and-update/Update-System.md (14,137 tokens)
+  Unknown files: 0
+
 Timeline Events: 33
 
 Output: dev/misc/wsd-dev-02/20260119-131802/trial_data.json
-Status: CREATED
+Status: UPDATED
 ```

@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "generated_at": "2026-01-20T10:39:36.608410",
+  "generated_at": "2026-01-20T19:13:00.000000",
   "metadata": {
     "workscope_id": "20260120-095152",
     "session_uuid": "8cbb3e89-6e98-47ee-aad0-3f9caa5d17e5",
@@ -10,27 +10,16 @@
     "has_tool_results": false
   },
   "outcome": {
-    "self_reported": "FAILURE",
-    "affected_files": [
-      "dev/scripts/stage_release.py",
-      "docs/core/Design-Decisions.md",
-      "tests/test_build_package.py",
-      "-462d-b678-fbe7f191f42f/tool-results/toolu_019Nqx8qLWvdFSjvMsy5xFkM.txt",
-      "docs/core/PRD.md",
-      "0120-095152.md",
-      "w.md",
-      "pre_staging.py",
-      "ards.md",
-      "ariables-Standards.md"
-    ],
-    "notes": ""
+    "self_reported": "SUCCESS",
+    "affected_files": [],
+    "notes": "Agent explicitly stated: 'I did NOT experience the phantom read issue in this session' and 'This session is NOT a reproduction of the phantom read bug.' No <persisted-output> markers found in any tool_result blocks."
   },
   "context_metrics": {
-    "pre_operation_tokens": 17387,
-    "pre_operation_percent": 8.7,
-    "post_operation_tokens": 21739,
-    "post_operation_percent": 10.9,
-    "headroom_at_trigger": 182613,
+    "pre_operation_tokens": 86000,
+    "pre_operation_percent": 43.0,
+    "post_operation_tokens": 147000,
+    "post_operation_percent": 74.0,
+    "headroom_at_trigger": 114000,
     "context_window_size": 200000
   },
   "reset_analysis": {
@@ -163,15 +152,15 @@
       }
     ],
     "unique_file_list": [
-      "/Users/gray/Projects/claude-bug/dev/scripts/stage_release.py",
-      "/Users/gray/Projects/claude-bug/docs/features/pre-staging-script/Pre-Staging-Script-Overview.md",
-      "/Users/gray/Projects/claude-bug/dev/scripts/build_package.py",
-      "/Users/gray/Projects/claude-bug/docs/features/stage-release-script/Stage-Release-Script-Overview.md",
       "/Users/gray/Projects/claude-bug/dev/journal/archive/Journal-Workscope-20260120-095152.md",
-      "/Users/gray/Projects/claude-bug/source/scripts/wsd_utils.py",
-      "/Users/gray/Projects/claude-bug/source/wsd.py",
       "/Users/gray/Projects/claude-bug/docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md",
-      "/Users/gray/Projects/claude-bug/docs/core/WSD-Runtime-Metadata-Schema.md"
+      "/Users/gray/Projects/claude-bug/dev/scripts/stage_release.py",
+      "/Users/gray/Projects/claude-bug/dev/scripts/build_package.py",
+      "/Users/gray/Projects/claude-bug/source/wsd.py",
+      "/Users/gray/Projects/claude-bug/docs/features/stage-release-script/Stage-Release-Script-Overview.md",
+      "/Users/gray/Projects/claude-bug/docs/core/WSD-Runtime-Metadata-Schema.md",
+      "/Users/gray/Projects/claude-bug/docs/features/pre-staging-script/Pre-Staging-Script-Overview.md",
+      "/Users/gray/Projects/claude-bug/source/scripts/wsd_utils.py"
     ]
   },
   "timeline": [
