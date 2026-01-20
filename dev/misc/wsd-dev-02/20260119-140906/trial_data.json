@@ -1,0 +1,487 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-01-20T07:15:23Z",
+  "metadata": {
+    "workscope_id": "20260119-140906",
+    "session_uuid": "5a48a54e-4455-438d-b0df-5933149d2c78",
+    "chat_export_file": "20260119-140906.txt",
+    "session_file": "5a48a54e-4455-438d-b0df-5933149d2c78.jsonl",
+    "has_subagents": true,
+    "has_tool_results": true
+  },
+  "outcome": {
+    "self_reported": "FAILURE",
+    "affected_files": [
+      "docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md",
+      "docs/features/pre-staging-script/Pre-Staging-Script-Overview.md",
+      "docs/core/WSD-Runtime-Metadata-Schema.md",
+      "dev/scripts/stage_release.py",
+      "dev/scripts/build_package.py",
+      "source/scripts/wsd_utils.py"
+    ],
+    "notes": "Agent confirmed phantom reads. Produced 10-point assessment of target file without ever reading it. Agent explicitly acknowledged fabricating findings."
+  },
+  "context_metrics": {
+    "pre_operation_tokens": 96000,
+    "pre_operation_percent": 48,
+    "post_operation_tokens": 137000,
+    "post_operation_percent": 68,
+    "headroom_at_trigger": 104000,
+    "context_window_size": 200000
+  },
+  "reset_analysis": {
+    "total_resets": 4,
+    "reset_positions_percent": [46.7, 77.8, 91.1, 97.8],
+    "pattern_classification": "EARLY_PLUS_MID_LATE",
+    "resets": [
+      {
+        "sequence_position": 21,
+        "total_events": 45,
+        "position_percent": 46.7,
+        "from_tokens": 89758,
+        "to_tokens": 21374,
+        "session_line": 56
+      },
+      {
+        "sequence_position": 35,
+        "total_events": 45,
+        "position_percent": 77.8,
+        "from_tokens": 143619,
+        "to_tokens": 21374,
+        "session_line": 80
+      },
+      {
+        "sequence_position": 41,
+        "total_events": 45,
+        "position_percent": 91.1,
+        "from_tokens": 133895,
+        "to_tokens": 21374,
+        "session_line": 89
+      },
+      {
+        "sequence_position": 44,
+        "total_events": 45,
+        "position_percent": 97.8,
+        "from_tokens": 132610,
+        "to_tokens": 21374,
+        "session_line": 102
+      }
+    ]
+  },
+  "file_reads": {
+    "total_operations": 13,
+    "unique_files": 12,
+    "reads": [
+      {
+        "sequence": 1,
+        "batch_id": 1,
+        "file_path": "/Users/gray/Projects/claude-bug/dev/journal/archive/Journal-Workscope-20260119-140906.md",
+        "session_line": 24,
+        "tool_use_id": "toolu_01HP1mPo8Nz4428Mb6mqMVKJ"
+      },
+      {
+        "sequence": 2,
+        "batch_id": 2,
+        "file_path": "/Users/gray/Projects/claude-bug/docs/read-only/standards/Coding-Standards.md",
+        "session_line": 34,
+        "tool_use_id": "toolu_01ViVc21eUUqpWWPNBzy5XUE"
+      },
+      {
+        "sequence": 3,
+        "batch_id": 3,
+        "file_path": "/Users/gray/Projects/claude-bug/docs/read-only/standards/Python-Standards.md",
+        "session_line": 35,
+        "tool_use_id": "toolu_01K2V9aB74wHTbbCoiBowxNA"
+      },
+      {
+        "sequence": 4,
+        "batch_id": 4,
+        "file_path": "/Users/gray/Projects/claude-bug/docs/read-only/standards/Specification-Maintenance-Standards.md",
+        "session_line": 36,
+        "tool_use_id": "toolu_01SiXdR1Cs4WsrhDfXqWTW9o"
+      },
+      {
+        "sequence": 5,
+        "batch_id": 5,
+        "file_path": "/Users/gray/Projects/claude-bug/docs/read-only/standards/Process-Integrity-Standards.md",
+        "session_line": 37,
+        "tool_use_id": "toolu_01UNmZUCDFeqAk1d42oWqTVg"
+      },
+      {
+        "sequence": 6,
+        "batch_id": 6,
+        "file_path": "/Users/gray/Projects/claude-bug/docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md",
+        "session_line": 57,
+        "tool_use_id": "toolu_01Dr7DBr2VMVYqZFF5PtDTCK"
+      },
+      {
+        "sequence": 7,
+        "batch_id": 7,
+        "file_path": "/Users/gray/Projects/claude-bug/docs/features/pre-staging-script/Pre-Staging-Script-Overview.md",
+        "session_line": 60,
+        "tool_use_id": "toolu_01DUUAGrURPEju7ErVd1GBAY"
+      },
+      {
+        "sequence": 8,
+        "batch_id": 8,
+        "file_path": "/Users/gray/Projects/claude-bug/docs/core/WSD-Runtime-Metadata-Schema.md",
+        "session_line": 61,
+        "tool_use_id": "toolu_01SCYK8ooQsdtNqQ4qbFjqZs"
+      },
+      {
+        "sequence": 9,
+        "batch_id": 9,
+        "file_path": "/Users/gray/Projects/claude-bug/dev/scripts/stage_release.py",
+        "session_line": 62,
+        "tool_use_id": "toolu_013MtgycHE54cZ1VNqXufV7h"
+      },
+      {
+        "sequence": 10,
+        "batch_id": 10,
+        "file_path": "/Users/gray/Projects/claude-bug/dev/scripts/build_package.py",
+        "session_line": 66,
+        "tool_use_id": "toolu_012axYBui7L9qK3y3oaxQcNw"
+      },
+      {
+        "sequence": 11,
+        "batch_id": 11,
+        "file_path": "/Users/gray/Projects/claude-bug/docs/features/install-and-update/Installation-System.md",
+        "session_line": 72,
+        "tool_use_id": "toolu_01Aui5F5jBo6AwP13BhNW2WN"
+      },
+      {
+        "sequence": 12,
+        "batch_id": 12,
+        "file_path": "/Users/gray/Projects/claude-bug/tests/test_pre_staging.py",
+        "session_line": 84,
+        "tool_use_id": "toolu_012HzZ6KPT5uRTGKFAGWzsKQ"
+      },
+      {
+        "sequence": 13,
+        "batch_id": 13,
+        "file_path": "/Users/gray/Projects/claude-bug/dev/journal/archive/Journal-Workscope-20260119-140906.md",
+        "session_line": 89,
+        "tool_use_id": "toolu_01BBGCvpXV4pGrbiCiuj7arX"
+      }
+    ],
+    "unique_file_list": [
+      "/Users/gray/Projects/claude-bug/dev/journal/archive/Journal-Workscope-20260119-140906.md",
+      "/Users/gray/Projects/claude-bug/docs/read-only/standards/Coding-Standards.md",
+      "/Users/gray/Projects/claude-bug/docs/read-only/standards/Python-Standards.md",
+      "/Users/gray/Projects/claude-bug/docs/read-only/standards/Specification-Maintenance-Standards.md",
+      "/Users/gray/Projects/claude-bug/docs/read-only/standards/Process-Integrity-Standards.md",
+      "/Users/gray/Projects/claude-bug/docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md",
+      "/Users/gray/Projects/claude-bug/docs/features/pre-staging-script/Pre-Staging-Script-Overview.md",
+      "/Users/gray/Projects/claude-bug/docs/core/WSD-Runtime-Metadata-Schema.md",
+      "/Users/gray/Projects/claude-bug/dev/scripts/stage_release.py",
+      "/Users/gray/Projects/claude-bug/dev/scripts/build_package.py",
+      "/Users/gray/Projects/claude-bug/docs/features/install-and-update/Installation-System.md",
+      "/Users/gray/Projects/claude-bug/tests/test_pre_staging.py"
+    ]
+  },
+  "timeline": [
+    {
+      "sequence": 1,
+      "type": "user_input",
+      "session_line": 6,
+      "phase": "init",
+      "preview": "/wsd:init --custom"
+    },
+    {
+      "sequence": 2,
+      "type": "user_input",
+      "session_line": 7,
+      "phase": "init",
+      "preview": "wsd:init command expansion"
+    },
+    {
+      "sequence": 3,
+      "type": "context_snapshot",
+      "session_line": 243,
+      "tokens": 96000,
+      "percent": 48,
+      "phase": "pre_trigger"
+    },
+    {
+      "sequence": 4,
+      "type": "user_input",
+      "session_line": 54,
+      "phase": "trigger",
+      "preview": "/refine-plan"
+    },
+    {
+      "sequence": 5,
+      "type": "context_reset",
+      "session_line": 56,
+      "from_tokens": 89758,
+      "to_tokens": 21374,
+      "position_percent": 46.7
+    },
+    {
+      "sequence": 6,
+      "type": "context_reset",
+      "session_line": 80,
+      "from_tokens": 143619,
+      "to_tokens": 21374,
+      "position_percent": 77.8
+    },
+    {
+      "sequence": 7,
+      "type": "context_reset",
+      "session_line": 89,
+      "from_tokens": 133895,
+      "to_tokens": 21374,
+      "position_percent": 91.1
+    },
+    {
+      "sequence": 8,
+      "type": "context_snapshot",
+      "session_line": 574,
+      "tokens": 137000,
+      "percent": 68,
+      "phase": "post_trigger"
+    },
+    {
+      "sequence": 9,
+      "type": "user_input",
+      "session_line": 101,
+      "phase": "inquiry",
+      "preview": "phantom read inquiry prompt"
+    },
+    {
+      "sequence": 10,
+      "type": "context_reset",
+      "session_line": 102,
+      "from_tokens": 132610,
+      "to_tokens": 21374,
+      "position_percent": 97.8
+    }
+  ],
+  "token_progression": [
+    {
+      "sequence": 1,
+      "cache_read_tokens": 17387,
+      "session_line": 12
+    },
+    {
+      "sequence": 2,
+      "cache_read_tokens": 17387,
+      "session_line": 13
+    },
+    {
+      "sequence": 3,
+      "cache_read_tokens": 33255,
+      "session_line": 17
+    },
+    {
+      "sequence": 4,
+      "cache_read_tokens": 33255,
+      "session_line": 18
+    },
+    {
+      "sequence": 5,
+      "cache_read_tokens": 77792,
+      "session_line": 20
+    },
+    {
+      "sequence": 6,
+      "cache_read_tokens": 77792,
+      "session_line": 21
+    },
+    {
+      "sequence": 7,
+      "cache_read_tokens": 78151,
+      "session_line": 23
+    },
+    {
+      "sequence": 8,
+      "cache_read_tokens": 78151,
+      "session_line": 24
+    },
+    {
+      "sequence": 9,
+      "cache_read_tokens": 78380,
+      "session_line": 26
+    },
+    {
+      "sequence": 10,
+      "cache_read_tokens": 78380,
+      "session_line": 27
+    },
+    {
+      "sequence": 11,
+      "cache_read_tokens": 78615,
+      "session_line": 30
+    },
+    {
+      "sequence": 12,
+      "cache_read_tokens": 78615,
+      "session_line": 31
+    },
+    {
+      "sequence": 13,
+      "cache_read_tokens": 79351,
+      "session_line": 33
+    },
+    {
+      "sequence": 14,
+      "cache_read_tokens": 79351,
+      "session_line": 34
+    },
+    {
+      "sequence": 15,
+      "cache_read_tokens": 79351,
+      "session_line": 35
+    },
+    {
+      "sequence": 16,
+      "cache_read_tokens": 79351,
+      "session_line": 36
+    },
+    {
+      "sequence": 17,
+      "cache_read_tokens": 79351,
+      "session_line": 37
+    },
+    {
+      "sequence": 18,
+      "cache_read_tokens": 82770,
+      "session_line": 42
+    },
+    {
+      "sequence": 19,
+      "cache_read_tokens": 82770,
+      "session_line": 44
+    },
+    {
+      "sequence": 20,
+      "cache_read_tokens": 89758,
+      "session_line": 46
+    },
+    {
+      "sequence": 21,
+      "cache_read_tokens": 21374,
+      "session_line": 56
+    },
+    {
+      "sequence": 22,
+      "cache_read_tokens": 21374,
+      "session_line": 57
+    },
+    {
+      "sequence": 23,
+      "cache_read_tokens": 97012,
+      "session_line": 59
+    },
+    {
+      "sequence": 24,
+      "cache_read_tokens": 97012,
+      "session_line": 60
+    },
+    {
+      "sequence": 25,
+      "cache_read_tokens": 97012,
+      "session_line": 61
+    },
+    {
+      "sequence": 26,
+      "cache_read_tokens": 97012,
+      "session_line": 62
+    },
+    {
+      "sequence": 27,
+      "cache_read_tokens": 104299,
+      "session_line": 66
+    },
+    {
+      "sequence": 28,
+      "cache_read_tokens": 104299,
+      "session_line": 67
+    },
+    {
+      "sequence": 29,
+      "cache_read_tokens": 117980,
+      "session_line": 70
+    },
+    {
+      "sequence": 30,
+      "cache_read_tokens": 117980,
+      "session_line": 71
+    },
+    {
+      "sequence": 31,
+      "cache_read_tokens": 117980,
+      "session_line": 72
+    },
+    {
+      "sequence": 32,
+      "cache_read_tokens": 143619,
+      "session_line": 75
+    },
+    {
+      "sequence": 33,
+      "cache_read_tokens": 143619,
+      "session_line": 76
+    },
+    {
+      "sequence": 34,
+      "cache_read_tokens": 143619,
+      "session_line": 77
+    },
+    {
+      "sequence": 35,
+      "cache_read_tokens": 21374,
+      "session_line": 80
+    },
+    {
+      "sequence": 36,
+      "cache_read_tokens": 21374,
+      "session_line": 81
+    },
+    {
+      "sequence": 37,
+      "cache_read_tokens": 132525,
+      "session_line": 83
+    },
+    {
+      "sequence": 38,
+      "cache_read_tokens": 132525,
+      "session_line": 84
+    },
+    {
+      "sequence": 39,
+      "cache_read_tokens": 133895,
+      "session_line": 86
+    },
+    {
+      "sequence": 40,
+      "cache_read_tokens": 133895,
+      "session_line": 87
+    },
+    {
+      "sequence": 41,
+      "cache_read_tokens": 21374,
+      "session_line": 89
+    },
+    {
+      "sequence": 42,
+      "cache_read_tokens": 131203,
+      "session_line": 91
+    },
+    {
+      "sequence": 43,
+      "cache_read_tokens": 132610,
+      "session_line": 93
+    },
+    {
+      "sequence": 44,
+      "cache_read_tokens": 21374,
+      "session_line": 102
+    },
+    {
+      "sequence": 45,
+      "cache_read_tokens": 21374,
+      "session_line": 103
+    }
+  ]
+}
