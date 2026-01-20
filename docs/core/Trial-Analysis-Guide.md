@@ -26,10 +26,10 @@ This document serves as the comprehensive onboarding resource for User Agents as
 
 Phantom reads manifest through two distinct mechanisms depending on Claude Code version:
 
-| Era | Versions | Error Marker | Mechanism |
-|-----|----------|--------------|-----------|
-| **Era 1** | ≤2.0.59 | `[Old tool result content cleared]` | Content cleared from context (likely context window management) |
-| **Era 2** | ≥2.0.60 | `<persisted-output>Tool result saved to: /path/to/file.txt\n\nUse Read to view</persisted-output>` | Content persisted to disk; agent fails to follow up with a Read call |
+| Era       | Versions | Error Marker                                                                                       | Mechanism                                                            |
+| --------- | -------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| **Era 1** | ≤2.0.59  | `[Old tool result content cleared]`                                                                | Content cleared from context (likely context window management)      |
+| **Era 2** | ≥2.0.60  | `<persisted-output>Tool result saved to: /path/to/file.txt\n\nUse Read to view</persisted-output>` | Content persisted to disk; agent fails to follow up with a Read call |
 
 **Critical**: No "safe" version has been identified. All tested versions (2.0.54 through 2.1.6+) can exhibit phantom reads under certain conditions.
 
@@ -64,12 +64,12 @@ All observed resets drop to approximately **~20,000 tokens** - the "base level" 
 
 **Evidence**:
 
-| Session | Context Resets | Phantom Reads? |
-|---------|---------------|----------------|
-| 2.0.58-good | 1 | No |
-| 2.0.58-bad | 3 | Yes |
-| 2.1.6-good | 2 | No |
-| 2.1.6-bad | 4 | Yes |
+| Session     | Context Resets | Phantom Reads? |
+| ----------- | -------------- | -------------- |
+| 2.0.58-good | 1              | No             |
+| 2.0.58-bad  | 3              | Yes            |
+| 2.1.6-good  | 2              | No             |
+| 2.1.6-bad   | 4              | Yes            |
 
 **The Mechanism**:
 
@@ -97,10 +97,10 @@ For a 200K context window:
 
 **Evidence**:
 
-| Trial | Pre-Operation | Post-Operation | Headroom | Result |
-|-------|---------------|----------------|----------|--------|
-| WSD Dev Good | 85K (42%) | 159K (79%) | 115K | Success |
-| WSD Dev Bad | 126K (63%) | 142K (71%) | 74K | **PHANTOM READS** |
+| Trial        | Pre-Operation | Post-Operation | Headroom | Result            |
+| ------------ | ------------- | -------------- | -------- | ----------------- |
+| WSD Dev Good | 85K (42%)     | 159K (79%)     | 115K     | Success           |
+| WSD Dev Bad  | 126K (63%)    | 142K (71%)     | 74K      | **PHANTOM READS** |
 
 The bad trial consumed **fewer total tokens** but experienced phantom reads because it **started at higher consumption** with less headroom available.
 
@@ -112,10 +112,10 @@ Low headroom → context fills quickly → reset threshold reached sooner → mo
 
 The theories are **complementary**, not competing:
 
-| Theory | Explains |
-|--------|----------|
-| **Reset Theory** | The MECHANISM - context resets clear content before the model processes it |
-| **Headroom Theory** | The TRIGGER - low starting headroom causes earlier/more frequent resets |
+| Theory              | Explains                                                                   |
+| ------------------- | -------------------------------------------------------------------------- |
+| **Reset Theory**    | The MECHANISM - context resets clear content before the model processes it |
+| **Headroom Theory** | The TRIGGER - low starting headroom causes earlier/more frequent resets    |
 
 **Combined Causal Chain**:
 ```
@@ -144,11 +144,11 @@ PHANTOM READ
 
 Based on current evidence:
 
-| Risk Level | Context Consumption | Headroom | Expected Outcome |
-|------------|---------------------|----------|------------------|
-| Low | <50% | >100K tokens | Likely success |
-| Medium | 50-60% | 80-100K tokens | Elevated risk |
-| High | >60% | <80K tokens | Likely phantom reads |
+| Risk Level | Context Consumption | Headroom       | Expected Outcome     |
+| ---------- | ------------------- | -------------- | -------------------- |
+| Low        | <50%                | >100K tokens   | Likely success       |
+| Medium     | 50-60%              | 80-100K tokens | Elevated risk        |
+| High       | >60%                | <80K tokens    | Likely phantom reads |
 
 **Note**: These thresholds are hypotheses derived from limited data. Your analysis may refine them.
 
@@ -179,8 +179,10 @@ Each trial produces the following artifacts:
 Trials are organized by **Workscope ID** (format: `YYYYMMDD-HHMMSS`):
 
 ```
-dev/misc/wsd-dev-02/
+dev/misc/wsd-dev-02/           # Collection
+├── file_token_counts.json     # Token Counts for each file read in the collection's Trials
 ├── 20260119-120000/           # Trial directory (named by Workscope ID)
+│   ├── trial_data.json        # Pre-processed data for Trial
 │   ├── 20260119-120000.txt    # Chat export
 │   ├── {uuid}.jsonl           # Main session file
 │   └── {uuid}/                # Session subdirectory
@@ -196,10 +198,10 @@ dev/misc/wsd-dev-02/
 
 Three distinct session structures exist (independent of Era):
 
-| Structure | Agent Files | Session Subdirectory | Notes |
-|-----------|-------------|---------------------|-------|
-| **Flat** | Root level | Does not exist | Older builds |
-| **Hybrid** | Root level | Exists (tool-results/ only) | Transitional |
+| Structure        | Agent Files   | Session Subdirectory                | Notes          |
+| ---------------- | ------------- | ----------------------------------- | -------------- |
+| **Flat**         | Root level    | Does not exist                      | Older builds   |
+| **Hybrid**       | Root level    | Exists (tool-results/ only)         | Transitional   |
 | **Hierarchical** | In subagents/ | Exists (subagents/ + tool-results/) | Current builds |
 
 **For analysis purposes**: The structure type doesn't affect your analysis approach - you'll examine the main session `.jsonl` file regardless of structure.
@@ -354,12 +356,12 @@ def count_context_resets(session_path, threshold=10000):
 
 For each trial, compile:
 
-| Metric | Value | Theory Prediction |
-|--------|-------|-------------------|
-| Pre-op consumption | X% | Headroom Theory: >60% = high risk |
-| Headroom | XK tokens | Headroom Theory: <80K = high risk |
-| Reset count | N | Reset Theory: >2 = high risk |
-| Actual outcome | SUCCESS/FAILURE | Does it match predictions? |
+| Metric             | Value           | Theory Prediction                 |
+| ------------------ | --------------- | --------------------------------- |
+| Pre-op consumption | X%              | Headroom Theory: >60% = high risk |
+| Headroom           | XK tokens       | Headroom Theory: <80K = high risk |
+| Reset count        | N               | Reset Theory: >2 = high risk      |
+| Actual outcome     | SUCCESS/FAILURE | Does it match predictions?        |
 
 **Questions to Answer**:
 1. Did high-risk trials (per theories) actually fail?
@@ -377,10 +379,10 @@ When analyzing trials, document your findings using this structure:
 Create a summary table for all trials analyzed:
 
 ```markdown
-| Trial ID | Pre-Op | Post-Op | Headroom | Resets | Outcome | Notes |
-|----------|--------|---------|----------|--------|---------|-------|
-| 20260119-120000 | 85K (42%) | 159K (79%) | 115K | 2 | SUCCESS | |
-| 20260119-130000 | 126K (63%) | 142K (71%) | 74K | 4 | FAILURE | Clustered resets |
+| Trial ID        | Pre-Op     | Post-Op    | Headroom | Resets | Outcome | Notes            |
+| --------------- | ---------- | ---------- | -------- | ------ | ------- | ---------------- |
+| 20260119-120000 | 85K (42%)  | 159K (79%) | 115K     | 2      | SUCCESS |                  |
+| 20260119-130000 | 126K (63%) | 142K (71%) | 74K      | 4      | FAILURE | Clustered resets |
 ```
 
 ### Individual Trial Analysis
@@ -463,22 +465,22 @@ Your analysis should attempt to address these open questions:
 
 ### Key Metrics to Extract
 
-| Metric | Source | Purpose |
-|--------|--------|---------|
-| Pre-op tokens | Chat export (`/context`) or session file | Headroom calculation |
-| Post-op tokens | Chat export (`/context`) or session file | Delta calculation |
-| Reset count | Session file (`cache_read_input_tokens` drops) | Reset Theory evaluation |
-| Reset positions | Session file (line numbers) | Temporal correlation |
-| Outcome | Chat export (agent self-report) | Ground truth |
+| Metric          | Source                                         | Purpose                 |
+| --------------- | ---------------------------------------------- | ----------------------- |
+| Pre-op tokens   | Chat export (`/context`) or session file       | Headroom calculation    |
+| Post-op tokens  | Chat export (`/context`) or session file       | Delta calculation       |
+| Reset count     | Session file (`cache_read_input_tokens` drops) | Reset Theory evaluation |
+| Reset positions | Session file (line numbers)                    | Temporal correlation    |
+| Outcome         | Chat export (agent self-report)                | Ground truth            |
 
 ### Risk Indicators (Current Hypotheses)
 
-| Indicator | Low Risk | High Risk |
-|-----------|----------|-----------|
-| Pre-op consumption | <50% (100K) | >60% (120K) |
-| Headroom | >100K tokens | <80K tokens |
-| Reset count | 0-1 | 3+ |
-| Reset pattern | Single, isolated | Multiple, clustered |
+| Indicator          | Low Risk         | High Risk           |
+| ------------------ | ---------------- | ------------------- |
+| Pre-op consumption | <50% (100K)      | >60% (120K)         |
+| Headroom           | >100K tokens     | <80K tokens         |
+| Reset count        | 0-1              | 3+                  |
+| Reset pattern      | Single, isolated | Multiple, clustered |
 
 ### Detection Algorithm Summary
 
@@ -527,13 +529,13 @@ With the addition of `file_token_counts.json`, we can now perform deeper analysi
 This file contains precise token counts (via Anthropic API) for all unique files read across the trial collection. Token counts are in Claude tokens, directly comparable to `cache_read_input_tokens` values in session files.
 
 **Notable Large Files**:
-| File | Tokens | Risk Factor |
-|------|--------|-------------|
-| source/wsd.py | 50,155 | Very High - single file is 25% of context |
-| tests/test_pre_staging.py | 15,701 | High |
-| docs/features/.../Update-System.md | 14,137 | High |
-| docs/features/.../Build-Package-Script-Overview.md | 12,689 | High |
-| docs/features/.../Install-And-Update-Overview.md | 12,402 | High |
+| File                                               | Tokens | Risk Factor                               |
+| -------------------------------------------------- | ------ | ----------------------------------------- |
+| source/wsd.py                                      | 50,155 | Very High - single file is 25% of context |
+| tests/test_pre_staging.py                          | 15,701 | High                                      |
+| docs/features/.../Update-System.md                 | 14,137 | High                                      |
+| docs/features/.../Build-Package-Script-Overview.md | 12,689 | High                                      |
+| docs/features/.../Install-And-Update-Overview.md   | 12,402 | High                                      |
 
 ### 8.2 Questions Token Data Can Answer
 
@@ -599,13 +601,13 @@ Add to trial analysis reports:
 ```markdown
 ### Token Accumulation Analysis
 
-| Seq | File | Tokens | Cumulative | Event |
-|-----|------|--------|------------|-------|
-| 1 | Journal-Workscope-xxx.md | 1,009 | 86,009 | Read |
-| 2 | Manifest-Driven-Pipeline-Overview.md | 5,783 | 91,792 | Read |
-| 3 | Pre-Staging-Script-Overview.md | 10,283 | 102,075 | Read |
-| - | - | - | 102,075 | **RESET** |
-| 4 | Stage-Release-Script-Overview.md | 7,366 | 28,620 | Read (post-reset) |
+| Seq | File                                 | Tokens | Cumulative | Event             |
+| --- | ------------------------------------ | ------ | ---------- | ----------------- |
+| 1   | Journal-Workscope-xxx.md             | 1,009  | 86,009     | Read              |
+| 2   | Manifest-Driven-Pipeline-Overview.md | 5,783  | 91,792     | Read              |
+| 3   | Pre-Staging-Script-Overview.md       | 10,283 | 102,075    | Read              |
+| -   | -                                    | -      | 102,075    | **RESET**         |
+| 4   | Stage-Release-Script-Overview.md     | 7,366  | 28,620     | Read (post-reset) |
 
 **Observations**:
 - Reset occurred at estimated 102K cumulative tokens
@@ -617,53 +619,53 @@ Add to trial analysis reports:
 
 ## Appendix A: Glossary
 
-| Term | Definition |
-|------|------------|
-| **Phantom Read** | A Read operation where the agent believes it received content but did not |
-| **Context Reset** | A dramatic drop (>10K tokens) in `cache_read_input_tokens` between messages |
-| **Headroom** | Available buffer space: Context Window Size - Current Consumption |
-| **Era 1** | Builds ≤2.0.59; phantom reads show `[Old tool result content cleared]` |
-| **Era 2** | Builds ≥2.0.60; phantom reads show `<persisted-output>` markers |
-| **Workscope ID** | Timestamp identifier (YYYYMMDD-HHMMSS) used to coordinate trial artifacts |
-| **Session ID / UUID** | Claude Code's internal identifier for a session (appears in filenames) |
-| **Base Level** | The ~20K token floor that resets drop to (system prompt + commands) |
-| **Danger Zone** | The consumption range (>60%) where phantom reads become likely |
+| Term                  | Definition                                                                  |
+| --------------------- | --------------------------------------------------------------------------- |
+| **Phantom Read**      | A Read operation where the agent believes it received content but did not   |
+| **Context Reset**     | A dramatic drop (>10K tokens) in `cache_read_input_tokens` between messages |
+| **Headroom**          | Available buffer space: Context Window Size - Current Consumption           |
+| **Era 1**             | Builds ≤2.0.59; phantom reads show `[Old tool result content cleared]`      |
+| **Era 2**             | Builds ≥2.0.60; phantom reads show `<persisted-output>` markers             |
+| **Workscope ID**      | Timestamp identifier (YYYYMMDD-HHMMSS) used to coordinate trial artifacts   |
+| **Session ID / UUID** | Claude Code's internal identifier for a session (appears in filenames)      |
+| **Base Level**        | The ~20K token floor that resets drop to (system prompt + commands)         |
+| **Danger Zone**       | The consumption range (>60%) where phantom reads become likely              |
 
 ## Appendix B: File Locations
 
-| Artifact | Location Pattern |
-|----------|-----------------|
-| Trial data | `dev/misc/{collection-name}/{workscope-id}/` |
-| Chat export | `{trial-dir}/{workscope-id}.txt` |
-| Session file | `{trial-dir}/{uuid}.jsonl` |
-| Subagents | `{trial-dir}/{uuid}/subagents/` |
-| Tool results | `{trial-dir}/{uuid}/tool-results/` |
+| Artifact     | Location Pattern                                    |
+| ------------ | --------------------------------------------------- |
+| Trial data   | `dev/misc/{collection-name}/{workscope-id}/`        |
+| Chat export  | `{trial-dir}/{workscope-id}.txt`                    |
+| Session file | `{trial-dir}/{uuid}.jsonl`                          |
+| Subagents    | `{trial-dir}/{uuid}/subagents/`                     |
+| Tool results | `{trial-dir}/{uuid}/tool-results/`                  |
 | Token counts | `dev/misc/{collection-name}/file_token_counts.json` |
 
 ## Appendix C: Related Documents
 
 For deeper background on specific topics:
 
-| Document | Content |
-|----------|---------|
-| `docs/core/PRD.md` | Project overview and goals |
-| `docs/core/Investigation-Journal.md` | Chronological discovery log |
-| `docs/core/Context-Reset-Analysis.md` | Detailed Reset Theory analysis |
-| `docs/core/Headroom-Theory.md` | Detailed Headroom Theory analysis |
-| `docs/core/Example-Session-Analysis.md` | Session file structure details |
-| `docs/core/Experiment-Methodology-02.md` | Trial execution protocol |
-| `docs/core/WSD-Dev-02-Analysis-1.md` | Initial 7-trial analysis, Reset Timing Theory origin |
-| `docs/core/WSD-Dev-02-Analysis-2.md` | Expanded 22-trial analysis, Reset Timing Theory validation |
+| Document                                 | Content                                                    |
+| ---------------------------------------- | ---------------------------------------------------------- |
+| `docs/core/PRD.md`                       | Project overview and goals                                 |
+| `docs/core/Investigation-Journal.md`     | Chronological discovery log                                |
+| `docs/core/Context-Reset-Analysis.md`    | Detailed Reset Theory analysis                             |
+| `docs/core/Headroom-Theory.md`           | Detailed Headroom Theory analysis                          |
+| `docs/core/Example-Session-Analysis.md`  | Session file structure details                             |
+| `docs/core/Experiment-Methodology-02.md` | Trial execution protocol                                   |
+| `docs/core/WSD-Dev-02-Analysis-1.md`     | Initial 7-trial analysis, Reset Timing Theory origin       |
+| `docs/core/WSD-Dev-02-Analysis-2.md`     | Expanded 22-trial analysis, Reset Timing Theory validation |
 
 ## Appendix D: Theory Status (as of 2026-01-20)
 
 Based on 22-trial analysis in WSD-Dev-02-Analysis-2.md:
 
-| Theory | Status | Prediction Accuracy |
-|--------|--------|---------------------|
-| **Reset Timing Theory** | STRONGLY CONFIRMED | 100% (22/22 trials) |
-| Reset Count Theory | Partially confirmed | Correlates but not deterministic |
-| Headroom Theory | Weakened | Insufficient alone; influences timing |
+| Theory                  | Status              | Prediction Accuracy                   |
+| ----------------------- | ------------------- | ------------------------------------- |
+| **Reset Timing Theory** | STRONGLY CONFIRMED  | 100% (22/22 trials)                   |
+| Reset Count Theory      | Partially confirmed | Correlates but not deterministic      |
+| Headroom Theory         | Weakened            | Insufficient alone; influences timing |
 
 **Key Finding**: Mid-session resets (50-90% through session) are the critical failure condition. Success requires either EARLY_PLUS_LATE or SINGLE_LATE reset patterns.
 

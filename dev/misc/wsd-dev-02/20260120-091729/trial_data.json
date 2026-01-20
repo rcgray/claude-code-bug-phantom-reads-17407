@@ -1,6 +1,6 @@
 {
-  "schema_version": "1.0",
-  "generated_at": "2026-01-20T18:26:11Z",
+  "schema_version": "1.1",
+  "generated_at": "2026-01-20T21:29:49Z",
   "metadata": {
     "workscope_id": "20260120-091729",
     "session_uuid": "548cbb88-bcf4-45ec-8ffe-3b6819cd077a",
@@ -643,5 +643,208 @@
       "cache_read_tokens": 147307,
       "session_line": 125
     }
-  ]
+  ],
+  "token_analysis": {
+    "available": true,
+    "token_counts_file": "dev/misc/wsd-dev-02/file_token_counts.json",
+    "statistics": {
+      "total_tokens_read": 357972,
+      "largest_file_tokens": 50155,
+      "largest_file_path": "source/wsd.py",
+      "unknown_token_files": 1
+    },
+    "reads_with_tokens": [
+      {
+        "sequence": 1,
+        "file_path": "dev/journal/archive/Journal-Workscope-20260120-091729.md",
+        "token_count": 761,
+        "cumulative_estimate": 87761,
+        "session_line": 18
+      },
+      {
+        "sequence": 2,
+        "file_path": "dev/journal/archive/Journal-Workscope-20260120-091729.md",
+        "token_count": 761,
+        "cumulative_estimate": 88522,
+        "session_line": 27
+      },
+      {
+        "sequence": 3,
+        "file_path": "docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md",
+        "token_count": 5783,
+        "cumulative_estimate": 94305,
+        "session_line": 43
+      },
+      {
+        "sequence": 4,
+        "file_path": "docs/features/pre-staging-script/Pre-Staging-Script-Overview.md",
+        "token_count": 10283,
+        "cumulative_estimate": 104588,
+        "session_line": 52
+      },
+      {
+        "sequence": 5,
+        "file_path": "docs/features/stage-release-script/Stage-Release-Script-Overview.md",
+        "token_count": 7366,
+        "cumulative_estimate": 111954,
+        "session_line": 53
+      },
+      {
+        "sequence": 6,
+        "file_path": "docs/core/WSD-Runtime-Metadata-Schema.md",
+        "token_count": 4161,
+        "cumulative_estimate": 116115,
+        "session_line": 54
+      },
+      {
+        "sequence": 7,
+        "file_path": "dev/scripts/stage_release.py",
+        "token_count": 5574,
+        "cumulative_estimate": 121689,
+        "session_line": 59
+      },
+      {
+        "sequence": 8,
+        "file_path": "dev/scripts/build_package.py",
+        "token_count": 9243,
+        "cumulative_estimate": 130932,
+        "session_line": 60
+      },
+      {
+        "sequence": 9,
+        "file_path": "source/wsd.py",
+        "token_count": 50155,
+        "cumulative_estimate": 181087,
+        "session_line": 66
+      },
+      {
+        "sequence": 10,
+        "file_path": "source/wsd.py",
+        "token_count": 50155,
+        "cumulative_estimate": 231242,
+        "session_line": 67
+      },
+      {
+        "sequence": 11,
+        "file_path": "source/wsd.py",
+        "token_count": 50155,
+        "cumulative_estimate": 281397,
+        "session_line": 68
+      },
+      {
+        "sequence": 12,
+        "file_path": "source/wsd.py",
+        "token_count": 50155,
+        "cumulative_estimate": 331552,
+        "session_line": 69
+      },
+      {
+        "sequence": 13,
+        "file_path": "docs/features/install-and-update/Installation-System.md",
+        "token_count": 10213,
+        "cumulative_estimate": 341765,
+        "session_line": 75
+      },
+      {
+        "sequence": 14,
+        "file_path": "docs/features/install-and-update/Update-System.md",
+        "token_count": 14137,
+        "cumulative_estimate": 355902,
+        "session_line": 76
+      },
+      {
+        "sequence": 15,
+        "file_path": "docs/features/content-hashing/Content-Hashing-Overview.md",
+        "token_count": 6885,
+        "cumulative_estimate": 362787,
+        "session_line": 80
+      },
+      {
+        "sequence": 16,
+        "file_path": "docs/features/install-and-update/Template-System.md",
+        "token_count": 11784,
+        "cumulative_estimate": 374571,
+        "session_line": 81
+      },
+      {
+        "sequence": 17,
+        "file_path": "dev/scripts/pre_staging.py",
+        "token_count": 8782,
+        "cumulative_estimate": 383353,
+        "session_line": 86
+      },
+      {
+        "sequence": 18,
+        "file_path": "/Users/gray/.claude/projects/-Users-gray-Projects-claude-bug/548cbb88-bcf4-45ec-8ffe-3b6819cd077a/tool-results/toolu_017U1F5vjXRruxJvmaaWn9v4.txt",
+        "token_count": -1,
+        "cumulative_estimate": 383353,
+        "session_line": 101
+      },
+      {
+        "sequence": 19,
+        "file_path": "source/wsd.py",
+        "token_count": 50155,
+        "cumulative_estimate": 433508,
+        "session_line": 104
+      },
+      {
+        "sequence": 20,
+        "file_path": "source/wsd.py",
+        "token_count": 50155,
+        "cumulative_estimate": 483663,
+        "session_line": 107
+      },
+      {
+        "sequence": 21,
+        "file_path": "source/wsd.py",
+        "token_count": 50155,
+        "cumulative_estimate": 533818,
+        "session_line": 110
+      },
+      {
+        "sequence": 22,
+        "file_path": "source/wsd.py",
+        "token_count": 50155,
+        "cumulative_estimate": 583973,
+        "session_line": 112
+      },
+      {
+        "sequence": 23,
+        "file_path": "source/wsd.py",
+        "token_count": 50155,
+        "cumulative_estimate": 634128,
+        "session_line": 115
+      },
+      {
+        "sequence": 24,
+        "file_path": "docs/features/build-package-script/Build-Package-Script-Overview.md",
+        "token_count": 12689,
+        "cumulative_estimate": 646817,
+        "session_line": 123
+      }
+    ],
+    "resets_with_context": [
+      {
+        "reset_sequence": 1,
+        "session_line": 42,
+        "cumulative_tokens_before": 88522,
+        "last_file_read": "dev/journal/archive/Journal-Workscope-20260120-091729.md",
+        "last_file_tokens": 761
+      },
+      {
+        "reset_sequence": 2,
+        "session_line": 79,
+        "cumulative_tokens_before": 355902,
+        "last_file_read": "docs/features/install-and-update/Update-System.md",
+        "last_file_tokens": 14137
+      },
+      {
+        "reset_sequence": 3,
+        "session_line": 89,
+        "cumulative_tokens_before": 383353,
+        "last_file_read": "dev/scripts/pre_staging.py",
+        "last_file_tokens": 8782
+      }
+    ]
+  }
 }

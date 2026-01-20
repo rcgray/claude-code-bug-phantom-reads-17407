@@ -1,6 +1,6 @@
 {
-  "schema_version": "1.0",
-  "generated_at": "2026-01-20T19:13:00.000000",
+  "schema_version": "1.1",
+  "generated_at": "2026-01-20T13:42:53.345680",
   "metadata": {
     "workscope_id": "20260120-095152",
     "session_uuid": "8cbb3e89-6e98-47ee-aad0-3f9caa5d17e5",
@@ -395,5 +395,131 @@
       "cache_read_tokens": 21739,
       "session_line": 110
     }
-  ]
+  ],
+  "token_analysis": {
+    "available": true,
+    "token_counts_file": "dev/misc/wsd-dev-02/file_token_counts.json",
+    "statistics": {
+      "total_tokens_read": 254837,
+      "largest_file_tokens": 50155,
+      "largest_file_path": "source/wsd.py",
+      "unknown_token_files": 0
+    },
+    "reads_with_tokens": [
+      {
+        "sequence": 1,
+        "file_path": "dev/journal/archive/Journal-Workscope-20260120-095152.md",
+        "token_count": 895,
+        "cumulative_estimate": 86895,
+        "session_line": 34
+      },
+      {
+        "sequence": 2,
+        "file_path": "dev/journal/archive/Journal-Workscope-20260120-095152.md",
+        "token_count": 895,
+        "cumulative_estimate": 87790,
+        "session_line": 43
+      },
+      {
+        "sequence": 3,
+        "file_path": "docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md",
+        "token_count": 5783,
+        "cumulative_estimate": 93573,
+        "session_line": 59
+      },
+      {
+        "sequence": 4,
+        "file_path": "dev/scripts/stage_release.py",
+        "token_count": 5574,
+        "cumulative_estimate": 99147,
+        "session_line": 62
+      },
+      {
+        "sequence": 5,
+        "file_path": "dev/scripts/build_package.py",
+        "token_count": 9243,
+        "cumulative_estimate": 108390,
+        "session_line": 64
+      },
+      {
+        "sequence": 6,
+        "file_path": "source/wsd.py",
+        "token_count": 50155,
+        "cumulative_estimate": 158545,
+        "session_line": 68
+      },
+      {
+        "sequence": 7,
+        "file_path": "source/wsd.py",
+        "token_count": 50155,
+        "cumulative_estimate": 208700,
+        "session_line": 70
+      },
+      {
+        "sequence": 8,
+        "file_path": "source/wsd.py",
+        "token_count": 50155,
+        "cumulative_estimate": 258855,
+        "session_line": 72
+      },
+      {
+        "sequence": 9,
+        "file_path": "source/wsd.py",
+        "token_count": 50155,
+        "cumulative_estimate": 309010,
+        "session_line": 74
+      },
+      {
+        "sequence": 10,
+        "file_path": "docs/features/stage-release-script/Stage-Release-Script-Overview.md",
+        "token_count": 7366,
+        "cumulative_estimate": 316376,
+        "session_line": 77
+      },
+      {
+        "sequence": 11,
+        "file_path": "docs/core/WSD-Runtime-Metadata-Schema.md",
+        "token_count": 4161,
+        "cumulative_estimate": 320537,
+        "session_line": 80
+      },
+      {
+        "sequence": 12,
+        "file_path": "docs/features/pre-staging-script/Pre-Staging-Script-Overview.md",
+        "token_count": 10283,
+        "cumulative_estimate": 330820,
+        "session_line": 83
+      },
+      {
+        "sequence": 13,
+        "file_path": "source/scripts/wsd_utils.py",
+        "token_count": 9122,
+        "cumulative_estimate": 339942,
+        "session_line": 88
+      },
+      {
+        "sequence": 14,
+        "file_path": "dev/journal/archive/Journal-Workscope-20260120-095152.md",
+        "token_count": 895,
+        "cumulative_estimate": 340837,
+        "session_line": 96
+      }
+    ],
+    "resets_with_context": [
+      {
+        "reset_sequence": 1,
+        "session_line": 58,
+        "cumulative_tokens_before": 87790,
+        "last_file_read": "dev/journal/archive/Journal-Workscope-20260120-095152.md",
+        "last_file_tokens": 895
+      },
+      {
+        "reset_sequence": 2,
+        "session_line": 109,
+        "cumulative_tokens_before": 340837,
+        "last_file_read": "dev/journal/archive/Journal-Workscope-20260120-095152.md",
+        "last_file_tokens": 895
+      }
+    ]
+  }
 }

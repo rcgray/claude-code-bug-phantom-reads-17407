@@ -1,6 +1,6 @@
 {
-  "schema_version": "1.0",
-  "generated_at": "2026-01-20T18:34:13Z",
+  "schema_version": "1.1",
+  "generated_at": "2026-01-20T13:35:00Z",
   "metadata": {
     "workscope_id": "20260120-093143",
     "session_uuid": "683ca24f-7e5e-4e77-a203-0ec9e9318625",
@@ -575,5 +575,145 @@
       "cache_read_tokens": 21382,
       "session_line": 105
     }
-  ]
+  ],
+  "token_analysis": {
+    "available": true,
+    "token_counts_file": "dev/misc/wsd-dev-02/file_token_counts.json",
+    "statistics": {
+      "total_tokens_read": 141793,
+      "largest_file_tokens": 50155,
+      "largest_file_path": "source/wsd.py",
+      "unknown_token_files": 0
+    },
+    "reads_with_tokens": [
+      {
+        "sequence": 1,
+        "file_path": "dev/journal/archive/Journal-Workscope-20260120-093143.md",
+        "token_count": 1048,
+        "cumulative_estimate": 86048,
+        "session_line": 14
+      },
+      {
+        "sequence": 2,
+        "file_path": "dev/journal/archive/Journal-Workscope-20260120-093143.md",
+        "token_count": 1048,
+        "cumulative_estimate": 87096,
+        "session_line": 24
+      },
+      {
+        "sequence": 3,
+        "file_path": "docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md",
+        "token_count": 5783,
+        "cumulative_estimate": 92879,
+        "session_line": 40
+      },
+      {
+        "sequence": 4,
+        "file_path": "docs/features/pre-staging-script/Pre-Staging-Script-Overview.md",
+        "token_count": 10283,
+        "cumulative_estimate": 103162,
+        "session_line": 43
+      },
+      {
+        "sequence": 5,
+        "file_path": "docs/core/WSD-Runtime-Metadata-Schema.md",
+        "token_count": 4161,
+        "cumulative_estimate": 107323,
+        "session_line": 44
+      },
+      {
+        "sequence": 6,
+        "file_path": "docs/features/stage-release-script/Stage-Release-Script-Overview.md",
+        "token_count": 7366,
+        "cumulative_estimate": 114689,
+        "session_line": 45
+      },
+      {
+        "sequence": 7,
+        "file_path": "docs/features/install-and-update/Installation-System.md",
+        "token_count": 10213,
+        "cumulative_estimate": 124902,
+        "session_line": 50
+      },
+      {
+        "sequence": 8,
+        "file_path": "docs/features/install-and-update/Update-System.md",
+        "token_count": 14137,
+        "cumulative_estimate": 139039,
+        "session_line": 51
+      },
+      {
+        "sequence": 9,
+        "file_path": "dev/scripts/stage_release.py",
+        "token_count": 5574,
+        "cumulative_estimate": 144613,
+        "session_line": 57
+      },
+      {
+        "sequence": 10,
+        "file_path": "dev/scripts/build_package.py",
+        "token_count": 9243,
+        "cumulative_estimate": 153856,
+        "session_line": 58
+      },
+      {
+        "sequence": 11,
+        "file_path": "source/wsd.py",
+        "token_count": 50155,
+        "cumulative_estimate": 204011,
+        "session_line": 64
+      },
+      {
+        "sequence": 12,
+        "file_path": "dev/scripts/pre_staging.py",
+        "token_count": 8782,
+        "cumulative_estimate": 212793,
+        "session_line": 65
+      },
+      {
+        "sequence": 13,
+        "file_path": "docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md",
+        "token_count": 5783,
+        "cumulative_estimate": 218576,
+        "session_line": 74
+      },
+      {
+        "sequence": 14,
+        "file_path": "docs/features/stage-release-script/Stage-Release-Script-Overview.md",
+        "token_count": 7366,
+        "cumulative_estimate": 225942,
+        "session_line": 82
+      },
+      {
+        "sequence": 15,
+        "file_path": "dev/journal/archive/Journal-Workscope-20260120-093143.md",
+        "token_count": 1048,
+        "cumulative_estimate": 226990,
+        "session_line": 91
+      }
+    ],
+    "resets_with_context": [
+      {
+        "reset_sequence": 1,
+        "session_line": 63,
+        "cumulative_tokens_before": 153856,
+        "last_file_read": "dev/scripts/build_package.py",
+        "last_file_tokens": 9243
+      },
+      {
+        "reset_sequence": 2,
+        "session_line": 84,
+        "cumulative_tokens_before": 225942,
+        "last_file_read": "docs/features/stage-release-script/Stage-Release-Script-Overview.md",
+        "last_file_tokens": 7366
+      },
+      {
+        "reset_sequence": 3,
+        "session_line": 104,
+        "cumulative_tokens_before": 226990,
+        "last_file_read": "dev/journal/archive/Journal-Workscope-20260120-093143.md",
+        "last_file_tokens": 1048
+      }
+    ]
+  }
 }

@@ -1,6 +1,6 @@
 {
-  "schema_version": "1.0",
-  "generated_at": "2026-01-20T18:40:14Z",
+  "schema_version": "1.1",
+  "generated_at": "2026-01-20T13:42:00Z",
   "metadata": {
     "workscope_id": "20260120-095232",
     "session_uuid": "ea44ab3c-a774-4c46-a4fb-73dcbea0f653",
@@ -529,5 +529,171 @@
       "cache_read_tokens": 21478,
       "session_line": 95
     }
-  ]
+  ],
+  "token_analysis": {
+    "available": true,
+    "token_counts_file": "dev/misc/wsd-dev-02/file_token_counts.json",
+    "statistics": {
+      "total_tokens_read": 111466,
+      "largest_file_tokens": 50155,
+      "largest_file_path": "source/wsd.py",
+      "unknown_token_files": 1
+    },
+    "reads_with_tokens": [
+      {
+        "sequence": 1,
+        "file_path": "dev/journal/archive/Journal-Workscope-20260120-095232.md",
+        "token_count": 801,
+        "cumulative_estimate": 110801,
+        "session_line": 14
+      },
+      {
+        "sequence": 2,
+        "file_path": "docs/read-only/standards/Coding-Standards.md",
+        "token_count": 767,
+        "cumulative_estimate": 111568,
+        "session_line": 23
+      },
+      {
+        "sequence": 3,
+        "file_path": "docs/read-only/standards/Process-Integrity-Standards.md",
+        "token_count": 1077,
+        "cumulative_estimate": 112645,
+        "session_line": 24
+      },
+      {
+        "sequence": 4,
+        "file_path": "docs/read-only/standards/Specification-Maintenance-Standards.md",
+        "token_count": 3340,
+        "cumulative_estimate": 115985,
+        "session_line": 25
+      },
+      {
+        "sequence": 5,
+        "file_path": "docs/read-only/standards/Python-Standards.md",
+        "token_count": 638,
+        "cumulative_estimate": 116623,
+        "session_line": 26
+      },
+      {
+        "sequence": 6,
+        "file_path": "docs/read-only/standards/Python-Test-Environment-Isolation-Standards.md",
+        "token_count": 10562,
+        "cumulative_estimate": 127185,
+        "session_line": 27
+      },
+      {
+        "sequence": 7,
+        "file_path": "docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md",
+        "token_count": 5783,
+        "cumulative_estimate": 132968,
+        "session_line": 47
+      },
+      {
+        "sequence": 8,
+        "file_path": "docs/features/pre-staging-script/Pre-Staging-Script-Overview.md",
+        "token_count": 10283,
+        "cumulative_estimate": 143251,
+        "session_line": 50
+      },
+      {
+        "sequence": 9,
+        "file_path": "docs/core/WSD-Runtime-Metadata-Schema.md",
+        "token_count": 4161,
+        "cumulative_estimate": 147412,
+        "session_line": 51
+      },
+      {
+        "sequence": 10,
+        "file_path": "dev/scripts/stage_release.py",
+        "token_count": 5574,
+        "cumulative_estimate": 152986,
+        "session_line": 52
+      },
+      {
+        "sequence": 11,
+        "file_path": "dev/scripts/build_package.py",
+        "token_count": 9243,
+        "cumulative_estimate": 162229,
+        "session_line": 56
+      },
+      {
+        "sequence": 12,
+        "file_path": "source/wsd.py",
+        "token_count": 50155,
+        "cumulative_estimate": 212384,
+        "session_line": 57
+      },
+      {
+        "sequence": 13,
+        "file_path": "source/wsd.py",
+        "token_count": 50155,
+        "cumulative_estimate": 262539,
+        "session_line": 66,
+        "note": "Re-read of same file (partial)"
+      },
+      {
+        "sequence": 14,
+        "file_path": "source/wsd.py",
+        "token_count": 50155,
+        "cumulative_estimate": 312694,
+        "session_line": 67,
+        "note": "Re-read of same file (partial)"
+      },
+      {
+        "sequence": 15,
+        "file_path": "source/wsd.py",
+        "token_count": 50155,
+        "cumulative_estimate": 362849,
+        "session_line": 68,
+        "note": "Re-read of same file (partial)"
+      },
+      {
+        "sequence": 16,
+        "file_path": "ephemeral:tool-results/toolu_01CTExVPV7uoMuy9BXgKdbbN.txt",
+        "token_count": -1,
+        "cumulative_estimate": 362849,
+        "session_line": 73,
+        "note": "Ephemeral file - token count unknown"
+      },
+      {
+        "sequence": 17,
+        "file_path": "source/scripts/wsd_utils.py",
+        "token_count": 9122,
+        "cumulative_estimate": 371971,
+        "session_line": 77
+      },
+      {
+        "sequence": 18,
+        "file_path": "source/wsd.py",
+        "token_count": 50155,
+        "cumulative_estimate": 422126,
+        "session_line": 83,
+        "note": "Re-read of same file (partial)"
+      }
+    ],
+    "resets_with_context": [
+      {
+        "reset_sequence": 1,
+        "session_line": 47,
+        "cumulative_tokens_before": 127185,
+        "last_file_read": "docs/read-only/standards/Python-Test-Environment-Isolation-Standards.md",
+        "last_file_tokens": 10562
+      },
+      {
+        "reset_sequence": 2,
+        "session_line": 65,
+        "cumulative_tokens_before": 212384,
+        "last_file_read": "source/wsd.py",
+        "last_file_tokens": 50155
+      },
+      {
+        "reset_sequence": 3,
+        "session_line": 94,
+        "cumulative_tokens_before": 422126,
+        "last_file_read": "source/wsd.py",
+        "last_file_tokens": 50155
+      }
+    ]
+  }
 }

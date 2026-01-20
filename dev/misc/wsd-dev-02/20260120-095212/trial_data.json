@@ -1,6 +1,6 @@
 {
-  "schema_version": "1.0",
-  "generated_at": "2026-01-20T18:40:06Z",
+  "schema_version": "1.1",
+  "generated_at": "2026-01-20T21:42:25Z",
   "metadata": {
     "workscope_id": "20260120-095212",
     "session_uuid": "b2b36cd7-fe3f-41b0-93be-01d8e257e7dc",
@@ -327,5 +327,173 @@
     {"sequence": 42, "cache_read_tokens": 147449, "session_line": 85},
     {"sequence": 43, "cache_read_tokens": 21454, "session_line": 94},
     {"sequence": 44, "cache_read_tokens": 21454, "session_line": 95}
-  ]
+  ],
+  "token_analysis": {
+    "available": true,
+    "token_counts_file": "dev/misc/wsd-dev-02/file_token_counts.json",
+    "statistics": {
+      "total_tokens_read": 98218,
+      "largest_file_tokens": 11784,
+      "largest_file_path": "docs/features/install-and-update/Template-System.md",
+      "unknown_token_files": 0
+    },
+    "reads_with_tokens": [
+      {
+        "sequence": 0,
+        "file_path": "dev/journal/archive/Journal-Workscope-20260120-095212.md",
+        "token_count": 2102,
+        "cumulative_estimate": 123102,
+        "session_line": 14
+      },
+      {
+        "sequence": 1,
+        "file_path": "docs/read-only/standards/Coding-Standards.md",
+        "token_count": 767,
+        "cumulative_estimate": 123869,
+        "session_line": 23
+      },
+      {
+        "sequence": 2,
+        "file_path": "docs/read-only/standards/Python-Standards.md",
+        "token_count": 638,
+        "cumulative_estimate": 124507,
+        "session_line": 24
+      },
+      {
+        "sequence": 3,
+        "file_path": "docs/read-only/standards/Python-Test-Environment-Isolation-Standards.md",
+        "token_count": 10562,
+        "cumulative_estimate": 135069,
+        "session_line": 25
+      },
+      {
+        "sequence": 4,
+        "file_path": "docs/read-only/standards/Python-Testing-Configuration-Variables-Standards.md",
+        "token_count": 6318,
+        "cumulative_estimate": 141387,
+        "session_line": 26
+      },
+      {
+        "sequence": 5,
+        "file_path": "docs/read-only/standards/Process-Integrity-Standards.md",
+        "token_count": 1077,
+        "cumulative_estimate": 142464,
+        "session_line": 31
+      },
+      {
+        "sequence": 6,
+        "file_path": "docs/read-only/standards/Specification-Maintenance-Standards.md",
+        "token_count": 3340,
+        "cumulative_estimate": 145804,
+        "session_line": 32
+      },
+      {
+        "sequence": 7,
+        "file_path": "dev/journal/archive/Journal-Workscope-20260120-095212.md",
+        "token_count": 2102,
+        "cumulative_estimate": 147906,
+        "session_line": 36
+      },
+      {
+        "sequence": 8,
+        "file_path": "docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md",
+        "token_count": 5783,
+        "cumulative_estimate": 153689,
+        "session_line": 52
+      },
+      {
+        "sequence": 9,
+        "file_path": "docs/features/pre-staging-script/Pre-Staging-Script-Overview.md",
+        "token_count": 10283,
+        "cumulative_estimate": 163972,
+        "session_line": 55
+      },
+      {
+        "sequence": 10,
+        "file_path": "docs/core/WSD-Runtime-Metadata-Schema.md",
+        "token_count": 4161,
+        "cumulative_estimate": 168133,
+        "session_line": 56
+      },
+      {
+        "sequence": 11,
+        "file_path": "docs/features/install-and-update/Template-System.md",
+        "token_count": 11784,
+        "cumulative_estimate": 179917,
+        "session_line": 57
+      },
+      {
+        "sequence": 12,
+        "file_path": "dev/scripts/stage_release.py",
+        "token_count": 5574,
+        "cumulative_estimate": 185491,
+        "session_line": 63
+      },
+      {
+        "sequence": 13,
+        "file_path": "dev/scripts/pre_staging.py",
+        "token_count": 8782,
+        "cumulative_estimate": 194273,
+        "session_line": 67
+      },
+      {
+        "sequence": 14,
+        "file_path": "source/scripts/wsd_utils.py",
+        "token_count": 9122,
+        "cumulative_estimate": 203395,
+        "session_line": 68
+      },
+      {
+        "sequence": 15,
+        "file_path": "tests/test_stage_release.py",
+        "token_count": 10079,
+        "cumulative_estimate": 213474,
+        "session_line": 75
+      },
+      {
+        "sequence": 16,
+        "file_path": "source/wsd.json",
+        "token_count": 5652,
+        "cumulative_estimate": 219126,
+        "session_line": 78
+      },
+      {
+        "sequence": 17,
+        "file_path": "dev/journal/archive/Journal-Workscope-20260120-095212.md",
+        "token_count": 2102,
+        "cumulative_estimate": 221228,
+        "session_line": 81
+      }
+    ],
+    "resets_with_context": [
+      {
+        "reset_sequence": 1,
+        "session_line": 51,
+        "cumulative_tokens_before": 147906,
+        "last_file_read": "dev/journal/archive/Journal-Workscope-20260120-095212.md",
+        "last_file_tokens": 2102
+      },
+      {
+        "reset_sequence": 2,
+        "session_line": 66,
+        "cumulative_tokens_before": 185491,
+        "last_file_read": "dev/scripts/stage_release.py",
+        "last_file_tokens": 5574
+      },
+      {
+        "reset_sequence": 3,
+        "session_line": 74,
+        "cumulative_tokens_before": 203395,
+        "last_file_read": "source/scripts/wsd_utils.py",
+        "last_file_tokens": 9122
+      },
+      {
+        "reset_sequence": 4,
+        "session_line": 94,
+        "cumulative_tokens_before": 221228,
+        "last_file_read": "dev/journal/archive/Journal-Workscope-20260120-095212.md",
+        "last_file_tokens": 2102
+      }
+    ]
+  }
 }

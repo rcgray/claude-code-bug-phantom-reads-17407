@@ -1,6 +1,6 @@
 {
-  "schema_version": "1.0",
-  "generated_at": "2026-01-20T10:15:00.000Z",
+  "schema_version": "1.1",
+  "generated_at": "2026-01-20T21:23:09.000Z",
   "metadata": {
     "workscope_id": "20260120-090806",
     "session_uuid": "a07d1405-600d-42be-9ada-6b787e741cbb",
@@ -477,5 +477,166 @@
       "cache_read_tokens": 21262,
       "session_line": 99
     }
-  ]
+  ],
+  "token_analysis": {
+    "available": true,
+    "token_counts_file": "dev/misc/wsd-dev-02/file_token_counts.json",
+    "statistics": {
+      "total_tokens_read": 180644,
+      "largest_file_tokens": 50155,
+      "largest_file_path": "source/wsd.py",
+      "unknown_token_files": 0
+    },
+    "reads_with_tokens": [
+      {
+        "sequence": 1,
+        "file_path": "dev/journal/archive/Journal-Workscope-20260120-090806.md",
+        "token_count": 944,
+        "cumulative_estimate": 85944,
+        "session_line": 15
+      },
+      {
+        "sequence": 2,
+        "file_path": "docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md",
+        "token_count": 5783,
+        "cumulative_estimate": 91727,
+        "session_line": 38
+      },
+      {
+        "sequence": 3,
+        "file_path": "docs/features/pre-staging-script/Pre-Staging-Script-Overview.md",
+        "token_count": 10283,
+        "cumulative_estimate": 102010,
+        "session_line": 40
+      },
+      {
+        "sequence": 4,
+        "file_path": "docs/core/WSD-Runtime-Metadata-Schema.md",
+        "token_count": 4161,
+        "cumulative_estimate": 106171,
+        "session_line": 40
+      },
+      {
+        "sequence": 5,
+        "file_path": "dev/scripts/stage_release.py",
+        "token_count": 5574,
+        "cumulative_estimate": 111745,
+        "session_line": 40
+      },
+      {
+        "sequence": 6,
+        "file_path": "dev/scripts/build_package.py",
+        "token_count": 9243,
+        "cumulative_estimate": 120988,
+        "session_line": 45
+      },
+      {
+        "sequence": 7,
+        "file_path": "source/wsd.py",
+        "token_count": 50155,
+        "cumulative_estimate": 171143,
+        "session_line": 46
+      },
+      {
+        "sequence": 8,
+        "file_path": "source/wsd.py",
+        "token_count": 50155,
+        "cumulative_estimate": 221298,
+        "session_line": 55
+      },
+      {
+        "sequence": 9,
+        "file_path": "source/wsd.py",
+        "token_count": 50155,
+        "cumulative_estimate": 271453,
+        "session_line": 56
+      },
+      {
+        "sequence": 10,
+        "file_path": "source/wsd.py",
+        "token_count": 50155,
+        "cumulative_estimate": 321608,
+        "session_line": 57
+      },
+      {
+        "sequence": 11,
+        "file_path": "source/wsd.py",
+        "token_count": 50155,
+        "cumulative_estimate": 371763,
+        "session_line": 61
+      },
+      {
+        "sequence": 12,
+        "file_path": "docs/features/install-and-update/Installation-System.md",
+        "token_count": 10213,
+        "cumulative_estimate": 381976,
+        "session_line": 64
+      },
+      {
+        "sequence": 13,
+        "file_path": "docs/features/install-and-update/Update-System.md",
+        "token_count": 14137,
+        "cumulative_estimate": 396113,
+        "session_line": 65
+      },
+      {
+        "sequence": 14,
+        "file_path": "docs/features/stage-release-script/Stage-Release-Script-Overview.md",
+        "token_count": 7366,
+        "cumulative_estimate": 403479,
+        "session_line": 69
+      },
+      {
+        "sequence": 15,
+        "file_path": "docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md",
+        "token_count": 5783,
+        "cumulative_estimate": 409262,
+        "session_line": 72
+      },
+      {
+        "sequence": 16,
+        "file_path": "docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md",
+        "token_count": 5783,
+        "cumulative_estimate": 415045,
+        "session_line": 75
+      },
+      {
+        "sequence": 17,
+        "file_path": "source/scripts/wsd_utils.py",
+        "token_count": 9122,
+        "cumulative_estimate": 424167,
+        "session_line": 79
+      },
+      {
+        "sequence": 18,
+        "file_path": "dev/journal/archive/Journal-Workscope-20260120-090806.md",
+        "token_count": 944,
+        "cumulative_estimate": 425111,
+        "session_line": 85
+      }
+    ],
+    "resets_with_context": [
+      {
+        "reset_sequence": 1,
+        "session_line": 37,
+        "cumulative_tokens_before": 85944,
+        "last_file_read": "dev/journal/archive/Journal-Workscope-20260120-090806.md",
+        "last_file_tokens": 944
+      },
+      {
+        "reset_sequence": 2,
+        "session_line": 74,
+        "cumulative_tokens_before": 409262,
+        "last_file_read": "docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md",
+        "last_file_tokens": 5783
+      },
+      {
+        "reset_sequence": 3,
+        "session_line": 98,
+        "cumulative_tokens_before": 425111,
+        "last_file_read": "dev/journal/archive/Journal-Workscope-20260120-090806.md",
+        "last_file_tokens": 944
+      }
+    ]
+  }
 }
