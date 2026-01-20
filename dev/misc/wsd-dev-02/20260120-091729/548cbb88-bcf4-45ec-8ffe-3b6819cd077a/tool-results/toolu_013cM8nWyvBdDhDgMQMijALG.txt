@@ -1,0 +1,104 @@
+  4241→def install_files(source_dir: Path, target_dir: Path, force: bool = False) -> list[str]:  # noqa: PLR0912, PLR0915
+  4242→    """Install WSD Runtime files from source to target directory.
+  4243→
+  4244→    Implements installation file operations from Installation-System.md
+  4245→    § File Copying Process with comprehensive error handling and atomic
+  4246→    operation guarantees.
+  4247→
+  4248→    Atomic operation guarantee (§ Atomic Operation Guarantee):
+  4249→    1. All validation performed before any file operations
+  4250→    2. Installation aborts immediately on first copy error
+  4251→    3. Automatic rollback removes all partial files and empty directories
+  4252→    4. .wsd manifest created only after successful file installation
+  4253→    5. No partial installations - either completes fully or fails cleanly
+  4254→
+  4255→    Rollback behavior (§ Rollback Mechanism):
+  4256→    When a file copy operation fails, automatic rollback is performed:
+  4257→    - All successfully copied files are deleted in reverse order
+  4258→    - Empty directories created during installation are removed bottom-up
+  4259→    - Directories containing pre-existing user files are preserved
+  4260→    - Rollback status is reported to stderr before the error message
+  4261→    - Rollback uses best-effort cleanup (continues if individual deletes fail)
+  4262→
+  4263→    Error handling (§ Error Handling):
+  4264→    - Detects permission errors on directory creation and file writing
+  4265→    - Validates target is directory (not file)
+  4266→    - Validates source directory exists
+  4267→    - Checks for sufficient disk space
+  4268→    - Performs rollback cleanup before reporting errors
+  4269→    - Provides clear error messages with resolution steps
+  4270→    - Exits with appropriate error codes
+  4271→
+  4272→    Args:
+  4273→        source_dir: Path to WSD Runtime root directory (contains wsd.json)
+  4274→        target_dir: Path to target installation directory
+  4275→        force: If True, bypass collision blocking and overwrite files with
+  4276→            different content. Prints warning when collisions are overwritten.
+  4277→
+  4278→    Returns:
+  4279→        List of relative file paths for all installed files (excluding
+  4280→        installation_only files). Paths are relative to target_dir.
+  4281→
+  4282→    Raises:
+  4283→        SystemExit: On any validation or installation error (exits with code 1).
+  4284→            Rollback is performed before exit when errors occur during file copy.
+  4285→    """
+  4286→    # ========================================================================
+  4287→    # PRE-VALIDATION (NO FILE MODIFICATIONS)
+  4288→    # ========================================================================
+  4289→    # Per Installation-System.md § Atomic Operation Guarantee:
+  4290→    # "Perform all validation checks first"
+  4291→    # "Only begin file copying after all checks pass"
+  4292→
+  4293→    verbose_log(f"Starting installation from {source_dir} to {target_dir}")
+  4294→
+  4295→    # Validate source directory exists
+  4296→    validate_source_directory_exists(source_dir)
+  4297→    verbose_log("Source directory validated")
+  4298→
+  4299→    # Validate target path is directory (not file)
+  4300→    validate_target_is_directory(target_dir)
+  4301→
+  4302→    # Read WSD metadata before any file operations
+  4303→    # (may raise FileNotFoundError or ValueError if wsd.json missing/invalid)
+  4304→    try:
+  4305→        metadata = read_wsd_metadata(source_dir)
+  4306→    except (FileNotFoundError, ValueError) as e:
+  4307→        report_installation_error(
+  4308→            "Failed to read WSD metadata",
+  4309→            f"Cannot read wsd.json from source directory: {e}",
+  4310→            ["Verify WSD installation is complete", "Reinstall WSD if necessary"],
+  4311→        )
+  4312→
+  4313→    installation_only = metadata.installation_only
+  4314→    executable_files = metadata.executable
+  4315→    wsd_version = metadata.version
+  4316→
+  4317→    # Detect file collisions with hash-based categorization
+  4318→    verbose_log("Checking for file collisions...")
+  4319→    true_collisions, false_positives_list = detect_collisions(source_dir, target_dir)
+  4320→
+  4321→    # Convert to set for O(1) lookup during file copy loop
+  4322→    false_positives = set(false_positives_list)
+  4323→
+  4324→    # Report false positives (informational - these files will be skipped)
+  4325→    if false_positives:
+  4326→        print(file=sys.stderr)
+  4327→        fp_count = len(false_positives)
+  4328→        print(
+  4329→            f"Found {fp_count} existing file(s) with identical content (will skip copying):",
+  4330→            file=sys.stderr,
+  4331→        )
+  4332→        for fp_path in sorted(false_positives):
+  4333→            print(f"  - {fp_path}", file=sys.stderr)
+  4334→        print(file=sys.stderr)
+  4335→
+  4336→    # Report and block on true collisions (unless force is specified)
+  4337→    if true_collisions and not force:
+  4338→        report_collision_error(true_collisions, target_dir, f"wsd.py install --force {target_dir}")
+  4339→    elif true_collisions and force:
+  4340→        print(
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>

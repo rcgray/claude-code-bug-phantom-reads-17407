@@ -1,0 +1,74 @@
+  2130→        WsdCollectionError: If invalid content found in update source
+  2131→    """
+  2132→    # Read installation_only list from UPDATE's wsd.json
+  2133→    installation_only = update_metadata.installation_only
+  2134→    installation_only_set = set(installation_only)
+  2135→
+  2136→    # Extract file paths from installed manifest
+  2137→    installed_set = set(installed_files)
+  2138→
+  2139→    # Collect all update files and filter out installation_only files
+  2140→    all_update_files = collect_wsd_files(update_source_dir)
+  2141→    # Convert to strings and filter out installation_only files
+  2142→    update_files = {str(p) for p in all_update_files if str(p) not in installation_only_set}
+  2143→
+  2144→    # Perform set operations (delete = installed - update)
+  2145→    to_delete_set = installed_set - update_files
+  2146→
+  2147→    # Perform set operations (add = update - installed)
+  2148→    to_add_set = update_files - installed_set
+  2149→
+  2150→    # Identify files in both (in_both = installed ∩ update)
+  2151→    in_both = installed_set & update_files
+  2152→
+  2153→    # Read no_overwrite list from UPDATE's wsd.json
+  2154→    no_overwrite = set(update_metadata.no_overwrite)
+  2155→
+  2156→    # Read file_hashes from UPDATE's wsd.json for content comparison
+  2157→    source_hashes = update_metadata.file_hashes
+  2158→
+  2159→    # Filter in_both files using protection policies and content hash comparison
+  2160→    to_skip_list: list[str] = []
+  2161→    to_skip_unchanged_list: list[str] = []
+  2162→    to_update_list: list[str] = []
+  2163→
+  2164→    for file_path in in_both:
+  2165→        if file_path in no_overwrite:
+  2166→            # Protected by no_overwrite policy - skip updating regardless of content
+  2167→            to_skip_list.append(file_path)
+  2168→        else:
+  2169→            # Not protected - check content hash to determine if update needed
+  2170→            target_file_path = target_dir / file_path
+  2171→            source_hash = source_hashes.get(file_path)
+  2172→
+  2173→            if source_hash is None:
+  2174→                # Missing hash indicates manifest out of sync - halt per DD-12
+  2175→                error_msg = (
+  2176→                    f"Missing hash for '{file_path}' in wsd.json manifest. "
+  2177→                    "The manifest may be out of sync with source files. "
+  2178→                    "Regenerate wsd.json with pre_staging.py."
+  2179→                )
+  2180→                raise ValueError(error_msg)
+  2181→
+  2182→            if target_file_path.exists():
+  2183→                try:
+  2184→                    target_hash = calculate_file_hash(target_file_path)
+  2185→                    if target_hash == source_hash:
+  2186→                        # Content identical - skip update
+  2187→                        to_skip_unchanged_list.append(file_path)
+  2188→                        continue
+  2189→                except OSError:
+  2190→                    # Cannot read target file - fail-safe to update
+  2191→                    pass
+  2192→
+  2193→            # Content differs or read error - update needed
+  2194→            to_update_list.append(file_path)
+  2195→
+  2196→    # Return categorized file lists
+  2197→    # The update workflow filters out .wsdkeep and handles directories via required_directories
+  2198→    return FileCategorization(
+  2199→        to_delete=sorted(to_delete_set),
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>

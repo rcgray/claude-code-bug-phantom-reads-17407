@@ -1,0 +1,1221 @@
+     1→# Installation System Specification (`wsd.py install`)
+     2→
+     3→**Version:** 1.0.0
+     4→**Date:** 2025-11-11
+     5→**Status:** Draft
+     6→
+     7→## Overview
+     8→
+     9→The WSD Installation System handles the initial deployment of Workscope-Dev templates into user projects. It provides a robust mechanism for copying WSD Runtime files from the WSD Runtime root directory to a target project directory, while detecting and preventing file collisions, managing empty directory structures, creating tracking manifests, and preserving file permissions.
+    10→
+    11→This specification defines the complete installation process for both fresh installations (into new or empty directories) and integration installations (into existing projects with potential file conflicts).
+    12→
+    13→For broader architectural context and how the Installation System integrates with other WSD components, see System-Architecture.md.
+    14→
+    15→## Purpose
+    16→
+    17→The Installation System serves four critical functions:
+    18→
+    19→1. **Safe Deployment**: Copies WSD Runtime templates to target projects without overwriting existing files
+    20→2. **Collision Detection**: Identifies and reports conflicts before any files are modified
+    21→3. **Structure Management**: Creates necessary directory hierarchies and maintains empty directories via .wsdkeep files
+    22→4. **Tracking Initialization**: Creates the .wsd manifest file that enables future updates
+    23→
+    24→This specification establishes the authoritative definition of installation procedures, collision detection algorithms, manifest creation, and error handling.
+    25→
+    26→## Installation Scenarios
+    27→
+    28→### Scenario 1: Target Directory Does Not Exist
+    29→
+    30→**Context**: Installing WSD when the target path doesn't exist yet.
+    31→
+    32→**User Command**:
+    33→```bash
+    34→wsd.py install /path/to/new-project
+    35→```
+    36→
+    37→**Preconditions**:
+    38→- Target directory does not exist
+    39→- User has write permissions to parent directory
+    40→
+    41→**Process Flow**:
+    42→1. Create target directory
+    43→2. Verify no .wsd manifest exists (guaranteed - directory just created)
+    44→3. Copy all files from WSD Runtime root to target directory (excluding wsd.json)
+    45→4. Set execute permissions on script files
+    46→5. Create .wsd manifest file
+    47→6. Report success
+    48→
+    49→**Expected Outcome**:
+    50→- Target directory created
+    51→- All template files copied
+    52→- Directory structure established with .wsdkeep files
+    53→- Execute permissions set on scripts
+    54→- .wsd manifest created
+    55→- Installation completes successfully
+    56→
+    57→### Scenario 2: Target Directory Exists and Is Empty
+    58→
+    59→**Context**: Installing WSD into an existing but empty directory (may contain non-WSD files like .git).
+    60→
+    61→**User Command**:
+    62→```bash
+    63→wsd.py install /path/to/existing-empty-project
+    64→```
+    65→
+    66→**Preconditions**:
+    67→- Target directory exists
+    68→- No .wsd manifest exists
+    69→- No files conflict with WSD template files
+    70→
+    71→**Process Flow**:
+    72→1. Verify no .wsd manifest exists
+    73→2. Perform collision detection (finds no conflicts)
+    74→3. Copy all files from WSD Runtime root to target directory (excluding wsd.json)
+    75→4. Set execute permissions on script files
+    76→5. Create .wsd manifest file
+    77→6. Report success
+    78→
+    79→**Expected Outcome**:
+    80→- All template files copied
+    81→- Any existing non-WSD files remain untouched
+    82→- WSD structure integrates alongside existing files
+    83→- Installation completes successfully
+    84→
+    85→### Scenario 3: Target Directory Has File Conflicts
+    86→
+    87→**Context**: Installing WSD into a directory containing files that would be overwritten by WSD templates.
+    88→
+    89→**User Command**:
+    90→```bash
+    91→wsd.py install /path/to/existing-project
+    92→```
+    93→
+    94→**Preconditions**:
+    95→- Target directory exists
+    96→- No .wsd manifest exists (not a WSD-managed project)
+    97→- One or more files conflict with WSD template files
+    98→
+    99→**Process Flow**:
+   100→1. Verify no .wsd manifest exists
+   101→2. Perform collision detection
+   102→3. Detect conflicts (e.g., existing README.md, scripts/health_check.py)
+   103→4. **HALT**: Report all collisions to user
+   104→5. Exit with error code
+   105→
+   106→**Expected Outcome**:
+   107→- No files copied or modified
+   108→- Clear error message listing all collisions
+   109→- User must resolve conflicts before installation
+   110→- Installation aborted (atomic operation)
+   111→
+   112→**Example Error Output**:
+   113→```
+   114→Error: Installation aborted due to file collisions.
+   115→
+   116→The following files exist with different content:
+   117→  - README.md (content differs from WSD template)
+   118→  - scripts/health_check.py (content differs from WSD template)
+   119→  - docs/core/Action-Plan.md (content differs from WSD template)
+   120→
+   121→Please resolve these conflicts before installing WSD:
+   122→  1. Rename or move existing files
+   123→  2. Delete files if they can be replaced by WSD templates
+   124→  3. Use --force to overwrite all conflicting files
+   125→
+   126→After resolving conflicts, retry: wsd.py install /path/to/existing-project
+   127→```
+   128→
+   129→### Scenario 4: WSD Already Installed (Update Needed)
+   130→
+   131→**Context**: Attempting fresh installation when .wsd manifest already exists.
+   132→
+   133→**User Command**:
+   134→```bash
+   135→wsd.py install /path/to/wsd-project
+   136→```
+   137→
+   138→**Preconditions**:
+   139→- Target directory exists
+   140→- .wsd manifest file exists (indicates previous WSD installation)
+   141→
+   142→**Process Flow**:
+   143→1. Detect existing .wsd manifest
+   144→2. **HALT**: Redirect to update mechanism
+   145→3. Exit with informative message
+   146→
+   147→**Expected Outcome**:
+   148→- No files modified
+   149→- Clear message indicating WSD already installed
+   150→- User directed to use update command instead
+   151→- Installation aborted
+   152→
+   153→**Example Output**:
+   154→```
+   155→Error: WSD already installed in this directory.
+   156→
+   157→Found existing .wsd manifest.
+   158→
+   159→To update your WSD installation, use:
+   160→  wsd.py update /path/to/wsd-project
+   161→
+   162→To force a fresh installation (WARNING: will overwrite all WSD files):
+   163→  wsd.py install --force /path/to/wsd-project
+   164→```
+   165→
+   166→## Idempotent Installation
+   167→
+   168→### Overview
+   169→
+   170→The WSD Installation System implements idempotent behavior, meaning that running the install command multiple times produces the same result as running it once. This is achieved through content hash comparison during the installation process.
+   171→
+   172→When files already exist in the target directory with content identical to the WSD template files, the installation system skips copying those files. This provides several benefits:
+   173→
+   174→1. **Efficiency**: No unnecessary file I/O operations when content already matches
+   175→2. **Safety**: File modification timestamps are preserved for unchanged files
+   176→3. **Self-Healing**: Incomplete installations are automatically completed on subsequent install attempts
+   177→4. **Determinism**: The same operation always produces the same result
+   178→
+   179→### Behavior
+   180→
+   181→During installation, the collision detection algorithm categorizes existing files into two groups:
+   182→
+   183→**True Collisions**: Files that exist with different content than the WSD template. These block installation unless `--force` is specified.
+   184→
+   185→**False Positives**: Files that exist with identical content to the WSD template. These are automatically skipped during the file copy phase but are still included in the manifest.
+   186→
+   187→For files categorized as false positives:
+   188→- The file copy operation is skipped (no I/O performed)
+   189→- The file is added to the manifest's `files` array
+   190→- Executable permissions are still applied if the file is in the executable list
+   191→- Tag scanning still occurs for manifest creation
+   192→
+   193→### User Communication
+   194→
+   195→When false positives are detected, the system informs the user:
+   196→
+   197→```
+   198→Found 3 existing file(s) with identical content (will skip copying):
+   199→  - .claude/agents/task-master.md
+   200→  - scripts/health_check.py
+   201→  - docs/read-only/Agent-System.md
+   202→
+   203→Proceeding with installation...
+   204→```
+   205→
+   206→### Self-Healing Behavior
+   207→
+   208→If an installation is interrupted (e.g., by power loss, process termination, or network failure), the incomplete state is automatically repaired on the next installation attempt:
+   209→
+   210→1. Files that were successfully copied remain in place (content matches)
+   211→2. Files not yet copied are detected as missing and copied normally
+   212→3. The manifest is created or updated to reflect the complete installation
+   213→
+   214→This eliminates the need for manual recovery procedures in most interruption scenarios.
+   215→
+   216→## Collision Detection Algorithm
+   217→
+   218→### Overview
+   219→
+   220→The collision detection algorithm identifies any files in the target directory that would be overwritten by WSD template files. This check occurs BEFORE any files are copied, ensuring atomic installation operations. The algorithm uses content hash comparison to distinguish between true collisions (different content) and false positives (identical content). Files with identical content are not reported as collisions. For hash calculation algorithm and comparison logic, see **Content-Hashing-Overview.md**.
+   221→
+   222→### Algorithm Specification
+   223→
+   224→```python
+   225→def detect_collisions(source_dir, target_dir):
+   226→    """
+   227→    Detect file collisions between source templates and target directory.
+   228→
+   229→    Args:
+   230→        source_dir: Path to WSD Runtime root directory
+   231→        target_dir: Path to target installation directory (user's project)
+   232→
+   233→    Returns:
+   234→        list: List of relative paths that would collide (empty if no collisions)
+   235→    """
+   236→
+   237→    # Step 1: Get list of all files to be installed
+   238→    source_files = get_all_files(source_dir)
+   239→    # Example: ['.claude/agents/task-master.md', 'README.md', 'scripts/health_check.py']
+   240→
+   241→    # Step 2: Initialize collision list
+   242→    collisions = []
+   243→
+   244→    # Step 3: Check each source file against target
+   245→    for relative_path in source_files:
+   246→        target_path = os.path.join(target_dir, relative_path)
+   247→
+   248→        # Check if file exists in target
+   249→        if os.path.exists(target_path):
+   250→            collisions.append(relative_path)
+   251→
+   252→    # Step 4: Return collision list
+   253→    return collisions
+   254→
+   255→
+   256→def get_all_files(directory):
+   257→    """
+   258→    Recursively get all files in directory as relative paths.
+   259→
+   260→    Automatically excludes files inside VCS directories (.git/, .svn/, etc.).
+   261→
+   262→    Args:
+   263→        directory: Root directory to scan
+   264→
+   265→    Returns:
+   266→        list: Relative paths of all files (not directories, not VCS internals)
+   267→    """
+   268→    files = []
+   269→
+   270→    for root, dirs, filenames in os.walk(directory):
+   271→        for filename in filenames:
+   272→            # Get full path
+   273→            full_path = os.path.join(root, filename)
+   274→
+   275→            # Convert to relative path from directory
+   276→            relative_path = os.path.relpath(full_path, directory)
+   277→
+   278→            # Skip files inside VCS directories
+   279→            if any(vcs in relative_path.split(os.sep) for vcs in VCS_DIRECTORIES):
+   280→                continue
+   281→
+   282→            files.append(relative_path)
+   283→
+   284→    return files
+   285→```
+   286→
+   287→### Collision Detection Rules
+   288→
+   289→1. **File-Level Only**: Only files are checked, not directories
+   290→2. **Recursive Scan**: All subdirectories are scanned
+   291→3. **Relative Paths**: Paths stored relative to project root
+   292→4. **Case Sensitive**: Filenames matched exactly as they appear
+   293→5. **Symlinks Followed**: Symlinks to files are treated as files
+   294→6. **Hidden Files Included**: Files starting with `.` are checked
+   295→7. **VCS Directories Excluded**: Files inside `.git/`, `.svn/`, `.hg/`, `.bzr/`, and `CVS/` are automatically excluded
+   296→
+   297→### Special Cases
+   298→
+   299→#### .wsdkeep Files
+   300→**Behavior**: .wsdkeep files never cause collisions
+   301→**Rationale**: These are placeholder files that can be overwritten freely
+   302→**Detection**: Skip collision check for any file named `.wsdkeep`
+   303→
+   304→#### .wsd Manifest
+   305→**Behavior**: Existence of .wsd indicates update scenario, not fresh installation
+   306→**Detection**: If .wsd exists, installation process should defer to update process
+   307→**Error**: "WSD already installed. Use update mechanism instead."
+   308→
+   309→#### .gitignore File
+   310→**Behavior**: Collision with .gitignore is reported normally
+   311→**Rationale**: User may have custom gitignore rules
+   312→**User Action**: User must merge WSD's .gitignore with their own
+   313→
+   314→#### Directories Without Files
+   315→**Behavior**: Empty directories don't cause collisions
+   316→**Rationale**: Directories are created as needed during file copying
+   317→**Example**: Existing empty `docs/` directory is not a collision
+   318→
+   319→### Collision Detection Examples
+   320→
+   321→#### Example 1: No Collisions
+   322→
+   323→**Target Directory Contents**:
+   324→```
+   325→target/
+   326→├── .git/           # User's version control
+   327→├── src/            # User's source code
+   328→└── package.json    # User's config
+   329→```
+   330→
+   331→**WSD Runtime Files (subset)**:
+   332→```
+   333→<wsd-runtime>/               # WSD Runtime distribution
+   334→├── .git/                   # EXCLUDED - VCS directory (if present)
+   335→├── .claude/
+   336→├── docs/
+   337→├── scripts/
+   338→├── wsd.py
+   339→├── wsd.json                # NOT copied during installation
+   340→└── README.md
+   341→```
+   342→
+   343→**Collision Check Result**:
+   344→```python
+   345→collisions = []  # Empty list
+   346→# Verdict: Safe to proceed with installation
+   347→```
+   348→
+   349→#### Example 2: Single Collision
+   350→
+   351→**Target Directory Contents**:
+   352→```
+   353→target/
+   354→├── .git/
+   355→├── src/
+   356→├── package.json
+   357→└── README.md       # COLLISION: WSD has README.md template
+   358→```
+   359→
+   360→**Collision Check Result**:
+   361→```python
+   362→collisions = ['README.md']
+   363→# Verdict: Installation aborted
+   364→```
+   365→
+   366→#### Example 3: Multiple Collisions
+   367→
+   368→**Target Directory Contents**:
+   369→```
+   370→target/
+   371→├── .git/
+   372→├── README.md              # COLLISION
+   373→├── scripts/
+   374→│   └── health_check.py    # COLLISION
+   375→└── docs/
+   376→    └── core/
+   377→        └── Action-Plan.md # COLLISION
+   378→```
+   379→
+   380→**Collision Check Result**:
+   381→```python
+   382→collisions = [
+   383→    'README.md',
+   384→    'scripts/health_check.py',
+   385→    'docs/core/Action-Plan.md'
+   386→]
+   387→# Verdict: Installation aborted with detailed report
+   388→```
+   389→
+   390→#### Example 4: .wsdkeep False Collision
+   391→
+   392→**Target Directory Contents**:
+   393→```
+   394→target/
+   395→├── docs/
+   396→│   └── workbench/
+   397→│       └── .wsdkeep    # NOT a collision
+   398→└── dev/
+   399→    └── diagnostics/
+   400→        └── .wsdkeep    # NOT a collision
+   401→```
+   402→
+   403→**Collision Check Result**:
+   404→```python
+   405→collisions = []  # .wsdkeep files ignored
+   406→# Verdict: Safe to proceed
+   407→```
+   408→
+   409→## File Copying Process
+   410→
+   411→### Overview
+   412→
+   413→After collision detection passes, the installation process copies all WSD Runtime files from the WSD Runtime root directory to the target directory, creating necessary directory structures and setting appropriate permissions.
+   414→
+   415→**Installation File Exclusion:** Certain files are required for installation operations but not for WSD Runtime operation in the destination project. These files are excluded from the copy operation during installation. The list of excluded files includes wsd.json (WSD Runtime metadata) and potentially other installation-only files. For complete wsd.json specification including JSON schema, policy behavior, and Source of Truth role, see **Template-System.md § WSD Runtime Metadata**.
+   416→
+   417→**Side Effect - Installation Source Restriction:** Because installation-only files are not copied to the destination, WSD-integrated projects cannot themselves serve as installation sources for new projects. Only the original WSD Runtime distribution (which contains all installation files) can be used to install WSD into new projects. This is a natural consequence of the exclusion design, not its primary purpose.
+   418→
+   419→### Copying Algorithm
+   420→
+   421→```python
+   422→def install_files(source_dir, target_dir, executable_files):
+   423→    """
+   424→    Copy all files from source to target, creating directories as needed.
+   425→
+   426→    Args:
+   427→        source_dir: Path to WSD Runtime root directory
+   428→        target_dir: Path to target installation directory
+   429→        executable_files: List of files requiring executable permission (from wsd.json)
+   430→
+   431→    Returns:
+   432→        list: Relative paths of all installed files
+   433→    """
+   434→
+   435→    installed_files = []
+   436→
+   437→    # Step 1: Get all files to install
+   438→    source_files = get_all_files(source_dir)
+   439→
+   440→    # Step 2: Copy each file
+   441→    for relative_path in source_files:
+   442→        source_path = os.path.join(source_dir, relative_path)
+   443→        target_path = os.path.join(target_dir, relative_path)
+   444→
+   445→        # Create parent directory if needed
+   446→        target_parent = os.path.dirname(target_path)
+   447→        os.makedirs(target_parent, exist_ok=True)
+   448→
+   449→        # Copy file (preserves source file permissions)
+   450→        shutil.copy2(source_path, target_path)
+   451→
+   452→        installed_files.append(relative_path)
+   453→
+   454→    # Step 3: Set executable permissions on designated files
+   455→    for relative_path in executable_files:
+   456→        if relative_path in installed_files:
+   457→            target_path = os.path.join(target_dir, relative_path)
+   458→            set_executable(target_path)
+   459→
+   460→    return installed_files
+   461→
+   462→
+   463→def set_executable(file_path):
+   464→    """
+   465→    Set executable permission bit on file.
+   466→
+   467→    Args:
+   468→        file_path: Path to file
+   469→    """
+   470→    current_permissions = os.stat(file_path).st_mode
+   471→    os.chmod(file_path, current_permissions | 0o111)  # Add execute for user/group/other
+   472→```
+   473→
+   474→### Directory Creation Rules
+   475→
+   476→1. **On-Demand Creation**: Directories created only when needed for file
+   477→2. **Parent Hierarchies**: All parent directories created if missing
+   478→3. **Existing Directories**: No error if directory already exists
+   479→4. **Permissions**: Directories created with standard permissions (755)
+   480→
+   481→### File Permission Handling
+   482→
+   483→For complete file permission model including declaration rationale and conservative approach, see **Template-System.md § File Permission Model**.
+   484→
+   485→#### Installation Implementation
+   486→
+   487→**Standard Files**:
+   488→- Copied with source permissions via `shutil.copy2()`
+   489→- Preserves original file permissions from template
+   490→
+   491→**Executable Files**:
+   492→- After all files copied, read executable array from wsd.json
+   493→- Apply +x bit to each file in executable list
+   494→- Use conservative approach (only add +x, don't modify other bits)
+   495→
+   496→**Permission Setting**:
+   497→```python
+   498→def set_executable(file_path):
+   499→    """Add executable permission to file."""
+   500→    current_mode = os.stat(file_path).st_mode
+   501→    os.chmod(file_path, current_mode | 0o111)  # Add +x for user/group/other
+   502→```
+   503→
+   504→### Special File Handling
+   505→
+   506→#### .wsdkeep Files
+   507→**Purpose**: Maintain empty directory structure
+   508→**Creation**: Automatically created during installation
+   509→**Content**: Always empty (0 bytes)
+   510→**Locations**: Any directory intended to start empty
+   511→
+   512→**Example Locations**:
+   513→Empty directories throughout the WSD structure contain .wsdkeep files, including archive directories, working directories, and organizational subdirectories. The specific locations are determined by the template structure definition.
+   514→
+   515→#### no_overwrite Files
+   516→
+   517→Files declared in the no_overwrite array are protected from being overwritten during updates. For complete no_overwrite policy specification including purpose, behavior, and design rationale, see **Template-System.md § File Protection: no_overwrite Policy**.
+   518→
+   519→**Installation Behavior**:
+   520→- Initial Installation: Protected files copied normally from template
+   521→- Future Updates: If file exists, skip updating it (preservation happens in update process)
+   522→
+   523→#### VCS Directory Exclusion
+   524→
+   525→Version control system directories are automatically excluded from installation operations. These directories contain repository metadata that is specific to the source distribution and should never be copied to target projects.
+   526→
+   527→**Excluded VCS Directories:**
+   528→- `.git/` - Git
+   529→- `.svn/` - Subversion
+   530→- `.hg/` - Mercurial
+   531→- `.bzr/` - Bazaar
+   532→- `CVS/` - CVS
+   533→
+   534→**Behavior:**
+   535→- Files inside VCS directories are never scanned, copied, or included in manifests
+   536→- Exclusion is automatic and requires no user configuration
+   537→- This exclusion is distinct from `installation_only` configuration - VCS exclusion is hardcoded, not user-configurable
+   538→- Files with names containing VCS directory names (e.g., `.gitignore`, `my.git-notes.txt`) are NOT excluded - only files actually inside VCS directories are filtered
+   539→
+   540→**Rationale:**
+   541→- VCS directories contain repository-specific metadata (commit history, hooks, configuration)
+   542→- Copying VCS internals would pollute the target project with irrelevant files
+   543→- Target projects typically have their own version control configuration
+   544→- This matches industry-standard behavior for distribution and installation tools
+   545→
+   546→**Example:**
+   547→When installing from a WSD Runtime that is itself a git repository:
+   548→
+   549→```
+   550→wsd-runtime/                    # Source directory (git repo)
+   551→├── .git/                       # EXCLUDED - VCS directory
+   552→│   ├── config                  # Not copied
+   553→│   ├── HEAD                    # Not copied
+   554→│   └── hooks/                  # Not copied
+   555→├── .gitignore                  # INCLUDED - not inside .git/
+   556→├── wsd.py                      # INCLUDED
+   557→└── scripts/
+   558→    └── health_check.py         # INCLUDED
+   559→```
+   560→
+   561→The resulting installation contains only the actual WSD files, with no `.git/` internals in the manifest or target directory.
+   562→
+   563→## WSD Runtime Metadata (wsd.json)
+   564→
+   565→The WSD Runtime includes a metadata file that declares version information, file protection policies, and executable file lists.
+   566→
+   567→**Key Points**:
+   568→- Located at WSD Runtime root (e.g., `wsd-runtime/wsd.json`)
+   569→- NOT copied during installation (prevents propagation issues)
+   570→- Contains version, no_overwrite array, and executable array
+   571→- Serves as Source of Truth for policies during operations
+   572→
+   573→**Usage in Installation**:
+   574→1. Read wsd.json from source directory
+   575→2. Extract version for manifest creation
+   576→3. Extract no_overwrite policies for update operations
+   577→4. Extract executable list for permission setting
+   578→
+   579→**Example**:
+   580→```python
+   581→def install_wsd(source_dir, target_dir):
+   582→    """Install WSD Runtime into target directory."""
+   583→    # Read WSD metadata
+   584→    wsd_metadata = read_wsd_metadata(source_dir)
+   585→
+   586→    # Extract fields
+   587→    wsd_version = wsd_metadata['version']
+   588→    no_overwrite_files = wsd_metadata.get('no_overwrite', [])
+   589→    executable_files = wsd_metadata.get('executable', [])
+   590→
+   591→    # Use in installation process
+   592→    # ...
+   593→```
+   594→
+   595→For complete wsd.json specification including JSON schema, field semantics, policy behavior, installation exclusion rule, Source of Truth role, validation rules, and comprehensive examples, see **WSD-Runtime-Metadata-Schema.md**.
+   596→
+   597→## .wsd Manifest Creation
+   598→
+   599→### Overview
+   600→
+   601→The .wsd manifest file is created at the root of the target directory after all files are successfully copied. It serves as the authoritative record of WSD installation and enables future update operations.
+   602→
+   603→### Manifest Specification
+   604→
+   605→For complete .wsd manifest specification including JSON schema, field semantics, derived data model, validation rules, and examples, see **WSD-Manifest-Schema.md**.
+   606→
+   607→### Manifest Creation Algorithm
+   608→
+   609→```python
+   610→def create_manifest(target_dir, file_paths, wsd_version):
+   611→    """
+   612→    Create .wsd manifest file after successful installation.
+   613→
+   614→    Args:
+   615→        target_dir: Path to installation target directory
+   616→        file_paths: List of relative paths for installed files
+   617→        wsd_version: WSD version from wsd.json
+   618→
+   619→    Returns:
+   620→        str: Path to created manifest file
+   621→    """
+   622→
+   623→    # Step 1: Create base manifest structure
+   624→    manifest = {
+   625→        'version': wsd_version,
+   626→        'created': get_iso_timestamp(),
+   627→        'updated': get_iso_timestamp(),
+   628→        'files': file_paths,  # Simple array of paths
+   629→        'tags': []
+   630→    }
+   631→
+   632→    # Step 2: Scan all files for WORKSCOPE-DEV tags
+   633→    for relative_path in file_paths:
+   634→        file_path = os.path.join(target_dir, relative_path)
+   635→        tags_in_file = scan_for_tags(file_path)
+   636→
+   637→        for tag_id in tags_in_file:
+   638→            manifest['tags'].append({
+   639→                'id': tag_id,
+   640→                'file': relative_path
+   641→            })
+   642→
+   643→    # Step 3: Write manifest to .wsd file
+   644→    manifest_path = os.path.join(target_dir, '.wsd')
+   645→    with open(manifest_path, 'w', encoding='utf-8') as f:
+   646→        json.dump(manifest, f, indent=4, ensure_ascii=False)
+   647→
+   648→    return manifest_path
+   649→
+   650→
+   651→def scan_for_tags(file_path):
+   652→    """
+   653→    Scan file for WORKSCOPE-DEV tags.
+   654→
+   655→    Args:
+   656→        file_path: Path to file to scan
+   657→
+   658→    Returns:
+   659→        list: List of tag IDs found in file
+   660→    """
+   661→
+   662→    tags = []
+   663→
+   664→    try:
+   665→        with open(file_path, 'r', encoding='utf-8') as f:
+   666→            for line in f:
+   667→                # Look for opening tag: <WORKSCOPE-DEV tag-id>
+   668→                if '<WORKSCOPE-DEV ' in line:
+   669→                    # Extract tag ID
+   670→                    tag_id = extract_tag_id(line)
+   671→                    if tag_id:
+   672→                        tags.append(tag_id)
+   673→    except (UnicodeDecodeError, IOError):
+   674→        # Skip binary files or files we can't read
+   675→        pass
+   676→
+   677→    return tags
+   678→
+   679→
+   680→def extract_tag_id(line):
+   681→    """
+   682→    Extract tag ID from line containing opening tag.
+   683→
+   684→    Args:
+   685→        line: Text line containing <WORKSCOPE-DEV tag-id>
+   686→
+   687→    Returns:
+   688→        str: Tag ID or None if not found
+   689→    """
+   690→
+   691→    # Simple string extraction
+   692→    start = line.find('<WORKSCOPE-DEV ') + len('<WORKSCOPE-DEV ')
+   693→    end = line.find('>', start)
+   694→
+   695→    if start > len('<WORKSCOPE-DEV ') - 1 and end > start:
+   696→        return line[start:end].strip()
+   697→
+   698→    return None
+   699→```
+   700→
+   701→
+   702→## Required Directory Processing During Installation
+   703→
+   704→For complete .wsdkeep specification including purpose, lifecycle, version control integration, and design philosophy, see **Template-System.md § .wsdkeep Placeholder Files**.
+   705→
+   706→### Two-Stage Processing
+   707→
+   708→Installation uses a **two-stage approach** to ensure directories are created and .wsdkeep files are added based on the final directory state:
+   709→
+   710→**Stage 1: Regular Files**
+   711→All content files (excluding .wsdkeep) are copied first. This establishes the actual content state of all directories before structural decisions are made. Regular files create their parent directories as needed during copying.
+   712→
+   713→**Stage 2: Required Directories**
+   714→After all regular files are copied, the `required_directories` array from wsd.json is processed. For each directory path in the array:
+   715→
+   716→1. **Ensure directory exists**: Create the directory if it doesn't exist
+   717→2. **Evaluate directory state**: Apply `_directory_needs_wsdkeep()` logic against final directory state
+   718→3. **Create .wsdkeep if needed**: Add .wsdkeep only if directory is empty
+   719→
+   720→```
+   721→Decision Logic (_directory_needs_wsdkeep):
+   722→- If directory does NOT exist → Create directory + .wsdkeep
+   723→- If directory exists but is empty → Create .wsdkeep (maintains structure)
+   724→- If directory contains only .wsdkeep → Create .wsdkeep (maintains structure)
+   725→- If directory has other content → Skip .wsdkeep (content maintains structure)
+   726→```
+   727→
+   728→**Why Two Stages**: Processing `required_directories` after regular file operations ensures correct decisions based on the final directory state. If the target directory already contains user files (from a pre-existing project), Stage 2 correctly skips .wsdkeep creation because the directory doesn't need a placeholder.
+   729→
+   730→**Key Distinction**: The `required_directories` field in wsd.json declares semantic intent ("these directories must exist"), not file-level tracking. .wsdkeep files are generated at installation time based on directory state, not copied from the source.
+   731→
+   732→### Manifest Exclusion
+   733→
+   734→.wsdkeep files are **never recorded in the manifest**. The manifest tracks content files only. Directory requirements are declarative (via `required_directories` in wsd.json) rather than tracked file-by-file.
+   735→
+   736→### Collision Handling
+   737→
+   738→.wsdkeep files are explicitly excluded from collision detection. They never trigger collision warnings. See Collision Detection Algorithm section for details.
+   739→
+   740→### Directory Creation
+   741→
+   742→- Directories are created on-demand when copying regular files (Stage 1)
+   743→- Required directories are ensured via `required_directories` processing (Stage 2)
+   744→- .wsdkeep files are created only in empty directories
+   745→- Final structure matches WSD Runtime layout with .wsdkeep present only where needed
+   746→
+   747→## Error Handling
+   748→
+   749→### Error Categories
+   750→
+   751→#### 1. Permission Errors
+   752→
+   753→**Error**: Cannot create target directory
+   754→```
+   755→Error: Permission denied creating directory '/path/to/target'
+   756→
+   757→Check that you have write permissions to the parent directory.
+   758→```
+   759→
+   760→**Error**: Cannot write to target directory
+   761→```
+   762→Error: Permission denied writing to '/path/to/target'
+   763→
+   764→Check that you have write permissions to this directory.
+   765→```
+   766→
+   767→**Recovery**: User must adjust permissions or choose different target
+   768→
+   769→#### 2. Collision Errors
+   770→
+   771→**Error**: Files already exist
+   772→```
+   773→Error: Installation aborted due to file collisions.
+   774→
+   775→The following files already exist in the target directory:
+   776→  - README.md
+   777→  - scripts/health_check.py
+   778→
+   779→Please resolve these conflicts before installing WSD.
+   780→```
+   781→
+   782→**Recovery**: User must rename/move/delete conflicting files
+   783→
+   784→#### 3. Installation Rollback Errors
+   785→
+   786→**Error**: Permission denied during file copy with automatic rollback
+   787→```
+   788→
+   789→Rollback: Removed 47 partial installation files, 12 empty directories
+   790→
+   791→Error: Permission denied writing to '/path/to/target/docs/read-only/Agent-Rules.md'
+   792→
+   793→Check that you have write permissions to this directory.
+   794→```
+   795→
+   796→**Error**: Disk full during installation with automatic rollback
+   797→```
+   798→
+   799→Rollback: Removed 23 partial installation files, 5 empty directories
+   800→
+   801→Error: Insufficient disk space during installation
+   802→
+   803→Ran out of disk space while copying 'scripts/health_check.py'
+   804→
+   805→  1. Free up disk space
+   806→  2. Retry installation
+   807→```
+   808→
+   809→**Error**: Partial rollback when some files cannot be deleted
+   810→```
+   811→
+   812→Rollback: Removed 45 of 47 partial files
+   813→Removed 10 empty directories
+   814→
+   815→Warning: Could not remove the following files:
+   816→  - /path/to/target/docs/core/Action-Plan.md: Permission denied
+   817→  - /path/to/target/scripts/health_check.py: File in use
+   818→
+   819→Manual cleanup required for files listed above before retrying installation.
+   820→
+   821→Error: Permission denied writing to '/path/to/target/.claude/agents/task-master.md'
+   822→
+   823→Check that you have write permissions to this directory.
+   824→```
+   825→
+   826→**Recovery**: The automatic rollback mechanism attempts to remove all partially installed files and empty directories. If rollback succeeds completely, users can retry immediately. If rollback is partial, users must manually clean up the listed files before retry.
+   827→
+   828→#### 4. Filesystem Errors
+   829→
+   830→**Error**: Target path is a file
+   831→```
+   832→Error: Target path '/path/to/target' is a file, not a directory.
+   833→
+   834→Specify a directory path for installation.
+   835→```
+   836→
+   837→**Error**: Source directory not found
+   838→```
+   839→Error: WSD source directory not found.
+   840→
+   841→This appears to be a packaging issue. Please reinstall WSD.
+   842→```
+   843→
+   844→**Error**: Disk space insufficient
+   845→```
+   846→Error: Insufficient disk space for installation.
+   847→
+   848→Required: 50 MB
+   849→Available: 10 MB
+   850→
+   851→Free up disk space and retry.
+   852→```
+   853→
+   854→#### 4. Manifest Errors
+   855→
+   856→**Error**: Cannot write manifest
+   857→```
+   858→Error: Failed to create .wsd manifest file.
+   859→
+   860→This may indicate a permission or disk space issue.
+   861→```
+   862→
+   863→**Error**: WSD already installed
+   864→```
+   865→Error: WSD already installed in this directory.
+   866→
+   867→Found existing .wsd manifest. Use update mechanism instead:
+   868→  wsd.py update /path/to/target
+   869→```
+   870→
+   871→### Atomic Operation Guarantee
+   872→
+   873→**Principle (Per Design Decision 12)**: Installation is all-or-nothing. ALL errors are fatal and halt the operation immediately.
+   874→
+   875→**Error Types That Trigger Halt and Rollback:**
+   876→- Read errors (PermissionError, UnicodeDecodeError, OSError) when reading source files
+   877→- Write errors (PermissionError, disk full, etc.) when copying files
+   878→- Tag parsing errors (malformed tags, invalid tag IDs, missing closing tags)
+   879→- Any other exception during file processing
+   880→
+   881→There is no distinction between "fatal" and "non-fatal" errors. All errors halt the operation and trigger rollback.
+   882→
+   883→**Implementation**:
+   884→1. Perform all validation checks first
+   885→2. Only begin file copying after all checks pass
+   886→3. If ANY error occurs during operations, halt immediately and trigger automatic rollback
+   887→4. Rollback removes all partial files and directories
+   888→5. Do not create .wsd manifest if installation incomplete
+   889→
+   890→### Rollback Mechanism
+   891→
+   892→The installation system implements automatic rollback to ensure atomic operation guarantees. When ANY error occurs during installation (read error, write error, tag parsing error, or any exception), all partial work is cleaned up automatically. All errors are fatal—there is no continuation on errors.
+   893→
+   894→**Automatic Rollback**:
+   895→
+   896→When installation fails during file copy operations, the system automatically performs rollback cleanup to restore the target directory to its pre-installation state:
+   897→
+   898→1. **File Cleanup**: All successfully copied files are deleted in reverse order
+   899→2. **Directory Cleanup**: Empty directories created during installation are removed (bottom-up)
+   900→3. **Pre-Existing Preservation**: Directories containing pre-existing files are preserved
+   901→4. **Status Reporting**: Rollback results reported to user via stderr
+   902→
+   903→**Rollback Success Output**:
+   904→```
+   905→Rollback: Removed 47 partial installation files, 12 empty directories
+   906→```
+   907→
+   908→**Partial Rollback Output** (when some files cannot be deleted):
+   909→```
+   910→Rollback: Removed 45 of 47 partial files
+   911→Removed 10 empty directories
+   912→
+   913→Warning: Could not remove the following files:
+   914→  - /path/to/target/docs/core/Action-Plan.md: Permission denied
+   915→  - /path/to/target/scripts/health_check.py: File in use
+   916→
+   917→Manual cleanup required for files listed above before retrying installation.
+   918→```
+   919→
+   920→**Interrupted Installation Handling**:
+   921→
+   922→If installation is interrupted by external events (crash, kill signal, network failure) before rollback can execute, partial files may remain in the target directory. The system guarantees no .wsd manifest will exist for incomplete installations.
+   923→
+   924→**Manual Cleanup Procedures**:
+   925→
+   926→If automatic rollback cannot remove all files, or if installation was interrupted before rollback could execute, users have three options:
+   927→
+   928→**Option 1: Version Control Restoration (Recommended)**
+   929→```bash
+   930→# If target directory is under version control
+   931→cd /path/to/target
+   932→git status  # Review partially installed files
+   933→git clean -fd  # Remove untracked files (WSD installation files)
+   934→git checkout .  # Restore any modified files
+   935→# Retry installation
+   936→wsd.py install /path/to/target
+   937→```
+   938→
+   939→**Option 2: Manual Selective Removal**
+   940→```bash
+   941→# Remove specific WSD directories and files
+   942→rm -rf /path/to/target/.claude
+   943→rm -rf /path/to/target/docs
+   944→rm -rf /path/to/target/scripts
+   945→rm -rf /path/to/target/dev
+   946→rm /path/to/target/wsd.py
+   947→# Retry installation
+   948→wsd.py install /path/to/target
+   949→```
+   950→
+   951→**Option 3: Fresh Start**
+   952→```bash
+   953→# Remove target directory entirely and start over
+   954→rm -rf /path/to/target
+   955→mkdir /path/to/target
+   956→# Install WSD
+   957→wsd.py install /path/to/target
+   958→```
+   959→
+   960→**Recommendations**:
+   961→- Always use version control to track installation state
+   962→- Commit before attempting installation
+   963→- If interruption occurs, use `git status` to see what was partially installed
+   964→- Use `git clean -fd` to remove all untracked files from failed installation
+   965→- Use `--force` flag to overwrite conflicting files during installation
+   966→
+   967→### Error Reporting Format
+   968→
+   969→**Structure**:
+   970→```
+   971→Error: <Brief error description>
+   972→
+   973→<Detailed explanation>
+   974→
+   975→<Actionable steps to resolve>
+   976→
+   977→<Command to retry (if applicable)>
+   978→```
+   979→
+   980→**Example**:
+   981→```
+   982→Error: Installation aborted due to file collisions.
+   983→
+   984→The target directory already contains files that would be
+   985→overwritten by WSD templates:
+   986→  - README.md (244 bytes)
+   987→  - scripts/health_check.py (1.2 KB)
+   988→
+   989→To proceed with installation, you must:
+   990→  1. Back up any important content from these files
+   991→  2. Rename or remove the conflicting files
+   992→  3. Retry the installation
+   993→
+   994→After resolving conflicts:
+   995→  wsd.py install /path/to/target
+   996→```
+   997→
+   998→## Integration Examples
+   999→
+  1000→These examples demonstrate WSD installation in various real-world contexts. The examples are illustrative - actual project structures will vary.
+  1001→
+  1002→### Example 1: New Project with Version Control
+  1003→
+  1004→**User Context**: Starting a new project with WSD and git from the beginning.
+  1005→
+  1006→**Steps**:
+  1007→```bash
+  1008→# Create project directory
+  1009→mkdir my-new-project
+  1010→
+  1011→# Install WSD
+  1012→wsd.py install my-new-project
+  1013→
+  1014→# Navigate to project
+  1015→cd my-new-project
+  1016→
+  1017→# Initialize git
+  1018→git init
+  1019→git add .
+  1020→git commit -m "Initial commit with WSD"
+  1021→```
+  1022→
+  1023→**Result**: Complete WSD structure ready to use, tracked in git.
+  1024→
+  1025→### Example 2: Existing Project Without Conflicts
+  1026→
+  1027→**User Context**: Adding WSD to an existing project that doesn't have conflicting files.
+  1028→
+  1029→**Illustrative Initial State**:
+  1030→```
+  1031→my-project/
+  1032→├── .git/
+  1033→├── src/
+  1034→│   └── main.py
+  1035→├── tests/
+  1036→│   └── test_main.py
+  1037→└── requirements.txt
+  1038→```
+  1039→
+  1040→**Installation**:
+  1041→```bash
+  1042→wsd.py install my-project
+  1043→# Success! (no collisions)
+  1044→```
+  1045→
+  1046→**Result**: WSD structure integrates alongside existing project structure. Existing files remain untouched, WSD directories (.claude/, dev/, docs/, scripts/) added.
+  1047→
+  1048→### Example 3: Collision Resolution Workflow
+  1049→
+  1050→**User Context**: Existing project has file that conflicts with WSD template.
+  1051→
+  1052→**Attempt Installation**:
+  1053→```bash
+  1054→wsd.py install my-project
+  1055→# Error: Installation aborted due to file collisions.
+  1056→# The following files already exist: README.md
+  1057→```
+  1058→
+  1059→**Resolution Options**:
+  1060→
+  1061→**Option A: Preserve Existing Content**
+  1062→```bash
+  1063→# Backup existing file
+  1064→mv README.md README-original.md
+  1065→
+  1066→# Install WSD
+  1067→wsd.py install my-project
+  1068→
+  1069→# Merge content as appropriate
+  1070→# (manual integration of both files)
+  1071→```
+  1072→
+  1073→**Option B: Replace with Template**
+  1074→```bash
+  1075→# Remove conflicting file
+  1076→rm README.md
+  1077→
+  1078→# Install WSD
+  1079→wsd.py install my-project
+  1080→```
+  1081→
+  1082→**Result**: After resolving conflicts, installation proceeds successfully.
+  1083→
+  1084→## Best Practices
+  1085→
+  1086→### For Users Installing WSD
+  1087→
+  1088→1. **Use Version Control**: Always install WSD in a git-tracked directory
+  1089→2. **Commit Before Install**: Create checkpoint before installation
+  1090→3. **Review Installation**: Check installed files after completion
+  1091→4. **Customize Immediately**: Fill in WORKSCOPE-DEV tags while fresh
+  1092→5. **Commit After Install**: Create commit with clear message
+  1093→
+  1094→**Recommended Installation Flow**:
+  1095→```bash
+  1096→# 1. Create/navigate to project
+  1097→cd my-project
+  1098→
+  1099→# 2. Initialize git if needed
+  1100→git init
+  1101→
+  1102→# 3. Commit existing work
+  1103→git add .
+  1104→git commit -m "Before WSD installation"
+  1105→
+  1106→# 4. Install WSD
+  1107→wsd.py install .
+  1108→
+  1109→# 5. Review changes
+  1110→git status
+  1111→git diff
+  1112→
+  1113→# 6. Customize tagged sections
+  1114→# (edit files with WORKSCOPE-DEV tags)
+  1115→
+  1116→# 7. Commit WSD
+  1117→git add .
+  1118→git commit -m "Add Workscope-Dev framework"
+  1119→```
+  1120→
+  1121→### For WSD Template Designers
+  1122→
+  1123→1. **Minimize Collisions**: Choose file names unlikely to conflict
+  1124→2. **Document Conflicts**: Clearly document any expected collision scenarios
+  1125→3. **Provide Alternatives**: Offer guidance for resolving common collisions
+  1126→4. **Use .wsdkeep**: Mark all initially-empty directories
+  1127→5. **Test Integration**: Test installation in various project types
+  1128→
+  1129→### For WSD Implementation
+  1130→
+  1131→1. **Clear Error Messages**: Make collision errors actionable
+  1132→2. **Atomic Operations**: Never leave partial installations
+  1133→3. **Preserve Metadata**: Keep file timestamps and permissions
+  1134→4. **Log Operations**: Provide verbose mode (`--verbose` / `-v`) for debugging
+  1135→5. **Validate Thoroughly**: Check all preconditions before modifying files
+  1136→
+  1137→## Implementation Requirements
+  1138→
+  1139→### Performance Requirements
+  1140→
+  1141→1. **Collision Detection**: O(n) where n = number of template files
+  1142→2. **File Copying**: Sequential copy operations
+  1143→3. **Manifest Creation**: Single file write after all copies complete
+  1144→4. **Tag Scanning**: O(m × l) where m = number of files, l = average file lines
+  1145→
+  1146→**Expected Performance**:
+  1147→Performance scales with the number and size of template files. Installation involves file system operations (copying, checksumming, directory creation) that are I/O bound. Typical installations complete in seconds.
+  1148→
+  1149→### Platform Requirements
+  1150→
+  1151→1. **Python Version**: Python 3.10+
+  1152→2. **Filesystem**: POSIX-compliant (Linux, macOS, WSL)
+  1153→3. **Permissions**: Standard Unix permissions (644/755)
+  1154→4. **Path Length**: Support paths up to 4096 characters
+  1155→
+  1156→### Dependencies
+  1157→
+  1158→**Standard Library Only**:
+  1159→- `os`, `os.path` - Path operations
+  1160→- `shutil` - File copying
+  1161→- `json` - Manifest serialization
+  1162→- `hashlib` - Checksum calculation
+  1163→- `datetime` - Timestamp generation
+  1164→
+  1165→**No External Dependencies Required**
+  1166→
+  1167→## Testing Scenarios
+  1168→
+  1169→### Basic Installation Tests
+  1170→
+  1171→1. **Empty Directory**: Install into completely empty directory
+  1172→2. **New Directory**: Install into non-existent directory (created during install)
+  1173→3. **Existing Git Repo**: Install into directory with .git/ only
+  1174→4. **Permission Check**: Verify execute permissions on scripts
+  1175→
+  1176→### Collision Detection Tests
+  1177→
+  1178→1. **Single Collision**: One file conflicts
+  1179→2. **Multiple Collisions**: Several files conflict
+  1180→3. **No Collision**: No conflicts found
+  1181→4. **Subdirectory Collision**: Conflict in nested directory
+  1182→
+  1183→### Manifest Creation Tests
+  1184→
+  1185→1. **Manifest Structure**: Verify JSON structure (version, created, updated, files, tags)
+  1186→2. **File List Complete**: All files recorded in files array as simple strings
+  1187→3. **Files Array Format**: Files stored as relative path strings only (no metadata)
+  1188→4. **Tags Detected**: All WORKSCOPE-DEV tags found
+  1189→5. **Tags Array Format**: Tags contain only id and file fields (no line numbers)
+  1190→
+  1191→### Error Handling Tests
+  1192→
+  1193→1. **Permission Denied**: Target directory not writable
+  1194→2. **Disk Full**: Insufficient disk space
+  1195→3. **Invalid Path**: Target path is file, not directory
+  1196→4. **Partial Installation**: Interruption during copy
+  1197→
+  1198→### Integration Tests
+  1199→
+  1200→1. **Python Project**: Install into Python project
+  1201→2. **TypeScript Project**: Install into Node.js/TypeScript project
+  1202→3. **Empty Project**: Install into brand new project
+  1203→4. **Mixed Project**: Install into project with multiple languages
+  1204→
+  1205→## Related Specifications
+  1206→
+  1207→- **System-Architecture.md**: High-level WSD architecture and component integration
+  1208→- **Template-System.md**: Structure of files being installed
+  1209→- **Update-System.md**: How updates modify installed files
+  1210→- **WSD-Manifest-Schema.md**: Detailed .wsd format specification
+  1211→- **Install-And-Update-Overview.md**: Command-line interface for installation
+  1212→- **Content-Hashing-Overview.md**: Hash calculation algorithm for collision detection
+  1213→
+  1214→---
+  1215→
+  1216→*This specification defines the authoritative rules for the WSD Installation System including fresh installation processes, collision detection, manifest creation, directory management, and error handling. All implementations must conform to these specifications.*
+  1217→
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>

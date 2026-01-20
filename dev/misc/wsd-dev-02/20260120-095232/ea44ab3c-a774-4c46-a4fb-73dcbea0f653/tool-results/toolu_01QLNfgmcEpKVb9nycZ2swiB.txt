@@ -1,0 +1,68 @@
+The file /Users/gray/Projects/claude-bug/dev/journal/archive/Journal-Workscope-20260120-095232.md has been updated. Here's the result of running `cat -n` on a snippet of the edited file:
+     1→# Work Journal - 2026-01-20 09:52
+     2→## Workscope ID: Workscope-20260120-095232
+     3→
+     4→---
+     5→
+     6→## Initialization Phase
+     7→
+     8→**Status:** Custom workscope initialization with `--custom` flag
+     9→
+    10→### System Documentation Read
+    11→- `docs/read-only/Agent-System.md` - Elite team coordination model
+    12→- `docs/read-only/Agent-Rules.md` - Strict rules for all agents
+    13→- `docs/core/Design-Decisions.md` - Project-specific design philosophies
+    14→- `docs/read-only/Documentation-System.md` - Document lifecycle and placement
+    15→- `docs/read-only/Checkboxlist-System.md` - Five checkbox states and navigation
+    16→- `docs/read-only/Workscope-System.md` - Formal work assignment system
+    17→
+    18→---
+    19→
+    20→## Onboarding Phase (via Project-Bootstrapper)
+    21→
+    22→### Files Read for Onboarding
+    23→1. `docs/read-only/Agent-Rules.md` - Re-read for critical rules emphasis
+    24→2. `docs/core/Design-Decisions.md` - Re-read for project-specific philosophy
+    25→3. `docs/read-only/standards/Coding-Standards.md` - General coding guidelines
+    26→4. `docs/read-only/standards/Process-Integrity-Standards.md` - Quality check exception approval
+    27→5. `docs/read-only/standards/Specification-Maintenance-Standards.md` - Spec synchronization requirements
+    28→6. `docs/read-only/standards/Python-Standards.md` - Python development best practices
+    29→7. `docs/read-only/standards/Python-Test-Environment-Isolation-Standards.md` - Test isolation requirements
+    30→
+    31→### Critical Rules Summary (from Project-Bootstrapper)
+    32→
+    33→**Rule 5.1 - NO BACKWARD COMPATIBILITY:**
+    34→- This app has not shipped yet
+    35→- No migration scripts, compatibility layers, or references to old designs
+    36→- Implement new design as if it always existed
+    37→
+    38→**Rule 3.4 - No Meta-Process References in Product Artifacts:**
+    39→- Source code, test files, scripts = Product artifacts (Rule 3.4 APPLIES)
+    40→- Feature Overviews, tickets, Action Plans = Process documents (Rule 3.4 does NOT apply)
+    41→- Never include phase numbers, task numbers, or ticket references in code
+    42→
+    43→**Rule 4.4 - FORBIDDEN Terminal Commands:**
+    44→- `cat >> file << EOF` is FORBIDDEN
+    45→- Use standard tools (Edit, Read, etc.) for file operations
+    46→
+    47→**Rule 6.1 - WSD Runtime vs Dogfood:**
+    48→- ALL code changes target `source/` (WSD Runtime)
+    49→- Root-level `wsd.py` and `scripts/` are dogfood (READ ONLY)
+    50→- Tests must import from `source/`, not root
+    51→
+    52→**Rule 6.1.5-6.1.6 - Deployed State Mental Model:**
+    53→- Scripts in `source/scripts/` use paths for DEPLOYED location
+    54→- Do NOT "fix" `script_dir.parent` to `script_dir.parent.parent`
+    55→
+    56→### QA Requirements
+    57→- Test-Guardian must show test summary line (e.g., "140 passed in 0.23s")
+    58→- Health-Inspector must show HEALTH CHECK SUMMARY table
+    59→- Reject approvals without proper proof of work
+    60→
+    61→---
+    62→
+    63→## Awaiting Custom Workscope
+    64→
+    65→Initialization complete. Awaiting workscope assignment from User.
+    66→
+    67→

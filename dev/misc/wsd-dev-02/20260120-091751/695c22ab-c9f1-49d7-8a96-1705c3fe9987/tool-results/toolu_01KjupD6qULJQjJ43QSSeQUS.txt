@@ -1,0 +1,968 @@
+     1→"""Build Package Script for WSD Development.
+     2→
+     3→This script creates a PyPI-distributable package from staged WSD Runtime files.
+     4→It reads from the staging directory (populated by stage_release.py), validates
+     5→the configuration, generates appropriate package structure, and produces wheel
+     6→and sdist distributions for publication.
+     7→
+     8→This script is a WSD Development tool and is NOT part of the WSD Runtime.
+     9→It operates on staged files from ../workscope-dev/, not directly on source/.
+    10→
+    11→Optional Arguments:
+    12→    --staging-dir PATH  Override default staging directory (../workscope-dev/).
+    13→                        When provided, reads staged files from the specified path
+    14→                        instead of the default location.
+    15→    --output-dir PATH   Override default output directory (./dist/).
+    16→                        When provided, writes wheel and sdist to the specified path
+    17→                        instead of the default location.
+    18→
+    19→These optional arguments enable test isolation by allowing tests to redirect
+    20→file operations to temporary directories without affecting real project paths.
+    21→
+    22→Usage:
+    23→    uv run dev/scripts/build_package.py              # Build the package
+    24→    uv run dev/scripts/build_package.py --dry-run    # Preview without making changes
+    25→"""
+    26→
+    27→import argparse
+    28→import json
+    29→import re
+    30→import shutil
+    31→import subprocess
+    32→import sys
+    33→import tempfile
+    34→from pathlib import Path
+    35→from typing import Any
+    36→
+    37→
+    38→# Add source/scripts to path for importing wsd_utils
+    39→sys.path.insert(0, str(Path(__file__).parent.parent.parent / "source" / "scripts"))
+    40→from wsd_utils import WsdCollectionError, collect_wsd_files
+    41→
+    42→
+    43→# Semantic version pattern: X.Y.Z where X, Y, Z are non-negative integers
+    44→VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+$")
+    45→
+    46→
+    47→def get_project_root() -> Path:
+    48→    """Get the project root directory.
+    49→
+    50→    The script is located at dev/scripts/build_package.py, so the project root
+    51→    is two directories up from the script's location. This function validates
+    52→    that the detected root contains expected project markers.
+    53→
+    54→    Returns:
+    55→        Absolute path to the project root directory.
+    56→
+    57→    Raises:
+    58→        SystemExit: If the project root cannot be reliably detected.
+    59→    """
+    60→    script_dir = Path(__file__).parent.resolve()
+    61→    project_root = script_dir.parent.parent
+    62→
+    63→    # Validate by checking for project markers
+    64→    has_pyproject = (project_root / "pyproject.toml").exists()
+    65→    has_git = (project_root / ".git").exists()
+    66→
+    67→    if not has_pyproject and not has_git:
+    68→        print(
+    69→            f"ERROR: Cannot verify project root: {project_root}\n"
+    70→            "Expected to find pyproject.toml or .git/ directory.\n"
+    71→            "Please run this script from within the WSD Development project.",
+    72→            file=sys.stderr,
+    73→        )
+    74→        sys.exit(1)
+    75→
+    76→    return project_root
+    77→
+    78→
+    79→def get_staging_dir(project_root: Path) -> Path:
+    80→    """Get the staging directory path.
+    81→
+    82→    The staging directory is ../workscope-dev/ relative to the project root,
+    83→    which is a sibling directory populated by stage_release.py.
+    84→
+    85→    Args:
+    86→        project_root: Path to the project root directory.
+    87→
+    88→    Returns:
+    89→        Path to the staging directory.
+    90→    """
+    91→    return project_root.parent / "workscope-dev"
+    92→
+    93→
+    94→def get_output_dir(project_root: Path) -> Path:
+    95→    """Get the output directory path for built distributions.
+    96→
+    97→    The output directory is dist/ inside the WSD Development project root.
+    98→
+    99→    Args:
+   100→        project_root: Path to the project root directory.
+   101→
+   102→    Returns:
+   103→        Path to the output directory for wheel and sdist files.
+   104→    """
+   105→    return project_root / "dist"
+   106→
+   107→
+   108→def get_package_files_dir() -> Path:
+   109→    """Get the package-files directory path.
+   110→
+   111→    The package-files directory contains template files for package generation:
+   112→    - package_init.py: Template for __init__.py with {VERSION} placeholder
+   113→    - package_pyproject.toml: Template for pyproject.toml with {VERSION} placeholder
+   114→    - package_cli.py: Complete cli.py module to be copied into the package
+   115→
+   116→    The directory is located at dev/scripts/package-files/ relative to this script.
+   117→
+   118→    Returns:
+   119→        Absolute path to the package-files directory.
+   120→    """
+   121→    script_dir = Path(__file__).parent.resolve()
+   122→    return script_dir / "package-files"
+   123→
+   124→
+   125→def validate_staging_exists(staging_dir: Path) -> None:
+   126→    """Validate that the staging directory exists.
+   127→
+   128→    The build script requires staged files from stage_release.py. This function
+   129→    ensures the staging directory is present before proceeding.
+   130→
+   131→    Args:
+   132→        staging_dir: Path to the staging directory.
+   133→
+   134→    Raises:
+   135→        SystemExit: If the staging directory does not exist.
+   136→    """
+   137→    if not staging_dir.exists():
+   138→        print(
+   139→            f"ERROR: Staging directory not found: {staging_dir}\n"
+   140→            "\n"
+   141→            "The build script requires staged files from stage_release.py.\n"
+   142→            "Please run: uv run dev/scripts/stage_release.py",
+   143→            file=sys.stderr,
+   144→        )
+   145→        sys.exit(1)
+   146→
+   147→    if not staging_dir.is_dir():
+   148→        print(
+   149→            f"ERROR: Staging path is not a directory: {staging_dir}\n"
+   150→            "\n"
+   151→            "Expected staging path to be a directory containing WSD Runtime files.",
+   152→            file=sys.stderr,
+   153→        )
+   154→        sys.exit(1)
+   155→
+   156→
+   157→def validate_package_files_dir() -> None:
+   158→    """Validate that the package-files directory exists and contains required templates.
+   159→
+   160→    The package-files directory must contain:
+   161→    - package_init.py: Template for __init__.py
+   162→    - package_pyproject.toml: Template for pyproject.toml
+   163→    - package_cli.py: The cli.py module
+   164→
+   165→    Raises:
+   166→        SystemExit: If the directory or required files are missing.
+   167→    """
+   168→    package_files_dir = get_package_files_dir()
+   169→
+   170→    if not package_files_dir.exists():
+   171→        print(
+   172→            f"ERROR: Package-files directory not found: {package_files_dir}\n"
+   173→            "\n"
+   174→            "The package-files directory must exist at dev/scripts/package-files/.\n"
+   175→            "Please verify the WSD Development installation is complete.",
+   176→            file=sys.stderr,
+   177→        )
+   178→        sys.exit(1)
+   179→
+   180→    if not package_files_dir.is_dir():
+   181→        print(
+   182→            f"ERROR: Package-files path is not a directory: {package_files_dir}\n"
+   183→            "\n"
+   184→            "Expected package-files path to be a directory containing template files.",
+   185→            file=sys.stderr,
+   186→        )
+   187→        sys.exit(1)
+   188→
+   189→    # Check for required template files
+   190→    required_files = ["package_init.py", "package_pyproject.toml", "package_cli.py"]
+   191→    missing_files = [f for f in required_files if not (package_files_dir / f).exists()]
+   192→
+   193→    if missing_files:
+   194→        print(
+   195→            "ERROR: Missing required template files in package-files directory:\n",
+   196→            file=sys.stderr,
+   197→        )
+   198→        for f in missing_files:
+   199→            print(f"  - {f}", file=sys.stderr)
+   200→        print(
+   201→            f"\n"
+   202→            f"Directory: {package_files_dir}\n"
+   203→            f"\n"
+   204→            f"Please verify the WSD Development installation is complete.",
+   205→            file=sys.stderr,
+   206→        )
+   207→        sys.exit(1)
+   208→
+   209→
+   210→def validate_wsd_json(wsd_json_path: Path) -> dict[str, Any]:
+   211→    """Validate that wsd.json exists and is valid JSON.
+   212→
+   213→    Args:
+   214→        wsd_json_path: Path to the wsd.json file in the staging directory.
+   215→
+   216→    Returns:
+   217→        Parsed JSON data as a dictionary.
+   218→
+   219→    Raises:
+   220→        SystemExit: If wsd.json does not exist or is not valid JSON.
+   221→    """
+   222→    if not wsd_json_path.exists():
+   223→        print(
+   224→            f"ERROR: wsd.json not found: {wsd_json_path}\n"
+   225→            "\n"
+   226→            "The staging directory must contain wsd.json with version metadata.\n"
+   227→            "Please verify staging was successful.",
+   228→            file=sys.stderr,
+   229→        )
+   230→        sys.exit(1)
+   231→
+   232→    try:
+   233→        with wsd_json_path.open(encoding="utf-8") as f:
+   234→            data: dict[str, Any] = json.load(f)
+   235→    except json.JSONDecodeError as e:
+   236→        print(
+   237→            f"ERROR: Invalid JSON in wsd.json: {wsd_json_path}\n"
+   238→            f"\n"
+   239→            f"Parse error: {e}\n"
+   240→            f"\n"
+   241→            f"Please verify the wsd.json file is valid JSON.",
+   242→            file=sys.stderr,
+   243→        )
+   244→        sys.exit(1)
+   245→    except OSError as e:
+   246→        print(
+   247→            f"ERROR: Cannot read wsd.json: {wsd_json_path}\n"
+   248→            f"\n"
+   249→            f"Error: {e}\n"
+   250→            f"\n"
+   251→            f"Please verify file permissions.",
+   252→            file=sys.stderr,
+   253→        )
+   254→        sys.exit(1)
+   255→
+   256→    return data
+   257→
+   258→
+   259→def extract_version(wsd_data: dict[str, Any], wsd_json_path: Path) -> str:
+   260→    """Extract the version string from parsed wsd.json data.
+   261→
+   262→    Args:
+   263→        wsd_data: Parsed JSON data from wsd.json.
+   264→        wsd_json_path: Path to wsd.json (for error messages).
+   265→
+   266→    Returns:
+   267→        The version string from wsd.json.
+   268→
+   269→    Raises:
+   270→        SystemExit: If the version field is missing.
+   271→    """
+   272→    version = wsd_data.get("version")
+   273→
+   274→    if version is None:
+   275→        print(
+   276→            f"ERROR: Missing 'version' field in wsd.json: {wsd_json_path}\n"
+   277→            "\n"
+   278→            "The wsd.json file must contain a 'version' field.\n"
+   279→            'Example: {{"version": "1.0.0"}}',
+   280→            file=sys.stderr,
+   281→        )
+   282→        sys.exit(1)
+   283→
+   284→    if not isinstance(version, str):
+   285→        print(
+   286→            f"ERROR: Invalid 'version' field in wsd.json: {wsd_json_path}\n"
+   287→            "\n"
+   288→            f"Expected string, got {type(version).__name__}: {version!r}\n"
+   289→            'The version must be a string like "1.0.0".',
+   290→            file=sys.stderr,
+   291→        )
+   292→        sys.exit(1)
+   293→
+   294→    return version
+   295→
+   296→
+   297→def validate_version_format(version: str, wsd_json_path: Path) -> None:
+   298→    r"""Validate that the version string matches semantic version pattern.
+   299→
+   300→    The version must match the pattern ^\d+\.\d+\.\d+$ (e.g., "1.0.0").
+   301→
+   302→    Args:
+   303→        version: Version string to validate.
+   304→        wsd_json_path: Path to wsd.json (for error messages).
+   305→
+   306→    Raises:
+   307→        SystemExit: If the version format is invalid.
+   308→    """
+   309→    if not VERSION_PATTERN.match(version):
+   310→        print(
+   311→            f"ERROR: Invalid version format in wsd.json: {wsd_json_path}\n"
+   312→            "\n"
+   313→            f'Version must match pattern ^\\d+\\.\\d+\\.\\d+$ (e.g., "1.0.0")\n'
+   314→            f'Found: "{version}"',
+   315→            file=sys.stderr,
+   316→        )
+   317→        sys.exit(1)
+   318→
+   319→
+   320→# =============================================================================
+   321→# Package Structure Generation
+   322→# =============================================================================
+   323→
+   324→
+   325→def copy_cli_to_package(package_dir: Path, dry_run: bool = False) -> None:
+   326→    """Copy package_cli.py from package-files to the package as cli.py.
+   327→
+   328→    The cli.py file is the smart dispatcher module for the global wsd command.
+   329→    Unlike __init__.py and pyproject.toml, cli.py does not require version
+   330→    substitution - it is copied as-is.
+   331→
+   332→    Args:
+   333→        package_dir: Path to the workscope_dev package directory.
+   334→        dry_run: If True, only log what would be copied without copying.
+   335→    """
+   336→    cli_source = get_package_files_dir() / "package_cli.py"
+   337→    cli_dest = package_dir / "cli.py"
+   338→
+   339→    if dry_run:
+   340→        print("    Would copy: package_cli.py -> cli.py")
+   341→    else:
+   342→        shutil.copy2(cli_source, cli_dest)
+   343→        print("    Copied: package_cli.py -> cli.py")
+   344→
+   345→
+   346→def read_init_template() -> str:
+   347→    """Read the __init__.py template from the package-files directory.
+   348→
+   349→    The template file (package_init.py) contains a {VERSION} placeholder
+   350→    that will be substituted with the actual version at build time.
+   351→
+   352→    Returns:
+   353→        The template content as a string.
+   354→
+   355→    Raises:
+   356→        SystemExit: If the template file cannot be read.
+   357→    """
+   358→    package_files_dir = get_package_files_dir()
+   359→    template_path = package_files_dir / "package_init.py"
+   360→
+   361→    try:
+   362→        return template_path.read_text(encoding="utf-8")
+   363→    except OSError as e:
+   364→        print(
+   365→            f"ERROR: Cannot read __init__.py template: {template_path}\n"
+   366→            f"\n"
+   367→            f"Error: {e}\n"
+   368→            f"\n"
+   369→            f"Please verify file permissions.",
+   370→            file=sys.stderr,
+   371→        )
+   372→        sys.exit(1)
+   373→
+   374→
+   375→def create_init_py(package_dir: Path, version: str) -> None:
+   376→    """Create the __init__.py file with dynamic version.
+   377→
+   378→    Reads the template from package-files/package_init.py and substitutes
+   379→    the {VERSION} placeholder with the actual version string.
+   380→
+   381→    Args:
+   382→        package_dir: Path to the workscope_dev package directory.
+   383→        version: Version string to embed in __init__.py.
+   384→    """
+   385→    template_content = read_init_template()
+   386→    init_content = template_content.replace("{VERSION}", version)
+   387→    init_path = package_dir / "__init__.py"
+   388→    init_path.write_text(init_content, encoding="utf-8")
+   389→
+   390→
+   391→def read_pyproject_template() -> str:
+   392→    """Read the pyproject.toml template from the package-files directory.
+   393→
+   394→    The template file (package_pyproject.toml) contains a {VERSION} placeholder
+   395→    that will be substituted with the actual version at build time.
+   396→
+   397→    Returns:
+   398→        The template content as a string.
+   399→
+   400→    Raises:
+   401→        SystemExit: If the template file cannot be read.
+   402→    """
+   403→    package_files_dir = get_package_files_dir()
+   404→    template_path = package_files_dir / "package_pyproject.toml"
+   405→
+   406→    try:
+   407→        return template_path.read_text(encoding="utf-8")
+   408→    except OSError as e:
+   409→        print(
+   410→            f"ERROR: Cannot read pyproject.toml template: {template_path}\n"
+   411→            f"\n"
+   412→            f"Error: {e}\n"
+   413→            f"\n"
+   414→            f"Please verify file permissions.",
+   415→            file=sys.stderr,
+   416→        )
+   417→        sys.exit(1)
+   418→
+   419→
+   420→def copy_staged_files(
+   421→    staging_dir: Path,
+   422→    package_dir: Path,
+   423→    validated_files: list[Path],
+   424→    dry_run: bool = False,
+   425→) -> list[str]:
+   426→    """Copy validated staged files to the package directory.
+   427→
+   428→    Copies pre-validated files from the staging directory to the package
+   429→    directory, preserving directory structure and file permissions using
+   430→    shutil.copy2(). Logs each file as it is copied.
+   431→
+   432→    Args:
+   433→        staging_dir: Path to the staging directory (source).
+   434→        package_dir: Path to the workscope_dev package directory (destination).
+   435→        validated_files: List of validated relative file paths from collect_wsd_files().
+   436→        dry_run: If True, only log what would be copied without copying.
+   437→
+   438→    Returns:
+   439→        List of relative paths that were copied (or would be copied).
+   440→    """
+   441→    copied_files: list[str] = []
+   442→
+   443→    for relative_path in validated_files:
+   444→        source_path = staging_dir / relative_path
+   445→        dest_path = package_dir / relative_path
+   446→
+   447→        # Ensure parent directory exists
+   448→        if not dry_run:
+   449→            dest_path.parent.mkdir(parents=True, exist_ok=True)
+   450→            shutil.copy2(source_path, dest_path)
+   451→
+   452→        copied_files.append(str(relative_path))
+   453→        print(f"    {'Would copy' if dry_run else 'Copied'}: {relative_path}")
+   454→
+   455→    return copied_files
+   456→
+   457→
+   458→def create_pyproject_toml(build_dir: Path, version: str) -> None:
+   459→    """Create pyproject.toml with dynamic version.
+   460→
+   461→    Reads the template from package-files/package_pyproject.toml and substitutes
+   462→    the {VERSION} placeholder with the actual version string.
+   463→
+   464→    Args:
+   465→        build_dir: Path to the temporary build directory.
+   466→        version: Version string to embed in pyproject.toml.
+   467→    """
+   468→    template_content = read_pyproject_template()
+   469→    content = template_content.replace("{VERSION}", version)
+   470→    pyproject_path = build_dir / "pyproject.toml"
+   471→    pyproject_path.write_text(content, encoding="utf-8")
+   472→
+   473→
+   474→def run_package_structure_phase(
+   475→    staging_dir: Path,
+   476→    build_dir: Path,
+   477→    version: str,
+   478→    validated_files: list[Path],
+   479→    dry_run: bool = False,
+   480→) -> None:
+   481→    """Run the package structure generation phase.
+   482→
+   483→    This phase:
+   484→    1. Creates the workscope_dev package directory
+   485→    2. Creates __init__.py with dynamic version
+   486→    3. Copies all staged files preserving structure and permissions
+   487→    4. Copies cli.py from package-files
+   488→    5. Creates pyproject.toml with dynamic version
+   489→
+   490→    Args:
+   491→        staging_dir: Path to the staging directory.
+   492→        build_dir: Path to the temporary build directory.
+   493→        version: Version string for generated files.
+   494→        validated_files: List of validated relative file paths from collect_wsd_files().
+   495→        dry_run: If True, preview operations without making changes.
+   496→
+   497→    Raises:
+   498→        SystemExit: If critical errors occur.
+   499→    """
+   500→    prefix = "Would generate" if dry_run else "Generating"
+   501→    print(f"\n{prefix} package structure...")
+   502→
+   503→    # Step 1: Create package directory
+   504→    package_dir = build_dir / "workscope_dev"
+   505→    if not dry_run:
+   506→        package_dir.mkdir(parents=True, exist_ok=True)
+   507→    print(f"  {'Would create' if dry_run else 'Created'} package directory: workscope_dev/")
+   508→
+   509→    # Step 2: Create __init__.py with dynamic version
+   510→    if not dry_run:
+   511→        create_init_py(package_dir, version)
+   512→    print(f"  {'Would create' if dry_run else 'Created'} __init__.py with version {version}")
+   513→
+   514→    # Step 3: Copy staged files
+   515→    print(f"  {'Would copy' if dry_run else 'Copying'} staged files...")
+   516→    copied_files = copy_staged_files(staging_dir, package_dir, validated_files, dry_run=dry_run)
+   517→    print(f"  [OK] {'Would copy' if dry_run else 'Copied'} {len(copied_files)} files")
+   518→
+   519→    # Step 4: Copy cli.py from package-files
+   520→    print(f"  {'Would copy' if dry_run else 'Copying'} cli.py from package-files...")
+   521→    copy_cli_to_package(package_dir, dry_run=dry_run)
+   522→    print(f"  [OK] {'Would copy' if dry_run else 'Copied'} cli.py")
+   523→
+   524→    # Step 5: Create pyproject.toml
+   525→    if not dry_run:
+   526→        create_pyproject_toml(build_dir, version)
+   527→    print(f"  {'Would create' if dry_run else 'Created'} pyproject.toml with version {version}")
+   528→
+   529→
+   530→# =============================================================================
+   531→# Output Directory Management
+   532→# =============================================================================
+   533→
+   534→
+   535→def prepare_output_directory(output_dir: Path, dry_run: bool = False) -> dict[str, int]:
+   536→    """Prepare the output directory for build artifacts.
+   537→
+   538→    Creates the output directory if it doesn't exist and removes any existing
+   539→    wheel (.whl) and source distribution (.tar.gz) files to ensure a clean
+   540→    build output.
+   541→
+   542→    Args:
+   543→        output_dir: Path to the output directory for built distributions.
+   544→        dry_run: If True, report what would be done without making changes.
+   545→
+   546→    Returns:
+   547→        Dictionary with counts: {"whl_removed": int, "targz_removed": int}
+   548→    """
+   549→    whl_removed = 0
+   550→    targz_removed = 0
+   551→
+   552→    action = "Would prepare" if dry_run else "Preparing"
+   553→    print(f"\n{action} output directory...")
+   554→    print(f"  Output: {output_dir}")
+   555→
+   556→    # Create output directory if it doesn't exist
+   557→    if not output_dir.exists():
+   558→        if not dry_run:
+   559→            output_dir.mkdir(parents=True, exist_ok=True)
+   560→        print(f"  {'Would create' if dry_run else 'Created'} output directory")
+   561→    else:
+   562→        print("  [OK] Output directory exists")
+   563→
+   564→    # Remove existing .whl files
+   565→    whl_files = list(output_dir.glob("*.whl"))
+   566→    for whl_file in whl_files:
+   567→        print(f"  {'Would remove' if dry_run else 'Removing'}: {whl_file.name}")
+   568→        if not dry_run:
+   569→            whl_file.unlink()
+   570→        whl_removed += 1
+   571→
+   572→    # Remove existing .tar.gz files
+   573→    targz_files = list(output_dir.glob("*.tar.gz"))
+   574→    for targz_file in targz_files:
+   575→        print(f"  {'Would remove' if dry_run else 'Removing'}: {targz_file.name}")
+   576→        if not dry_run:
+   577→            targz_file.unlink()
+   578→        targz_removed += 1
+   579→
+   580→    if whl_removed == 0 and targz_removed == 0:
+   581→        print("  [OK] No existing distributions to clean")
+   582→    else:
+   583→        print(
+   584→            f"  [OK] {'Would remove' if dry_run else 'Removed'}: "
+   585→            f"{whl_removed} wheel(s), {targz_removed} sdist(s)"
+   586→        )
+   587→
+   588→    return {"whl_removed": whl_removed, "targz_removed": targz_removed}
+   589→
+   590→
+   591→# =============================================================================
+   592→# Build Execution
+   593→# =============================================================================
+   594→
+   595→
+   596→def run_uv_build(build_dir: Path, dry_run: bool = False) -> bool:
+   597→    """Execute uv build in the temporary build directory.
+   598→
+   599→    Runs `uv build` to create wheel and sdist distributions from the
+   600→    package structure in the temporary build directory.
+   601→
+   602→    Args:
+   603→        build_dir: Path to the temporary build directory containing pyproject.toml.
+   604→        dry_run: If True, report what would be done without executing.
+   605→
+   606→    Returns:
+   607→        True if build succeeded (or dry-run), False if build failed.
+   608→    """
+   609→    action = "Would run" if dry_run else "Running"
+   610→    print(f"\n{action} uv build...")
+   611→    print(f"  Build directory: {build_dir}")
+   612→
+   613→    if dry_run:
+   614→        print("  [DRY RUN] Would execute: uv build")
+   615→        print("  [DRY RUN] Would create wheel and sdist in build_dir/dist/")
+   616→        return True
+   617→
+   618→    try:
+   619→        result = subprocess.run(
+   620→            ["uv", "build"],
+   621→            cwd=build_dir,
+   622→            capture_output=True,
+   623→            text=True,
+   624→            check=False,
+   625→        )
+   626→
+   627→        if result.returncode != 0:
+   628→            print(f"  ERROR: uv build failed with exit code {result.returncode}")
+   629→            if result.stderr:
+   630→                print(f"\n  Build stderr:\n{result.stderr}")
+   631→            if result.stdout:
+   632→                print(f"\n  Build stdout:\n{result.stdout}")
+   633→            return False
+   634→
+   635→        print("  [OK] uv build completed successfully")
+   636→        if result.stdout:
+   637→            # Print relevant build output lines
+   638→            for line in result.stdout.strip().split("\n"):
+   639→                if line.strip():
+   640→                    print(f"    {line}")
+   641→        return True
+   642→
+   643→    except FileNotFoundError:
+   644→        print(
+   645→            "  ERROR: 'uv' command not found.\n"
+   646→            "  Please ensure uv is installed: https://docs.astral.sh/uv/",
+   647→            file=sys.stderr,
+   648→        )
+   649→        return False
+   650→    except OSError as e:
+   651→        print(f"  ERROR: Failed to execute uv build: {e}", file=sys.stderr)
+   652→        return False
+   653→
+   654→
+   655→def copy_build_artifacts(build_dir: Path, output_dir: Path, dry_run: bool = False) -> list[Path]:
+   656→    """Copy wheel and sdist files from build output to final output directory.
+   657→
+   658→    After `uv build` completes, the artifacts are in build_dir/dist/. This
+   659→    function copies them to the project's dist/ directory.
+   660→
+   661→    Args:
+   662→        build_dir: Path to the temporary build directory.
+   663→        output_dir: Path to the final output directory for distributions.
+   664→        dry_run: If True, report what would be done without copying.
+   665→
+   666→    Returns:
+   667→        List of paths to copied artifact files in output_dir.
+   668→
+   669→    Raises:
+   670→        SystemExit: If no build artifacts are found.
+   671→    """
+   672→    action = "Would copy" if dry_run else "Copying"
+   673→    print(f"\n{action} build artifacts...")
+   674→
+   675→    build_dist_dir = build_dir / "dist"
+   676→    copied_artifacts: list[Path] = []
+   677→
+   678→    if dry_run:
+   679→        print(f"  [DRY RUN] Would copy from: {build_dist_dir}")
+   680→        print(f"  [DRY RUN] Would copy to: {output_dir}")
+   681→        print("  [DRY RUN] Would copy: workscope_dev-{VERSION}-py3-none-any.whl")
+   682→        print("  [DRY RUN] Would copy: workscope_dev-{VERSION}.tar.gz")
+   683→        return []
+   684→
+   685→    if not build_dist_dir.exists():
+   686→        print(
+   687→            f"  ERROR: Build output directory not found: {build_dist_dir}\n"
+   688→            "  The uv build command may have failed to create artifacts.",
+   689→            file=sys.stderr,
+   690→        )
+   691→        sys.exit(1)
+   692→
+   693→    # Find and copy wheel files
+   694→    whl_files = list(build_dist_dir.glob("*.whl"))
+   695→    for whl_file in whl_files:
+   696→        dest_path = output_dir / whl_file.name
+   697→        shutil.copy2(whl_file, dest_path)
+   698→        copied_artifacts.append(dest_path)
+   699→        print(f"  Copied: {whl_file.name}")
+   700→
+   701→    # Find and copy sdist files
+   702→    targz_files = list(build_dist_dir.glob("*.tar.gz"))
+   703→    for targz_file in targz_files:
+   704→        dest_path = output_dir / targz_file.name
+   705→        shutil.copy2(targz_file, dest_path)
+   706→        copied_artifacts.append(dest_path)
+   707→        print(f"  Copied: {targz_file.name}")
+   708→
+   709→    if not copied_artifacts:
+   710→        print(
+   711→            f"  ERROR: No build artifacts found in: {build_dist_dir}\n"
+   712→            "  Expected .whl and .tar.gz files from uv build.",
+   713→            file=sys.stderr,
+   714→        )
+   715→        sys.exit(1)
+   716→
+   717→    print(f"  [OK] Copied {len(copied_artifacts)} artifact(s) to {output_dir}")
+   718→    return copied_artifacts
+   719→
+   720→
+   721→# =============================================================================
+   722→# Build Summary
+   723→# =============================================================================
+   724→
+   725→
+   726→def format_file_size(size_bytes: int) -> str:
+   727→    """Format a file size in bytes to a human-readable string.
+   728→
+   729→    Args:
+   730→        size_bytes: File size in bytes.
+   731→
+   732→    Returns:
+   733→        Human-readable size string (e.g., "1.5 MB", "256 KB").
+   734→    """
+   735→    if size_bytes >= 1024 * 1024:
+   736→        return f"{size_bytes / (1024 * 1024):.1f} MB"
+   737→    if size_bytes >= 1024:
+   738→        return f"{size_bytes / 1024:.1f} KB"
+   739→    return f"{size_bytes} bytes"
+   740→
+   741→
+   742→def generate_build_summary(version: str, artifacts: list[Path], dry_run: bool = False) -> None:
+   743→    """Generate and display the build summary report.
+   744→
+   745→    Shows package version, artifact details with file sizes, and next steps
+   746→    for validation and publishing.
+   747→
+   748→    Args:
+   749→        version: Package version string.
+   750→        artifacts: List of paths to built artifacts.
+   751→        dry_run: If True, show dry-run summary instead.
+   752→    """
+   753→    if dry_run:
+   754→        print("\n" + "=" * 60)
+   755→        print("BUILD SUMMARY (DRY RUN)")
+   756→        print("=" * 60)
+   757→        print("\nPackage: workscope-dev")
+   758→        print(f"Version: {version}")
+   759→        print("\nWould create:")
+   760→        print(f"  - workscope_dev-{version}-py3-none-any.whl")
+   761→        print(f"  - workscope_dev-{version}.tar.gz")
+   762→        print("\nNo files were created. Run without --dry-run to perform the build.")
+   763→        return
+   764→
+   765→    print("\n" + "=" * 60)
+   766→    print("BUILD SUMMARY")
+   767→    print("=" * 60)
+   768→    print("\nPackage: workscope-dev")
+   769→    print(f"Version: {version}")
+   770→    print("\nArtifacts:")
+   771→
+   772→    total_size = 0
+   773→    for artifact in artifacts:
+   774→        size = artifact.stat().st_size
+   775→        total_size += size
+   776→        print(f"  - {artifact.name} ({format_file_size(size)})")
+   777→
+   778→    print(f"\nTotal size: {format_file_size(total_size)}")
+   779→
+   780→    print("\n" + "-" * 60)
+   781→    print("NEXT STEPS")
+   782→    print("-" * 60)
+   783→    print("\n1. Validate the package:")
+   784→    print("   uv run dev/scripts/validate_package.py")
+   785→    print("\n2. Test installation locally:")
+   786→    print("   pipx install dist/workscope_dev-*.whl")
+   787→    print("   wsd --help")
+   788→    print("\n3. Publish to PyPI (when ready):")
+   789→    print("   uv publish dist/*")
+   790→
+   791→
+   792→def run_validation_phase(staging_dir: Path, dry_run: bool = False) -> str:
+   793→    """Run the validation phase of the build process.
+   794→
+   795→    Validates:
+   796→    1. Staging directory exists
+   797→    2. Package-files directory exists with required templates
+   798→    3. wsd.json is present and valid JSON
+   799→    4. Version can be extracted
+   800→    5. Version format is valid
+   801→
+   802→    Args:
+   803→        staging_dir: Path to the staging directory.
+   804→        dry_run: If True, prefix output with "Would" language.
+   805→
+   806→    Returns:
+   807→        The validated version string.
+   808→    """
+   809→    prefix = "Would validate" if dry_run else "Validating"
+   810→    print(f"\n{prefix} build environment...")
+   811→    print(f"  Staging: {staging_dir}")
+   812→
+   813→    # Validation 1: Staging directory exists
+   814→    validate_staging_exists(staging_dir)
+   815→    print("  [OK] Staging directory exists")
+   816→
+   817→    # Validation 2: Package-files directory exists with required templates
+   818→    validate_package_files_dir()
+   819→    print("  [OK] Package-files directory exists with all templates")
+   820→
+   821→    # Validation 3: wsd.json exists and is valid JSON
+   822→    wsd_json_path = staging_dir / "wsd.json"
+   823→    wsd_data = validate_wsd_json(wsd_json_path)
+   824→    print("  [OK] wsd.json is valid JSON")
+   825→
+   826→    # Validation 4: Extract version
+   827→    version = extract_version(wsd_data, wsd_json_path)
+   828→    print(f"  [OK] Version found: {version}")
+   829→
+   830→    # Validation 5: Validate version format
+   831→    validate_version_format(version, wsd_json_path)
+   832→    print("  [OK] Version format valid")
+   833→
+   834→    return version
+   835→
+   836→
+   837→def parse_arguments() -> argparse.Namespace:
+   838→    """Parse command-line arguments.
+   839→
+   840→    Returns:
+   841→        Parsed arguments namespace with dry_run attribute.
+   842→    """
+   843→    parser = argparse.ArgumentParser(
+   844→        description="Build PyPI package from staged WSD Runtime files.",
+   845→        formatter_class=argparse.RawDescriptionHelpFormatter,
+   846→        epilog="""
+   847→Examples:
+   848→  uv run dev/scripts/build_package.py              # Build the package
+   849→  uv run dev/scripts/build_package.py --dry-run    # Preview without making changes
+   850→
+   851→  # With custom directories (for test isolation):
+   852→  uv run dev/scripts/build_package.py --staging-dir /tmp/staging --output-dir /tmp/output
+   853→
+   854→The script reads from the staging directory (../workscope-dev/) which must
+   855→be populated by running stage_release.py first. Use --staging-dir and
+   856→--output-dir to override these defaults for test isolation.
+   857→        """,
+   858→    )
+   859→
+   860→    parser.add_argument(
+   861→        "--dry-run",
+   862→        action="store_true",
+   863→        help="Preview build operations without making any changes.",
+   864→    )
+   865→
+   866→    parser.add_argument(
+   867→        "--staging-dir",
+   868→        type=Path,
+   869→        default=None,
+   870→        help="Override default staging directory. Used for test isolation.",
+   871→    )
+   872→
+   873→    parser.add_argument(
+   874→        "--output-dir",
+   875→        type=Path,
+   876→        default=None,
+   877→        help="Override default output directory. Used for test isolation.",
+   878→    )
+   879→
+   880→    return parser.parse_args()
+   881→
+   882→
+   883→def main() -> None:
+   884→    """Main entry point for the build package script."""
+   885→    args = parse_arguments()
+   886→
+   887→    # Get directory paths
+   888→    project_root = get_project_root()
+   889→    staging_dir = args.staging_dir if args.staging_dir else get_staging_dir(project_root)
+   890→    output_dir = args.output_dir if args.output_dir else get_output_dir(project_root)
+   891→
+   892→    # Display mode
+   893→    mode = "DRY RUN" if args.dry_run else "BUILD"
+   894→    print(f"=== WSD Package Build ({mode}) ===")
+   895→    print(f"Project root: {project_root}")
+   896→    print(f"Staging directory: {staging_dir}")
+   897→    print(f"Output directory: {output_dir}")
+   898→
+   899→    # Run validation phase
+   900→    version = run_validation_phase(staging_dir, dry_run=args.dry_run)
+   901→
+   902→    # Validate and collect files from staging directory
+   903→    print("\nValidating staged files...")
+   904→    try:
+   905→        validated_files = collect_wsd_files(staging_dir)
+   906→    except WsdCollectionError as e:
+   907→        print(f"ERROR: {e.message}", file=sys.stderr)
+   908→        print(f"  Path: {e.path}", file=sys.stderr)
+   909→        sys.exit(1)
+   910→    print(f"  [OK] {len(validated_files)} files validated")
+   911→
+   912→    # Prepare output directory
+   913→    prepare_output_directory(output_dir, dry_run=args.dry_run)
+   914→
+   915→    # Create temporary build directory
+   916→    build_dir: Path | None = None
+   917→    try:
+   918→        if args.dry_run:
+   919→            # For dry run, use a placeholder path
+   920→            build_dir = Path(tempfile.gettempdir()) / "wsd-build-dry-run"
+   921→            print(f"\nWould create temporary build directory: {build_dir}")
+   922→        else:
+   923→            build_dir = Path(tempfile.mkdtemp(prefix="wsd-build-"))
+   924→            print(f"\nCreated temporary build directory: {build_dir}")
+   925→
+   926→        # Run package structure generation
+   927→        run_package_structure_phase(
+   928→            staging_dir, build_dir, version, validated_files, dry_run=args.dry_run
+   929→        )
+   930→
+   931→        # Run build execution
+   932→        if not run_uv_build(build_dir, dry_run=args.dry_run):
+   933→            print("\nBuild failed. See errors above.", file=sys.stderr)
+   934→            sys.exit(1)
+   935→
+   936→        # Copy build artifacts to output directory
+   937→        artifacts = copy_build_artifacts(build_dir, output_dir, dry_run=args.dry_run)
+   938→
+   939→        # Generate build summary
+   940→        generate_build_summary(version, artifacts, dry_run=args.dry_run)
+   941→
+   942→    finally:
+   943→        # Cleanup temporary build directory
+   944→        if build_dir is not None and build_dir.exists() and not args.dry_run:
+   945→            print(f"\nCleaning up temporary build directory: {build_dir}")
+   946→            try:
+   947→                shutil.rmtree(build_dir)
+   948→                print("  [OK] Temporary directory removed")
+   949→            except OSError as e:
+   950→                print(f"  WARNING: Failed to remove temporary directory: {e}")
+   951→
+   952→
+   953→if __name__ == "__main__":
+   954→    try:
+   955→        main()
+   956→    except KeyboardInterrupt:
+   957→        print("\n\nBuild interrupted by user.", file=sys.stderr)
+   958→        sys.exit(1)
+   959→    except SystemExit:
+   960→        raise
+   961→    except Exception as e:
+   962→        print(f"\nUnexpected error during build: {e}", file=sys.stderr)
+   963→        sys.exit(1)
+   964→
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>

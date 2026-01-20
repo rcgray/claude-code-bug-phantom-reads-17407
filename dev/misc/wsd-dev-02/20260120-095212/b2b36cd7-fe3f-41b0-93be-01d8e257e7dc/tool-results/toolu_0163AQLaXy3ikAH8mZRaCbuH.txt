@@ -1,0 +1,679 @@
+     1→# Testing Configuration and Environment Variables: Standards
+     2→
+     3→## Overview
+     4→
+     5→This document establishes mandatory standards for testing **both configuration variables and environment variables** in Python projects. These standards prevent the critical failure mode where options are defined, documented, and "tested" without actually verifying they work.
+     6→
+     7→**The Core Failure Mode**: Configuration options can be declared ✓, implementation mechanisms can exist ✓, tests can pass ✓, **but the config values are never actually read and used** ✗. This creates a silent failure where documented features don't work, eroding user trust.
+     8→
+     9→### Scope: Two Types of Variables
+    10→
+    11→This standard applies to:
+    12→
+    13→1. **Configuration Variables** (config files)
+    14→   - Defined in: `docs/core/Config-Spec.md`
+    15→   - Examples: `cache.max_size`, `defaults.provider`, `security.trust_remote_code`
+    16→   - Location: `~/.config/myapp/.apprc` (or platform-specific)
+    17→   - Format: TOML/JSON/YAML sections and keys
+    18→
+    19→2. **Environment Variables** (`.env` files or shell)
+    20→   - Defined in: `docs/core/Environment-Variables-Spec.md`
+    21→   - Examples: `ANTHROPIC_API_KEY`, `APP_CONFIG_HOME`, `HF_HOME`
+    22→   - Location: `.env` files, shell environment, or system environment
+    23→   - Format: `KEY=value` pairs
+    24→
+    25→**When adding or modifying either type**, you must follow the testing standards in this document.
+    26→
+    27→### Core Principle
+    28→
+    29→**Testing the mechanism ≠ Testing the feature**
+    30→
+    31→When the feature is "configuration controls behavior X," you must test that configuration actually controls behavior X, not just that behavior X works when manually configured.
+    32→
+    33→## Why Configuration Testing Matters
+    34→
+    35→### The Failure Mode
+    36→
+    37→A test that verifies a mechanism works is not the same as a test that verifies configuration controls that mechanism.
+    38→
+    39→**Example scenario**:
+    40→- `cache.max_size` configuration option exists
+    41→- Cache has `max_size_bytes` parameter
+    42→- Test exists: `cache.max_size_bytes = 1024; verify_eviction()`
+    43→- Test passes ✓
+    44→- **But**: Config value is never read, hardcoded 100 MB always used
+    45→- **Result**: Users setting `max_size = 50` silently get 100 MB
+    46→
+    47→**The problem**: Test verified LRU eviction mechanism works (by directly setting size), but never verified that configuration controls the size.
+    48→
+    49→### Problems Caused by Inadequate Config Testing
+    50→
+    51→1. **Silent failures**: Config options silently ignored, no errors or warnings
+    52→2. **False confidence**: "All tests pass" doesn't mean features work
+    53→3. **User confusion**: Documented features don't work as described
+    54→4. **Maintenance burden**: Unused config options clutter codebase
+    55→5. **Trust erosion**: Can't trust that documented config actually does anything
+    56→
+    57→### Benefits of Proper Config Testing
+    58→
+    59→1. **Verification**: Config options proven to work, not assumed
+    60→2. **Early detection**: Disconnections caught before reaching users
+    61→3. **Documentation accuracy**: Config docs match actual behavior
+    62→4. **Maintainability**: Unused config detected automatically
+    63→5. **Confidence**: Green tests mean features actually work
+    64→
+    65→## Alignment with Specification Documents
+    66→
+    67→### The Three-Way Contract
+    68→
+    69→Every configurable feature involves a three-way contract:
+    70→
+    71→1. **Specification** (`docs/core/Config-Spec.md` or `docs/core/Environment-Variables-Spec.md`)
+    72→   - Documents what options exist
+    73→   - Describes expected behavior
+    74→   - Defines default values
+    75→   - User-facing documentation
+    76→
+    77→2. **Implementation** (`config_manager.py`, component code)
+    78→   - `get_default_config()` defines schema
+    79→   - Components read and use config values
+    80→   - Factories create components with config
+    81→
+    82→3. **Tests** (this document's focus)
+    83→   - Verify spec ↔ implementation alignment
+    84→   - Prove config actually controls behavior
+    85→   - Document through executable contracts
+    86→
+    87→**All three must stay synchronized**. When you add/modify/remove a variable:
+    88→
+    89→- ✅ Update specification document (`docs/core/Config-Spec.md` or `docs/core/Environment-Variables-Spec.md`)
+    90→- ✅ Update implementation (`config_manager.py`, component)
+    91→- ✅ Update tests (integration test proving connection)
+    92→- ✅ Update examples (`.apprc.example` or `.env.example`)
+    93→
+    94→**This document focuses on #3 (tests)**, ensuring they properly verify the contract between specs and implementation.
+    95→
+    96→## Standard 1: Two Types of Tests Required
+    97→
+    98→### Mandatory Practice
+    99→
+   100→**Every configurable feature requires BOTH mechanism tests AND integration tests.**
+   101→
+   102→### Type 1: Mechanism Tests (Unit Tests)
+   103→
+   104→**Purpose**: Verify the underlying component works correctly
+   105→
+   106→**Example** (cache size limiting):
+   107→```python
+   108→def test_cache_eviction_mechanism(cache: Cache) -> None:
+   109→    """Verify that cache evicts entries when size limit reached."""
+   110→    cache.max_size_bytes = 1024  # Direct manipulation for unit testing
+   111→
+   112→    # Fill cache beyond limit
+   113→    for i in range(10):
+   114→        cache.save(f"file_{i}", large_data)
+   115→
+   116→    # Assert oldest entries evicted
+   117→    assert cache.contains("file_0") is False  # Evicted
+   118→    assert cache.contains("file_9") is True   # Retained
+   119→```
+   120→
+   121→**Characteristics**:
+   122→- Direct manipulation of component state
+   123→- Isolated from configuration system
+   124→- Fast, focused, repeatable
+   125→- Tests "does the mechanism work?"
+   126→
+   127→**✅ Necessary but NOT sufficient**
+   128→
+   129→### Type 2: Integration Tests (Config Contract Tests)
+   130→
+   131→**Purpose**: Verify configuration/environment variables actually control behavior
+   132→
+   133→**Example** (cache size limiting):
+   134→```python
+   135→@pytest.mark.config_contract
+   136→def test_cache_max_size_config_is_respected(tmp_path: Path) -> None:
+   137→    """CONTRACT: cache.max_size from .apprc must control cache size."""
+   138→    # Create config file with specific value
+   139→    config_file = tmp_path / ".apprc"
+   140→    config_file.write_text("""
+   141→    [cache]
+   142→    max_size = 50
+   143→    """)
+   144→
+   145→    # Load through normal configuration path
+   146→    with patch.dict(os.environ, {"APP_CONFIG": str(config_file)}, clear=True):
+   147→        cache = get_component()  # Factory function, not direct instantiation
+   148→
+   149→    # Verify config value is actually used
+   150→    assert cache.max_size_bytes == 50 * 1024 * 1024
+   151→```
+   152→
+   153→**Characteristics**:
+   154→- Loads real configuration files
+   155→- Uses factory functions, not direct instantiation
+   156→- Tests "does the config option work?"
+   157→- Should test multiple config values
+   158→
+   159→**✅ Required for all configuration features**
+   160→
+   161→### The Critical Distinction
+   162→
+   163→**Mechanism test**: "Does component X work when I set parameter Y?"
+   164→**Config test**: "Does config option control parameter Y in component X?"
+   165→
+   166→You need both. Mechanism test alone creates false confidence.
+   167→
+   168→## Standard 2: Mandatory Requirements for Configuration Variables (.apprc)
+   169→
+   170→### Applies To
+   171→
+   172→All configuration options in config files as defined in `docs/core/Config-Spec.md`.
+   173→
+   174→Common configuration sections in Python applications:
+   175→- `[defaults]` section: Application defaults (provider, model, format, etc.)
+   176→- `[output]` section: Output formatting (color, verbosity, progress indicators)
+   177→- `[network]` section: Network and timeout settings
+   178→- `[cache]` section: Cache behavior (size limits, expiration, cleanup)
+   179→- `[security]` section: Security-related options (trust levels, validation)
+   180→- `[logging]` section: Logging configuration
+   181→- `[aliases]` section: User-defined shortcuts or aliases
+   182→
+   183→### When Adding a Configuration Option
+   184→
+   185→Every configuration option added to `config_manager.py` and documented in `docs/core/Config-Spec.md` MUST have:
+   186→
+   187→1. **At least one integration test** that:
+   188→   - Creates a `.apprc` file (or sets environment variable)
+   189→   - Loads config through ConfigManager
+   190→   - Creates component through factory/normal path
+   191→   - Asserts config value affects behavior
+   192→   - Tests minimum 2-3 different values
+   193→
+   194→2. **Test marker**: Use `@pytest.mark.config_contract` for discoverability
+   195→
+   196→3. **Factory usage**: Test must use `get_component()` / `get_component()`, NOT `ComponentClass()`
+   197→
+   198→4. **No mocking ConfigManager**: Integration tests must load real config
+   199→
+   200→5. **Clear contract statement**: Docstring must state what contract is verified
+   201→
+   202→### Template for Config Contract Tests
+   203→
+   204→```python
+   205→@pytest.mark.config_contract
+   206→def test_<feature>_<config_option>_is_respected(tmp_path: Path) -> None:
+   207→    """CONTRACT: config.section.option must control feature behavior.
+   208→
+   209→    Verifies that setting section.option=value in config file results
+   210→    in component using that value correctly.
+   211→    """
+   212→    # 1. Create config file
+   213→    config_file = tmp_path / ".apprc"
+   214→    config_file.write_text(f"""
+   215→    [section]
+   216→    option = value1
+   217→    """)
+   218→
+   219→    # 2. Load config through normal path (no mocking)
+   220→    with patch.dict(os.environ, {"APP_CONFIG": str(config_file)}, clear=True):
+   221→        component = get_component()  # Use factory, not ComponentClass()
+   222→
+   223→    # 3. Verify config value controls behavior
+   224→    assert component.setting == expected_value1
+   225→
+   226→    # 4. Test with different value
+   227→    config_file.write_text(f"""
+   228→    [section]
+   229→    option = value2
+   230→    """)
+   231→    with patch.dict(os.environ, {"APP_CONFIG": str(config_file)}, clear=True):
+   232→        component = get_component()
+   233→    assert component.setting == expected_value2
+   234→```
+   235→
+   236→## Standard 3: Mandatory Requirements for Environment Variables (.env)
+   237→
+   238→### Applies To
+   239→
+   240→All environment variables as defined in `docs/core/Environment-Variables-Spec.md`:
+   241→
+   242→**API Keys:**
+   243→- `ANTHROPIC_API_KEY` - Anthropic API authentication
+   244→- `GOOGLE_API_KEY` - Google API authentication
+   245→- `HUGGINGFACE_API_KEY` - HuggingFace authentication
+   246→- `OPENAI_API_KEY` - OpenAI API authentication
+   247→
+   248→**Directory Overrides:**
+   249→- `APP_CONFIG_HOME` - Override configuration directory
+   250→- `APP_DATA_HOME` - Override data directory
+   251→- `APP_CACHE_HOME` - Override cache directory
+   252→
+   253→**Configuration:**
+   254→- `APP_CONFIG` - Custom config file path
+   255→- `APP_TEST_DATA` - Test data directory (testing only)
+   256→
+   257→**External Tool Integration:**
+   258→- `HF_HOME` - HuggingFace cache directory (example of third-party integration)
+   259→
+   260→**Platform-Specific:**
+   261→- `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_CACHE_HOME` (Linux/Unix)
+   262→- `APPDATA`, `LOCALAPPDATA` (Windows)
+   263→
+   264→### When Adding an Environment Variable
+   265→
+   266→Every environment variable added to the codebase and documented in `docs/core/Environment-Variables-Spec.md` MUST have:
+   267→
+   268→1. **Test with variable set**:
+   269→```python
+   270→def test_feature_respects_env_var(tmp_path: Path) -> None:
+   271→    """Test that APP_FEATURE_FLAG enables feature."""
+   272→    with patch.dict(os.environ, {"APP_FEATURE_FLAG": "true"}, clear=True):
+   273→        result = get_feature_status()
+   274→        assert result is True
+   275→```
+   276→
+   277→2. **Test with variable unset** (default behavior):
+   278→```python
+   279→def test_feature_default_when_env_unset() -> None:
+   280→    """Test feature defaults correctly when APP_FEATURE_FLAG not set."""
+   281→    with patch.dict(os.environ, {}, clear=True):
+   282→        result = get_feature_status()
+   283→        assert result is False  # Or whatever default should be
+   284→```
+   285→
+   286→3. **Test precedence** (if multiple sources):
+   287→```python
+   288→def test_env_var_overrides_config(tmp_path: Path) -> None:
+   289→    """Test that APP_X env var overrides config.x value."""
+   290→    config_file = tmp_path / ".apprc"
+   291→    config_file.write_text("[section]\nx = from_config")
+   292→
+   293→    with patch.dict(os.environ, {"APP_X": "from_env"}, clear=True):
+   294→        with patch_config_file(config_file):
+   295→            result = get_x()
+   296→            assert result == "from_env"  # Env wins
+   297→```
+   298→
+   299→### Environment Variable Test Requirements
+   300→
+   301→- **Always use** `clear=True` with `@patch.dict`
+   302→- **Always test** both set and unset states
+   303→- **Document precedence**: CLI > Env > Config > Default
+   304→- **Test multiple values**: Not just "works", but "uses correct value"
+   305→
+   306→## Standard 4: Anti-Patterns to Avoid
+   307→
+   308→### ❌ Anti-Pattern 1: Testing Only the Mechanism
+   309→
+   310→**Wrong**:
+   311→```python
+   312→def test_cache_size_limiting(cache: Cache) -> None:
+   313→    cache.max_size_bytes = 1024  # Direct manipulation
+   314→    # Test eviction works...
+   315→```
+   316→
+   317→**Why wrong**: Never verifies config controls `max_size_bytes`
+   318→
+   319→**Right**: Have both mechanism test AND config integration test
+   320→
+   321→---
+   322→
+   323→### ❌ Anti-Pattern 2: Mocking Config in Integration Tests
+   324→
+   325→**Wrong**:
+   326→```python
+   327→def test_config_max_size() -> None:
+   328→    with patch("ConfigManager.get_effective_config") as mock:
+   329→        mock.return_value = {"cache": {"max_size": 50}}
+   330→        # ... test ...
+   331→```
+   332→
+   333→**Why wrong**: Mocking the thing you're trying to test
+   334→
+   335→**Right**: Create actual config file, load through real ConfigManager
+   336→
+   337→---
+   338→
+   339→### ❌ Anti-Pattern 3: Testing Default Only
+   340→
+   341→**Wrong**:
+   342→```python
+   343→def test_default_timeout() -> None:
+   344→    config = {}  # Empty
+   345→    timeout = get_timeout(config)
+   346→    assert timeout == 30
+   347→```
+   348→
+   349→**Why wrong**: Only tests default, doesn't verify config override works
+   350→
+   351→**Right**: Test default AND test with config value set
+   352→
+   353→---
+   354→
+   355→### ❌ Anti-Pattern 4: Direct Instantiation
+   356→
+   357→**Wrong**:
+   358→```python
+   359→def test_cache_config() -> None:
+   360→    cache = Cache(max_size_mb=50)  # Direct instantiation
+   361→    assert cache.max_size_bytes == 50 * 1024 * 1024
+   362→```
+   363→
+   364→**Why wrong**: Bypasses `get_component()` which should read config
+   365→
+   366→**Right**: Use `cache = get_component()` to test real initialization path
+   367→
+   368→---
+   369→
+   370→### ❌ Anti-Pattern 5: Fixture That Bypasses Config
+   371→
+   372→**Wrong**:
+   373→```python
+   374→@pytest.fixture
+   375→def cache(tmp_path: Path):
+   376→    with patch("ConfigManager.get_cache_dir"):
+   377→        cache = Cache()  # Bypasses get_component()
+   378→        yield cache
+   379→```
+   380→
+   381→**Why wrong**: Every test using this fixture bypasses config loading
+   382→
+   383→**Right**: Have separate fixtures for unit tests vs. integration tests
+   384→
+   385→## Standard 5: Configuration Precedence Testing
+   386→
+   387→### Required Precedence Tests
+   388→
+   389→Standard configuration precedence (highest to lowest):
+   390→1. CLI arguments
+   391→2. Environment variables
+   392→3. Config file values
+   393→4. Default values
+   394→
+   395→**Each override level must be tested**:
+   396→
+   397→```python
+   398→def test_cli_arg_overrides_all(tmp_path: Path) -> None:
+   399→    """Test CLI argument takes precedence over env, config, defaults."""
+   400→    config_file = tmp_path / ".apprc"
+   401→    config_file.write_text("[feature]\nsetting = from_config")
+   402→
+   403→    with patch.dict(os.environ, {"APP_SETTING": "from_env"}):
+   404→        with patch_config_file(config_file):
+   405→            result = get_setting(cli_arg="from_cli")
+   406→            assert result == "from_cli"
+   407→
+   408→def test_env_overrides_config_and_defaults(tmp_path: Path) -> None:
+   409→    """Test env var overrides config file and defaults."""
+   410→    config_file = tmp_path / ".apprc"
+   411→    config_file.write_text("[feature]\nsetting = from_config")
+   412→
+   413→    with patch.dict(os.environ, {"APP_SETTING": "from_env"}):
+   414→        with patch_config_file(config_file):
+   415→            result = get_setting()
+   416→            assert result == "from_env"
+   417→
+   418→def test_config_overrides_defaults(tmp_path: Path) -> None:
+   419→    """Test config file value overrides default."""
+   420→    config_file = tmp_path / ".apprc"
+   421→    config_file.write_text("[feature]\nsetting = from_config")
+   422→
+   423→    with patch.dict(os.environ, {}, clear=True):
+   424→        with patch_config_file(config_file):
+   425→            result = get_setting()
+   426→            assert result == "from_config"
+   427→
+   428→def test_defaults_when_nothing_set() -> None:
+   429→    """Test default value used when no other source provides value."""
+   430→    with patch.dict(os.environ, {}, clear=True):
+   431→        result = get_setting()
+   432→        assert result == "default_value"
+   433→```
+   434→
+   435→## Standard 6: Test Organization and Markers
+   436→
+   437→### Suggested Test File Structure
+   438→
+   439→```python
+   440→# tests/test_feature_config.py
+   441→
+   442→class TestFeatureMechanism:
+   443→    """Unit tests for feature mechanism (direct manipulation)."""
+   444→
+   445→    def test_mechanism_works_correctly(self) -> None:
+   446→        component = FeatureComponent(setting=value)
+   447→        # Test mechanism...
+   448→
+   449→class TestFeatureConfigIntegration:
+   450→    """Integration tests for config → feature flow."""
+   451→
+   452→    @pytest.mark.config_contract
+   453→    def test_config_controls_feature(self, tmp_path: Path) -> None:
+   454→        # Load real config, verify it controls behavior
+   455→        pass
+   456→
+   457→    @pytest.mark.config_contract
+   458→    def test_env_var_controls_feature(self) -> None:
+   459→        # Set env var, verify it controls behavior
+   460→        pass
+   461→
+   462→    @pytest.mark.config_contract
+   463→    def test_config_precedence(self, tmp_path: Path) -> None:
+   464→        # Test CLI > Env > Config > Default precedence
+   465→        pass
+   466→```
+   467→
+   468→### Marker Usage
+   469→
+   470→Use `@pytest.mark.config_contract` for integration tests:
+   471→
+   472→```bash
+   473→# Run only config contract tests
+   474→pytest -m config_contract
+   475→
+   476→# Verify all config options have contract tests
+   477→pytest -m config_contract --collect-only
+   478→```
+   479→
+   480→## Standard 7: Test Naming Conventions
+   481→
+   482→### Format
+   483→
+   484→`test_<what>_<source>_<result>`
+   485→
+   486→### Examples
+   487→
+   488→- `test_cache_max_size_config_controls_cache_bytes()`
+   489→- `test_timeout_env_var_overrides_config_default()`
+   490→- `test_api_key_missing_raises_clear_error()`
+   491→- `test_trust_flag_from_cli_overrides_config_file()`
+   492→
+   493→### Docstring Format
+   494→
+   495→```python
+   496→def test_cache_max_size_config_controls_cache_bytes(tmp_path: Path) -> None:
+   497→    """CONTRACT: cache.max_size from .apprc must control Cache size.
+   498→
+   499→    Verifies that setting cache.max_size=50 in config file results in
+   500→    Cache with max_size_bytes=50*1024*1024.
+   501→    """
+   502→```
+   503→
+   504→**Required elements**:
+   505→- Start with "CONTRACT:" to identify contract tests
+   506→- State what config option controls
+   507→- State expected behavior clearly
+   508→
+   509→## Standard 8: Common Pitfalls and Solutions
+   510→
+   511→### Pitfall 1: Singleton State Pollution
+   512→
+   513→**Problem**: Global cache instance retains state between tests
+   514→
+   515→**Solution**:
+   516→```python
+   517→@pytest.fixture(autouse=True)
+   518→def reset_cache_singleton() -> None:
+   519→    """Reset global cache instance before each test."""
+   520→    from myapp.cache import reset_cache
+   521→    reset_cache()
+   522→```
+   523→
+   524→### Pitfall 2: Environment Variable Leakage
+   525→
+   526→**Problem**: Env vars set in one test affect others
+   527→
+   528→**Solution**: Always use `clear=True`
+   529→```python
+   530→with patch.dict(os.environ, {"APP_X": "value"}, clear=True):
+   531→    # Test with only APP_X set
+   532→    pass
+   533→```
+   534→
+   535→### Pitfall 3: Config File Persistence
+   536→
+   537→**Problem**: Test config files remain on disk
+   538→
+   539→**Solution**: Use `tmp_path` fixture
+   540→```python
+   541→def test_config(tmp_path: Path) -> None:
+   542→    config_file = tmp_path / ".apprc"  # Auto-cleaned
+   543→    config_file.write_text("...")
+   544→```
+   545→
+   546→### Pitfall 4: Unclear Test Failures
+   547→
+   548→**Problem**: Test fails but doesn't explain what config was expected
+   549→
+   550→**Solution**: Include config in assertion message
+   551→```python
+   552→assert result == 50, (
+   553→    f"Expected config setting=50 to be used, got {result}. "
+   554→    f"Config file: {config_file.read_text()}"
+   555→)
+   556→```
+   557→
+   558→## Standard 9: Red Flags in Test Review
+   559→
+   560→When reviewing tests for configuration features, these are red flags that indicate inadequate testing:
+   561→
+   562→1. **No integration test**: Only unit tests that manipulate state directly
+   563→2. **All fixtures mock config**: No test uses real config loading
+   564→3. **No factory usage**: Tests instantiate components directly instead of using `get_component()`
+   565→4. **Single value tested**: Only tests default, not custom values
+   566→5. **No precedence test**: Doesn't verify CLI > Env > Config > Default
+   567→6. **Env vars not cleared**: Tests don't use `patch.dict(os.environ, {}, clear=True)`
+   568→7. **No edge cases**: Doesn't test empty strings, missing values, invalid values
+   569→8. **Mocking ConfigManager**: Integration tests mock the config system they're meant to test
+   570→9. **No unset tests**: Environment variable tests don't check behavior when variable is unset
+   571→10. **Direct parameter setting**: Tests set parameters directly instead of through config
+   572→
+   573→If you see any of these patterns, the configuration feature is not adequately tested.
+   574→
+   575→## Standard 10: Integration with Existing Standards
+   576→
+   577→This standard complements:
+   578→
+   579→- **`docs/read-only/standards/Python-Test-Environment-Isolation-Standards.md`**: Config tests must also follow environment isolation rules (use `@patch.dict`, `tmp_path`, etc.)
+   580→- **`docs/read-only/standards/Python-Standards.md`**: Type hints, return annotations required
+   581→- **`docs/read-only/standards/Coding-Standards.md`**: General code quality principles
+   582→
+   583→**Combined requirements**:
+   584→- Config integration tests must use `@patch.dict(os.environ, {...}, clear=True)`
+   585→- Must use `tmp_path` for config files
+   586→- Must not read from actual user directories
+   587→- Must follow Python type hint standards
+   588→
+   589→## Standard 11: Enforcement and Compliance
+   590→
+   591→### Rule-Enforcer Will Verify
+   592→
+   593→- Every config option in `get_default_config()` has integration test
+   594→- Every environment variable has tests for set/unset states
+   595→- Integration tests use real config loading (no mocking ConfigManager)
+   596→- Tests use factory functions, not direct instantiation
+   597→- Tests follow naming conventions
+   598→
+   599→### Test-Guardian Will Verify
+   600→
+   601→- Config contract tests exist and pass
+   602→- Multiple values tested for each config option
+   603→- Precedence tests exist where applicable
+   604→- Edge cases covered (empty strings, None, invalid values)
+   605→
+   606→### Required for All New Config Options
+   607→
+   608→Starting immediately, adding a config option without integration tests is a **blocking violation**. Code reviews must verify:
+   609→
+   610→- [ ] Integration test exists with `@pytest.mark.config_contract`
+   611→- [ ] Test loads real config file (no mocking ConfigManager)
+   612→- [ ] Test uses factory function (e.g., `get_component()`)
+   613→- [ ] Test verifies config value affects behavior
+   614→- [ ] Test tries multiple different values
+   615→- [ ] Test follows naming convention
+   616→- [ ] Docstring includes CONTRACT statement
+   617→
+   618→## Summary: The Golden Rules
+   619→
+   620→1. **Two types required**: Mechanism tests + Config integration tests
+   621→2. **Two sources covered**: Configuration variables (`.apprc`) AND environment variables (`.env`)
+   622→3. **Update specs first**: Add to `Config-Spec.md` or `Environment-Variables-Spec.md` before implementing
+   623→4. **No mocking config**: Integration tests load real `.apprc` files or set real env vars
+   624→5. **Use factories**: `get_component()`, not `ComponentClass()`
+   625→6. **Test precedence**: CLI > Env > Config > Default
+   626→7. **Test multiple values**: Not just default, test overrides
+   627→8. **Mark clearly**: `@pytest.mark.config_contract` for discoverability
+   628→9. **Clear environment**: Always use `clear=True` with `@patch.dict`
+   629→10. **Name descriptively**: `test_<what>_<source>_<result>`
+   630→11. **Document contracts**: Docstring must state what's being verified
+   631→12. **Both types necessary**: Mechanism test alone is insufficient
+   632→
+   633→### The Core Questions
+   634→
+   635→Before marking a configurable feature complete, ask:
+   636→
+   637→1. **"If I change the config default value, will any test fail?"** (for `.apprc` options)
+   638→2. **"If I change the environment variable, will any test fail?"** (for `.env` variables)
+   639→3. **"Is this documented in the appropriate spec file?"** (`docs/core/Config-Spec.md` or `docs/core/Environment-Variables-Spec.md`)
+   640→
+   641→If the answer to any of these is no, you don't have adequate config testing.
+   642→
+   643→### Required Workflow for New Variables
+   644→
+   645→When adding a new configuration option or environment variable:
+   646→
+   647→1. **Document in spec FIRST**:
+   648→   - Configuration variables → `docs/core/Config-Spec.md`
+   649→   - Environment variables → `docs/core/Environment-Variables-Spec.md`
+   650→
+   651→2. **Write integration test** (following standards in this document)
+   652→
+   653→3. **Implement the feature** (config reading + behavior)
+   654→
+   655→4. **Verify test passes** (config actually controls behavior)
+   656→
+   657→5. **Update `.apprc.example` or `.env.example`** if appropriate
+   658→
+   659→This order ensures features are specified before implementation and tested before declaring complete.
+   660→
+   661→## See Also
+   662→
+   663→### Specification Documents
+   664→
+   665→- **`docs/core/Config-Spec.md`**: Complete reference for configuration options
+   666→- **`docs/core/Environment-Variables-Spec.md`**: Complete reference for environment variables
+   667→- **`.apprc.example`** (or `.config.toml`): Example configuration file in project root
+   668→- **`.env.example`**: Example environment variables in project root
+   669→
+   670→### Related Standards
+   671→
+   672→- **`docs/read-only/standards/Test-Environment-Isolation-Standards.md`**: Environment isolation requirements (complements this document)
+   673→- **`docs/read-only/standards/Python-Standards.md`**: Type hints and code style
+   674→- **`docs/read-only/standards/Coding-Standards.md`**: General code quality principles
+   675→
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>

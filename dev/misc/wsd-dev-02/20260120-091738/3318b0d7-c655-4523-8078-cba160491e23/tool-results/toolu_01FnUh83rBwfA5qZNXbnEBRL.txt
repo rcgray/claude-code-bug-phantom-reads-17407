@@ -1,0 +1,84 @@
+  4360→            # Check if permission error
+  4361→            if e.errno == errno.EACCES:  # Permission denied
+  4362→                report_permission_error("creating directory", target_dir, e)
+  4363→            else:
+  4364→                report_installation_error(
+  4365→                    f"Failed to create target directory '{target_dir}'",
+  4366→                    f"Details: {e}",
+  4367→                    ["Check parent directory permissions", "Verify path is valid"],
+  4368→                )
+  4369→
+  4370→    # Get list of files to install
+  4371→    # (excluding .wsdkeep files which are handled via required_directories)
+  4372→    installation_only_set = set(installation_only)
+  4373→    try:
+  4374→        all_source_files = collect_wsd_files(source_dir)
+  4375→        # Filter out installation_only files AND .wsdkeep files (structural artifacts)
+  4376→        source_files = [
+  4377→            p
+  4378→            for p in all_source_files
+  4379→            if str(p) not in installation_only_set and p.name != ".wsdkeep"
+  4380→        ]
+  4381→    except (FileNotFoundError, WsdCollectionError, OSError) as e:
+  4382→        report_installation_error(
+  4383→            "Failed to scan source directory",
+  4384→            f"Cannot read files from source directory: {e}",
+  4385→            ["Verify WSD installation is complete", "Check source directory permissions"],
+  4386→        )
+  4387→
+  4388→    # Get required directories from metadata for post-file-copy processing
+  4389→    required_directories = metadata.required_directories
+  4390→
+  4391→    installed_files: list[str] = []
+  4392→    copied_file_paths: list[Path] = []
+  4393→    skipped_count = 0
+  4394→
+  4395→    verbose_log(f"Found {len(source_files)} files to install")
+  4396→    verbose_log(f"Required directories: {len(required_directories)}")
+  4397→
+  4398→    # Two-stage installation with rollback-on-error behavior
+  4399→    # Stage 1: Copy regular files (establishes directory state)
+  4400→    # Stage 2: Process required_directories (create dirs and add .wsdkeep if empty)
+  4401→    try:
+  4402→        # ====================================================================
+  4403→        # STAGE 1: Process regular files
+  4404→        # ====================================================================
+  4405→        for relative_path in source_files:
+  4406→            relative_path_str = str(relative_path)
+  4407→
+  4408→            # Check if this file already exists with matching content
+  4409→            if relative_path_str in false_positives:
+  4410→                # Skip copying - file already exists with identical content
+  4411→                # Still track for manifest, but NOT for rollback (file wasn't copied)
+  4412→                verbose_log(f"Skipping (identical content): {relative_path}")
+  4413→                installed_files.append(relative_path_str)
+  4414→                skipped_count += 1
+  4415→                continue
+  4416→
+  4417→            source_file = source_dir / relative_path
+  4418→            target_file = target_dir / relative_path
+  4419→
+  4420→            # Track target file path BEFORE attempting copy
+  4421→            # This ensures rollback catches partially-written files even if
+  4422→            # copy_file() succeeds in writing but then raises an exception
+  4423→            copied_file_paths.append(target_file)
+  4424→
+  4425→            verbose_log(f"Copying: {relative_path}")
+  4426→
+  4427→            # Copy file (copy_file creates parent directories automatically)
+  4428→            # May raise PermissionError or OSError
+  4429→            copy_file(source_file, target_file)
+  4430→
+  4431→            # Only track as installed if copy succeeded
+  4432→            installed_files.append(relative_path_str)
+  4433→
+  4434→        # ====================================================================
+  4435→        # STAGE 2: Process required_directories
+  4436→        # ====================================================================
+  4437→        # Directory state now reflects regular file operations.
+  4438→        # For each required directory, ensure it exists and add .wsdkeep if empty.
+  4439→        for dir_path_str in required_directories:
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>

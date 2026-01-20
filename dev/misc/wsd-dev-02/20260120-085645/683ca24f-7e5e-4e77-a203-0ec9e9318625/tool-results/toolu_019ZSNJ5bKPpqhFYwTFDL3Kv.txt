@@ -1,0 +1,1630 @@
+     1→# Update System Specification (`wsd.py update`)
+     2→
+     3→**Version:** 1.0.0
+     4→**Date:** 2025-11-12
+     5→**Status:** Draft
+     6→
+     7→## Overview
+     8→
+     9→The WSD Update System enables existing WSD installations to receive new versions of template files while preserving user customizations. It provides a robust mechanism for comparing installed files against new template versions, intelligently preserving content within WORKSCOPE-DEV tags, respecting no_overwrite policies for user-owned files, and maintaining the integrity of the .wsd manifest.
+    10→
+    11→This specification defines the complete update process including update detection, file comparison algorithms, content preservation, manifest updates, and error handling for WSD Runtime updates.
+    12→
+    13→## Purpose
+    14→
+    15→The Update System serves five critical functions:
+    16→
+    17→1. **Safe Updates**: Replaces outdated WSD Runtime files with new versions without losing user customizations
+    18→2. **Content Preservation**: Maintains user content within WORKSCOPE-DEV tags across template updates
+    19→3. **File Protection**: Respects no_overwrite policies to prevent overwriting user-owned files
+    20→4. **Structure Synchronization**: Adds new files, removes obsolete files, and updates changed files
+    21→5. **Manifest Maintenance**: Updates the .wsd manifest to reflect the current installation state
+    22→
+    23→This specification establishes the authoritative definition of update procedures, file comparison logic, content preservation algorithms, and update verification.
+    24→
+    25→## Update Detection
+    26→
+    27→### Detecting Updates Are Available
+    28→
+    29→The update mechanism is triggered when a user explicitly runs the update command. WSD does not include automatic update checking or notification systems in v1.
+    30→
+    31→**User-Initiated Update**:
+    32→```bash
+    33→wsd.py update /path/to/project
+    34→```
+    35→
+    36→**Preconditions for Update**:
+    37→1. Target directory contains .wsd manifest file (indicates WSD installation)
+    38→2. User has newer version of WSD Runtime (with wsd.json present)
+    39→3. User has write permissions to target directory
+    40→
+    41→### Installation Mode Detection
+    42→
+    43→The `detect_installation_mode()` function determines whether the target directory requires a fresh installation or an update operation.
+    44→
+    45→**Function Signature**:
+    46→```python
+    47→def detect_installation_mode(target_dir: Path) -> InstallationMode
+    48→```
+    49→
+    50→**Decision Logic**:
+    51→1. If target directory does not exist → Returns `mode="fresh"`
+    52→2. If target exists but no .wsd manifest → Returns `mode="fresh"`
+    53→3. If target exists with valid .wsd manifest → Returns `mode="update"`
+    54→
+    55→**Return Value**:
+    56→
+    57→The function returns an `InstallationMode` dataclass containing:
+    58→- `mode`: String "fresh" or "update"
+    59→- `manifest_data`: Parsed manifest dictionary (None for fresh installs)
+    60→- `version`: Installed version string (None for fresh installs)
+    61→- `files`: List of installed file paths (None for fresh installs)
+    62→
+    63→**Implementation Details**:
+    64→
+    65→For update scenarios, the function:
+    66→1. Parses the manifest using `read_manifest()` utility
+    67→2. Validates structure using `validate_manifest()` utility
+    68→3. Extracts version from manifest `version` field
+    69→4. Extracts files list from manifest `files` array
+    70→
+    71→**Error Handling**:
+    72→- Raises `json.JSONDecodeError` if manifest JSON is malformed
+    73→- Raises `ValueError` if manifest structure is invalid
+    74→- Both errors indicate corrupted installation requiring manual recovery
+    75→
+    76→**Usage Example**:
+    77→```python
+    78→mode_info = detect_installation_mode(Path("/path/to/project"))
+    79→
+    80→if mode_info.mode == "fresh":
+    81→    # Perform fresh installation
+    82→    install_files(source_dir, target_dir)
+    83→elif mode_info.mode == "update":
+    84→    # Perform update with manifest data
+    85→    current_version = mode_info.version
+    86→    installed_files = mode_info.files
+    87→    perform_update(source_dir, target_dir, mode_info)
+    88→```
+    89→
+    90→### Manifest Structure
+    91→
+    92→For complete .wsd manifest specification including JSON schema, field semantics, derived data model, validation rules, and examples, see **WSD-Manifest-Schema.md**.
+    93→
+    94→### Version Compatibility
+    95→
+    96→**Version Information Sources**:
+    97→- **Installed Version**: Extracted from .wsd manifest via `detect_installation_mode()`
+    98→- **Update Version**: Read from WSD Runtime's `wsd.json` `version` field (see **WSD-Runtime-Metadata-Schema.md** for complete wsd.json specification)
+    99→
+   100→**Version Comparison Implementation**:
+   101→
+   102→The update system implements semantic version comparison through four core functions:
+   103→
+   104→**1. `parse_semantic_version(version_str: str) -> SemanticVersion`**
+   105→- Parses version string in major.minor.patch format
+   106→- Validates pattern matches `^\d+\.\d+\.\d+$`
+   107→- Returns SemanticVersion dataclass with integer components (major, minor, patch)
+   108→- Raises ValueError for invalid formats (missing components, non-numeric, negative values)
+   109→
+   110→**2. `compare_versions(version1: str, version2: str) -> str`**
+   111→- Compares two version strings using semantic versioning rules
+   112→- Returns "upgrade" if version2 > version1 (newer)
+   113→- Returns "downgrade" if version2 < version1 (older)
+   114→- Returns "same" if version2 == version1 (identical)
+   115→- Comparison hierarchy: major > minor > patch
+   116→
+   117→**3. `check_version_compatibility(installed_version: str, update_version: str) -> bool`**
+   118→- Determines if update operation is compatible
+   119→- Returns True for upgrades and same-version reinstalls
+   120→- Returns False for downgrades
+   121→- Raises ValueError for invalid version strings
+   122→
+   123→**4. `format_downgrade_warning(installed_version: str, update_version: str) -> str`**
+   124→- Creates comprehensive warning message for downgrade attempts
+   125→- Includes both version numbers
+   126→- Lists potential risks (feature loss, incompatibility, data loss)
+   127→- Provides recommendation to use version control instead
+   128→
+   129→**5. `confirm_downgrade(installed_version: str, update_version: str) -> bool`**
+   130→- Displays downgrade warning to user on stderr
+   131→- Prompts for explicit confirmation: "Proceed with downgrade? [y/N]"
+   132→- Returns True only for explicit "y" or "yes" responses (case-insensitive)
+   133→- Treats empty responses, "no", EOF, and KeyboardInterrupt as rejection
+   134→- Ensures users make informed decision about downgrade risks
+   135→
+   136→**Downgrade Handling**:
+   137→- Downgrades are detected but not forbidden outright
+   138→- System displays comprehensive warning explaining risks
+   139→- Requires explicit user confirmation to proceed
+   140→- Only "y" or "yes" (case-insensitive) confirms downgrade
+   141→- Any other response (including empty, "n", "no", or interrupt) cancels operation
+   142→
+   143→**Future Considerations** (not v1):
+   144→- Version-specific migration logic
+   145→- Compatibility matrices
+   146→- Breaking change warnings
+   147→
+   148→## File Comparison Algorithm
+   149→
+   150→### Overview
+   151→
+   152→The file comparison algorithm determines which files need to be added, updated, deleted, or skipped based on comparing the installed manifest against the update source. The algorithm uses content hash comparison to accurately identify files with identical content, skipping unnecessary updates even when files exist in both installations. For hash calculation algorithm and storage format, see **Content-Hashing-Overview.md**.
+   153→
+   154→### Comparison Process
+   155→
+   156→```python
+   157→def compare_installations(installed_manifest, update_source_dir, update_metadata):
+   158→    """
+   159→    Compare installed WSD against update source to categorize files.
+   160→
+   161→    Args:
+   162→        installed_manifest: Parsed .wsd manifest from target directory
+   163→        update_source_dir: Path to WSD Runtime root directory
+   164→        update_metadata: Parsed wsd.json from WSD Runtime
+   165→
+   166→    Returns:
+   167→        dict: Categorized file lists (to_add, to_update, to_delete, to_skip)
+   168→    """
+   169→
+   170→    # Get file lists
+   171→    installed_files = set(installed_manifest['files'])
+   172→    update_files = set(get_all_files(update_source_dir))
+   173→
+   174→    # Get protection policy from UPDATE's wsd.json (Source of Truth)
+   175→    no_overwrite_files = set(update_metadata.get('no_overwrite', []))
+   176→
+   177→    # Categorize using set operations
+   178→    to_delete = installed_files - update_files
+   179→    to_add = update_files - installed_files
+   180→
+   181→    # Files in both installations need further analysis
+   182→    in_both = installed_files & update_files
+   183→
+   184→    to_update = []
+   185→    to_skip = []
+   186→
+   187→    for file_path in in_both:
+   188→        if file_path in no_overwrite_files:
+   189→            # Protected file - skip updating
+   190→            to_skip.append({
+   191→                'path': file_path,
+   192→                'reason': 'no_overwrite protection'
+   193→            })
+   194→        else:
+   195→            # Regular file - update it
+   196→            to_update.append(file_path)
+   197→
+   198→    return {
+   199→        'to_add': list(to_add),
+   200→        'to_update': to_update,
+   201→        'to_delete': list(to_delete),
+   202→        'to_skip': to_skip
+   203→    }
+   204→```
+   205→
+   206→### Categorization Rules
+   207→
+   208→#### Files to Delete
+   209→**Definition**: Files present in installed manifest but not in update source.
+   210→
+   211→**Logic**: `installed_files - update_files`
+   212→
+   213→**Action**: Remove from target directory and manifest.
+   214→
+   215→**Special Cases**:
+   216→- If file was manually modified by user, still delete (WSD-managed files)
+   217→- User can recover via version control if needed
+   218→
+   219→**.wsdkeep Files**: See § .wsdkeep Two-Phase Processing below for how .wsdkeep deletions are evaluated.
+   220→
+   221→#### Files to Add
+   222→**Definition**: Files present in update source but not in installed manifest.
+   223→
+   224→**Logic**: `update_files - installed_files`
+   225→
+   226→**Action**: Copy from update source to target, add to manifest.
+   227→
+   228→**Special Cases**:
+   229→- If file exists in target but not in manifest, treat as collision (should not happen in normal usage)
+   230→- Set executable permissions if file in executable list
+   231→- Scan for tags and add to manifest
+   232→
+   233→**.wsdkeep Files**: See § .wsdkeep Two-Phase Processing below for how .wsdkeep additions are evaluated.
+   234→
+   235→#### Files to Update
+   236→**Definition**: Files present in both, not protected by no_overwrite.
+   237→
+   238→**Logic**: `(installed_files ∩ update_files) - no_overwrite_files`
+   239→
+   240→**Action**: Replace with update version, preserving WORKSCOPE-DEV tag content.
+   241→
+   242→**Special Cases**:
+   243→- If file has WORKSCOPE-DEV tags, apply preservation algorithm
+   244→- If file has no tags, simple overwrite
+   245→- Update executable permissions from wsd.json
+   246→
+   247→**.wsdkeep Files**: See § .wsdkeep Two-Phase Processing below for how .wsdkeep updates/restorations are evaluated.
+   248→
+   249→#### Files to Skip
+   250→**Definition**: Files present in both, protected by no_overwrite.
+   251→
+   252→**Logic**: `(installed_files ∩ update_files) ∩ no_overwrite_files`
+   253→
+   254→**Action**: Leave installed version unchanged, log as skipped.
+   255→
+   256→**Rationale**: These files represent user's work (like Action-Plan.md), not template infrastructure.
+   257→
+   258→### no_overwrite Source of Truth
+   259→
+   260→For complete no_overwrite policy specification including Source of Truth principle, behavior, and design rationale, see **Template-System.md § File Protection: no_overwrite Policy**.
+   261→
+   262→**Key Principle for Updates**: The UPDATE's wsd.json no_overwrite array is authoritative, not the installed manifest. This allows protection policy to evolve between versions.
+   263→
+   264→**Update Behavior**:
+   265→- Read no_overwrite array from UPDATE's wsd.json
+   266→- If file in no_overwrite array exists in target → Skip updating (preserve user's version)
+   267→- Protection policy can change between versions as template evolves
+   268→
+   269→## File Comparison Examples
+   270→
+   271→#### Example 1: Simple Update
+   272→
+   273→**Destination Manifest:**
+   274→```json
+   275→{
+   276→    "files": [
+   277→        ".claude/agents/task-master.md",
+   278→        ".claude/agents/rule-enforcer.md",
+   279→        "scripts/health_check.py"
+   280→    ]
+   281→}
+   282→```
+   283→
+   284→**Update Source Files:**
+   285→```
+   286→.claude/agents/task-master.md
+   287→.claude/agents/rule-enforcer.md
+   288→.claude/agents/new-agent.md
+   289→scripts/health_check.py
+   290→```
+   291→
+   292→**Result:**
+   293→- To Delete: (none)
+   294→- To Add: `.claude/agents/new-agent.md`
+   295→- To Update: `.claude/agents/task-master.md`, `.claude/agents/rule-enforcer.md`, `scripts/health_check.py`
+   296→- To Skip: (none)
+   297→
+   298→#### Example 2: Update with no_overwrite
+   299→
+   300→**Destination Manifest:**
+   301→```json
+   302→{
+   303→    "files": [
+   304→        "docs/core/Action-Plan.md",
+   305→        "docs/core/PRD.md",
+   306→        "dev/prompts/Developer-Notes.md"
+   307→    ]
+   308→}
+   309→```
+   310→
+   311→**Update Source wsd.json:**
+   312→```json
+   313→{
+   314→    "version": "1.1.0",
+   315→    "no_overwrite": [
+   316→        "docs/core/Action-Plan.md",
+   317→        "docs/core/PRD.md",
+   318→        "dev/prompts/Developer-Notes.md",
+   319→        "config/local-settings.json"
+   320→    ]
+   321→}
+   322→```
+   323→
+   324→**Result:**
+   325→- To Delete: (none)
+   326→- To Add: (none)
+   327→- To Update: (none - all user-owned files are protected)
+   328→- To Skip: `docs/core/Action-Plan.md`, `docs/core/PRD.md`, `dev/prompts/Developer-Notes.md` (all protected by no_overwrite in wsd.json)
+   329→
+   330→#### Example 3: File Removal
+   331→
+   332→**Destination Manifest:**
+   333→```json
+   334→{
+   335→    "files": [
+   336→        ".claude/agents/old-agent.md",
+   337→        ".claude/agents/task-master.md"
+   338→    ]
+   339→}
+   340→```
+   341→
+   342→**Update Source Files:**
+   343→```
+   344→.claude/agents/task-master.md
+   345→```
+   346→
+   347→**Result:**
+   348→- To Delete: `.claude/agents/old-agent.md`
+   349→- To Add: (none)
+   350→- To Update: `.claude/agents/task-master.md`
+   351→- To Skip: (none)
+   352→
+   353→#### Example 4: .wsdkeep Two-Phase Processing
+   354→
+   355→**Scenario:** Update adds a new required directory `dev/experiments/` while user has populated `docs/workbench/`.
+   356→
+   357→**Update Source Files (includes .wsdkeep):**
+   358→```
+   359→docs/workbench/.wsdkeep
+   360→dev/experiments/.wsdkeep
+   361→scripts/health_check.py
+   362→```
+   363→
+   364→**Target Directory State Before Update:**
+   365→```
+   366→docs/workbench/
+   367→├── my-notes.md      # User's file
+   368→└── analysis.md      # User's file
+   369→# Note: No dev/experiments/ directory exists yet
+   370→```
+   371→
+   372→**Processing:**
+   373→1. **Phase 2a (Regular Files):** Update `scripts/health_check.py`
+   374→2. **Phase 2b (.wsdkeep Candidates):**
+   375→   - `docs/workbench/.wsdkeep`: Directory has user content → Skip
+   376→   - `dev/experiments/.wsdkeep`: Directory doesn't exist → Create with .wsdkeep
+   377→
+   378→**Result:**
+   379→```
+   380→docs/workbench/
+   381→├── my-notes.md      # Preserved
+   382→└── analysis.md      # Preserved (no .wsdkeep added)
+   383→
+   384→dev/experiments/
+   385→└── .wsdkeep         # Created (new required directory)
+   386→```
+   387→
+   388→**Rationale:** .wsdkeep files are evaluated against final directory state. Populated directories don't receive .wsdkeep; new required directories do.
+   389→
+   390→## Content Preservation During Updates
+   391→
+   392→### Integration with Template System
+   393→
+   394→The Update System applies the content preservation algorithm defined in **Template-System.md § Content Preservation Algorithm** during file update operations.
+   395→
+   396→**Algorithm Reference:** See Template-System.md for:
+   397→- Complete preservation algorithm specification
+   398→- Tag detection and content extraction logic
+   399→- Preservation rules and guarantees
+   400→- Edge case handling (malformed tags, special characters, etc.)
+   401→
+   402→**Update System Role:** This section specifies WHEN and WHERE the preservation algorithm applies during update operations, not HOW the algorithm works (which is defined in the Template spec).
+   403→
+   404→### Preservation Requirements
+   405→
+   406→For each file in the "To Update" category, the system MUST:
+   407→
+   408→**Content Preservation Decision:**
+   409→1. Read both Update file and Destination file
+   410→2. Scan Update file for WORKSCOPE-DEV tags
+   411→3. Apply appropriate update strategy:
+   412→   - If WORKSCOPE-DEV tags present → MUST use tag preservation algorithm
+   413→   - If no WORKSCOPE-DEV tags → MUST perform simple file replacement
+   414→
+   415→**Tag Preservation Process:**
+   416→
+   417→When WORKSCOPE-DEV tags detected, system MUST apply the preservation algorithm from **Template-System.md § Content Preservation Algorithm**, ensuring:
+   418→1. User content within tags preserved byte-for-byte
+   419→2. Template context around tags updated from Update file
+   420→3. New tags receive initial content from Update file
+   421→4. Result written to Destination path
+   422→
+   423→**Guarantee:** User content within WORKSCOPE-DEV tags MUST be preserved byte-for-byte across updates
+   424→
+   425→**Simple Replacement Process:**
+   426→
+   427→When no WORKSCOPE-DEV tags detected, system MUST:
+   428→1. Copy Update file content directly to Destination path
+   429→2. No content analysis or preservation required
+   430→
+   431→**Post-Write Requirements:**
+   432→
+   433→After writing file content, system MUST:
+   434→1. Set file permissions from update source's wsd.json executable list (if applicable)
+   435→2. File added to manifest's files array (simple path string)
+   436→
+   437→**Note**: Checksums are calculated on-demand when needed for comparison, not stored in manifest.
+   438→
+   439→**Contract:** Preservation algorithm defined in **Template-System.md § Content Preservation Algorithm** is the authoritative source for tag handling. This section provides update-specific requirements only.
+   440→
+   441→### Preservation Examples in Update Context
+   442→
+   443→**Note:** The following examples demonstrate content preservation during update operations. For complete algorithm specification including tag syntax, preservation rules, and edge case handling, see **Template-System.md § Content Preservation Algorithm**. These examples focus on showing preservation in the update context.
+   444→
+   445→#### Example 1: Update with Tag Preservation
+   446→
+   447→**Destination File** (`.claude/commands/ws-init.md`):
+   448→```markdown
+   449→## PROJECT INTRODUCTION
+   450→
+   451→<WORKSCOPE-DEV ws-init-project-introduction>
+   452→MyAwesomeProject is a revolutionary SaaS platform for...
+   453→We leverage AI-assisted development with Claude Code.
+   454→</WORKSCOPE-DEV>
+   455→
+   456→## WORKSCOPE SYSTEM
+   457→```
+   458→
+   459→**Update File** (`.claude/commands/ws-init.md`):
+   460→```markdown
+   461→## PROJECT INTRODUCTION
+   462→
+   463→<WORKSCOPE-DEV ws-init-project-introduction>
+   464→Inform the User that they still need to edit this section
+   465→</WORKSCOPE-DEV>
+   466→
+   467→## WORKSCOPE SYSTEM
+   468→
+   469→**IMPORTANT FRAMING**: You are about to read...
+   470→```
+   471→
+   472→**Result After Update**:
+   473→```markdown
+   474→## PROJECT INTRODUCTION
+   475→
+   476→<WORKSCOPE-DEV ws-init-project-introduction>
+   477→MyAwesomeProject is a revolutionary SaaS platform for...
+   478→We leverage AI-assisted development with Claude Code.
+   479→</WORKSCOPE-DEV>
+   480→
+   481→## WORKSCOPE SYSTEM
+   482→
+   483→**IMPORTANT FRAMING**: You are about to read...
+   484→```
+   485→
+   486→**Analysis**:
+   487→- User's project introduction preserved
+   488→- New context text added around the tag
+   489→- Template improvements integrated seamlessly
+   490→
+   491→#### Example 2: Update Adding New Tag
+   492→
+   493→**Destination File** (`docs/read-only/Agent-Rules.md`):
+   494→```markdown
+   495→## 4. Pre-Release Rules
+   496→
+   497→<WORKSCOPE-DEV agent-rules-pre-release>
+   498→</WORKSCOPE-DEV>
+   499→
+   500→## 5. Project-Specific Rules
+   501→
+   502→<WORKSCOPE-DEV agent-rules-project-specific>
+   503→</WORKSCOPE-DEV>
+   504→```
+   505→
+   506→**Update File** (`docs/read-only/Agent-Rules.md`):
+   507→```markdown
+   508→## 4. Pre-Release Rules
+   509→
+   510→<WORKSCOPE-DEV agent-rules-pre-release>
+   511→</WORKSCOPE-DEV>
+   512→
+   513→## 5. Project-Specific Rules
+   514→
+   515→<WORKSCOPE-DEV agent-rules-project-specific>
+   516→</WORKSCOPE-DEV>
+   517→
+   518→## 6. Security Rules
+   519→
+   520→<WORKSCOPE-DEV agent-rules-security>
+   521→- Never commit secrets to version control
+   522→- Always validate user input
+   523→</WORKSCOPE-DEV>
+   524→```
+   525→
+   526→**Result After Update**:
+   527→```markdown
+   528→## 4. Pre-Release Rules
+   529→
+   530→<WORKSCOPE-DEV agent-rules-pre-release>
+   531→</WORKSCOPE-DEV>
+   532→
+   533→## 5. Project-Specific Rules
+   534→
+   535→<WORKSCOPE-DEV agent-rules-project-specific>
+   536→</WORKSCOPE-DEV>
+   537→
+   538→## 6. Security Rules
+   539→
+   540→<WORKSCOPE-DEV agent-rules-security>
+   541→- Never commit secrets to version control
+   542→- Always validate user input
+   543→</WORKSCOPE-DEV>
+   544→```
+   545→
+   546→**Analysis**:
+   547→- Existing empty tags preserved
+   548→- New section and tag added
+   549→- Initial content provided as starting point
+   550→
+   551→#### Example 3: Update with no_overwrite Protection
+   552→
+   553→**Destination File** (`docs/core/Action-Plan.md`):
+   554→```markdown
+   555→# Project Action Plan
+   556→
+   557→## Phase 1: Foundation
+   558→- [x] 1.1 - Setup repository
+   559→- [x] 1.2 - Configure CI/CD
+   560→- [ ] 1.3 - Write initial documentation
+   561→
+   562→## Phase 2: Core Features
+   563→- [ ] 2.1 - Implement authentication
+   564→- [ ] 2.2 - Build user dashboard
+   565→```
+   566→
+   567→**Update File** (`docs/core/Action-Plan.md`):
+   568→```markdown
+   569→# Action Plan Template
+   570→
+   571→## Phase 1: Initial Setup
+   572→- [ ] 1.1 - Define project scope
+   573→- [ ] 1.2 - Setup development environment
+   574→```
+   575→
+   576→**Update Source wsd.json**:
+   577→```json
+   578→{
+   579→    "no_overwrite": [
+   580→        "docs/core/Action-Plan.md",
+   581→        "docs/core/PRD.md",
+   582→        "dev/prompts/Developer-Notes.md",
+   583→        "config/local-settings.json"
+   584→    ]
+   585→}
+   586→```
+   587→
+   588→**Result After Update**:
+   589→```markdown
+   590→# Project Action Plan
+   591→
+   592→## Phase 1: Foundation
+   593→- [x] 1.1 - Setup repository
+   594→- [x] 1.2 - Configure CI/CD
+   595→- [ ] 1.3 - Write initial documentation
+   596→
+   597→## Phase 2: Core Features
+   598→- [ ] 2.1 - Implement authentication
+   599→- [ ] 2.2 - Build user dashboard
+   600→```
+   601→
+   602→**Analysis**:
+   603→- File completely skipped due to no_overwrite protection (one of several protected user-owned files)
+   604→- User's project plan remains untouched
+   605→- Update template ignored for this and all other no_overwrite files
+   606→
+   607→## Required Directory Processing During Updates
+   608→
+   609→For complete .wsdkeep specification including purpose, lifecycle, and conceptual model, see **Template-System.md § .wsdkeep Placeholder Files**.
+   610→
+   611→### Overview
+   612→
+   613→Updates use a **two-stage approach** to handle directory structure requirements. The `required_directories` array from wsd.json declares which directories must exist, and .wsdkeep files are generated based on the final directory state after all file operations complete.
+   614→
+   615→### Why Two Stages
+   616→
+   617→The two-stage approach solves a critical ordering problem: whether a directory needs .wsdkeep depends on its content, but that content may change during the update itself. By processing regular files first, the system knows the final directory state before making .wsdkeep decisions.
+   618→
+   619→**Example**: An update deletes `docs/workbench/old-notes.md` (the only file in that directory). If directory requirements were processed first, the system might skip .wsdkeep because the directory appears populated. With two stages, the delete happens first, then .wsdkeep is correctly added to the now-empty directory.
+   620→
+   621→### Processing Flow
+   622→
+   623→**Stage 1: Regular Files**
+   624→All content files are processed first:
+   625→- Deletions remove files (potentially emptying directories)
+   626→- Additions copy files (potentially populating directories)
+   627→- Updates modify files in place
+   628→- Skips leave protected files unchanged
+   629→
+   630→**Stage 2: Required Directories**
+   631→After regular file operations complete, the `required_directories` array is processed. For each directory path:
+   632→
+   633→1. **Ensure directory exists**: Create the directory if it doesn't exist (handles new required directories in updated WSD versions)
+   634→2. **Evaluate directory state**: Apply `_directory_needs_wsdkeep()` logic against final directory state
+   635→3. **Create .wsdkeep if needed**: Add .wsdkeep only if directory is empty
+   636→
+   637→```
+   638→Decision Logic (_directory_needs_wsdkeep):
+   639→- If directory does NOT exist → Create directory + .wsdkeep
+   640→- If directory exists but is empty → Create .wsdkeep (maintains structure)
+   641→- If directory contains only .wsdkeep → Create .wsdkeep (maintains structure)
+   642→- If directory has other content → Skip .wsdkeep (content maintains structure)
+   643→```
+   644→
+   645→### Manifest Handling
+   646→
+   647→.wsdkeep files are **never tracked in the manifest**. The manifest tracks content files only. Directory requirements are declarative (via `required_directories` in wsd.json) rather than tracked file-by-file.
+   648→
+   649→### New Required Directories
+   650→
+   651→When a WSD version adds a new required directory, updates handle this seamlessly:
+   652→
+   653→1. The new directory path appears in the update's `required_directories` array
+   654→2. Stage 1 processes regular files (establishing directory content state)
+   655→3. Stage 2 processes the new directory: ensures it exists, adds .wsdkeep if empty
+   656→
+   657→This allows WSD to evolve its directory structure without special migration logic.
+   658→
+   659→## The Update Process
+   660→
+   661→### Update Workflow Requirements
+   662→
+   663→The system MUST execute update operations in this specific order:
+   664→
+   665→**Phase 1: Preparation**
+   666→1. Read Update manifest from source
+   667→2. Read Destination manifest from target
+   668→3. Validate both manifests are well-formed
+   669→4. Categorize all files into four groups (To Delete, To Add, To Update, To Skip)
+   670→5. Validate update can proceed (permissions, disk space, etc.)
+   671→6. Log update initiation (old version, new version)
+   672→
+   673→**Phase 2: File Operations** (Two-phase processing, see § .wsdkeep Two-Phase Processing)
+   674→
+   675→**Phase 2a: Regular Files** (MUST execute in this order)
+   676→1. **Delete** all regular files in "To Delete" category
+   677→   - Remove files from filesystem
+   678→2. **Add** all regular files in "To Add" category
+   679→   - Copy files from Update to Destination
+   680→   - Set permissions from Update metadata
+   681→3. **Update** all regular files in "To Update" category
+   682→   - Apply content preservation for files with WORKSCOPE-DEV tags
+   683→   - Simple replacement for files without tags
+   684→   - Set permissions from Update metadata
+   685→4. **Skip** all files in "To Skip" category
+   686→   - Log files being skipped with reason
+   687→   - Do NOT modify files on filesystem
+   688→
+   689→**Phase 2b: .wsdkeep Candidates**
+   690→After regular file operations complete, evaluate each .wsdkeep file against the **final directory state**:
+   691→- For deletions: Delete only if directory has other content
+   692→- For additions: Add only if directory is empty or doesn't exist
+   693→- For updates/restorations: Apply same logic as additions
+   694→
+   695→**Phase 3: Finalization**
+   696→1. Create new manifest reflecting completed update
+   697→   - Include all added and updated files from Update manifest
+   698→   - Preserve metadata for skipped files from Destination manifest
+   699→   - Update modification timestamp
+   700→   - Preserve original creation timestamp
+   701→2. Write new manifest to Destination
+   702→3. Return update summary with statistics
+   703→
+   704→**Critical Requirements:**
+   705→
+   706→**Operation Order:** System MUST perform operations in specified order. MUST NOT reorder phases.
+   707→
+   708→**Atomicity (Per Design Decision 12):** If ANY error occurs during the update operation, the system MUST halt immediately, rollback all changes, and restore the previous state. This includes:
+   709→- Read errors (PermissionError, UnicodeDecodeError, OSError) when reading source or destination files
+   710→- Write errors (PermissionError, disk full, etc.) when writing updated files
+   711→- Tag parsing errors (malformed tags, invalid tag IDs, missing closing tags)
+   712→- Any other exception during file processing
+   713→
+   714→There is no distinction between "fatal" and "non-fatal" errors. All errors are fatal and halt the operation.
+   715→
+   716→**Logging:** System MUST log all file operations for debugging and audit purposes.
+   717→
+   718→**Statistics:** System MUST track and return count of files in each category.
+   719→
+   720→### Update Process Phases
+   721→
+   722→#### Pre-Update Validation Requirements
+   723→
+   724→The system MUST validate update preconditions before making any filesystem modifications:
+   725→
+   726→**Permission Validation:**
+   727→- MUST verify write access to all files in "To Update" category
+   728→- MUST verify write access to manifest file location
+   729→- MUST verify write access to directories for new files
+   730→- If ANY permission check fails → MUST abort with descriptive error
+   731→
+   732→**Resource Validation:**
+   733→- MUST calculate total disk space required for new and updated files
+   734→- MUST verify sufficient disk space available
+   735→- If insufficient space → MUST abort with descriptive error including required vs available space
+   736→
+   737→**File Lock Validation:**
+   738→- SHOULD check if files are locked by other processes (where OS permits)
+   739→- If locked files detected → SHOULD warn user
+   740→
+   741→**Guarantee:** If validation passes, system has verified necessary permissions and resources exist
+   742→
+   743→**Contract:** Validation MUST be idempotent and read-only (no filesystem modifications)
+   744→
+   745→#### Phase 2: File Operations
+   746→Operations performed in order:
+   747→1. Delete obsolete files
+   748→2. Add new files
+   749→3. Update existing files (with preservation)
+   750→4. Skip protected files (log only)
+   751→
+   752→**Atomic Guarantee**: If any error occurs (read error, write error, tag parsing error, or any exception), the entire update is halted immediately and rolled back using the pre-update state captured in the manifest. All errors are fatal—there is no continuation on errors.
+   753→
+   754→#### Manifest Update Requirements
+   755→
+   756→The system MUST create updated manifest reflecting completed changes:
+   757→
+   758→**File List Construction:**
+   759→
+   760→Build complete list of files present after update operations (add/update/skip operations applied, delete operations removed).
+   761→
+   762→**Manifest Fields:**
+   763→
+   764→The new manifest MUST contain:
+   765→- `version`: Version from update source's wsd.json
+   766→- `created`: Creation timestamp from Destination manifest (MUST preserve original)
+   767→- `updated`: Current timestamp in ISO 8601 format
+   768→- `files`: Array of file path strings (simple list, no nested metadata)
+   769→- `tags`: Rescanned from all files (tag ID and file path only)
+   770→
+   771→**Note on Derived Data**: Checksums and permissions are NOT stored in manifest - they are derived when needed:
+   772→- Checksums: Calculated on-demand by reading file content during comparison
+   773→- Permissions: Set from update source's wsd.json executable list, queried from filesystem when needed
+   774→
+   775→**Contract:** Resulting manifest MUST be valid JSON and conform to simplified manifest schema
+   776→
+   777→### Update Sequence Diagram
+   778→
+   779→```
+   780→User                    Update System              Filesystem
+   781→ |                           |                          |
+   782→ |-- wsd.py install path -->|                          |
+   783→ |                           |                          |
+   784→ |                           |------ Check .wsd ------->|
+   785→ |                           |<----- exists ------------|
+   786→ |                           |                          |
+   787→ |                           |------ Read manifests --->|
+   788→ |                           |<----- manifests ---------|
+   789→ |                           |                          |
+   790→ |                           |                          |
+   791→ |                           |-- Categorize files       |
+   792→ |                           |   (set operations)       |
+   793→ |                           |                          |
+   794→ |                           |-- Validate update        |
+   795→ |                           |                          |
+   796→ |<-- Show preview ---------|                          |
+   797→ |    (if --dry-run)         |                          |
+   798→ |                           |                          |
+   799→ |                           |------ Delete files ----->|
+   800→ |                           |<----- deleted -----------|
+   801→ |                           |                          |
+   802→ |                           |------ Add files -------->|
+   803→ |                           |<----- added -------------|
+   804→ |                           |                          |
+   805→ |                           |------ Update files ----->|
+   806→ |                           |  (with preservation)     |
+   807→ |                           |<----- updated -----------|
+   808→ |                           |                          |
+   809→ |                           |------ Write manifest --->|
+   810→ |                           |<----- written -----------|
+   811→ |                           |                          |
+   812→ |<-- Success summary ------|                          |
+   813→```
+   814→
+   815→## Dry-Run Mode
+   816→
+   817→### Purpose
+   818→
+   819→The `--dry-run` flag allows users to preview update changes without applying them. This is critical for:
+   820→
+   821→1. **Safety**: Review changes before committing to update
+   822→2. **Understanding**: See what will be modified
+   823→3. **Decision Making**: Decide whether to proceed with update
+   824→4. **Debugging**: Troubleshoot unexpected update behavior
+   825→
+   826→### Dry-Run Requirements
+   827→
+   828→When invoked in dry-run mode, the system MUST preview update without modifications:
+   829→
+   830→**Analysis Phase:**
+   831→
+   832→System MUST perform same analysis as normal update:
+   833→1. Read both manifests
+   834→2. Categorize files into four groups
+   835→3. Perform validation checks (where possible without modifications)
+   836→
+   837→**Report Generation:**
+   838→
+   839→System MUST generate preview report containing:
+   840→
+   841→**Version Information:**
+   842→- Current version from Destination manifest
+   843→- Update version from Update manifest
+   844→
+   845→**Change Categories:**
+   846→- Complete list of files to delete
+   847→- Complete list of files to add
+   848→- Complete list of files to update
+   849→- Complete list of files to skip (with reasons)
+   850→
+   851→**Statistics:**
+   852→- Total file count before update
+   853→- Total file count after update
+   854→- Count of files in each category
+   855→- Count of protected files
+   856→
+   857→**Critical Guarantee:** System MUST NOT modify ANY files during dry-run
+   858→
+   859→**Critical Guarantee:** System MUST NOT write manifest during dry-run
+   860→
+   861→**Contract:** Dry-run report MUST accurately reflect what normal update would do
+   862→
+   863→**.wsdkeep Filtering:** The dry-run preview filters `.wsdkeep` files based on target directory state to accurately reflect actual update behavior. For additions and updates, `.wsdkeep` files are omitted from the preview if the target directory contains content (since the actual update would skip creating them). For deletions, `.wsdkeep` files are omitted from the preview if the target directory is empty or needs structure preservation (since the actual update would preserve them). This ensures the preview accurately represents the two-phase processing behavior where `.wsdkeep` decisions depend on final directory state. See Template-System.md § .wsdkeep Placeholder Files for the complete `.wsdkeep` conceptual model.
+   864→
+   865→**Output Requirement:** System MUST present report in human-readable format with clear instructions for proceeding
+   866→
+   867→### Dry-Run Output Format
+   868→
+   869→**Console Output:**
+   870→```
+   871→WSD Update Preview (--dry-run)
+   872→==============================
+   873→
+   874→Current Version: 1.0.0
+   875→Update Version:  1.1.0
+   876→
+   877→Changes Summary
+   878→---------------
+   879→Files to delete:  2
+   880→Files to add:     3
+   881→Files to update:  15
+   882→Files to skip:    1
+   883→
+   884→Files to Delete
+   885→---------------
+   886→  - .claude/agents/deprecated-agent.md
+   887→  - scripts/old_utility.py
+   888→
+   889→Files to Add
+   890→------------
+   891→  + .claude/agents/new-feature-agent.md
+   892→  + docs/read-only/standards/New-Standard.md
+   893→  + scripts/new_utility.py
+   894→
+   895→Files to Update (with content preservation)
+   896→--------------------------------------------
+   897→  ~ .claude/commands/ws-init.md
+   898→  ~ .claude/commands/ws-execute.md
+   899→  ~ docs/read-only/Agent-System.md
+   900→  [... 12 more files ...]
+   901→
+   902→Files to Skip (protected by no_overwrite)
+   903→------------------------------------------
+   904→  = docs/core/Action-Plan.md (user-owned content)
+   905→
+   906→Statistics
+   907→----------
+   908→Current file count: 45
+   909→Updated file count: 46
+   910→Total changes:      20
+   911→
+   912→To proceed with this update, run:
+   913→  wsd.py install /path/to/project
+   914→
+   915→To cancel, take no action.
+   916→```
+   917→
+   918→### Dry-Run Implementation
+   919→
+   920→```bash
+   921→# User runs dry-run
+   922→$ wsd.py install --dry-run ~/projects/my-project
+   923→
+   924→# System performs:
+   925→# 1. Read manifests
+   926→# 2. Categorize files
+   927→# 3. Build preview
+   928→# 4. Display report
+   929→# 5. EXIT (no modifications)
+   930→
+   931→# User reviews output and decides
+   932→
+   933→# If approved:
+   934→$ wsd.py install ~/projects/my-project
+   935→
+   936→# System performs actual update
+   937→```
+   938→
+   939→### Dry-Run Validation
+   940→
+   941→**What Dry-Run Checks:**
+   942→- ✅ Manifest file presence and validity
+   943→- ✅ File categorization accuracy
+   944→- ✅ Version compatibility (future)
+   945→- ✅ File count changes
+   946→- ✅ Permission issues (where possible)
+   947→
+   948→**What Dry-Run Doesn't Check:**
+   949→- ❌ Actual file content
+   950→- ❌ Tag preservation correctness
+   951→- ❌ Disk space availability
+   952→- ❌ File locks or write conflicts
+   953→
+   954→## Error Handling
+   955→
+   956→### Error Categories
+   957→
+   958→#### 1. Pre-Update Errors
+   959→
+   960→**Missing Manifest:**
+   961→```
+   962→Error: No .wsd manifest found in destination directory
+   963→Location: /Users/dev/project
+   964→Action: This does not appear to be a WSD installation.
+   965→        Run fresh installation instead:
+   966→          wsd.py install /Users/dev/project
+   967→```
+   968→
+   969→**Malformed Manifest:**
+   970→```
+   971→Error: Cannot parse .wsd manifest file
+   972→Location: /Users/dev/project/.wsd
+   973→Details: Invalid JSON at line 15
+   974→Action: Manifest may be corrupted. Restore from version control:
+   975→          git checkout .wsd
+   976→        Or perform fresh installation (will lose tracked files):
+   977→          rm .wsd && wsd.py install /Users/dev/project
+   978→```
+   979→
+   980→**Permission Errors:**
+   981→```
+   982→Error: Insufficient permissions for update
+   983→Files requiring write access:
+   984→  - .claude/agents/task-master.md (Permission denied)
+   985→  - scripts/health_check.py (Permission denied)
+   986→Action: Grant write permissions:
+   987→          chmod u+w .claude/agents/task-master.md scripts/health_check.py
+   988→        Or run with appropriate privileges.
+   989→```
+   990→
+   991→#### 2. Update Operation Errors
+   992→
+   993→**File Deletion Error:**
+   994→```
+   995→Error: Cannot delete file during update
+   996→File: .claude/agents/old-agent.md
+   997→Reason: Permission denied
+   998→Action: Update halted. No changes made.
+   999→        Grant write permission to file or parent directory.
+  1000→        Retry update after resolving permission issue.
+  1001→```
+  1002→
+  1003→**File Addition Error:**
+  1004→```
+  1005→Error: Cannot create new file during update
+  1006→File: .claude/agents/new-agent.md
+  1007→Reason: Disk quota exceeded
+  1008→Action: Update halted. Partial changes rolled back.
+  1009→        Free disk space and retry update.
+  1010→```
+  1011→
+  1012→**File Update Error:**
+  1013→```
+  1014→Error: Cannot update file
+  1015→File: .claude/commands/ws-init.md
+  1016→Reason: File is locked by another process
+  1017→Action: Update halted. Changes rolled back.
+  1018→        Close applications using this file and retry.
+  1019→```
+  1020→
+  1021→**Tag Preservation Error:**
+  1022→```
+  1023→Warning: Malformed WORKSCOPE-DEV tag detected
+  1024→File: .claude/commands/custom.md
+  1025→Tag ID: project-config
+  1026→Issue: Missing closing tag
+  1027→Action: Content preservation skipped for this tag.
+  1028→        File updated with template content.
+  1029→        Review file after update and restore custom content manually.
+  1030→```
+  1031→
+  1032→#### 3. Post-Update Errors
+  1033→
+  1034→**Manifest Write Error:**
+  1035→```
+  1036→Error: Cannot update .wsd manifest after file operations
+  1037→Location: /Users/dev/project/.wsd
+  1038→Reason: Permission denied
+  1039→Action: Files updated successfully, but manifest not updated.
+  1040→        This may cause issues with future updates.
+  1041→        Grant write permission to .wsd:
+  1042→          chmod u+w .wsd
+  1043→        Then re-run update to sync manifest.
+  1044→```
+  1045→
+  1046→### Error Recovery
+  1047→
+  1048→#### Automatic Rollback Requirements
+  1049→
+  1050→For errors during file operations, system MUST attempt rollback:
+  1051→
+  1052→**Rollback Point Creation:**
+  1053→
+  1054→Before beginning file operations, system MUST:
+  1055→1. Record current manifest state
+  1056→2. Record current timestamp
+  1057→3. Attempt to record VCS commit hash (if available)
+  1058→
+  1059→**Rollback Trigger:**
+  1060→
+  1061→System MUST initiate rollback when:
+  1062→- Any file deletion fails
+  1063→- Any file addition fails
+  1064→- Any file update fails
+  1065→- Any permission error occurs
+  1066→- Manifest write fails
+  1067→
+  1068→**Rollback Process:**
+  1069→
+  1070→On error detection, system MUST:
+  1071→1. Halt all further file operations immediately
+  1072→2. Restore manifest to pre-update state
+  1073→3. Provide recovery instructions to user
+  1074→4. Report error with full context
+  1075→
+  1076→**v1 Rollback Scope:**
+  1077→
+  1078→The system implements v1 rollback through:
+  1079→
+  1080→1. **RollbackPoint Structure**: Dataclass capturing manifest_state, timestamp, vcs_commit_hash, and manifest_path
+  1081→2. **Rollback Point Creation**: Created before file operations begin via `create_rollback_point()` function
+  1082→3. **VCS Hash Detection**: `get_vcs_commit_hash()` attempts to retrieve git commit hash with graceful fallback to None
+  1083→4. **Error Propagation**: File operation functions raise exceptions instead of calling sys.exit directly
+  1084→5. **Manifest Restoration**: `restore_manifest_on_error()` writes original manifest back to disk
+  1085→6. **Recovery Instructions**: Provides git checkout commands with specific commit hash (if available) or HEAD fallback
+  1086→
+  1087→**Implementation Details:**
+  1088→
+  1089→The `create_rollback_point()` function:
+  1090→- Records complete manifest state for restoration
+  1091→- Captures ISO 8601 timestamp of rollback point creation
+  1092→- Runs `git rev-parse HEAD` in target directory to get commit hash
+  1093→- Returns None for VCS hash if not a git repository or command fails
+  1094→
+  1095→The `restore_manifest_on_error()` function:
+  1096→- Restores manifest to pre-update state via `write_manifest()`
+  1097→- Displays recovery banner with failure timestamp
+  1098→- Provides two recovery options: selective file restoration or full reset
+  1099→- Uses commit hash for precise restoration when available
+  1100→- Falls back to HEAD when commit hash not available
+  1101→
+  1102→**Future Rollback Enhancement** (not v1):
+  1103→- Automated file-level restoration (rolling back file changes, not just manifest)
+  1104→- Transaction logs for precise rollback
+  1105→- Snapshot-based recovery
+  1106→
+  1107→**Guarantee:** If update fails, manifest MUST be restored to pre-update state
+  1108→
+  1109→**Contract:** System MUST NOT leave installation in partially updated state with inconsistent manifest
+  1110→
+  1111→#### Manual Recovery
+  1112→
+  1113→For situations requiring manual intervention:
+  1114→
+  1115→**Recovery via Version Control:**
+  1116→```bash
+  1117→# Restore all WSD files to previous state
+  1118→git checkout .claude/ docs/ scripts/ .wsd
+  1119→
+  1120→# Or restore specific file
+  1121→git checkout .claude/agents/task-master.md
+  1122→```
+  1123→
+  1124→**Recovery via Fresh Install:**
+  1125→```bash
+  1126→# Remove corrupted installation
+  1127→rm -rf .claude/ docs/read-only/ scripts/ .wsd
+  1128→
+  1129→# Perform fresh install
+  1130→wsd.py install .
+  1131→
+  1132→# Restore user content from backup
+  1133→git checkout docs/core/Action-Plan.md
+  1134→# Manually restore WORKSCOPE-DEV tag content if needed
+  1135→```
+  1136→
+  1137→### Error Handling Best Practices
+  1138→
+  1139→**For Users:**
+  1140→1. Always commit to version control before updating
+  1141→2. Review dry-run output before proceeding
+  1142→3. Keep backups of critical customizations
+  1143→4. Test updates on non-production projects first
+  1144→
+  1145→**For Implementers:**
+  1146→1. Validate early and fail fast
+  1147→2. Provide clear, actionable error messages
+  1148→3. Implement atomic operations where possible
+  1149→4. Log all operations for debugging (use `--verbose` / `-v` flag)
+  1150→5. Never leave installations in broken states
+  1151→
+  1152→## Edge Cases
+  1153→
+  1154→### Concurrent Updates
+  1155→
+  1156→**Scenario**: Multiple users updating same shared repository simultaneously
+  1157→
+  1158→**Current Behavior (v1)**:
+  1159→- No locking mechanism
+  1160→- Last update wins
+  1161→- Potential for conflicting changes
+  1162→
+  1163→**Handling**:
+  1164→```
+  1165→Warning: Another update may be in progress
+  1166→Evidence: .wsd file modified recently (< 5 minutes ago)
+  1167→Action: Ensure no other update operations are running.
+  1168→        Conflicts may occur with concurrent updates.
+  1169→        Proceed? [y/N]
+  1170→```
+  1171→
+  1172→**Future Consideration**: File locking during updates
+  1173→
+  1174→### Temporary Files
+  1175→
+  1176→**Scenario**: Leftover temporary files exist from previous operations
+  1177→
+  1178→**Detection**: The update system checks for the presence of temporary files (`.wsd.tmp`, `.wsd.bak`, `.update-in-progress`) before proceeding with an update.
+  1179→
+  1180→**Behavior**: If temporary files are detected, the system displays a non-blocking warning:
+  1181→
+  1182→```
+  1183→Warning: Temporary update files detected
+  1184→Files found: .wsd.tmp, .wsd.bak
+  1185→These files may be left over from a previous operation.
+  1186→Consider removing them if they are not needed.
+  1187→```
+  1188→
+  1189→The warning is informational only and does not block the update operation. The update system's content hash comparison ensures that only files with actual differences are updated, providing self-healing behavior for any incomplete state from previous operations.
+  1190→
+  1191→### Self-Healing Updates
+  1192→
+  1193→The update system implements self-healing behavior through content hash comparison. When an update is performed:
+  1194→
+  1195→1. **Content-Based Detection**: Files are compared by content hash, not timestamps
+  1196→2. **Automatic Recovery**: If previous operations left partial changes, the update automatically brings files to the correct state
+  1197→3. **Minimal I/O**: Files with matching content are skipped, reducing unnecessary operations
+  1198→
+  1199→This design eliminates the need for complex interrupted update detection and recovery procedures. Any incomplete state is naturally corrected by the next update operation.
+  1200→
+  1201→For more details on content hashing, see **Content-Hashing-Overview.md**.
+  1202→
+  1203→### Manifest Version Mismatch
+  1204→
+  1205→**Scenario**: Update manifest has older version than destination manifest
+  1206→
+  1207→**Detection Implementation:**
+  1208→
+  1209→System detects version downgrades using `compare_versions()` function:
+  1210→
+  1211→**Version Comparison Process:**
+  1212→1. Parse both versions using `parse_semantic_version()` (validates format)
+  1213→2. Compare using semantic versioning rules (major > minor > patch)
+  1214→3. Return "upgrade", "downgrade", or "same" based on comparison
+  1215→
+  1216→**Compatibility Check:**
+  1217→- Call `check_version_compatibility(installed_version, update_version)`
+  1218→- Returns True for upgrades and same-version reinstalls
+  1219→- Returns False for downgrades
+  1220→
+  1221→**User Notification:**
+  1222→- System displays comprehensive warning using `format_downgrade_warning()`
+  1223→- Warning includes both version numbers
+  1224→- Lists potential risks (feature loss, incompatibility, data loss, manifest inconsistencies)
+  1225→- Recommends using version control to revert specific files instead
+  1226→- Requires explicit user confirmation via `confirm_downgrade()`
+  1227→
+  1228→**Confirmation Requirements:**
+  1229→- Prompt displayed on stderr: "Proceed with downgrade? [y/N]"
+  1230→- Only explicit "y" or "yes" (case-insensitive) confirms downgrade
+  1231→- Empty response, "n", "no", EOF, or KeyboardInterrupt cancels operation
+  1232→- Whitespace stripped from user input before evaluation
+  1233→
+  1234→**Contract:** Version comparison follows semantic versioning specification (major.minor.patch)
+  1235→
+  1236→**Example Output**:
+  1237→```
+  1238→WARNING: Version Downgrade Detected
+  1239→====================================
+  1240→
+  1241→Installed Version: 1.1.0
+  1242→Update Version:    1.0.0
+  1243→
+  1244→This operation would downgrade your WSD installation to an older version.
+  1245→
+  1246→Downgrade operations are not officially supported and may cause:
+  1247→  - Loss of newer features and improvements
+  1248→  - Incompatibility issues with existing customizations
+  1249→  - Potential data loss in WORKSCOPE-DEV tags
+  1250→  - Manifest inconsistencies
+  1251→
+  1252→Recommendation: Use version control to revert specific files if needed,
+  1253→rather than downgrading the entire WSD installation.
+  1254→
+  1255→Proceed with downgrade? [y/N]
+  1256→```
+  1257→
+  1258→### File Permission Changes
+  1259→
+  1260→For complete file permission model, see **Template-System.md § File Permission Model**.
+  1261→
+  1262→**Update-Specific Behavior**:
+  1263→
+  1264→During file updates, system MUST:
+  1265→1. Read executable list from Update source's wsd.json
+  1266→2. Apply +x permissions to files in executable list
+  1267→3. Log permission changes for user visibility
+  1268→
+  1269→**Permission Change Logging**:
+  1270→```
+  1271→Update Report:
+  1272→...
+  1273→Permission Changes:
+  1274→  scripts/health_check.py: 644 -> 755 (now executable)
+  1275→  scripts/demo.sh: 644 -> 755 (now executable)
+  1276→```
+  1277→
+  1278→Users see which files gained executable permission, allowing them to verify expected changes.
+  1279→
+  1280→### Large File Handling
+  1281→
+  1282→**Scenario**: Files exceed reasonable size for in-memory processing
+  1283→
+  1284→**Current Limit**: No explicit limit (limited by system memory)
+  1285→
+  1286→**Detection Requirements:**
+  1287→
+  1288→System SHOULD detect large files before processing:
+  1289→
+  1290→**Size Checking:**
+  1291→- Check file size before loading into memory
+  1292→- Define reasonable threshold (suggested: 100 MB)
+  1293→- If file exceeds threshold → Warn user
+  1294→
+  1295→**Handling Large Files:**
+  1296→- Binary files → Copy without loading into memory (streaming copy)
+  1297→- Text files → SHOULD attempt streaming if possible
+  1298→- Tag preservation → Skip for files exceeding threshold
+  1299→
+  1300→**User Notification:**
+  1301→- System SHOULD warn about potential memory issues for large files
+  1302→- System SHOULD ask for confirmation before processing large files
+  1303→
+  1304→**Contract:** System MUST NOT fail due to memory exhaustion from large files
+  1305→
+  1306→**Handling**:
+  1307→```
+  1308→Warning: Large file detected
+  1309→File: docs/diagrams/large-architecture.png
+  1310→Size: 150 MB
+  1311→Action: Files over 100 MB may cause memory issues.
+  1312→        Binary files are copied without tag preservation.
+  1313→        Proceed? [y/N]
+  1314→```
+  1315→
+  1316→## Testing Scenarios
+  1317→
+  1318→### Basic Update Tests
+  1319→
+  1320→**Test 1: Simple File Update**
+  1321→- Setup: Install WSD v1.0.0
+  1322→- Action: Update to v1.1.0 with modified task-master.md
+  1323→- Verify:
+  1324→  - File updated with new content
+  1325→  - Manifest includes file in files array
+  1326→  - Permissions set from wsd.json if in executable list
+  1327→
+  1328→**Test 2: File Addition**
+  1329→- Setup: Install WSD v1.0.0
+  1330→- Action: Update to v1.1.0 with new agent
+  1331→- Verify:
+  1332→  - New file added to destination
+  1333→  - Manifest includes new file
+  1334→  - Correct permissions set
+  1335→
+  1336→**Test 3: File Deletion**
+  1337→- Setup: Install WSD v1.0.0
+  1338→- Action: Update to v1.1.0 with removed deprecated-agent.md
+  1339→- Verify:
+  1340→  - File deleted from destination
+  1341→  - Manifest no longer includes file
+  1342→  - No orphaned files
+  1343→
+  1344→### Content Preservation Tests
+  1345→
+  1346→**Test 4: Tag Content Preserved**
+  1347→- Setup: Install WSD v1.0.0, customize ws-init.md tag
+  1348→- Action: Update to v1.1.0 with template changes
+  1349→- Verify:
+  1350→  - User content in tag preserved exactly
+  1351→  - Template context around tag updated
+  1352→  - Whitespace and formatting preserved
+  1353→
+  1354→**Test 5: New Tag Added**
+  1355→- Setup: Install WSD v1.0.0
+  1356→- Action: Update to v1.1.0 with new WORKSCOPE-DEV tag
+  1357→- Verify:
+  1358→  - New tag appears in destination
+  1359→  - Initial content from update used
+  1360→  - Subsequent updates preserve user modifications
+  1361→
+  1362→**Test 6: Tag Removed**
+  1363→- Setup: Install WSD v1.0.0, customize removed-tag
+  1364→- Action: Update to v1.1.0 without that tag
+  1365→- Verify:
+  1366→  - Tag and content removed
+  1367→  - No orphaned content
+  1368→  - File structure correct
+  1369→
+  1370→### Protection Tests
+  1371→
+  1372→**Test 7: no_overwrite Protection**
+  1373→- Setup: Install WSD v1.0.0, modify Action-Plan.md
+  1374→- Action: Update to v1.1.0 with different Action-Plan.md template
+  1375→- Verify:
+  1376→  - User's Action-Plan.md untouched
+  1377→  - Manifest shows file as skipped
+  1378→  - Update log notes protection
+  1379→
+  1380→**Test 8: Multiple no_overwrite Files**
+  1381→- Setup: Install WSD v1.0.0, modify multiple protected files
+  1382→- Action: Update to v1.1.0
+  1383→- Verify:
+  1384→  - All no_overwrite files preserved
+  1385→  - Other files updated normally
+  1386→  - Correct skip count in summary
+  1387→
+  1388→### Dry-Run Tests
+  1389→
+  1390→**Test 9: Dry-Run Preview Accuracy**
+  1391→- Setup: Install WSD v1.0.0
+  1392→- Action: Run update with --dry-run to v1.1.0
+  1393→- Verify:
+  1394→  - Preview matches actual changes
+  1395→  - No files modified
+  1396→  - Manifest unchanged
+  1397→  - Statistics accurate
+  1398→
+  1399→**Test 10: Dry-Run Error Detection**
+  1400→- Setup: Install WSD v1.0.0, make file read-only
+  1401→- Action: Run update with --dry-run
+  1402→- Verify:
+  1403→  - Permission error detected
+  1404→  - Clear error message displayed
+  1405→  - Suggested resolution provided
+  1406→
+  1407→### Error Handling Tests
+  1408→
+  1409→**Test 11: Permission Error Recovery**
+  1410→- Setup: Install WSD v1.0.0, make file read-only
+  1411→- Action: Attempt update
+  1412→- Verify:
+  1413→  - Error detected early
+  1414→  - Update halted before changes
+  1415→  - Rollback successful
+  1416→  - Clear error message
+  1417→
+  1418→**Test 12: Self-Healing Update**
+  1419→- Setup: Install WSD v1.0.0, simulate partial update state
+  1420→- Action: Run update to v1.1.0
+  1421→- Verify:
+  1422→  - Content hash comparison identifies unchanged files
+  1423→  - Only modified files are updated
+  1424→  - Partial state is automatically corrected
+  1425→  - Update completes successfully
+  1426→
+  1427→**Test 13: Malformed Tag Handling**
+  1428→- Setup: Install WSD v1.0.0, break tag syntax
+  1429→- Action: Update to v1.1.0
+  1430→- Verify:
+  1431→  - Malformed tag detected
+  1432→  - Warning issued
+  1433→  - Update continues with template content
+  1434→  - User notified to restore manually
+  1435→
+  1436→### Edge Case Tests
+  1437→
+  1438→**Test 14: .wsdkeep Two-Phase Processing**
+  1439→- Setup: Install WSD v1.0.0 (creates required directories with .wsdkeep)
+  1440→- Action: Add files to directories, update to v1.1.0
+  1441→- Verify:
+  1442→  - .wsdkeep skipped for populated directories (Phase 2b evaluation)
+  1443→  - .wsdkeep created for empty directories (Phase 2b evaluation)
+  1444→  - New required directories created with .wsdkeep
+  1445→  - Manifest never contains .wsdkeep entries
+  1446→
+  1447→**Test 15: Concurrent Update Detection**
+  1448→- Setup: Install WSD v1.0.0
+  1449→- Action: Simulate concurrent update (recent manifest modification)
+  1450→- Verify:
+  1451→  - Warning displayed
+  1452→  - User prompted for confirmation
+  1453→  - Can proceed or abort
+  1454→
+  1455→**Test 16: Version Downgrade Warning**
+  1456→- Setup: Install WSD v1.1.0
+  1457→- Action: Update to v1.0.0 (downgrade)
+  1458→- Verify:
+  1459→  - Downgrade detected
+  1460→  - Warning displayed
+  1461→  - User prompted for confirmation
+  1462→
+  1463→### Integration Tests
+  1464→
+  1465→**Test 17: Full Update Workflow**
+  1466→- Setup: Fresh project
+  1467→- Action: Install v1.0.0, customize, update to v1.1.0, update to v1.2.0
+  1468→- Verify:
+  1469→  - All updates succeed
+  1470→  - Customizations preserved through both updates
+  1471→  - Manifest accurately reflects final state
+  1472→
+  1473→**Test 18: Multiple File Categories**
+  1474→- Setup: Install WSD v1.0.0
+  1475→- Action: Update to v1.1.0 with deletions, additions, updates, and skips
+  1476→- Verify:
+  1477→  - All categories processed correctly
+  1478→  - Correct operation order
+  1479→  - Accurate summary statistics
+  1480→
+  1481→## Best Practices
+  1482→
+  1483→### For Users
+  1484→
+  1485→**Before Updating:**
+  1486→1. **Commit Everything**: Ensure all changes committed to version control
+  1487→   ```bash
+  1488→   git add -A
+  1489→   git commit -m "Pre-update checkpoint"
+  1490→   ```
+  1491→
+  1492→2. **Review Changes**: Run dry-run to preview update
+  1493→   ```bash
+  1494→   wsd.py install --dry-run .
+  1495→   ```
+  1496→
+  1497→3. **Backup Customizations**: Document important WORKSCOPE-DEV tag content
+  1498→   ```bash
+  1499→   # Create backup of customizations
+  1500→   grep -r "WORKSCOPE-DEV" . > customizations-backup.txt
+  1501→   ```
+  1502→
+  1503→4. **Test Environment**: If possible, test update on non-production copy first
+  1504→   ```bash
+  1505→   cp -r ~/project ~/project-test
+  1506→   cd ~/project-test
+  1507→   wsd.py install --dry-run .
+  1508→   wsd.py install .
+  1509→   ```
+  1510→
+  1511→**During Update:**
+  1512→1. **Monitor Output**: Watch for warnings or errors
+  1513→2. **Don't Interrupt**: Allow update to complete
+  1514→3. **Review Summary**: Check statistics match expectations
+  1515→
+  1516→**After Updating:**
+  1517→1. **Verify Functionality**: Test critical workflows
+  1518→2. **Review Changes**: Examine modified files
+  1519→   ```bash
+  1520→   git diff
+  1521→   ```
+  1522→
+  1523→3. **Check Customizations**: Ensure WORKSCOPE-DEV tags preserved
+  1524→   ```bash
+  1525→   # View preserved content
+  1526→   grep -A 5 "WORKSCOPE-DEV" .claude/commands/ws-init.md
+  1527→   ```
+  1528→
+  1529→4. **Commit Update**: Commit successful update
+  1530→   ```bash
+  1531→   git add -A
+  1532→   git commit -m "Update WSD from v1.0.0 to v1.1.0"
+  1533→   ```
+  1534→
+  1535→### For Template Designers
+  1536→
+  1537→**Version Planning:**
+  1538→1. **Semantic Versioning**: Use proper version increments
+  1539→   - Major: Breaking changes (v1.0.0 -> v2.0.0)
+  1540→   - Minor: New features (v1.0.0 -> v1.1.0)
+  1541→   - Patch: Bug fixes (v1.0.0 -> v1.0.1)
+  1542→
+  1543→2. **Changelog**: Document changes clearly
+  1544→   ```markdown
+  1545→   # Changelog
+  1546→
+  1547→   ## v1.1.0 (2025-11-15)
+  1548→   - Added: new-feature-agent.md
+  1549→   - Updated: ws-init.md (new tag: deployment-config)
+  1550→   - Removed: deprecated-agent.md
+  1551→   - Fixed: Permission on health_check.py
+  1552→   ```
+  1553→
+  1554→3. **Tag Stability**: Don't remove tags unnecessarily
+  1555→   - Removing tags loses user content
+  1556→   - Add new tags for new features
+  1557→   - Deprecate in documentation if needed
+  1558→
+  1559→**File Management:**
+  1560→1. **Careful Deletions**: Removing files deletes user versions
+  1561→   ```
+  1562→   # Good: Deprecate in documentation
+  1563→   "Note: old-agent.md is deprecated. Use new-agent.md instead."
+  1564→
+  1565→   # Bad: Delete without warning
+  1566→   ```
+  1567→
+  1568→2. **no_overwrite Usage**: Declare user-owned files in wsd.json
+  1569→   ```json
+  1570→   // In wsd.json:
+  1571→   {
+  1572→       "version": "1.1.0",
+  1573→       "no_overwrite": [
+  1574→           "docs/core/Action-Plan.md",
+  1575→           "docs/core/PRD.md",
+  1576→           "dev/prompts/Developer-Notes.md",
+  1577→           "config/local-settings.json"
+  1578→       ]
+  1579→   }
+  1580→   ```
+  1581→
+  1582→3. **Executable Declaration**: Declare executable files in wsd.json
+  1583→   ```json
+  1584→   // In wsd.json:
+  1585→   {
+  1586→       "version": "1.1.0",
+  1587→       "executable": [
+  1588→           "scripts/utility.sh",
+  1589→           "scripts/health_check.py"
+  1590→       ]
+  1591→   }
+  1592→   ```
+  1593→
+  1594→### For Implementers
+  1595→
+  1596→**Atomic Operations:**
+  1597→1. **Validate First**: Check all preconditions before modifying files
+  1598→2. **Transaction-Like**: Group related operations
+  1599→3. **Rollback Capability**: Maintain ability to undo changes
+  1600→4. **Logging**: Record all operations for debugging
+  1601→
+  1602→**Error Handling:**
+  1603→1. **Early Detection**: Catch errors before modifications
+  1604→2. **Clear Messages**: Provide actionable error information
+  1605→3. **Safe Defaults**: Prefer caution over aggressive behavior
+  1606→4. **Recovery Guidance**: Help users fix problems
+  1607→
+  1608→**Performance:**
+  1609→1. **Efficient Scanning**: Use appropriate data structures
+  1610→2. **Lazy Loading**: Don't load unnecessary files
+  1611→3. **Parallel Operations**: Where safe and beneficial
+  1612→4. **Progress Indication**: Show progress for long operations
+  1613→
+  1614→## Related Specifications
+  1615→
+  1616→- **System-Architecture.md**: High-level WSD architecture and component integration
+  1617→- **Template-System.md**: Tag syntax and preservation algorithm
+  1618→- **Installation-System.md**: Fresh installation process
+  1619→- **WSD-Manifest-Schema.md**: Detailed manifest format
+  1620→- **Install-And-Update-Overview.md**: Command-line interface
+  1621→- **Content-Hashing-Overview.md**: Hash calculation algorithm for file comparison
+  1622→
+  1623→---
+  1624→
+  1625→*This specification defines the authoritative rules for the WSD Update System including update detection, file comparison, content preservation, dry-run functionality, and error handling. All implementations must conform to these specifications.*
+  1626→
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>

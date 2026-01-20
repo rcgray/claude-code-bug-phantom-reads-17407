@@ -1,0 +1,3 @@
+/Users/gray/Projects/claude-bug/docs/features/install-and-update/Installation-System.md
+/Users/gray/Projects/claude-bug/docs/features/install-and-update/Template-System.md
+/Users/gray/Projects/claude-bug/docs/features/install-and-update/Update-System.md

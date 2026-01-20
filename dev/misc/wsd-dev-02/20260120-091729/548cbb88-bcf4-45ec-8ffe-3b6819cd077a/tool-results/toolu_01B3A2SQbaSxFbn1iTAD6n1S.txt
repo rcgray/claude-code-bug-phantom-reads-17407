@@ -1,0 +1,2 @@
+/Users/gray/Projects/claude-bug/docs/core/WSD-Manifest-Schema.md
+/Users/gray/Projects/claude-bug/docs/core/WSD-Runtime-Metadata-Schema.md

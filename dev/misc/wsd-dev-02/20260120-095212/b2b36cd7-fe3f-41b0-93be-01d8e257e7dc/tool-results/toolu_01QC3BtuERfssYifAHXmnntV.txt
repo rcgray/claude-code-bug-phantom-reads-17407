@@ -1,0 +1,119 @@
+The file /Users/gray/Projects/claude-bug/dev/journal/archive/Journal-Workscope-20260120-095212.md has been updated. Here's the result of running `cat -n` on a snippet of the edited file:
+     1→# Work Journal - 2026-01-20 09:52
+     2→## Workscope ID: Workscope-20260120-095212
+     3→
+     4→---
+     5→
+     6→## Initialization Phase
+     7→
+     8→**Session Type:** Custom Workscope (initialized with `--custom` flag)
+     9→
+    10→### System Documents Read
+    11→
+    12→During `/wsd:boot`, I read and understood the following core system documents:
+    13→
+    14→1. `docs/read-only/Agent-System.md` - Elite team model, User Agent/Special Agent roles, workflow phases
+    15→2. `docs/read-only/Agent-Rules.md` - Strict rules governing agent behavior (Rules 1.x-6.x)
+    16→3. `docs/core/Design-Decisions.md` - Project-specific design philosophies (Decisions 1-12)
+    17→4. `docs/read-only/Documentation-System.md` - Documentation organization and lifecycle
+    18→5. `docs/read-only/Checkboxlist-System.md` - Five checkbox states, Phase 0 blocking, parent-child relationships
+    19→6. `docs/read-only/Workscope-System.md` - Workscope file format, DFS selection algorithm, immutability
+    20→
+    21→---
+    22→
+    23→## Project-Bootstrapper Onboarding Report
+    24→
+    25→### Files Read Per Project-Bootstrapper Instructions
+    26→
+    27→The following files were read in their entirety as commanded by the Project-Bootstrapper agent:
+    28→
+    29→1. `/Users/gray/Projects/claude-bug/docs/read-only/Agent-Rules.md`
+    30→2. `/Users/gray/Projects/claude-bug/docs/core/Design-Decisions.md`
+    31→3. `/Users/gray/Projects/claude-bug/docs/read-only/standards/Coding-Standards.md`
+    32→4. `/Users/gray/Projects/claude-bug/docs/read-only/standards/Python-Standards.md`
+    33→5. `/Users/gray/Projects/claude-bug/docs/read-only/standards/Python-Test-Environment-Isolation-Standards.md`
+    34→6. `/Users/gray/Projects/claude-bug/docs/read-only/standards/Python-Testing-Configuration-Variables-Standards.md`
+    35→7. `/Users/gray/Projects/claude-bug/docs/read-only/standards/Process-Integrity-Standards.md`
+    36→8. `/Users/gray/Projects/claude-bug/docs/read-only/standards/Specification-Maintenance-Standards.md`
+    37→
+    38→### Understanding of Critical Rules
+    39→
+    40→**Rule 5.1 - NO BACKWARD COMPATIBILITY:** This app has not shipped yet. No migration scripts, no migration notes, no "legacy support" code. Refactors should make the codebase appear as if it was always designed the new way.
+    41→
+    42→**Rule 3.4 - NO META-COMMENTARY IN PRODUCT ARTIFACTS:** Do not include phase numbers, task references, or planning artifacts in source code, tests, scripts, or configuration files. These belong only in process documents (Feature Overviews, tickets, Action Plans).
+    43→
+    44→**Rule 3.11 - READ-ONLY DIRECTORY WORKAROUND:** If I need to edit a file in `docs/read-only/` or `.claude/` and get a write access error, I should copy that file to `docs/workbench/` keeping the exact same filename, then make edits to the workbench copy.
+    45→
+    46→**Rule 4.4 - cat >> file << EOF IS FORBIDDEN:** Do NOT use terminal commands (such as `cat` or `echo` with `>>`, etc.) to write to files. Use standard tools (Edit, Write, etc.) to interact with files.
+    47→
+    48→**Rule 3.12 - Proof of Work Verification:** Do NOT accept Special Agent reports without proper evidence (test summary lines, health check tables, file paths).
+    49→
+    50→### Understanding of WSD Runtime vs Development Distinction
+    51→
+    52→**WSD Runtime (the shipping product):**
+    53→- Lives in `source/` directory
+    54→- ALL code changes must target `source/`
+    55→- `source/wsd.py` and `source/scripts/` are the product
+    56→
+    57→**WSD Development (dogfood and infrastructure):**
+    58→- Root-level `wsd.py` and `scripts/` are DOGFOOD copies - DO NOT EDIT
+    59→- `tests/` contains the test suite (editable, tests the Runtime)
+    60→- `dev/scripts/` contains WSD Development-only scripts (editable)
+    61→
+    62→**Rule 6.1.5 - The Path Resolution Trap:** Scripts in `source/scripts/` use paths like `project_root = script_dir.parent`. This is CORRECT for deployment. Do NOT "fix" this to `script_dir.parent.parent` just because the file currently lives at `source/scripts/foo.py` during development.
+    63→
+    64→### Key Standards Understood
+    65→
+    66→**Coding Standards:**
+    67→- Be aggressive about failures at point of failure
+    68→- Handle external uncertainties gracefully but be strict about internal logic
+    69→- Simplify and favor Sources of Truth
+    70→- Use comment blocks at file start and for all classes/functions
+    71→- Check comment blocks after edits
+    72→- 4 spaces for indentation
+    73→
+    74→**Python Standards:**
+    75→- Use `uv` for dependency management
+    76→- Use `ruff` for linting/formatting, `mypy` for type checking, `pytest` for testing
+    77→- ALL functions must have explicit return type annotations
+    78→- Type parameters must be lowercase (`list[int]` not `List[int]`)
+    79→- Document all public functions with Google-style docstrings
+    80→- Test methods must document ALL parameters including pytest fixtures
+    81→
+    82→**Test Environment Isolation:**
+    83→- Every test must explicitly control environment variables with `@patch.dict(os.environ, {...}, clear=True)`
+    84→- Tests must never read from or write to actual user directories (use `tmp_path`)
+    85→- Unit tests must mock all network calls
+    86→- Module-level derived constants must ALL be patched (not just base constants)
+    87→
+    88→**Configuration Testing:**
+    89→- Two types required: Mechanism tests AND Integration tests
+    90→- Integration tests must use real config files, not mocked ConfigManager
+    91→- Test precedence: CLI > Env > Config > Default
+    92→
+    93→**Process Integrity:**
+    94→- Automation must produce functionally equivalent results to direct tool execution
+    95→- No silent suppression of errors or warnings
+    96→- All exceptions require explicit User approval
+    97→
+    98→**Specification Maintenance:**
+    99→- When code changes, specifications must change
+   100→- Configuration options, environment variables, and CLI changes all require spec updates
+   101→- Workscopes with code changes are incomplete until specifications are updated
+   102→
+   103→### Prepared for Custom Workscope
+   104→
+   105→I am now fully onboarded and prepared to receive a custom workscope from the User. I understand:
+   106→- The rules and standards that govern my work
+   107→- The project structure and what directories to edit vs. not edit
+   108→- The testing standards required for any code changes
+   109→- The need to update specifications alongside code changes
+   110→- The proof of work requirements for Special Agent approvals
+   111→
+   112→---
+   113→
+   114→## Awaiting Custom Workscope
+   115→
+   116→Status: Halted pending User-provided custom workscope assignment.
+   117→
+   118→

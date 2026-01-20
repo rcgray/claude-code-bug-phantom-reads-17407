@@ -1,0 +1,68 @@
+The file /Users/gray/Projects/claude-bug/dev/journal/archive/Journal-Workscope-20260120-091729.md has been updated. Here's the result of running `cat -n` on a snippet of the edited file:
+     1→# Work Journal - 2026-01-20 09:17
+     2→## Workscope ID: Workscope-20260120-091729
+     3→
+     4→---
+     5→
+     6→## Initialization Phase
+     7→
+     8→**Status:** Complete
+     9→
+    10→- Read PRD.md - understood WSD is an AI orchestration system; WSD Runtime in `source/`, WSD Development is this repository
+    11→- Read all WSD Platform system documentation via `/wsd:boot`:
+    12→  - Agent-System.md
+    13→  - Agent-Rules.md
+    14→  - Design-Decisions.md
+    15→  - Documentation-System.md
+    16→  - Checkboxlist-System.md
+    17→  - Workscope-System.md
+    18→- Generated Workscope ID: 20260120-091729
+    19→- Created Work Journal at `dev/journal/archive/Journal-Workscope-20260120-091729.md`
+    20→
+    21→---
+    22→
+    23→## Onboarding Phase (Project-Bootstrapper)
+    24→
+    25→**Status:** Complete
+    26→
+    27→Initialized with `--custom` flag - will receive custom workscope from User.
+    28→
+    29→### Files Already Read During Initialization:
+    30→1. `/Users/gray/Projects/claude-bug/docs/read-only/Agent-System.md`
+    31→2. `/Users/gray/Projects/claude-bug/docs/read-only/Agent-Rules.md`
+    32→3. `/Users/gray/Projects/claude-bug/docs/core/Design-Decisions.md`
+    33→4. `/Users/gray/Projects/claude-bug/docs/read-only/Documentation-System.md`
+    34→5. `/Users/gray/Projects/claude-bug/docs/read-only/Checkboxlist-System.md`
+    35→6. `/Users/gray/Projects/claude-bug/docs/read-only/Workscope-System.md`
+    36→7. `/Users/gray/Projects/claude-bug/docs/core/PRD.md`
+    37→
+    38→### Files To Read Based on Workscope (Pending):
+    39→- Standards files from `docs/read-only/standards/` applicable to assigned work type
+    40→
+    41→### Key Onboarding Points:
+    42→
+    43→**Most Frequently Violated Rules:**
+    44→1. Rule 5.1 - Backward Compatibility (no migration notes, no legacy support - app hasn't shipped)
+    45→2. Rule 3.4 - No meta-process references in product artifacts (no phase numbers in code)
+    46→3. Rule 3.11 - Write access blocked → copy to workbench with same filename
+    47→4. Rule 6.1 - WSD Runtime (`source/`) vs Dogfood (root `wsd.py`, `scripts/`) confusion
+    48→
+    49→**Critical Project Structure:**
+    50→- `source/` = WSD Runtime (THE PRODUCT - edit here)
+    51→- `wsd.py` (root) = DOGFOOD (never edit)
+    52→- `scripts/` (root) = DOGFOOD (never edit)
+    53→- `dev/scripts/` = WSD Development-only scripts (editable)
+    54→
+    55→**Special Agent Proof of Work Requirements:**
+    56→- Task-Master: workscope file path + file exists
+    57→- Context-Librarian/Codebase-Surveyor: actual file paths
+    58→- Test-Guardian: test summary output
+    59→- Health-Inspector: health check summary table
+    60→
+    61→---
+    62→
+    63→## Custom Workscope
+    64→
+    65→**Status:** Awaiting User assignment
+    66→
+    67→

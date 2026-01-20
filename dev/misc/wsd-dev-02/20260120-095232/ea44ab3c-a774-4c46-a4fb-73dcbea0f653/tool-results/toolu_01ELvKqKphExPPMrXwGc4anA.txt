@@ -1,0 +1,449 @@
+     1→# Specification Maintenance Standards
+     2→
+     3→**Purpose**: Maintain synchronization between specification documents and code implementation throughout the development lifecycle.
+     4→
+     5→## Fundamental Principle
+     6→
+     7→Specification documents are authoritative sources of truth describing how the application works. When code changes but specifications don't, "specification drift" occurs—documentation misleads developers and users about actual behavior. Agent Rule 3.11 requires specification updates in the same workscope as code changes.
+     8→
+     9→## Specification Drift
+    10→
+    11→Drift manifests in three forms:
+    12→
+    13→**Missing Documentation**: Code implements features not documented in specifications. An agent adds a configuration option but doesn't document it. Users and future developers cannot discover the option exists.
+    14→
+    15→**Dead Documentation**: Specifications describe features not present in code. An agent removes a CLI flag but leaves it documented. Users attempt to use non-existent features.
+    16→
+    17→**Inconsistent Documentation**: Code and specifications both exist but describe different behavior. An agent changes a default value in code but doesn't update the documented default. Users expect incorrect behavior.
+    18→
+    19→All three forms undermine specification trustworthiness and must be prevented through systematic maintenance.
+    20→
+    21→## When Specifications Require Updates
+    22→
+    23→### Configuration Changes
+    24→
+    25→Configuration specifications document available configuration options, their types, defaults, and behavior. Update these specifications when:
+    26→
+    27→- Adding a configuration option with its schema and default value
+    28→- Removing a configuration option
+    29→- Changing an option's name, type, or default value
+    30→- Modifying how an option affects application behavior
+    31→- Adding or removing validation rules
+    32→
+    33→**Recognition Patterns:**
+    34→
+    35→In Python projects, watch for changes to default configuration dictionaries, dataclass definitions, or schema validators:
+    36→```python
+    37→# Changes requiring specification updates
+    38→def get_default_config():
+    39→    return {
+    40→        "cache": {
+    41→            "max_size": 1000,  # New option or changed default
+    42→            "ttl_seconds": 3600  # New option
+    43→        }
+    44→    }
+    45→```
+    46→
+    47→In TypeScript projects, watch for changes to configuration interfaces, default objects, or validation schemas:
+    48→```typescript
+    49→// Changes requiring specification updates
+    50→interface Config {
+    51→  cache: {
+    52→    maxSize: number;  // New property or type change
+    53→    ttlSeconds: number;  // New property
+    54→  }
+    55→}
+    56→
+    57→const defaultConfig: Config = {
+    58→  cache: {
+    59→    maxSize: 1000,  // Changed default
+    60→    ttlSeconds: 3600  // New default
+    61→  }
+    62→};
+    63→```
+    64→
+    65→### Environment Variable Changes
+    66→
+    67→Environment variable specifications document variables affecting application behavior, their purposes, and precedence. Update these specifications when:
+    68→
+    69→- Adding code that reads a new environment variable
+    70→- Removing code that reads an environment variable
+    71→- Changing how an environment variable is interpreted
+    72→- Modifying environment variable precedence or fallback logic
+    73→
+    74→**Recognition Patterns:**
+    75→
+    76→In Python projects, watch for `os.environ`, `os.getenv`, or environment management utilities:
+    77→```python
+    78→# Changes requiring specification updates
+    79→cache_dir = os.getenv("APP_CACHE_DIR", "/tmp/cache")  # New variable
+    80→api_key = os.environ["API_KEY"]  # New required variable
+    81→```
+    82→
+    83→In TypeScript projects, watch for `process.env` accesses or environment parsers:
+    84→```typescript
+    85→// Changes requiring specification updates
+    86→const cacheDir = process.env.APP_CACHE_DIR ?? "/tmp/cache";  // New variable
+    87→const apiKey = process.env.API_KEY!;  // New required variable
+    88→```
+    89→
+    90→### Command Interface Changes
+    91→
+    92→Command interface specifications document CLI commands, flags, options, or API endpoints. Update these specifications when:
+    93→
+    94→- Adding a command-line flag, API endpoint, or interactive command
+    95→- Removing a command-line flag or endpoint
+    96→- Changing a flag's name, aliases, type, or behavior
+    97→- Modifying command behavior or output format
+    98→- Changing API request/response schemas
+    99→
+   100→**Recognition Patterns:**
+   101→
+   102→In CLI applications (Python with argparse/click/typer, Node with commander/yargs):
+   103→```python
+   104→# Python CLI - changes requiring specification updates
+   105→@click.option("--format", type=click.Choice(["json", "yaml"]))  # New flag
+   106→@click.option("--cache-dir", help="Cache directory")  # New flag
+   107→```
+   108→
+   109→```typescript
+   110→// TypeScript CLI - changes requiring specification updates
+   111→program
+   112→  .option("--format <type>", "output format", "json")  // New flag
+   113→  .option("--cache-dir <path>", "cache directory");  // New flag
+   114→```
+   115→
+   116→In API applications, watch for new routes, changed endpoints, or modified schemas:
+   117→```python
+   118→# Flask/FastAPI - changes requiring specification updates
+   119→@app.post("/api/users")  # New endpoint
+   120→def create_user(user: UserCreate):  # New schema
+   121→```
+   122→
+   123→```typescript
+   124→// Express/Fastify - changes requiring specification updates
+   125→app.post("/api/users", handler);  // New endpoint
+   126→interface UserCreate { ... }  // New schema
+   127→```
+   128→
+   129→## Common Specification Documents
+   130→
+   131→Recognize these specification patterns across projects:
+   132→
+   133→**Configuration Specifications** document config file options. Common files: `Config-Spec.md`, `Configuration.md`, `Settings-Reference.md`. Updated when configuration schemas, defaults, or loading logic changes.
+   134→
+   135→**Environment Variable Specifications** document environment variables affecting behavior. Common files: `Environment-Variables-Spec.md`, `Environment.md`, `Env-Vars.md`. Updated when code reads new environment variables or changes variable interpretation.
+   136→
+   137→**CLI Command Specifications** document command-line interfaces. Common files: `CLI-Commands-Spec.md`, `CLI-Reference.md`, `Command-Line-Interface.md`. Updated when CLI parsers define new flags or modify command behavior.
+   138→
+   139→**API Specifications** document HTTP endpoints. Common files: `API-Spec.md`, `API-Reference.md`, `Endpoints.md`. Updated when routes change or request/response schemas modify.
+   140→
+   141→Projects may maintain additional specifications for database schemas, event formats, plugin interfaces, or data structures. Apply the same synchronization principles.
+   142→
+   143→## Specification Update Process
+   144→
+   145→### 1. Identify Affected Specifications
+   146→
+   147→Before implementing code changes, determine which specifications will require updates. Ask:
+   148→
+   149→- Am I modifying configuration schema or defaults? → Configuration specification
+   150→- Am I adding environment variable reads? → Environment variable specification
+   151→- Am I adding or changing CLI flags? → CLI specification
+   152→- Am I adding or modifying API endpoints? → API specification
+   153→
+   154→Multiple specifications may require updates for a single feature. A configuration option often has a corresponding CLI flag and environment variable override—all three specifications need updates.
+   155→
+   156→### 2. Implement Code Changes
+   157→
+   158→Complete the workscope tasks. Track:
+   159→- New configuration options and their defaults
+   160→- New environment variables and their purposes
+   161→- New CLI flags or API endpoints and their behaviors
+   162→- Removed or renamed options
+   163→
+   164→### 3. Update Specifications
+   165→
+   166→For each affected specification:
+   167→
+   168→**Read the specification** to understand its structure and formatting. Match existing patterns.
+   169→
+   170→**Locate the appropriate section** for your change. Configuration options are typically grouped by category. Environment variables by purpose. CLI flags by command.
+   171→
+   172→**Add, modify, or remove documentation** matching your code changes. Use consistent formatting with existing entries.
+   173→
+   174→**Include concrete examples** showing actual usage. Examples should be executable code snippets or command-line invocations that users can copy.
+   175→
+   176→**Update cross-references** if option names changed. Configuration options referenced from environment variable sections need consistency.
+   177→
+   178→
+   179→
+   180→### 4. Verify Synchronization
+   181→
+   182→After updating code and specifications, verify accuracy:
+   183→
+   184→**Manual verification**:
+   185→- Review each documented feature against implementation
+   186→- Test that examples actually work
+   187→- Confirm all new features are documented
+   188→- Verify removed features are removed from specifications
+   189→
+   190→**Automated verification** (if project implements drift detection):
+   191→- Run the project's specification drift audit tool
+   192→- Address any reported missing documentation (code exists, spec doesn't)
+   193→- Address any reported dead documentation (spec exists, code doesn't)
+   194→- Re-run until verification passes
+   195→
+   196→Some projects implement automated drift detection scripts that parse specifications and code to identify discrepancies. These tools report missing documentation and dead documentation systematically. If available, use them. If not, rely on careful manual review.
+   197→
+   198→## Language-Specific Documentation Patterns
+   199→
+   200→### Python Projects
+   201→
+   202→Configuration options typically use snake_case and are often nested dictionaries:
+   203→
+   204→```markdown
+   205→### cache.max_size
+   206→
+   207→**Type**: `int`
+   208→**Default**: `1000`
+   209→
+   210→Maximum entries in cache. Oldest entries evicted when limit reached.
+   211→
+   212→**Example**:
+   213→```python
+   214→config = {
+   215→    "cache": {
+   216→        "max_size": 500
+   217→    }
+   218→}
+   219→```
+   220→```
+   221→
+   222→Environment variables follow uppercase snake_case conventions:
+   223→```markdown
+   224→### APP_CACHE_DIR
+   225→
+   226→**Type**: String (filesystem path)
+   227→**Default**: `/tmp/cache`
+   228→
+   229→Directory for cache files. Must have write permissions.
+   230→
+   231→**Example**:
+   232→```bash
+   233→export APP_CACHE_DIR=/var/app/cache
+   234→```
+   235→```
+   236→
+   237→### TypeScript Projects
+   238→
+   239→Configuration options typically use camelCase and are interface-typed:
+   240→
+   241→```markdown
+   242→### cache.maxSize
+   243→
+   244→**Type**: `number`
+   245→**Default**: `1000`
+   246→
+   247→Maximum entries in cache. Oldest entries evicted when limit reached.
+   248→
+   249→**Example**:
+   250→```typescript
+   251→const config = {
+   252→  cache: {
+   253→    maxSize: 500
+   254→  }
+   255→};
+   256→```
+   257→```
+   258→
+   259→Environment variables follow the same uppercase patterns as Python:
+   260→```markdown
+   261→### APP_CACHE_DIR
+   262→
+   263→**Type**: String (filesystem path)
+   264→**Default**: `/tmp/cache`
+   265→
+   266→Directory for cache files. Must have write permissions.
+   267→
+   268→**Example**:
+   269→```bash
+   270→export APP_CACHE_DIR=/var/app/cache
+   271→```
+   272→```
+   273→
+   274→Use language-appropriate naming conventions in examples while maintaining universal documentation structure.
+   275→
+   276→## Integration with Development Workflow
+   277→
+   278→### During Planning
+   279→
+   280→When assigned a workscope, identify specification update requirements:
+   281→- Review tasks for configuration, environment, or interface changes
+   282→- Note which specifications need updates
+   283→- Include specification updates in execution plan
+   284→
+   285→### During Execution
+   286→
+   287→Implement code first to understand exact behavior, then update specifications immediately. Maintain synchronization as you work rather than batch updates at the end.
+   288→
+   289→### Before Completion
+   290→
+   291→Verify all specifications are synchronized:
+   292→- Check that every code change has corresponding documentation
+   293→- Run drift detection if available
+   294→- Document specification updates in Work Journal
+   295→
+   296→Workscopes involving code changes are incomplete until specifications are updated. Documentation-Steward agents may review specification synchronization during quality assurance.
+   297→
+   298→## Definition of Done
+   299→
+   300→A workscope with code changes is complete only when:
+   301→
+   302→1. Code changes are implemented and tested
+   303→2. All affected specifications are updated
+   304→3. Specifications accurately describe implementation
+   305→4. Drift verification passes (manual or automated)
+   306→5. Work Journal documents specification changes
+   307→
+   308→Attempting to complete a workscope without specification updates violates Agent Rule 3.11 and will result in workscope rejection.
+   309→
+   310→## Common Pitfalls
+   311→
+   312→### Forgetting Specifications Exist
+   313→
+   314→Agents implement features but forget specification documents need updates.
+   315→
+   316→**Solution**: Review specification requirements during workscope planning. Include specification tasks in execution plan before beginning implementation.
+   317→
+   318→### Partial Updates
+   319→
+   320→Agents update one specification but miss related specifications. Adding a configuration option controlled by a CLI flag requires updating both configuration and CLI specifications.
+   321→
+   322→**Solution**: Map features to all affected specifications. Configuration options often have CLI flag overrides and environment variable overrides. Update all three.
+   323→
+   324→### Migration Notes in Specifications
+   325→
+   326→**Solution**: Write specifications as if features always worked the current way. No migration notes, no old behavior references. For pre-release projects, the new design is the only design.
+   327→
+   328→### Drift After Updates
+   329→
+   330→Specifications updated but drift detection still reports issues.
+   331→
+   332→**Solution**: Verify exact names match between spec and code. Check for typos. Ensure code actually uses documented features. Confirm specification formatting matches project patterns.
+   333→
+   334→### Mismatched Structure
+   335→
+   336→Specifications organized differently from code makes alignment difficult.
+   337→
+   338→**Solution**: Mirror code organization in specifications where practical. Group related configuration options as they appear in code. Cross-reference between specifications when features span multiple specs.
+   339→
+   340→## Examples
+   341→
+   342→### Example: Adding Configuration Option
+   343→
+   344→**Task**: Add automatic cache cleanup option.
+   345→
+   346→**Code (Python)**:
+   347→```python
+   348→def get_default_config():
+   349→    return {
+   350→        "cache": {
+   351→            "max_size": 1000,
+   352→            "auto_clean": True  # NEW
+   353→        }
+   354→    }
+   355→
+   356→# In cache implementation
+   357→if config["cache"]["auto_clean"]:
+   358→    self._clean_expired()
+   359→```
+   360→
+   361→**Code (TypeScript)**:
+   362→```typescript
+   363→const defaultConfig = {
+   364→  cache: {
+   365→    maxSize: 1000,
+   366→    autoClean: true  // NEW
+   367→  }
+   368→};
+   369→
+   370→// In cache implementation
+   371→if (config.cache.autoClean) {
+   372→  this.cleanExpired();
+   373→}
+   374→```
+   375→
+   376→**Specification Update**:
+   377→```markdown
+   378→### cache.auto_clean / cache.autoClean
+   379→
+   380→**Type**: Boolean
+   381→**Default**: `true`
+   382→
+   383→Enable automatic cleanup of expired cache entries. When enabled, cache removes expired entries during read operations. When disabled, expired entries remain until manual cleanup.
+   384→
+   385→**Example**:
+   386→```python
+   387→config = {"cache": {"auto_clean": False}}
+   388→```
+   389→
+   390→```typescript
+   391→const config = {cache: {autoClean: false}};
+   392→```
+   393→```
+   394→
+   395→### Example: Adding Environment Variable
+   396→
+   397→**Task**: Allow cache directory override via environment.
+   398→
+   399→**Code (Python)**:
+   400→```python
+   401→cache_dir = os.getenv("APP_CACHE_DIR", "/tmp/cache")
+   402→```
+   403→
+   404→**Code (TypeScript)**:
+   405→```typescript
+   406→const cacheDir = process.env.APP_CACHE_DIR ?? "/tmp/cache";
+   407→```
+   408→
+   409→**Specification Update**:
+   410→```markdown
+   411→### APP_CACHE_DIR
+   412→
+   413→**Type**: String (filesystem path)
+   414→**Default**: `/tmp/cache`
+   415→
+   416→Override cache directory location. Must be writable directory. Application creates directory if it doesn't exist.
+   417→
+   418→**Example**:
+   419→```bash
+   420→export APP_CACHE_DIR=/var/app/cache
+   421→```
+   422→
+   423→**Precedence**: Overrides cache directory from configuration files.
+   424→```
+   425→
+   426→### Example: Removing Feature
+   427→
+   428→**Task**: Remove deprecated legacy mode flag.
+   429→
+   430→**Code Changes**: Delete flag from parser, remove checks from code.
+   431→
+   432→**Specification Update**: Remove entire section documenting the flag.
+   433→
+   434→**Verification**: Confirm no code references remain. Confirm specification no longer mentions removed feature. Run drift detection to verify no dead documentation.
+   435→
+   436→## Related Standards
+   437→
+   438→- Agent Rule 3.11 mandates specification updates with code changes
+   439→- Coding Standards require documentation for all public interfaces
+   440→- Test standards require specification accuracy verification
+   441→
+   442→---
+   443→
+   444→**Key Insight**: Specifications are sources of truth. Code implements what specifications describe. When code changes, specifications must change. Drift undermines trust in documentation and leads to user confusion, developer errors, and wasted time debugging discrepancies. Maintain synchronization systematically with every workscope.
+   445→
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>

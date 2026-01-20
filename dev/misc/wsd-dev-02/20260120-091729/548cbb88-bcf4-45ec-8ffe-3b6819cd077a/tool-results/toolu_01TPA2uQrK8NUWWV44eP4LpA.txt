@@ -1,0 +1,84 @@
+  3833→def detect_collisions(source_dir: Path, target_dir: Path) -> tuple[list[str], list[str]]:
+  3834→    """Detect file collisions with hash-based categorization.
+  3835→
+  3836→    Implements hash-based collision detection from Content-Hashing-Overview.md § Hash
+  3837→    Comparison for Installation. Scans source directory for all files (excluding
+  3838→    installation_only files), and categorizes path collisions as either true collisions
+  3839→    (different content) or false positives (identical content).
+  3840→
+  3841→    Special cases handled:
+  3842→    - .wsd file presence indicates update scenario (not a collision)
+  3843→    - installation_only files excluded from collision check
+  3844→
+  3845→    Note: Directory structure requirements are handled separately via the
+  3846→    required_directories field in wsd.json, not through collision detection.
+  3847→
+  3848→    Args:
+  3849→        source_dir: Path to WSD Runtime root directory (contains wsd.json)
+  3850→        target_dir: Path to target installation directory to check for collisions
+  3851→
+  3852→    Returns:
+  3853→        tuple: (true_collisions, false_positives)
+  3854→            - true_collisions: Files with path AND content conflict
+  3855→            - false_positives: Files with matching content (safe to overwrite)
+  3856→
+  3857→    Raises:
+  3858→        FileNotFoundError: If source_dir or target_dir does not exist
+  3859→        ValueError: If wsd.json is missing or invalid in source_dir
+  3860→    """
+  3861→    if not source_dir.exists():
+  3862→        error_msg = f"Source directory does not exist: {source_dir}"
+  3863→        raise FileNotFoundError(error_msg)
+  3864→
+  3865→    if not target_dir.exists():
+  3866→        error_msg = f"Target directory does not exist: {target_dir}"
+  3867→        raise FileNotFoundError(error_msg)
+  3868→
+  3869→    # Read WSD metadata to get installation_only list and file_hashes
+  3870→    try:
+  3871→        metadata = read_wsd_metadata(source_dir)
+  3872→        installation_only = metadata.installation_only
+  3873→        installation_only_set = set(installation_only)
+  3874→        source_hashes = metadata.file_hashes
+  3875→    except (FileNotFoundError, ValueError) as e:
+  3876→        error_msg = f"Failed to read WSD metadata from {source_dir}: {e}"
+  3877→        raise ValueError(error_msg) from e
+  3878→
+  3879→    # Collect all source files and filter out installation_only files and .wsdkeep
+  3880→    # (.wsdkeep files are structural artifacts handled via required_directories)
+  3881→    all_source_files = collect_wsd_files(source_dir)
+  3882→    source_files = [
+  3883→        p for p in all_source_files if str(p) not in installation_only_set and p.name != ".wsdkeep"
+  3884→    ]
+  3885→
+  3886→    true_collisions: list[str] = []
+  3887→    false_positives: list[str] = []
+  3888→
+  3889→    # Check each source file against target directory
+  3890→    for source_file in source_files:
+  3891→        # Skip .wsd manifest file (indicates update scenario, not collision)
+  3892→        if source_file.name == ".wsd":
+  3893→            continue
+  3894→
+  3895→        # Check if file exists in target directory
+  3896→        target_file = target_dir / source_file
+  3897→        if target_file.exists():
+  3898→            # Path collision detected - check content hash
+  3899→            relative_path_str = str(source_file)
+  3900→            source_hash = source_hashes.get(relative_path_str)
+  3901→
+  3902→            if source_hash is None:
+  3903→                # Missing hash indicates manifest out of sync
+  3904→                error_msg = (
+  3905→                    f"Missing hash for '{relative_path_str}' in wsd.json manifest. "
+  3906→                    "The manifest may be out of sync with source files. "
+  3907→                    "Regenerate wsd.json with pre_staging.py."
+  3908→                )
+  3909→                raise ValueError(error_msg)
+  3910→
+  3911→            # Calculate target file hash
+  3912→            try:
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>

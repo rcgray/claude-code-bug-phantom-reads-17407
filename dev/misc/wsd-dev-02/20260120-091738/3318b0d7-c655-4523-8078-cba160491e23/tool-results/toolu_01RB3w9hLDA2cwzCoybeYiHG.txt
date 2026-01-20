@@ -1,0 +1,4 @@
+2080:def categorize_update_files(
+3833:def detect_collisions(source_dir: Path, target_dir: Path) -> tuple[list[str], list[str]]:
+4059:def calculate_required_disk_space(source_dir: Path, installation_only: list[str]) -> int:
+4241:def install_files(source_dir: Path, target_dir: Path, force: bool = False) -> list[str]:  # noqa: PLR0912, PLR0915

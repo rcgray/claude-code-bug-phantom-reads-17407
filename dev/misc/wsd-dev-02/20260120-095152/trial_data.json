@@ -1,0 +1,410 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-01-20T10:39:36.608410",
+  "metadata": {
+    "workscope_id": "20260120-095152",
+    "session_uuid": "8cbb3e89-6e98-47ee-aad0-3f9caa5d17e5",
+    "chat_export_file": "20260120-095152.txt",
+    "session_file": "8cbb3e89-6e98-47ee-aad0-3f9caa5d17e5.jsonl",
+    "has_subagents": true,
+    "has_tool_results": false
+  },
+  "outcome": {
+    "self_reported": "FAILURE",
+    "affected_files": [
+      "dev/scripts/stage_release.py",
+      "docs/core/Design-Decisions.md",
+      "tests/test_build_package.py",
+      "-462d-b678-fbe7f191f42f/tool-results/toolu_019Nqx8qLWvdFSjvMsy5xFkM.txt",
+      "docs/core/PRD.md",
+      "0120-095152.md",
+      "w.md",
+      "pre_staging.py",
+      "ards.md",
+      "ariables-Standards.md"
+    ],
+    "notes": ""
+  },
+  "context_metrics": {
+    "pre_operation_tokens": 17387,
+    "pre_operation_percent": 8.7,
+    "post_operation_tokens": 21739,
+    "post_operation_percent": 10.9,
+    "headroom_at_trigger": 182613,
+    "context_window_size": 200000
+  },
+  "reset_analysis": {
+    "total_resets": 2,
+    "reset_positions_percent": [
+      37.2,
+      97.7
+    ],
+    "pattern_classification": "EARLY_PLUS_LATE",
+    "resets": [
+      {
+        "sequence_position": 16,
+        "from_tokens": 81965,
+        "to_tokens": 21739,
+        "session_line": 58,
+        "total_events": 43,
+        "position_percent": 37.2
+      },
+      {
+        "sequence_position": 42,
+        "from_tokens": 143192,
+        "to_tokens": 21739,
+        "session_line": 109,
+        "total_events": 43,
+        "position_percent": 97.7
+      }
+    ]
+  },
+  "file_reads": {
+    "total_operations": 14,
+    "unique_files": 9,
+    "reads": [
+      {
+        "sequence": 1,
+        "batch_id": 1,
+        "file_path": "/Users/gray/Projects/claude-bug/dev/journal/archive/Journal-Workscope-20260120-095152.md",
+        "session_line": 34,
+        "tool_use_id": "toolu_01SXkGaWsH7QXaq7reDKnq6A"
+      },
+      {
+        "sequence": 2,
+        "batch_id": 2,
+        "file_path": "/Users/gray/Projects/claude-bug/dev/journal/archive/Journal-Workscope-20260120-095152.md",
+        "session_line": 43,
+        "tool_use_id": "toolu_01JMCQDAaipFbzUHnKQrm2hj"
+      },
+      {
+        "sequence": 3,
+        "batch_id": 3,
+        "file_path": "/Users/gray/Projects/claude-bug/docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md",
+        "session_line": 59,
+        "tool_use_id": "toolu_01VHzsqbjZgz1wmUePsooAUK"
+      },
+      {
+        "sequence": 4,
+        "batch_id": 4,
+        "file_path": "/Users/gray/Projects/claude-bug/dev/scripts/stage_release.py",
+        "session_line": 62,
+        "tool_use_id": "toolu_015gRod4jxjHLxErB4pyw24t"
+      },
+      {
+        "sequence": 5,
+        "batch_id": 5,
+        "file_path": "/Users/gray/Projects/claude-bug/dev/scripts/build_package.py",
+        "session_line": 64,
+        "tool_use_id": "toolu_01PbP1ihTcEzeNYKcUJwVv7e"
+      },
+      {
+        "sequence": 6,
+        "batch_id": 6,
+        "file_path": "/Users/gray/Projects/claude-bug/source/wsd.py",
+        "session_line": 68,
+        "tool_use_id": "toolu_01WchqPArAEusBJUEctdMSaS"
+      },
+      {
+        "sequence": 7,
+        "batch_id": 7,
+        "file_path": "/Users/gray/Projects/claude-bug/source/wsd.py",
+        "session_line": 70,
+        "tool_use_id": "toolu_01TXC1BTvbjAWgCaes5DLTxW"
+      },
+      {
+        "sequence": 8,
+        "batch_id": 8,
+        "file_path": "/Users/gray/Projects/claude-bug/source/wsd.py",
+        "session_line": 72,
+        "tool_use_id": "toolu_01D9738jYiTpScJN8yGA4eH4"
+      },
+      {
+        "sequence": 9,
+        "batch_id": 9,
+        "file_path": "/Users/gray/Projects/claude-bug/source/wsd.py",
+        "session_line": 74,
+        "tool_use_id": "toolu_011Qi5Go5qzPuLsguLZEbgMr"
+      },
+      {
+        "sequence": 10,
+        "batch_id": 10,
+        "file_path": "/Users/gray/Projects/claude-bug/docs/features/stage-release-script/Stage-Release-Script-Overview.md",
+        "session_line": 77,
+        "tool_use_id": "toolu_01EReWckC3yW5P6D4EYHsVPe"
+      },
+      {
+        "sequence": 11,
+        "batch_id": 11,
+        "file_path": "/Users/gray/Projects/claude-bug/docs/core/WSD-Runtime-Metadata-Schema.md",
+        "session_line": 80,
+        "tool_use_id": "toolu_01JisLvQTDa12FZ3nEj4DVDz"
+      },
+      {
+        "sequence": 12,
+        "batch_id": 12,
+        "file_path": "/Users/gray/Projects/claude-bug/docs/features/pre-staging-script/Pre-Staging-Script-Overview.md",
+        "session_line": 83,
+        "tool_use_id": "toolu_017nQ15Bsm78h9kKDhizvksU"
+      },
+      {
+        "sequence": 13,
+        "batch_id": 13,
+        "file_path": "/Users/gray/Projects/claude-bug/source/scripts/wsd_utils.py",
+        "session_line": 88,
+        "tool_use_id": "toolu_01XCQwbNgDhs1ekQr3PHMocV"
+      },
+      {
+        "sequence": 14,
+        "batch_id": 14,
+        "file_path": "/Users/gray/Projects/claude-bug/dev/journal/archive/Journal-Workscope-20260120-095152.md",
+        "session_line": 96,
+        "tool_use_id": "toolu_018S5pZTytNmLDcCkLNYfmpo"
+      }
+    ],
+    "unique_file_list": [
+      "/Users/gray/Projects/claude-bug/dev/scripts/stage_release.py",
+      "/Users/gray/Projects/claude-bug/docs/features/pre-staging-script/Pre-Staging-Script-Overview.md",
+      "/Users/gray/Projects/claude-bug/dev/scripts/build_package.py",
+      "/Users/gray/Projects/claude-bug/docs/features/stage-release-script/Stage-Release-Script-Overview.md",
+      "/Users/gray/Projects/claude-bug/dev/journal/archive/Journal-Workscope-20260120-095152.md",
+      "/Users/gray/Projects/claude-bug/source/scripts/wsd_utils.py",
+      "/Users/gray/Projects/claude-bug/source/wsd.py",
+      "/Users/gray/Projects/claude-bug/docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md",
+      "/Users/gray/Projects/claude-bug/docs/core/WSD-Runtime-Metadata-Schema.md"
+    ]
+  },
+  "timeline": [
+    {
+      "sequence": 1,
+      "type": "context_reset",
+      "session_line": 58,
+      "from_tokens": 81965,
+      "to_tokens": 21739
+    },
+    {
+      "sequence": 2,
+      "type": "context_reset",
+      "session_line": 109,
+      "from_tokens": 143192,
+      "to_tokens": 21739
+    }
+  ],
+  "token_progression": [
+    {
+      "sequence": 1,
+      "cache_read_tokens": 17387,
+      "session_line": 12
+    },
+    {
+      "sequence": 2,
+      "cache_read_tokens": 17387,
+      "session_line": 14
+    },
+    {
+      "sequence": 3,
+      "cache_read_tokens": 33620,
+      "session_line": 21
+    },
+    {
+      "sequence": 4,
+      "cache_read_tokens": 33620,
+      "session_line": 23
+    },
+    {
+      "sequence": 5,
+      "cache_read_tokens": 78145,
+      "session_line": 28
+    },
+    {
+      "sequence": 6,
+      "cache_read_tokens": 78145,
+      "session_line": 29
+    },
+    {
+      "sequence": 7,
+      "cache_read_tokens": 78308,
+      "session_line": 33
+    },
+    {
+      "sequence": 8,
+      "cache_read_tokens": 78308,
+      "session_line": 34
+    },
+    {
+      "sequence": 9,
+      "cache_read_tokens": 78542,
+      "session_line": 36
+    },
+    {
+      "sequence": 10,
+      "cache_read_tokens": 78542,
+      "session_line": 37
+    },
+    {
+      "sequence": 11,
+      "cache_read_tokens": 78777,
+      "session_line": 40
+    },
+    {
+      "sequence": 12,
+      "cache_read_tokens": 79490,
+      "session_line": 42
+    },
+    {
+      "sequence": 13,
+      "cache_read_tokens": 79490,
+      "session_line": 43
+    },
+    {
+      "sequence": 14,
+      "cache_read_tokens": 81721,
+      "session_line": 46
+    },
+    {
+      "sequence": 15,
+      "cache_read_tokens": 81965,
+      "session_line": 48
+    },
+    {
+      "sequence": 16,
+      "cache_read_tokens": 21739,
+      "session_line": 58
+    },
+    {
+      "sequence": 17,
+      "cache_read_tokens": 21739,
+      "session_line": 59
+    },
+    {
+      "sequence": 18,
+      "cache_read_tokens": 87110,
+      "session_line": 61
+    },
+    {
+      "sequence": 19,
+      "cache_read_tokens": 87110,
+      "session_line": 62
+    },
+    {
+      "sequence": 20,
+      "cache_read_tokens": 94403,
+      "session_line": 64
+    },
+    {
+      "sequence": 21,
+      "cache_read_tokens": 102140,
+      "session_line": 66
+    },
+    {
+      "sequence": 22,
+      "cache_read_tokens": 114734,
+      "session_line": 68
+    },
+    {
+      "sequence": 23,
+      "cache_read_tokens": 115046,
+      "session_line": 70
+    },
+    {
+      "sequence": 24,
+      "cache_read_tokens": 116693,
+      "session_line": 72
+    },
+    {
+      "sequence": 25,
+      "cache_read_tokens": 118232,
+      "session_line": 74
+    },
+    {
+      "sequence": 26,
+      "cache_read_tokens": 120646,
+      "session_line": 76
+    },
+    {
+      "sequence": 27,
+      "cache_read_tokens": 120646,
+      "session_line": 77
+    },
+    {
+      "sequence": 28,
+      "cache_read_tokens": 122467,
+      "session_line": 79
+    },
+    {
+      "sequence": 29,
+      "cache_read_tokens": 122467,
+      "session_line": 80
+    },
+    {
+      "sequence": 30,
+      "cache_read_tokens": 132080,
+      "session_line": 82
+    },
+    {
+      "sequence": 31,
+      "cache_read_tokens": 132080,
+      "session_line": 83
+    },
+    {
+      "sequence": 32,
+      "cache_read_tokens": 137595,
+      "session_line": 85
+    },
+    {
+      "sequence": 33,
+      "cache_read_tokens": 137595,
+      "session_line": 86
+    },
+    {
+      "sequence": 34,
+      "cache_read_tokens": 140107,
+      "session_line": 88
+    },
+    {
+      "sequence": 35,
+      "cache_read_tokens": 140294,
+      "session_line": 90
+    },
+    {
+      "sequence": 36,
+      "cache_read_tokens": 140294,
+      "session_line": 91
+    },
+    {
+      "sequence": 37,
+      "cache_read_tokens": 141805,
+      "session_line": 93
+    },
+    {
+      "sequence": 38,
+      "cache_read_tokens": 141921,
+      "session_line": 95
+    },
+    {
+      "sequence": 39,
+      "cache_read_tokens": 141921,
+      "session_line": 96
+    },
+    {
+      "sequence": 40,
+      "cache_read_tokens": 142034,
+      "session_line": 98
+    },
+    {
+      "sequence": 41,
+      "cache_read_tokens": 143192,
+      "session_line": 100
+    },
+    {
+      "sequence": 42,
+      "cache_read_tokens": 21739,
+      "session_line": 109
+    },
+    {
+      "sequence": 43,
+      "cache_read_tokens": 21739,
+      "session_line": 110
+    }
+  ]
+}

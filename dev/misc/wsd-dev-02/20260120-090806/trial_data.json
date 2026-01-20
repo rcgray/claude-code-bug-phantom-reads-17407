@@ -1,0 +1,481 @@
+{
+  "schema_version": "1.0",
+  "generated_at": "2026-01-20T10:15:00.000Z",
+  "metadata": {
+    "workscope_id": "20260120-090806",
+    "session_uuid": "a07d1405-600d-42be-9ada-6b787e741cbb",
+    "chat_export_file": "20260120-090806.txt",
+    "session_file": "a07d1405-600d-42be-9ada-6b787e741cbb.jsonl",
+    "has_subagents": true,
+    "has_tool_results": true
+  },
+  "outcome": {
+    "self_reported": "FAILURE",
+    "affected_files": [
+      "docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md",
+      "docs/features/pre-staging-script/Pre-Staging-Script-Overview.md",
+      "docs/core/WSD-Runtime-Metadata-Schema.md"
+    ],
+    "notes": "Agent confirmed phantom reads. First read of Manifest-Driven-Pipeline-Overview.md returned persisted-output, but agent did later re-read it. Pre-Staging-Script-Overview.md and WSD-Runtime-Metadata-Schema.md were NEVER read despite claims in Work Journal."
+  },
+  "context_metrics": {
+    "pre_operation_tokens": 85000,
+    "pre_operation_percent": 42,
+    "post_operation_tokens": 147000,
+    "post_operation_percent": 73,
+    "headroom_at_trigger": 115000,
+    "context_window_size": 200000
+  },
+  "reset_analysis": {
+    "total_resets": 3,
+    "reset_positions_percent": [28.3, 73.9, 95.7],
+    "pattern_classification": "EARLY_PLUS_MID_LATE",
+    "resets": [
+      {
+        "sequence_position": 13,
+        "total_events": 46,
+        "position_percent": 28.3,
+        "from_tokens": 82355,
+        "to_tokens": 33336,
+        "session_line": 37
+      },
+      {
+        "sequence_position": 34,
+        "total_events": 46,
+        "position_percent": 73.9,
+        "from_tokens": 143870,
+        "to_tokens": 21262,
+        "session_line": 74
+      },
+      {
+        "sequence_position": 44,
+        "total_events": 46,
+        "position_percent": 95.7,
+        "from_tokens": 143168,
+        "to_tokens": 21262,
+        "session_line": 98
+      }
+    ]
+  },
+  "file_reads": {
+    "total_operations": 18,
+    "unique_files": 12,
+    "reads": [
+      {
+        "sequence": 1,
+        "batch_id": 1,
+        "file_path": "/Users/gray/Projects/claude-bug/dev/journal/archive/Journal-Workscope-20260120-090806.md",
+        "session_line": 15,
+        "tool_use_id": "toolu_016ZaRLdhm19w3abo6FU2dar"
+      },
+      {
+        "sequence": 2,
+        "batch_id": 2,
+        "file_path": "/Users/gray/Projects/claude-bug/docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md",
+        "session_line": 38,
+        "tool_use_id": "toolu_01Y2pdRrSBHCE9LSjcJa3zEV"
+      },
+      {
+        "sequence": 3,
+        "batch_id": 3,
+        "file_path": "/Users/gray/Projects/claude-bug/docs/features/pre-staging-script/Pre-Staging-Script-Overview.md",
+        "session_line": 40,
+        "tool_use_id": "toolu_01HhjKrFWnPhgoSjGsTJxYk6"
+      },
+      {
+        "sequence": 4,
+        "batch_id": 3,
+        "file_path": "/Users/gray/Projects/claude-bug/docs/core/WSD-Runtime-Metadata-Schema.md",
+        "session_line": 40,
+        "tool_use_id": "toolu_01XYjQcoZ6mLDUhD4o2u4z5V"
+      },
+      {
+        "sequence": 5,
+        "batch_id": 3,
+        "file_path": "/Users/gray/Projects/claude-bug/dev/scripts/stage_release.py",
+        "session_line": 40,
+        "tool_use_id": "toolu_01JaCzjWhS3WkBpmNBQa9EgR"
+      },
+      {
+        "sequence": 6,
+        "batch_id": 4,
+        "file_path": "/Users/gray/Projects/claude-bug/dev/scripts/build_package.py",
+        "session_line": 45,
+        "tool_use_id": "toolu_01474r4bew7CLxhX2kyCxxHp"
+      },
+      {
+        "sequence": 7,
+        "batch_id": 5,
+        "file_path": "/Users/gray/Projects/claude-bug/source/wsd.py",
+        "session_line": 46,
+        "tool_use_id": "toolu_01SfyYMd2bdrAP5pEXsi5etD"
+      },
+      {
+        "sequence": 8,
+        "batch_id": 6,
+        "file_path": "/Users/gray/Projects/claude-bug/source/wsd.py",
+        "session_line": 55,
+        "tool_use_id": "toolu_01XBnKNhtEeS5VPoS2wivzdM"
+      },
+      {
+        "sequence": 9,
+        "batch_id": 7,
+        "file_path": "/Users/gray/Projects/claude-bug/source/wsd.py",
+        "session_line": 56,
+        "tool_use_id": "toolu_01NrA6NebxwSgwTo1r8J3o2N"
+      },
+      {
+        "sequence": 10,
+        "batch_id": 8,
+        "file_path": "/Users/gray/Projects/claude-bug/source/wsd.py",
+        "session_line": 57,
+        "tool_use_id": "toolu_018FmHxLQwWyV2pVJsWgCRTN"
+      },
+      {
+        "sequence": 11,
+        "batch_id": 9,
+        "file_path": "/Users/gray/Projects/claude-bug/source/wsd.py",
+        "session_line": 61,
+        "tool_use_id": "toolu_01SnztZaqJp9is1xVcPFG3s2"
+      },
+      {
+        "sequence": 12,
+        "batch_id": 10,
+        "file_path": "/Users/gray/Projects/claude-bug/docs/features/install-and-update/Installation-System.md",
+        "session_line": 64,
+        "tool_use_id": "toolu_013MEvnNqaWMm9vshg2TsMU4"
+      },
+      {
+        "sequence": 13,
+        "batch_id": 11,
+        "file_path": "/Users/gray/Projects/claude-bug/docs/features/install-and-update/Update-System.md",
+        "session_line": 65,
+        "tool_use_id": "toolu_01Az2jduwaxsj8tWUsiJiAib"
+      },
+      {
+        "sequence": 14,
+        "batch_id": 12,
+        "file_path": "/Users/gray/Projects/claude-bug/docs/features/stage-release-script/Stage-Release-Script-Overview.md",
+        "session_line": 69,
+        "tool_use_id": "toolu_014Y6WeMRYt8f3naACq1tMk9"
+      },
+      {
+        "sequence": 15,
+        "batch_id": 13,
+        "file_path": "/Users/gray/Projects/claude-bug/docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md",
+        "session_line": 72,
+        "tool_use_id": "toolu_01G9jTNKtVY8KmxSSWrXdxHa"
+      },
+      {
+        "sequence": 16,
+        "batch_id": 14,
+        "file_path": "/Users/gray/Projects/claude-bug/docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md",
+        "session_line": 75,
+        "tool_use_id": "toolu_01MH8g3eGXLD9AyeScBcYnsK"
+      },
+      {
+        "sequence": 17,
+        "batch_id": 15,
+        "file_path": "/Users/gray/Projects/claude-bug/source/scripts/wsd_utils.py",
+        "session_line": 79,
+        "tool_use_id": "toolu_01TgZSe7QDYGpPtwJL2KVjJz"
+      },
+      {
+        "sequence": 18,
+        "batch_id": 16,
+        "file_path": "/Users/gray/Projects/claude-bug/dev/journal/archive/Journal-Workscope-20260120-090806.md",
+        "session_line": 85,
+        "tool_use_id": "toolu_01F7tJtQCEqBfjCDcpHWTBe5"
+      }
+    ],
+    "unique_file_list": [
+      "/Users/gray/Projects/claude-bug/dev/journal/archive/Journal-Workscope-20260120-090806.md",
+      "/Users/gray/Projects/claude-bug/docs/features/manifest-driven-pipeline/Manifest-Driven-Pipeline-Overview.md",
+      "/Users/gray/Projects/claude-bug/docs/features/pre-staging-script/Pre-Staging-Script-Overview.md",
+      "/Users/gray/Projects/claude-bug/docs/core/WSD-Runtime-Metadata-Schema.md",
+      "/Users/gray/Projects/claude-bug/dev/scripts/stage_release.py",
+      "/Users/gray/Projects/claude-bug/dev/scripts/build_package.py",
+      "/Users/gray/Projects/claude-bug/source/wsd.py",
+      "/Users/gray/Projects/claude-bug/docs/features/install-and-update/Installation-System.md",
+      "/Users/gray/Projects/claude-bug/docs/features/install-and-update/Update-System.md",
+      "/Users/gray/Projects/claude-bug/docs/features/stage-release-script/Stage-Release-Script-Overview.md",
+      "/Users/gray/Projects/claude-bug/source/scripts/wsd_utils.py"
+    ]
+  },
+  "timeline": [
+    {
+      "sequence": 1,
+      "type": "user_input",
+      "session_line": 1,
+      "phase": "init",
+      "preview": "/wsd:init --custom"
+    },
+    {
+      "sequence": 2,
+      "type": "user_input",
+      "session_line": 29,
+      "phase": "trigger",
+      "preview": "/refine-plan"
+    },
+    {
+      "sequence": 3,
+      "type": "context_reset",
+      "session_line": 37,
+      "from_tokens": 82355,
+      "to_tokens": 33336
+    },
+    {
+      "sequence": 4,
+      "type": "context_reset",
+      "session_line": 74,
+      "from_tokens": 143870,
+      "to_tokens": 21262
+    },
+    {
+      "sequence": 5,
+      "type": "user_input",
+      "session_line": 90,
+      "phase": "inquiry",
+      "preview": "phantom read"
+    },
+    {
+      "sequence": 6,
+      "type": "context_reset",
+      "session_line": 98,
+      "from_tokens": 143168,
+      "to_tokens": 21262
+    }
+  ],
+  "token_progression": [
+    {
+      "sequence": 0,
+      "cache_read_tokens": 17102,
+      "session_line": 5
+    },
+    {
+      "sequence": 1,
+      "cache_read_tokens": 17102,
+      "session_line": 6
+    },
+    {
+      "sequence": 2,
+      "cache_read_tokens": 33143,
+      "session_line": 9
+    },
+    {
+      "sequence": 3,
+      "cache_read_tokens": 33143,
+      "session_line": 10
+    },
+    {
+      "sequence": 4,
+      "cache_read_tokens": 77612,
+      "session_line": 12
+    },
+    {
+      "sequence": 5,
+      "cache_read_tokens": 77612,
+      "session_line": 13
+    },
+    {
+      "sequence": 6,
+      "cache_read_tokens": 77756,
+      "session_line": 15
+    },
+    {
+      "sequence": 7,
+      "cache_read_tokens": 77978,
+      "session_line": 17
+    },
+    {
+      "sequence": 8,
+      "cache_read_tokens": 77978,
+      "session_line": 18
+    },
+    {
+      "sequence": 9,
+      "cache_read_tokens": 78202,
+      "session_line": 21
+    },
+    {
+      "sequence": 10,
+      "cache_read_tokens": 78810,
+      "session_line": 23
+    },
+    {
+      "sequence": 11,
+      "cache_read_tokens": 78810,
+      "session_line": 25
+    },
+    {
+      "sequence": 12,
+      "cache_read_tokens": 82355,
+      "session_line": 27
+    },
+    {
+      "sequence": 13,
+      "cache_read_tokens": 33336,
+      "session_line": 37
+    },
+    {
+      "sequence": 14,
+      "cache_read_tokens": 33336,
+      "session_line": 38
+    },
+    {
+      "sequence": 15,
+      "cache_read_tokens": 86191,
+      "session_line": 40
+    },
+    {
+      "sequence": 16,
+      "cache_read_tokens": 93494,
+      "session_line": 44
+    },
+    {
+      "sequence": 17,
+      "cache_read_tokens": 93494,
+      "session_line": 45
+    },
+    {
+      "sequence": 18,
+      "cache_read_tokens": 93494,
+      "session_line": 46
+    },
+    {
+      "sequence": 19,
+      "cache_read_tokens": 107161,
+      "session_line": 49
+    },
+    {
+      "sequence": 20,
+      "cache_read_tokens": 107161,
+      "session_line": 50
+    },
+    {
+      "sequence": 21,
+      "cache_read_tokens": 107161,
+      "session_line": 51
+    },
+    {
+      "sequence": 22,
+      "cache_read_tokens": 132832,
+      "session_line": 54
+    },
+    {
+      "sequence": 23,
+      "cache_read_tokens": 132832,
+      "session_line": 55
+    },
+    {
+      "sequence": 24,
+      "cache_read_tokens": 132832,
+      "session_line": 56
+    },
+    {
+      "sequence": 25,
+      "cache_read_tokens": 132832,
+      "session_line": 57
+    },
+    {
+      "sequence": 26,
+      "cache_read_tokens": 135834,
+      "session_line": 61
+    },
+    {
+      "sequence": 27,
+      "cache_read_tokens": 138545,
+      "session_line": 63
+    },
+    {
+      "sequence": 28,
+      "cache_read_tokens": 138545,
+      "session_line": 64
+    },
+    {
+      "sequence": 29,
+      "cache_read_tokens": 138545,
+      "session_line": 65
+    },
+    {
+      "sequence": 30,
+      "cache_read_tokens": 141861,
+      "session_line": 68
+    },
+    {
+      "sequence": 31,
+      "cache_read_tokens": 141861,
+      "session_line": 69
+    },
+    {
+      "sequence": 32,
+      "cache_read_tokens": 143870,
+      "session_line": 71
+    },
+    {
+      "sequence": 33,
+      "cache_read_tokens": 143870,
+      "session_line": 72
+    },
+    {
+      "sequence": 34,
+      "cache_read_tokens": 21262,
+      "session_line": 74
+    },
+    {
+      "sequence": 35,
+      "cache_read_tokens": 21262,
+      "session_line": 75
+    },
+    {
+      "sequence": 36,
+      "cache_read_tokens": 132286,
+      "session_line": 77
+    },
+    {
+      "sequence": 37,
+      "cache_read_tokens": 132286,
+      "session_line": 78
+    },
+    {
+      "sequence": 38,
+      "cache_read_tokens": 132286,
+      "session_line": 79
+    },
+    {
+      "sequence": 39,
+      "cache_read_tokens": 139560,
+      "session_line": 82
+    },
+    {
+      "sequence": 40,
+      "cache_read_tokens": 139560,
+      "session_line": 83
+    },
+    {
+      "sequence": 41,
+      "cache_read_tokens": 141512,
+      "session_line": 85
+    },
+    {
+      "sequence": 42,
+      "cache_read_tokens": 141950,
+      "session_line": 87
+    },
+    {
+      "sequence": 43,
+      "cache_read_tokens": 143168,
+      "session_line": 89
+    },
+    {
+      "sequence": 44,
+      "cache_read_tokens": 21262,
+      "session_line": 98
+    },
+    {
+      "sequence": 45,
+      "cache_read_tokens": 21262,
+      "session_line": 99
+    }
+  ]
+}
