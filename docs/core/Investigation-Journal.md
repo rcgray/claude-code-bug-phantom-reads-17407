@@ -565,4 +565,118 @@ Era 1 and Era 2 may represent different implementations of the same underlying b
 
 ---
 
-*Last updated: 2026-01-15*
+## 2026-01-16-17: CC Version Script Completed
+
+**Event**: Implemented and tested the CC Version Script (`src/cc_version.py`).
+
+### Purpose
+
+The CC Version Script automates the tedious manual process of managing Claude Code versions during phantom reads investigation trials. It replaces the multi-step npm commands and manual JSON editing documented in the experiment methodology with a single streamlined command interface.
+
+### Features Implemented
+
+- **`--disable-auto-update`** - Sets `env.DISABLE_AUTOUPDATER` to `"1"` in `~/.claude/settings.json`
+- **`--enable-auto-update`** - Removes the setting to restore auto-update behavior
+- **`--list`** - Lists available Claude Code versions from npm registry
+- **`--status`** - Shows auto-updater state, installed version, and latest available version
+- **`--install <version>`** - Installs a specific Claude Code version (validates against available versions)
+- **`--reset`** - Restores defaults (enable auto-update, install latest version)
+
+### Design Decisions
+
+- **Conservative error handling** - Any unexpected condition results in clear error message and exit
+- **Idempotent operations** - Enable/disable commands can be run multiple times safely
+- **Backup creation** - Creates timestamped backups before modifying settings.json
+- **Dependency injection** - All external dependencies (filesystem, subprocess, time) are injectable for testing
+
+### Testing
+
+Comprehensive test suite with 64 test cases covering:
+- Settings file manipulation and backup
+- Auto-update enable/disable with various initial states
+- Version querying and validation
+- Installation sequence orchestration
+- CLI argument parsing and mutual exclusivity
+- Integration workflows
+
+### Specification
+
+Full specification at `docs/features/cc-version-script/CC-Version-Script-Overview.md`.
+
+---
+
+## 2026-01-18: Collect Trials Script Completed
+
+**Event**: Implemented and tested the Collect Trials Script (`src/collect_trials.py`).
+
+### Purpose
+
+The Collect Trials Script automates the collection and organization of phantom read trial artifacts from Claude Code sessions. It eliminates the tedious manual process of gathering chat exports and session `.jsonl` files after running reproduction trials.
+
+### Features Implemented
+
+- **Automated artifact collection** - Locates and gathers all files associated with a trial (chat exports, session `.jsonl` files, subagent logs, tool results)
+- **Workscope-keyed organization** - Structures collected artifacts into directories named by Workscope ID (`YYYYMMDD-HHMMSS`)
+- **Session structure abstraction** - Transparently handles all Claude Code session storage structures (flat, hybrid, hierarchical)
+- **Idempotent batch processing** - Skips already-collected trials, removes processed exports
+
+### Session Storage Structures Handled
+
+The script correctly handles all observed session file organization patterns:
+
+1. **Flat Structure** (2.0.58, 2.0.59) - Agent files at root level, no subdirectory
+2. **Hybrid Structure** (2.0.60) - Agent files at root, subdirectory with tool-results/ only
+3. **Hierarchical Structure** (2.1.3, 2.1.6) - All content in subdirectory with subagents/ and tool-results/
+
+The unified collection algorithm handles all structures without needing to detect which type is present.
+
+### Collection Algorithm
+
+```
+1. Validate input directories exist
+2. Scan exports for Workscope IDs (pattern: Workscope ID:? Workscope-?YYYYMMDD-HHMMSS)
+3. Derive session directory from current working directory
+4. For each export: create trial directory, find session by Workscope ID, copy all files
+5. Delete source export only after successful collection
+6. Report summary with collected/skipped/failed counts
+```
+
+### Testing
+
+Comprehensive test suite with 40+ test cases covering:
+- Input validation and path encoding
+- Export scanning with both Workscope ID formats
+- Session file discovery and UUID extraction
+- Unified copy algorithm for all three structure types
+- Idempotency guarantees
+- Integration workflows with mixed structures
+
+### Specification
+
+Full specification at `docs/features/collect-trials-script/Collect-Trials-Script-Overview.md`.
+
+---
+
+## Investigation Tooling Status
+
+With the completion of these two scripts, the core investigation tooling for Phase 4 is now available:
+
+| Tool | Purpose | Status |
+|------|---------|--------|
+| `src/cc_version.py` | Manage Claude Code versions | ✅ Complete |
+| `src/collect_trials.py` | Collect trial artifacts | ✅ Complete |
+| Session Analysis Scripts | Detect phantom reads in collected sessions | 🔲 Pending |
+
+The analysis scripts (Phase 4.3) will build on the collected trial data to programmatically detect phantom read occurrences, removing reliance on agent self-reporting.
+
+---
+
+## Next Steps
+
+1. **Design and implement session analysis scripts** - Create tools to detect phantom reads in collected session data
+2. **Run sample experiments** - Execute trials as end-users would and evaluate analysis results
+3. **Update documentation** - Ensure Investigation-Journal, README, and Experiment-Methodology reflect latest findings and tools
+
+---
+
+*Last updated: 2026-01-19*

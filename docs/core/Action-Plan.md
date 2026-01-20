@@ -54,8 +54,8 @@ Collect-Trials-Script-Overview.md`)
 
 - [x] **4.1** - Create the `cc_version.py` script (see `docs/features/cc-version-script/CC-Version-Script-Overview.md`)
 - [x] **4.2** - Create the `collect_trials.py` script (see `docs/features/collect-trials-script/Collect-Trials-Script-Overview.md`)
-- [ ] **4.3** - Design and create analysis scripts feature
-- [ ] **4.4** - Run sample experiments as we would expect end-users to run them. Evaluate analysis scripts results.
+- [x] **4.3** - Design and create analysis scripts feature
+- [x] **4.4** - Run sample experiments as we would expect end-users to run them. Evaluate analysis scripts results.
 - [ ] **4.5** - Update Documentation
   - [ ] **4.5.1** - Ensure that `docs/core/Investigation-Journal.md` records the approach and results of our Analysis Scripts.
   - [ ] **4.5.2** - Update `README.md` to reflect our current understanding of the issue and include directions on end-users running their own tests AND new analysis tools
