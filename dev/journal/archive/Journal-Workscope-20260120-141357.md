@@ -190,3 +190,43 @@ The README was last significantly updated before the wsd-dev-02 collection analy
 
 **Files Modified**:
 - `README.md`
+
+---
+
+## Additional Task: PRD.md Update
+
+**Task**: Update PRD.md to reflect latest investigation progress.
+
+**Sections Updated**:
+
+### 1. Trigger Conditions (lines 112-132)
+✅ Replaced speculative trigger conditions with quantitative findings:
+   - Added Reset Timing pattern table (EARLY+LATE, SINGLE_LATE, MID-SESSION)
+   - Added 5 key findings from 22-trial analysis
+   - Retained contributing factors from original investigation
+
+### 2. Experiment Methodology (lines 134-175)
+✅ Restructured to show methodology evolution:
+   - Added reference to Experiment-Methodology-02.md
+   - Documented Phase 1 (self-report) and Phase 2 (controlled trial) approaches
+   - Added "Key Findings Evolution" showing original → revised → current understanding
+   - Added references to WSD-Dev-02-Analysis-*.md documents
+   - Updated Limitations section
+
+### 3. Architecture Overview / Repository Structure (lines 179-212)
+✅ Updated repository tree to reflect current state:
+   - Added WORKAROUND.md
+   - Added Experiment-Methodology-02.md
+   - Added WSD-Dev-02-Analysis-*.md documents
+   - Added dev/misc/wsd-dev-02/ trial collection directory
+   - Added file_token_counts.json
+   - Added update-trial-data.md command
+
+### 4. Future Direction (lines 255-279)
+✅ Restructured to reflect achieved vs. remaining goals:
+   - Added "Achieved Goals" section with 4 completed items
+   - Replaced "Potential Enhancements" with "Current Investigation Priorities"
+   - Kept "Out of Scope" section unchanged
+
+**Files Modified**:
+- `docs/core/PRD.md`

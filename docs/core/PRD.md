@@ -37,6 +37,8 @@ This repository provides:
 
 3. **Analysis Tools**: Python scripts that examine Claude Code session logs to programmatically detect phantom read occurrences, removing reliance on the AI's self-reporting.
 
+4. **Temporary Workaround**: A validated workaround using the MCP Filesystem server that bypasses Claude Code's native Read tool entirely, achieving 100% success rate in preventing phantom reads. This allows users to continue productive work while the underlying bug remains unfixed.
+
 ## Terms and Definitions
 
 In addition to the Terms and Definitions you learned as part of the Workscope-Dev system, this specific project has a few more:
@@ -47,6 +49,7 @@ In addition to the Terms and Definitions you learned as part of the Workscope-De
 - "Deferred Read": When the Session Agent received the contents of a file through some intermediary step, such as a reference to a persisted output or a text file created by a tool internal to the AI harness. Not all deferred reads are presumed to be phantom reads (i.e., it may be the case that the agent correctly followed up on the read after the intermediary message), but we suspect that deferred reads are the cause of phantom reads.
 - "Era 1": (mentioned above) Refers to sessions that took place in builds up to `2.0.59`, after which a key change occurred in how deferred reads were conducted by the Claude Code harness. For example, we have a pair of sessions in `dev/misc/example-sessions/` called `2.0.58-good` (success) and `2.0.58-bad` (phantom read) that were generated in that build.
 - "Era 2": (mentioned above) Refers to sessions that took place in builds `2.0.60` and later, where deferred reads are handled differently by the Claude Code harness. For example, we have a pair of sessions in `dev/misc/example-sessions/` called `2.1.6-good` (success) and `2.1.6-bad` (phantom read) that were generated in that build.
+- "Karpathy Script": An alternative to traditional programming (e.g., Python), where a repeatable, software operation is designed as an agent-interpretable instruction (possibly with associated traditional scripts). These are not perfectly deterministic as a traditional script would be, due to the stochastic elements of the LLM model, but they are faster to implement and particularly well-suited for complex tasks involving NLP.
 - "Flat Architecture": A session (`.jsonl` files) in which the core session file and the breakout agent session files are stored adjacent in a directory, with only their session IDs to link them. This is an older architecture that changed somewhere between build `2.0.60` and `2.1.3`.
 - "Hierarchical Architecture": A session (`.jsonl` files) in which the core session file is accompanied by a directory of the same name, which stores all of the breakout agent session files associated with that core session as well as any tool outputs. This is the newer (current) architecture that changed somewhere between build `2.0.60` and `2.1.3`.
 - "Hybrid Architecture": A session (`.jsonl` files) in which the core session file is accompanied by a directory of the same name AND breakout agent session files stored adjacent in the same directory. We have seen sessions in build `2.0.60` use this pattern.
@@ -111,23 +114,48 @@ The transition from Era 1 to Era 2 occurs at the 2.0.59/2.0.60 boundary, suggest
 
 ### Trigger Conditions
 
-Based on the original investigation, phantom reads appear more likely to occur when:
+Based on 22 controlled trials, we have identified **reset timing** as the dominant predictor of phantom reads:
 
-1. **Multi-file operations**: Commands that trigger reads across multiple files in a single conversation turn
-2. **Custom commands**: Execution context initiated via slash commands (e.g., `/refine-plan`)
-3. **Large file sets**: Operations involving numerous related documents
+| Pattern      | Description                                 | Outcome      |
+| ------------ | ------------------------------------------- | ------------ |
+| EARLY + LATE | First reset <50%, last >95%, no mid-session | 100% SUCCESS |
+| SINGLE_LATE  | Single reset >95%                           | 100% SUCCESS |
+| MID-SESSION  | Any reset between 50-90% of session         | 100% FAILURE |
 
-The exact conditions that determine whether a specific read becomes a phantom read remain under investigation.
+**Key findings:**
+
+1. **Reset timing is critical**: When context resets occur matters more than how many occur or total context consumed
+2. **Mid-session resets predict failure**: Any reset during active file processing (50-90% of session) predicts phantom reads with near-perfect accuracy
+3. **The "Clean Gap" pattern**: Successful sessions show early resets (before main work) and late resets (after work completes), with uninterrupted file reading in between
+4. **No fixed token threshold**: Resets occur at widely varying cumulative token counts (82K-383K), ruling out a simple threshold model
+5. **Accumulation rate matters**: Rapid batch reads without processing pauses appear to trigger mid-session resets more readily
+
+**Contributing factors** (from original investigation, still relevant):
+- Multi-file operations triggered by custom commands (e.g., `/refine-plan`)
+- Large file sets requiring numerous related document reads
 
 ## Experiment Methodology
 
-The original investigation followed a systematic protocol to test multiple Claude Code versions and identify version boundaries. The full methodology from the original investigation is preserved in:
+### Current Methodology
 
-**[Experiment-Methodology-01.md](Experiment-Methodology-01.md)** (historical document with addendum)
+The investigation has evolved through multiple methodology iterations:
 
-### Summary
+**[Experiment-Methodology-01.md](Experiment-Methodology-01.md)** - Original version-boundary testing (historical)
+**[Experiment-Methodology-02.md](Experiment-Methodology-02.md)** - Controlled trial protocol for systematic data collection
 
-The investigation used a self-report methodology: trigger multi-file read operations via `/wsd:init --custom` followed by `/refine-plan`, then prompt the agent to report whether any phantom reads occurred.
+### Methodology Evolution
+
+**Phase 1: Self-Report Protocol**
+The original investigation used self-report methodology: trigger multi-file read operations via `/wsd:init --custom` followed by `/refine-plan`, then prompt the agent to report phantom reads.
+
+**Phase 2: Controlled Trial Collection**
+The current methodology uses:
+1. Fresh Claude Code sessions with `/wsd:init --custom`
+2. Trigger via `/refine-plan` against WSD documentation
+3. Session data extraction via `/update-trial-data` preprocessing tool
+4. Programmatic analysis of `trial_data.json` files across trials
+
+### Key Findings Evolution
 
 **Original findings** (later revised):
 - Pre-2.0.59 versions appeared unaffected
@@ -137,13 +165,17 @@ The investigation used a self-report methodology: trigger multi-file read operat
 - ALL tested versions can exhibit phantom reads
 - Era 1 (2.0.59 and earlier): `[Old tool result content cleared]` mechanism
 - Era 2 (2.0.60 and later): `<persisted-output>` mechanism
-- The original investigation likely conflated the two mechanisms
 
-For ongoing investigation notes, see `Investigation-Journal.md`.
+**Current understanding** (22-trial analysis):
+- Reset Timing Theory validated with 100% prediction accuracy
+- Mid-session resets (50-90%) are the critical failure condition
+- No fixed token threshold exists (82K-383K range observed)
+
+For ongoing investigation notes, see `Investigation-Journal.md`. For detailed analysis, see `WSD-Dev-02-Analysis-1.md`, `WSD-Dev-02-Analysis-2.md`, and `WSD-Dev-02-Analysis-3.md`.
 
 ### Limitations
 
-The self-report methodology has inherent limitations (model incentives, introspection accuracy, non-determinism). Additionally, the original investigation failed to distinguish between the two phantom read mechanisms, leading to incorrect conclusions about "safe" versions. The analysis tools in this repository address these limitations by examining session logs programmatically, removing the model from the detection loop.
+The self-report methodology has inherent limitations (model incentives, introspection accuracy, non-determinism). The programmatic analysis tools address these limitations by examining session logs directly, removing the model from the detection loop. However, detecting phantom reads programmatically remains challenging—we rely on correlating context reset patterns with self-reported outcomes.
 
 ## Architecture Overview
 
@@ -151,25 +183,35 @@ The self-report methodology has inherent limitations (model incentives, introspe
 
 ```
 ├── README.md                        # User-facing documentation
+├── WORKAROUND.md                    # MCP bypass workaround instructions
 ├── docs/
 │   ├── core/
 │   │   ├── PRD.md                  # This document (internal)
 │   │   ├── Action-Plan.md          # Implementation checkboxlist
 │   │   ├── Design-Decisions.md     # Project design rationale
 │   │   ├── Investigation-Journal.md # Running log of discoveries
-│   │   └── Experiment-Methodology-01.md # Original methodology (historical)
+│   │   ├── Experiment-Methodology-01.md # Original methodology (historical)
+│   │   ├── Experiment-Methodology-02.md # Current trial protocol
+│   │   ├── WSD-Dev-02-Analysis-1.md # Initial 7-trial analysis
+│   │   ├── WSD-Dev-02-Analysis-2.md # Expanded 22-trial analysis
+│   │   └── WSD-Dev-02-Analysis-3.md # Token-based analysis
 │   ├── read-only/                  # WSD standards (read triggers)
 │   ├── tickets/
 │   │   └── open/                   # WPD targets for /refine-plan
 │   └── workbench/                  # Working documents
 ├── dev/
-│   └── misc/                       # Session samples (good/bad cases by version)
+│   └── misc/
+│       ├── example-sessions/       # Session samples (good/bad by version)
+│       └── wsd-dev-02/             # 22-trial collection
+│           ├── */trial_data.json   # Preprocessed trial data per trial
+│           └── file_token_counts.json # Token counts for analyzed files
 ├── src/
 │   ├── cc_version.py               # Claude Code version setting utility
 │   └── collect_trials.py           # Tool for gathering trial data
 └── .claude/
     └── commands/
-        └── refine-plan.md          # Trigger command
+        ├── refine-plan.md          # Trigger command
+        └── update-trial-data.md    # Trial preprocessing command
 ```
 
 ### Key Components
@@ -213,16 +255,25 @@ This project achieves its goals when:
 
 4. **Accessible**: Instructions are clear enough for users unfamiliar with WSD to execute the reproduction experiment
 
+5. **Mitigated**: A temporary workaround is documented and validated, allowing users to work productively while the bug remains unfixed
+
 ## Future Direction
 
-### Potential Enhancements
+### Achieved Goals
 
-If the core reproduction is successful, future work might include:
+The following objectives from the original vision have been accomplished:
 
-1. **Minimal reproduction case**: Identifying the smallest set of conditions that reliably triggers phantom reads
-2. **Automated trial runner**: Scripts that execute multiple trials and aggregate statistics
-3. **Real-time monitoring**: Tools that detect phantom reads during active sessions
-4. **Mitigation strategies**: Workarounds users can employ while the bug remains unfixed
+1. ✅ **Trigger conditions identified**: Reset Timing Theory provides 100% prediction accuracy on 22 trials
+2. ✅ **Trial collection tools**: `/update-trial-data` preprocessor and `collect_trials.py` enable systematic data collection
+3. ✅ **Mitigation strategy found**: MCP Filesystem bypass provides 100% success rate (see `WORKAROUND.md`)
+4. ✅ **Quantitative analysis**: Token-based analysis across 22 trials with structured `trial_data.json` files
+
+### Current Investigation Priorities
+
+1. **Test "Intentional Early Reset" mitigation**: Force early context consumption to trigger reset, then execute multi-file operations in the protected gap
+2. **Test "Session Batching" mitigation**: Break reads into smaller batches with processing pauses between them
+3. **Validate rate-based threshold theory**: Calculate tokens-per-turn accumulation rates to test Dynamic Context Pressure hypothesis
+4. **Cross-version testing**: Confirm Reset Timing Theory findings aren't version-specific
 
 ### Out of Scope
 

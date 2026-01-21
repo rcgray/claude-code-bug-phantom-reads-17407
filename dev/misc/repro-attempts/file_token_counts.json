@@ -1,0 +1,34 @@
+{
+  "schema_version": "1.0",
+  "description": "Token counts for all unique files read across repro-attempts trial collection. Values of 0 are placeholders to be filled via Anthropic API token counting.",
+  "generated_at": "2026-01-20",
+  "source_project": "/Users/gray/Projects/phantom-read-clone",
+  "total_unique_files": 19,
+  "notes": {
+    "project_files": "Stable files from the Phantom Reads clone project that can be token-counted",
+    "ephemeral_files": "Persisted tool-result files created during sessions - no longer exist, included for completeness. Size is marked as -1 to indicate unknowable."
+  },
+  "project_files": {
+    "docs/core/PRD.md": 3439,
+    "docs/core/Experiment-Methodology.md": 3412,
+    "docs/core/Action-Plan.md": 1224,
+    "docs/read-only/standards/Coding-Standards.md": 767,
+    "docs/read-only/standards/Python-Standards.md": 638,
+    "docs/read-only/standards/Specification-Maintenance-Standards.md": 3340,
+    "docs/read-only/standards/Python-Test-Environment-Isolation-Standards.md": 10562,
+    "docs/wpds/refactor-easy.md": 305,
+    "docs/wpds/refactor-medium.md": 521,
+    "docs/wpds/refactor-hard.md": 735,
+    "docs/specs/data-pipeline-overview.md": 6041,
+    "docs/specs/module-alpha.md": 6204,
+    "docs/specs/module-beta.md": 6198,
+    "docs/specs/module-gamma.md": 7658,
+    "docs/specs/integration-layer.md": 4886,
+    "docs/specs/compliance-requirements.md": 3939
+  },
+  "ephemeral_files": {
+    "dev/journal/archive/Journal-Workscope-20260115-154705.md": -1,
+    "dev/journal/archive/Journal-Workscope-20260115-155448.md": -1,
+    "dev/journal/archive/Journal-Workscope-20260115-160849.md": -1
+  }
+}
