@@ -11,7 +11,8 @@ The following are the steps for implementing the project, where the full list is
 ## Phase 0: Blocking Tasks
 
 - [x] **0.1** - Remove mentions of `/start-trial` command (see `docs/tickets/closed/update-session-analysis-spec-use-workscope-id.md`)
-- [ ] **0.2** - Investigate reads of missing files in our pre-processing of trials (see `docs/tickets/open/investigate-trial-data-failed-read-recording.md`)
+- [x] **0.2** - Investigate reads of missing files in our pre-processing of trials (see `docs/tickets/closed/investigate-trial-data-failed-read-recording.md`)
+- [ ] **0.3** - Add NLP assessment to trial analysis in `/update-json-data` (see `docs/tickets/open/add-nlp-outcome-detection-to-trial-data-extraction.md`)
 
 ## Phase 1: Open-Ended Investigation
 

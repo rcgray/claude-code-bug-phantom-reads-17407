@@ -109,27 +109,27 @@ The decision was made to collect fresh trials (`repro-attempts-02`) with the cur
 
 ### Phase 1: Investigation
 
-- [ ] **1.1** - Review the `/update-trial-data` command logic in `.claude/commands/update-trial-data.md`
-- [ ] **1.2** - Examine session `.jsonl` structure to understand how `tool_use` and `tool_result` entries are linked
-- [ ] **1.3** - Identify the specific `tool_result` patterns that indicate failed reads
-- [ ] **1.4** - Document findings
+- [x] **1.1** - Review the `/update-trial-data` command logic in `.claude/commands/update-trial-data.md`
+- [x] **1.2** - Examine session `.jsonl` structure to understand how `tool_use` and `tool_result` entries are linked
+- [x] **1.3** - Identify the specific `tool_result` patterns that indicate failed reads
+- [x] **1.4** - Document findings
 
 ### Phase 2: Implementation
 
-- [ ] **2.1** - Update `/update-trial-data` to match `tool_use` entries with their `tool_result`
-- [ ] **2.2** - Add failure detection logic for Read tool results
-- [ ] **2.3** - Add `success` field to read entries in `trial_data.json`
-- [ ] **2.4** - Update aggregate statistics to only count successful reads
-- [ ] **2.5** - Consider adding a separate `failed_reads` section for diagnostic visibility
+- [x] **2.1** - Update `/update-trial-data` to match `tool_use` entries with their `tool_result`
+- [x] **2.2** - Add failure detection logic for Read tool results
+- [x] **2.3** - Add `success` field to read entries in `trial_data.json`
+- [x] **2.4** - Update aggregate statistics to only count successful reads
+- [x] **2.5** - Consider adding a separate `failed_reads` section for diagnostic visibility
 
 ### Phase 3: Validation
 
-- [ ] **3.1** - Test updated command on `repro-attempts/medium-1` trial (known to have a failed read)
-- [ ] **3.2** - Verify the failed read is correctly identified and marked `success: false`
-- [ ] **3.3** - Test on a trial with all successful reads to ensure no false negatives
-- [ ] **3.4** - Regenerate trial_data.json for any affected collections
+- [x] **3.1** - Test updated command on `repro-attempts/medium-1` trial (known to have a failed read)
+- [x] **3.2** - Verify the failed read is correctly identified and marked `success: false`
+- [x] **3.3** - Test on a trial with all successful reads to ensure no false negatives
+- [x] **3.4** - Regenerate trial_data.json for any affected collections
 
 ### Phase 4: Documentation
 
-- [ ] **4.1** - Update `/update-trial-data` command documentation to describe the success/failure tracking
-- [ ] **4.2** - Note the schema change (addition of `success` field) for trial_data.json
+- [x] **4.1** - Update `/update-trial-data` command documentation to describe the success/failure tracking
+- [x] **4.2** - Note the schema change (addition of `success` field) for trial_data.json

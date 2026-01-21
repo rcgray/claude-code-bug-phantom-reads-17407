@@ -1,0 +1,506 @@
+{
+  "schema_version": "1.1",
+  "generated_at": "2026-01-20T17:16:26.028153",
+  "metadata": {
+    "workscope_id": "20260115-155448",
+    "session_uuid": "c35c12b8-cefb-4d16-ad19-d62ced4823e4",
+    "chat_export_file": "20260115-155448.txt",
+    "session_file": "c35c12b8-cefb-4d16-ad19-d62ced4823e4.jsonl",
+    "has_subagents": true,
+    "has_tool_results": false
+  },
+  "outcome": {
+    "self_reported": "SUCCESS",
+    "affected_files": [],
+    "notes": "Agent explicitly confirmed all reads returned actual file contents with line numbers. No <persisted-output> markers received."
+  },
+  "context_metrics": {
+    "pre_operation_tokens": 80000,
+    "pre_operation_percent": 40,
+    "post_operation_tokens": 123000,
+    "post_operation_percent": 62,
+    "headroom_at_trigger": 120000,
+    "context_window_size": 200000
+  },
+  "reset_analysis": {
+    "total_resets": 2,
+    "reset_positions_percent": [
+      59.4,
+      96.9
+    ],
+    "pattern_classification": "OTHER",
+    "resets": [
+      {
+        "sequence_position": 19,
+        "total_events": 32,
+        "position_percent": 59.4,
+        "from_tokens": 77380,
+        "to_tokens": 20084,
+        "session_line": 62
+      },
+      {
+        "sequence_position": 31,
+        "total_events": 32,
+        "position_percent": 96.9,
+        "from_tokens": 114437,
+        "to_tokens": 20084,
+        "session_line": 89
+      }
+    ]
+  },
+  "file_reads": {
+    "total_operations": 13,
+    "unique_files": 13,
+    "reads": [
+      {
+        "sequence": 1,
+        "batch_id": 1,
+        "file_path": "/Users/gray/Projects/phantom-read-clone/docs/core/PRD.md",
+        "session_line": 16,
+        "tool_use_id": "toolu_01D6NCXcNCmLBspoNVfwU66y"
+      },
+      {
+        "sequence": 2,
+        "batch_id": 2,
+        "file_path": "/Users/gray/Projects/phantom-read-clone/docs/core/Experiment-Methodology.md",
+        "session_line": 17,
+        "tool_use_id": "toolu_01YNkHtqaotDbozDfmi7gCao"
+      },
+      {
+        "sequence": 3,
+        "batch_id": 3,
+        "file_path": "/Users/gray/Projects/phantom-read-clone/docs/core/Action-Plan.md",
+        "session_line": 18,
+        "tool_use_id": "toolu_01QrpNgevQPzTY7KJfx2ApRd"
+      },
+      {
+        "sequence": 4,
+        "batch_id": 4,
+        "file_path": "/Users/gray/Projects/phantom-read-clone/dev/journal/archive/Journal-Workscope-20260115-155448.md",
+        "session_line": 33,
+        "tool_use_id": "toolu_01FX3pZJSxmozxC6EtTtYQbQ"
+      },
+      {
+        "sequence": 5,
+        "batch_id": 5,
+        "file_path": "/Users/gray/Projects/phantom-read-clone/docs/read-only/standards/Coding-Standards.md",
+        "session_line": 42,
+        "tool_use_id": "toolu_018Smgnt3GCk9vx1E2rvdXzy"
+      },
+      {
+        "sequence": 6,
+        "batch_id": 6,
+        "file_path": "/Users/gray/Projects/phantom-read-clone/docs/read-only/standards/Python-Standards.md",
+        "session_line": 43,
+        "tool_use_id": "toolu_015s1rCCacFzxcBrEYfywQhx"
+      },
+      {
+        "sequence": 7,
+        "batch_id": 7,
+        "file_path": "/Users/gray/Projects/phantom-read-clone/docs/read-only/standards/Specification-Maintenance-Standards.md",
+        "session_line": 44,
+        "tool_use_id": "toolu_01XMjugc6cN5dsNcsNfj7S2N"
+      },
+      {
+        "sequence": 8,
+        "batch_id": 8,
+        "file_path": "/Users/gray/Projects/phantom-read-clone/docs/wpds/refactor-medium.md",
+        "session_line": 63,
+        "tool_use_id": "toolu_013prEMLVsXUTW3WX3P3eDqy"
+      },
+      {
+        "sequence": 9,
+        "batch_id": 9,
+        "file_path": "/Users/gray/Projects/phantom-read-clone/docs/specs/module-alpha.md",
+        "session_line": 66,
+        "tool_use_id": "toolu_01VnzGMF5EuHr5E7DAKF9KRW"
+      },
+      {
+        "sequence": 10,
+        "batch_id": 10,
+        "file_path": "/Users/gray/Projects/phantom-read-clone/docs/specs/module-beta.md",
+        "session_line": 67,
+        "tool_use_id": "toolu_01XY4GUghzt6kpYVnhuhshWM"
+      },
+      {
+        "sequence": 11,
+        "batch_id": 11,
+        "file_path": "/Users/gray/Projects/phantom-read-clone/docs/specs/integration-layer.md",
+        "session_line": 68,
+        "tool_use_id": "toolu_01QBk9US42XEehZM1r5QccK9"
+      },
+      {
+        "sequence": 12,
+        "batch_id": 12,
+        "file_path": "/Users/gray/Projects/phantom-read-clone/docs/specs/data-pipeline-overview.md",
+        "session_line": 73,
+        "tool_use_id": "toolu_01DSEkzzn9ra9NXCaCb1MhBx"
+      },
+      {
+        "sequence": 13,
+        "batch_id": 13,
+        "file_path": "/Users/gray/Projects/phantom-read-clone/docs/specs/compliance-requirements.md",
+        "session_line": 74,
+        "tool_use_id": "toolu_01LkFGwurkVPb7KdFEFWMcmK"
+      }
+    ],
+    "unique_file_list": [
+      "/Users/gray/Projects/phantom-read-clone/docs/core/PRD.md",
+      "/Users/gray/Projects/phantom-read-clone/docs/core/Experiment-Methodology.md",
+      "/Users/gray/Projects/phantom-read-clone/docs/core/Action-Plan.md",
+      "/Users/gray/Projects/phantom-read-clone/dev/journal/archive/Journal-Workscope-20260115-155448.md",
+      "/Users/gray/Projects/phantom-read-clone/docs/read-only/standards/Coding-Standards.md",
+      "/Users/gray/Projects/phantom-read-clone/docs/read-only/standards/Python-Standards.md",
+      "/Users/gray/Projects/phantom-read-clone/docs/read-only/standards/Specification-Maintenance-Standards.md",
+      "/Users/gray/Projects/phantom-read-clone/docs/wpds/refactor-medium.md",
+      "/Users/gray/Projects/phantom-read-clone/docs/specs/module-alpha.md",
+      "/Users/gray/Projects/phantom-read-clone/docs/specs/module-beta.md",
+      "/Users/gray/Projects/phantom-read-clone/docs/specs/integration-layer.md",
+      "/Users/gray/Projects/phantom-read-clone/docs/specs/data-pipeline-overview.md",
+      "/Users/gray/Projects/phantom-read-clone/docs/specs/compliance-requirements.md"
+    ]
+  },
+  "timeline": [
+    {
+      "sequence": 1,
+      "type": "user_input",
+      "session_line": 13,
+      "phase": "init",
+      "content_preview": "/wsd:init --custom"
+    },
+    {
+      "sequence": 2,
+      "type": "user_input",
+      "session_line": 14,
+      "phase": "init",
+      "content_preview": "Initialize Workscope command"
+    },
+    {
+      "sequence": 3,
+      "type": "tool_batch",
+      "session_line": 16,
+      "batch_id": 1,
+      "tool": "Read",
+      "files": [
+        "/Users/gray/Projects/phantom-read-clone/docs/core/PRD.md"
+      ]
+    },
+    {
+      "sequence": 4,
+      "type": "tool_batch",
+      "session_line": 17,
+      "batch_id": 2,
+      "tool": "Read",
+      "files": [
+        "/Users/gray/Projects/phantom-read-clone/docs/core/Experiment-Methodology.md"
+      ]
+    },
+    {
+      "sequence": 5,
+      "type": "tool_batch",
+      "session_line": 18,
+      "batch_id": 3,
+      "tool": "Read",
+      "files": [
+        "/Users/gray/Projects/phantom-read-clone/docs/core/Action-Plan.md"
+      ]
+    },
+    {
+      "sequence": 6,
+      "type": "tool_batch",
+      "session_line": 33,
+      "batch_id": 4,
+      "tool": "Read",
+      "files": [
+        "/Users/gray/Projects/phantom-read-clone/dev/journal/archive/Journal-Workscope-20260115-155448.md"
+      ]
+    },
+    {
+      "sequence": 7,
+      "type": "tool_batch",
+      "session_line": 42,
+      "batch_id": 5,
+      "tool": "Read",
+      "files": [
+        "/Users/gray/Projects/phantom-read-clone/docs/read-only/standards/Coding-Standards.md"
+      ]
+    },
+    {
+      "sequence": 8,
+      "type": "tool_batch",
+      "session_line": 43,
+      "batch_id": 6,
+      "tool": "Read",
+      "files": [
+        "/Users/gray/Projects/phantom-read-clone/docs/read-only/standards/Python-Standards.md"
+      ]
+    },
+    {
+      "sequence": 9,
+      "type": "tool_batch",
+      "session_line": 44,
+      "batch_id": 7,
+      "tool": "Read",
+      "files": [
+        "/Users/gray/Projects/phantom-read-clone/docs/read-only/standards/Specification-Maintenance-Standards.md"
+      ]
+    },
+    {
+      "sequence": 10,
+      "type": "user_input",
+      "session_line": 60,
+      "phase": "trigger",
+      "content_preview": "/refine-plan command"
+    },
+    {
+      "sequence": 11,
+      "type": "context_reset",
+      "session_line": 62,
+      "from_tokens": 77380,
+      "to_tokens": 20084
+    },
+    {
+      "sequence": 12,
+      "type": "tool_batch",
+      "session_line": 63,
+      "batch_id": 8,
+      "tool": "Read",
+      "files": [
+        "/Users/gray/Projects/phantom-read-clone/docs/wpds/refactor-medium.md"
+      ]
+    },
+    {
+      "sequence": 13,
+      "type": "tool_batch",
+      "session_line": 66,
+      "batch_id": 9,
+      "tool": "Read",
+      "files": [
+        "/Users/gray/Projects/phantom-read-clone/docs/specs/module-alpha.md"
+      ]
+    },
+    {
+      "sequence": 14,
+      "type": "tool_batch",
+      "session_line": 67,
+      "batch_id": 10,
+      "tool": "Read",
+      "files": [
+        "/Users/gray/Projects/phantom-read-clone/docs/specs/module-beta.md"
+      ]
+    },
+    {
+      "sequence": 15,
+      "type": "tool_batch",
+      "session_line": 68,
+      "batch_id": 11,
+      "tool": "Read",
+      "files": [
+        "/Users/gray/Projects/phantom-read-clone/docs/specs/integration-layer.md"
+      ]
+    },
+    {
+      "sequence": 16,
+      "type": "tool_batch",
+      "session_line": 73,
+      "batch_id": 12,
+      "tool": "Read",
+      "files": [
+        "/Users/gray/Projects/phantom-read-clone/docs/specs/data-pipeline-overview.md"
+      ]
+    },
+    {
+      "sequence": 17,
+      "type": "tool_batch",
+      "session_line": 74,
+      "batch_id": 13,
+      "tool": "Read",
+      "files": [
+        "/Users/gray/Projects/phantom-read-clone/docs/specs/compliance-requirements.md"
+      ]
+    },
+    {
+      "sequence": 18,
+      "type": "user_input",
+      "session_line": 88,
+      "phase": "inquiry",
+      "content_preview": "Phantom read inquiry"
+    },
+    {
+      "sequence": 19,
+      "type": "context_reset",
+      "session_line": 89,
+      "from_tokens": 114437,
+      "to_tokens": 20084
+    }
+  ],
+  "token_progression": [
+    {
+      "sequence": 1,
+      "cache_read_tokens": 23360,
+      "session_line": 22
+    },
+    {
+      "sequence": 2,
+      "cache_read_tokens": 23360,
+      "session_line": 23
+    },
+    {
+      "sequence": 3,
+      "cache_read_tokens": 27955,
+      "session_line": 26
+    },
+    {
+      "sequence": 4,
+      "cache_read_tokens": 27955,
+      "session_line": 27
+    },
+    {
+      "sequence": 5,
+      "cache_read_tokens": 65493,
+      "session_line": 29
+    },
+    {
+      "sequence": 6,
+      "cache_read_tokens": 65493,
+      "session_line": 30
+    },
+    {
+      "sequence": 7,
+      "cache_read_tokens": 65728,
+      "session_line": 32
+    },
+    {
+      "sequence": 8,
+      "cache_read_tokens": 65728,
+      "session_line": 33
+    },
+    {
+      "sequence": 9,
+      "cache_read_tokens": 66074,
+      "session_line": 35
+    },
+    {
+      "sequence": 10,
+      "cache_read_tokens": 66311,
+      "session_line": 38
+    },
+    {
+      "sequence": 11,
+      "cache_read_tokens": 66311,
+      "session_line": 39
+    },
+    {
+      "sequence": 12,
+      "cache_read_tokens": 66950,
+      "session_line": 41
+    },
+    {
+      "sequence": 13,
+      "cache_read_tokens": 66950,
+      "session_line": 42
+    },
+    {
+      "sequence": 14,
+      "cache_read_tokens": 66950,
+      "session_line": 43
+    },
+    {
+      "sequence": 15,
+      "cache_read_tokens": 66950,
+      "session_line": 44
+    },
+    {
+      "sequence": 16,
+      "cache_read_tokens": 70461,
+      "session_line": 48
+    },
+    {
+      "sequence": 17,
+      "cache_read_tokens": 70461,
+      "session_line": 50
+    },
+    {
+      "sequence": 18,
+      "cache_read_tokens": 77380,
+      "session_line": 52
+    },
+    {
+      "sequence": 19,
+      "cache_read_tokens": 20084,
+      "session_line": 62
+    },
+    {
+      "sequence": 20,
+      "cache_read_tokens": 20084,
+      "session_line": 63
+    },
+    {
+      "sequence": 21,
+      "cache_read_tokens": 81261,
+      "session_line": 65
+    },
+    {
+      "sequence": 22,
+      "cache_read_tokens": 81261,
+      "session_line": 66
+    },
+    {
+      "sequence": 23,
+      "cache_read_tokens": 81261,
+      "session_line": 67
+    },
+    {
+      "sequence": 24,
+      "cache_read_tokens": 81261,
+      "session_line": 68
+    },
+    {
+      "sequence": 25,
+      "cache_read_tokens": 82086,
+      "session_line": 72
+    },
+    {
+      "sequence": 26,
+      "cache_read_tokens": 82086,
+      "session_line": 73
+    },
+    {
+      "sequence": 27,
+      "cache_read_tokens": 82086,
+      "session_line": 74
+    },
+    {
+      "sequence": 28,
+      "cache_read_tokens": 91088,
+      "session_line": 77
+    },
+    {
+      "sequence": 29,
+      "cache_read_tokens": 91088,
+      "session_line": 78
+    },
+    {
+      "sequence": 30,
+      "cache_read_tokens": 114437,
+      "session_line": 80
+    },
+    {
+      "sequence": 31,
+      "cache_read_tokens": 20084,
+      "session_line": 89
+    },
+    {
+      "sequence": 32,
+      "cache_read_tokens": 20084,
+      "session_line": 90
+    }
+  ],
+  "token_analysis": {
+    "available": false,
+    "token_counts_file": null,
+    "statistics": null,
+    "reads_with_tokens": null,
+    "resets_with_context": null
+  }
+}
