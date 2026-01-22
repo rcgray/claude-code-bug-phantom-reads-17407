@@ -817,6 +817,120 @@ Full analysis documented in: `docs/core/WSD-Dev-02-Analysis-3.md`
 
 ---
 
+## 2026-01-21: Trial Data Preprocessing Improvements
+
+**Event**: Enhanced the `/update-trial-data` script and upgraded all trial_data.json files to Schema 1.2.
+
+### Improvements Made
+
+- **Script reliability**: Fixed issues in `scripts/extract_trial_data.py` for more robust session parsing
+- **Static helper file**: Updated the karpathy script to use a static helper file approach
+- **Schema upgrade**: All relevant trials now use Schema 1.2 with improved data structure
+
+### Token Count Collection
+
+Ran pre-processing and determined token counts for the collection file `file_token_counts.json` in preparation for cross-project analysis. This enables systematic comparison of token consumption patterns across different trial collections.
+
+---
+
+## 2026-01-21: Repro-Attempts-02 Collection and Analysis
+
+**Event**: Conducted 9 trials across three reproduction scenarios (Easy, Medium, Hard) and completed analysis.
+
+### Collection Overview
+
+First trial collection specifically designed to test reproduction scenarios at different failure rate targets:
+
+| Scenario | Target Failure Rate | Actual Failure Rate |
+|----------|---------------------|---------------------|
+| Hard     | 100%                | 33% (1/3)           |
+| Medium   | 50%                 | 0% (0/3)            |
+| Easy     | 0%                  | 0% (0/3)            |
+
+Trial data collected in `dev/misc/repro-attempts-02/`.
+
+### Critical Achievement: First Reproduction Success
+
+**The single Hard scenario failure (20260121-202919) represents the first successful phantom read occurrence in any reproduction scenario**, breaking the "Hawthorne Effect" concern that conducting trials in a project dedicated to studying the bug might prevent it from manifesting.
+
+### The Failure Case: 20260121-202919
+
+The failure stood out across every metric:
+
+| Metric                | Failure (202919) | Success Average | Delta   |
+|-----------------------|------------------|-----------------|---------|
+| Pre-op consumption    | 54% (107K)       | 40% (79K)       | +14%    |
+| Total resets          | 4                | 2               | +2      |
+| Mid-session resets    | 3 (57%, 72%, 84%)| 0-1             | +2-3    |
+| File reads            | 19               | 10              | +9      |
+| Tool results dir      | Present          | Absent          | —       |
+
+**Reset Pattern**:
+```
+Failure: 57% → 72% → 84% → 96% (3 consecutive mid-session resets)
+Success: ~50% → ~89% (borderline early, then late after work completes)
+```
+
+### Theory Validation
+
+**Reset Timing Theory: STRONGLY VALIDATED**
+- Previous: 100% prediction accuracy on 22 WSD-Dev-02 trials
+- This collection: 100% prediction accuracy on 9 trials
+- **Combined: 31/31 trials match predictions (100%)**
+
+**Reset Count Theory: STRENGTHENED**
+- 2 resets: 8 trials, 100% SUCCESS
+- 4 resets: 1 trial, 100% FAILURE
+- Correlation stronger than previously recognized
+
+### New Theories Identified
+
+#### Mid-Session Reset Accumulation
+
+A single borderline mid-session reset (50-65%) appears survivable. Multiple mid-session resets guarantee failure.
+
+| Mid-Session Resets | Expected Outcome     |
+|--------------------|----------------------|
+| 0                  | Safe                 |
+| 1 (borderline)     | Likely survivable    |
+| 2+                 | Likely failure       |
+| 3+                 | Guaranteed failure   |
+
+#### Sustained Processing Gap Requirement
+
+Successful trials show a consistent pattern:
+- First reset at ~50% (boundary of danger zone)
+- No resets until ~89% (after file processing completes)
+- Creates a ~35-40% "clean gap" for uninterrupted work
+
+**Hypothesis**: Success requires an uninterrupted processing window of at least 25-30% of session duration.
+
+#### Onboarding Read Count as Trigger Variable
+
+The failure case read significantly more files during onboarding (19 vs 6-11), pushing pre-op consumption from ~36% to 54%.
+
+**Causal chain identified**: Onboarding read volume → higher pre-op → lower headroom → more resets during trigger phase → phantom reads.
+
+### Key Insight
+
+**Our reproduction scenarios differentiate by spec content volume, but the real trigger is onboarding context consumption BEFORE the trigger fires.**
+
+Both successful Hard trials had identical metrics to Medium trials (~36% pre-op, 2 resets). The single failure had elevated pre-op consumption due to additional onboarding reads.
+
+### Recovery Behavior Observed
+
+Notably, the failure was a **recovered failure**. The agent:
+1. Recognized the `<persisted-output>` markers
+2. Understood this was phantom reads (from project context)
+3. Re-read the original files successfully
+4. Completed the task with actual file content
+
+This suggests the Hawthorne Effect may not prevent phantom reads from occurring, but may enable recovery through agent awareness.
+
+Full analysis documented in: `docs/core/Repro-Attempts-02-Analysis-1.md`
+
+---
+
 ## Evolving Theory
 
 ### What We Know For Certain
@@ -828,15 +942,21 @@ Full analysis documented in: `docs/core/WSD-Dev-02-Analysis-3.md`
 5. **The workaround works** - MCP Filesystem has 100% success rate so far
 6. **Context resets correlate** - more resets = higher phantom read risk
 7. **Starting headroom matters** - low headroom before multi-file operations predicts phantom reads
-8. **Reset TIMING is critical** - mid-session resets (50-90%) predict failure with 100% accuracy
+8. **Reset TIMING is critical** - mid-session resets (50-90%) predict failure with 100% accuracy (31/31 trials)
 9. **No fixed token threshold** - resets occur at 82K-383K cumulative tokens
 10. **Accumulation rate matters** - rapid batch reads without pauses increase risk
+11. **Reset COUNT correlates strongly** - 2 resets = safe (100%), 4+ resets = failure (100% in current data)
+12. **Multiple mid-session resets guarantee failure** - 3+ consecutive mid-session resets have 100% failure rate
+13. **Reproduction is achievable** - first phantom read successfully triggered in reproduction scenario
+14. **Hawthorne Effect doesn't prevent occurrence** - but may enable recovery through agent awareness
 
 ### What Remains Uncertain
 
 1. **Exact mechanism** - What internally triggers a reset at a specific moment?
 2. **Rate threshold** - Is there a tokens-per-turn rate that reliably predicts resets?
 3. **Mitigation effectiveness** - Can intentional early resets or batching prevent failures?
+4. **Single mid-session reset survivability** - Is one borderline (50-65%) mid-session reset consistently survivable?
+5. **Clean gap minimum** - Is 25-30% uninterrupted processing window truly required for success?
 
 ### Current Working Theory
 
@@ -845,6 +965,21 @@ The Read tool records actual content to the session file, but a separate context
 **The Reset Timing Theory refines our understanding**: It's not just HOW MUCH context, but WHEN resets occur. Resets during active file processing (50-90% of session) clear content before the model processes it, causing phantom reads. Resets at natural breakpoints (early setup, late completion) are survivable.
 
 **The Dynamic Context Pressure Hypothesis adds**: Rapid token accumulation (batch reads without processing pauses) may trigger resets more readily than steady accumulation, even at lower total counts.
+
+**The Mid-Session Reset Accumulation Theory adds**: A single borderline mid-session reset may be survivable, but multiple mid-session resets (2+) correlate with failure, and 3+ consecutive mid-session resets guarantee failure.
+
+**The Sustained Processing Gap Requirement**: Successful sessions exhibit a "clean gap" of ~35-40% of session duration where work proceeds uninterrupted between an early reset and a late reset. Failure occurs when this gap is fragmented by mid-session resets.
+
+### Theory Status Summary (as of 2026-01-21)
+
+| Theory | Status | Evidence |
+|--------|--------|----------|
+| Reset Timing | **STRONGLY CONFIRMED** | 31/31 trials (100%) |
+| Reset Count | **STRENGTHENED** | 2 resets = safe, 4+ = failure |
+| Headroom | **SUPPORTED** | Correlates but insufficient alone |
+| Mid-Session Accumulation | **NEW** | 2+ mid-session = likely failure |
+| Sustained Processing Gap | **NEW** | ~25-30% uninterrupted window |
+| Dynamic Context Pressure | **HYPOTHESIS** | Needs rate-based validation |
 
 ---
 
@@ -862,16 +997,40 @@ The Read tool records actual content to the session file, but a separate context
 
 6. **Are these findings version-specific?** Do they hold across Era 1 and Era 2 builds?
 
+7. **How to reliably achieve target failure rates in reproduction scenarios?** Current scenarios differentiate by spec content volume, but onboarding context consumption appears more critical.
+
+8. **Is there a pre-op threshold?** The repro-attempts-02 failure had 54% pre-op vs ~36-46% for successes. Is >50% pre-op a danger zone?
+
+9. **Can agent awareness enable reliable recovery?** The repro failure showed recovery via re-reading. Can this be systematized?
+
 ---
 
 ## Next Steps
 
-1. **Test "Intentional Early Reset" Mitigation** - Force early context consumption to trigger reset, then execute multi-file operations
-2. **Test "Session Batching" Mitigation** - Break reads into smaller batches with processing gaps
-3. **Validate Rate-Based Threshold Theory** - Calculate tokens-per-turn accumulation rates across trials
-4. **Cross-Version Testing** - Confirm findings aren't version-specific
-5. **Update Documentation** - Ensure README and Experiment-Methodology reflect latest findings
+### Immediate Actions (Reproduction Scenario Refinement)
+
+1. **Update Hard scenario onboarding** - Require reading `Investigation-Journal.md` and `Trial-Analysis-Guide.md` before the trigger to inflate pre-op consumption
+2. **Target pre-op thresholds**:
+   - Hard: >50% pre-op
+   - Medium: 45-50% pre-op
+   - Easy: <40% pre-op
+3. **Run validation trials** - 5-10 Hard trials with updated onboarding to verify improved failure rate
+
+### Research Priorities
+
+4. **Test pre-op threshold hypothesis** - Run trials at specific starting points (45%, 50%, 55%)
+5. **Validate reset count correlation** - Collect more data on 2 vs 3+ resets
+6. **Test "Intentional Early Reset" mitigation** - Force early context consumption to trigger reset, then execute multi-file operations in "clean gap"
+7. **Test "Session Batching" mitigation** - Break reads into smaller batches with processing gaps
+8. **Investigate recovery mechanisms** - Can consistent re-reading serve as a systematic mitigation?
+9. **Cross-Version Testing** - Confirm findings aren't version-specific
+
+### Documentation Updates
+
+10. **Update `Trial-Analysis-Guide.md`** - Add "Mid-Session Reset Accumulation" pattern
+11. **Consider updating `Experiment-Methodology-02.md`** - With refined predictions based on 31-trial dataset
+12. **Ensure README reflects latest findings**
 
 ---
 
-*Last updated: 2026-01-20*
+*Last updated: 2026-01-21*

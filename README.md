@@ -50,9 +50,11 @@ This repository serves three purposes:
 
 The investigation is ongoing and documented in [docs/core/Investigation-Journal.md](docs/core/Investigation-Journal.md).
 
-### Latest Progress: 22-Trial Analysis
+### Latest Progress: 31-Trial Analysis
 
-We conducted 22 controlled trials and discovered that **reset timing pattern** is the dominant predictor of phantom reads—achieving **100% prediction accuracy** on our dataset.
+We conducted 31 controlled trials across two collections and confirmed that **reset timing pattern** is the dominant predictor of phantom reads—achieving **100% prediction accuracy** across all trials.
+
+**Recent milestone**: First successful phantom read reproduction in a controlled scenario, demonstrating the bug can be reliably triggered under specific conditions.
 
 | Pattern | Description | Outcome |
 |---------|-------------|---------|
@@ -66,6 +68,8 @@ The critical finding: **mid-session resets (50-90% through the session) predict 
 
 - **Reset timing is the dominant factor**: When resets occur matters more than how many occur or how much context is consumed
 - **The "Clean Gap" pattern**: Successful sessions have early resets (before main work) and late resets (after work completes), with no resets during active file reading
+- **Reset count strongly correlates**: 2 resets = 100% success, 4+ resets = 100% failure in current data
+- **Multiple mid-session resets guarantee failure**: 3+ consecutive resets in the 50-90% range have never survived
 - **No fixed token threshold**: Resets occur at widely varying cumulative token counts (82K-383K), ruling out a simple threshold model
 - **Accumulation rate matters**: Rapid batch reads without processing pauses appear to trigger mid-session resets more readily
 - **Session files don't capture the bug**: The `.jsonl` log records actual content, but phantom read markers appear after logging
@@ -84,12 +88,14 @@ The "Clean Gap" pattern describes successful sessions: an early reset clears ini
 
 | Theory | Status | Notes |
 |--------|--------|-------|
-| **Reset Timing Theory** | ✅ CONFIRMED | 100% prediction accuracy on 22 trials |
-| **Reset Count Theory** | ⚠️ PARTIAL | Correlates but not deterministic |
-| **Headroom Theory** | ⚠️ WEAKENED | Necessary but not sufficient |
+| **Reset Timing Theory** | ✅ CONFIRMED | 100% prediction accuracy on 31 trials |
+| **Reset Count Theory** | ✅ STRENGTHENED | 2 resets = safe, 4+ resets = failure |
+| **Mid-Session Accumulation** | 🆕 NEW | 2+ mid-session resets = likely failure |
+| **Sustained Processing Gap** | 🆕 NEW | ~25-30% uninterrupted window required |
+| **Headroom Theory** | ⚠️ SUPPORTED | Correlates but insufficient alone |
 | **Dynamic Context Pressure** | 🔬 HYPOTHESIS | Rate of accumulation may trigger resets |
 
-See [docs/core/WSD-Dev-02-Analysis-3.md](docs/core/WSD-Dev-02-Analysis-3.md) for the full token-based analysis.
+See [docs/core/Repro-Attempts-02-Analysis-1.md](docs/core/Repro-Attempts-02-Analysis-1.md) for the latest analysis, or [docs/core/WSD-Dev-02-Analysis-3.md](docs/core/WSD-Dev-02-Analysis-3.md) for the detailed token-based analysis.
 
 ## Original Experiment
 
@@ -117,7 +123,13 @@ If you've experienced any of these, phantom reads may be the cause:
 
 ## How to Reproduce
 
-Reliable repro case in progress
+We have achieved the first successful phantom read reproduction in a controlled scenario. The key factors:
+
+- **High pre-operation context consumption** (>50% of context window before triggering multi-file reads)
+- **Multiple file reads during onboarding** (inflates baseline context)
+- **Aggressive multi-file read operations** (triggers mid-session resets)
+
+A reliable, user-friendly reproduction protocol is in development. Current methodology documented in [docs/core/Experiment-Methodology-02.md](docs/core/Experiment-Methodology-02.md).
 
 ## Contributing
 

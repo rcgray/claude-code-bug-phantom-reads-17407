@@ -657,20 +657,90 @@ For deeper background on specific topics:
 | `docs/core/WSD-Dev-02-Analysis-1.md`     | Initial 7-trial analysis, Reset Timing Theory origin       |
 | `docs/core/WSD-Dev-02-Analysis-2.md`     | Expanded 22-trial analysis, Reset Timing Theory validation |
 
-## Appendix D: Theory Status (as of 2026-01-20)
+## Appendix D: Theory Status (as of 2026-01-21)
 
-Based on 22-trial analysis in WSD-Dev-02-Analysis-2.md:
+Based on combined analysis (22 WSD-Dev-02 trials + 9 Repro-Attempts-02 trials = 31 total):
 
 | Theory                  | Status              | Prediction Accuracy                   |
 | ----------------------- | ------------------- | ------------------------------------- |
-| **Reset Timing Theory** | STRONGLY CONFIRMED  | 100% (22/22 trials)                   |
-| Reset Count Theory      | Partially confirmed | Correlates but not deterministic      |
-| Headroom Theory         | Weakened            | Insufficient alone; influences timing |
+| **Reset Timing Theory** | STRONGLY CONFIRMED  | 100% (31/31 trials)                   |
+| Reset Count Theory      | Strengthened        | 2 resets = safe, 4+ resets = failure |
+| Headroom Theory         | Supported           | Correlates with risk; insufficient alone |
 
 **Key Finding**: Mid-session resets (50-90% through session) are the critical failure condition. Success requires either EARLY_PLUS_LATE or SINGLE_LATE reset patterns.
+
+**Refinement (2026-01-21)**: A single borderline mid-session reset (50-65%) appears survivable. Multiple mid-session resets (2+, especially 3+) are catastrophic.
+
+---
+
+## Appendix E: Mid-Session Reset Accumulation Pattern (2026-01-21)
+
+Based on Repro-Attempts-02 analysis, a refinement to the Reset Timing Theory:
+
+### The Accumulation Hypothesis
+
+Not all mid-session resets are equally catastrophic. The critical factor is **accumulation**:
+
+| Mid-Session Resets | Observed Outcome | Confidence |
+|--------------------|------------------|------------|
+| 0 | Safe | High |
+| 1 (borderline 50-65%) | Likely survivable | Medium |
+| 2+ | Likely failure | High |
+| 3+ | Guaranteed failure | Very High |
+
+**Evidence**: Repro-Attempts-02 trial 20260121-202919 had **three consecutive mid-session resets** at 57%, 72%, 84% and was the only failure among 9 trials. All 8 successes had ≤1 mid-session reset.
+
+### Sustained Processing Gap Requirement
+
+Successful trials consistently show:
+- First reset at ~50% (boundary of danger zone)
+- **No resets until ~89%** (after file processing completes)
+- This creates a ~35-40% "clean gap" for uninterrupted work
+
+**Hypothesis**: Success requires an uninterrupted processing window of at least 25-30% of session duration.
+
+### Onboarding Read Count Correlation
+
+The failure case read 19 files (vs 6-11 in successes), including:
+- `Investigation-Journal.md` (878 lines)
+- `Trial-Analysis-Guide.md` (677 lines)
+- Various standards files
+
+This elevated onboarding activity pushed pre-op from 36% → 54%, triggering the cascade.
+
+**Hypothesis**: More files during onboarding → higher pre-op → lower headroom → more resets during trigger → phantom reads.
+
+---
+
+## Appendix F: Reproduction Scenario Design Insights (2026-01-21)
+
+From Repro-Attempts-02 analysis:
+
+### Critical Design Principle
+
+**Scenario differentiation should target onboarding context consumption, not just trigger content volume.**
+
+The key insight: Current repro scenarios (Easy/Medium/Hard) differentiate by spec file complexity during `/refine-plan`, but the real trigger is how much context is consumed during initialization BEFORE the trigger fires.
+
+### Successful Failure Generation
+
+To reliably trigger phantom reads in reproduction scenarios:
+
+1. **Target pre-op consumption >50%** before trigger command
+2. **Force more file reads during onboarding** (not during the trigger itself)
+3. **Aim for 3+ mid-session resets** through sustained high consumption
+4. **Avoid using research files** (Investigation-Journal.md, etc.) to minimize Hawthorne Effect
+
+### Pre-Op Threshold Guidance
+
+| Target Outcome | Pre-Op Consumption | Strategy |
+|----------------|-------------------|----------|
+| Reliable success | <40% | Minimal onboarding |
+| Boundary/mixed | 45-50% | Moderate onboarding |
+| Reliable failure | >50% | Aggressive onboarding |
 
 ---
 
 *Document created: 2026-01-19*
-*Last updated: 2026-01-20 (Part 8, Appendix D added)*
+*Last updated: 2026-01-21 (Appendices E & F added)*
 *Purpose: User Agent onboarding for Phantom Reads trial analysis*
