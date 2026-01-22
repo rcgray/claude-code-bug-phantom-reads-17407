@@ -157,10 +157,12 @@ Export the chat session using `/export` and save the resulting `.txt` file.
 
 Naming convention:
 ```
-{Difficulty}-{SessionUUID}.txt
+../cc-exports/{WORKSCOPE_ID}.txt
 ```
 
-Example: `Hard-2a812dfa-814f-48b0-8520-a9f575a018fc.txt`
+Saving this in the `../cc-exports/` directory (a new directory adjacent to your copy of this repo) will allow trial results data to be easily gathered by the `src/collect_trials.py` script
+
+Example: `../cc-exports/20260121-202917.txt`
 
 **IMPORTANT: Save exports OUTSIDE the project directory.** Chat exports saved within the project directory become visible to subsequent sessions through file listing operations. This can contaminate trial isolation - a later session's `.jsonl` will contain references to earlier session UUIDs when the agent runs file discovery commands.
 
@@ -278,11 +280,11 @@ The Workscope ID coordinates artifacts within a trial directory. The session UUI
 
 Trials conducted on the phantom-read-clone repository using `docs/wpds/` test WPDs:
 
-| Trial | WPD | Pre-Op Tokens | Post-Op Tokens | Result |
-|-------|-----|---------------|----------------|--------|
-| easy-1 | refactor-easy.md | 74K (37%) | ~100K | SUCCESS |
-| medium-1 | refactor-medium.md | 80K (40%) | ~130K | SUCCESS |
-| hard-1 | refactor-hard.md | 95K (48%) | 149K (75%) | SUCCESS |
+| Trial    | WPD                | Pre-Op Tokens | Post-Op Tokens | Result  |
+| -------- | ------------------ | ------------- | -------------- | ------- |
+| easy-1   | refactor-easy.md   | 74K (37%)     | ~100K          | SUCCESS |
+| medium-1 | refactor-medium.md | 80K (40%)     | ~130K          | SUCCESS |
+| hard-1   | refactor-hard.md   | 95K (48%)     | 149K (75%)     | SUCCESS |
 
 All three trials succeeded (no phantom reads), despite `refactor-hard.md` being designed to reliably trigger phantom reads.
 
@@ -290,10 +292,10 @@ All three trials succeeded (no phantom reads), despite `refactor-hard.md` being 
 
 Trials conducted on the parent WSD Development project (a larger, more complex codebase):
 
-| Trial | Pre-Op Tokens | Post-Op Tokens | Result |
-|-------|---------------|----------------|--------|
-| 2.1.6-good | 85K (42%) | 159K (79%) | SUCCESS |
-| 2.1.6-bad | 126K (63%) | 142K (71%) | FAILURE |
+| Trial      | Pre-Op Tokens | Post-Op Tokens | Result  |
+| ---------- | ------------- | -------------- | ------- |
+| 2.1.6-good | 85K (42%)     | 159K (79%)     | SUCCESS |
+| 2.1.6-bad  | 126K (63%)    | 142K (71%)     | FAILURE |
 
 The "bad" trial consumed **fewer total tokens** but experienced phantom reads because it **started at higher consumption** (126K vs 85K).
 

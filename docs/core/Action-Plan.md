@@ -37,7 +37,6 @@ The following are the steps for implementing the project, where the full list is
 ## Phase 3: Reproduction Environment - Three Specs
 
 - [x] **3.1** - Create Reproduction-Specs-Collection feature (see `docs/features/reproduction-specs-collection/Reproduction-Specs-Collection-Overview.md`)
-Collect-Trials-Script-Overview.md`)
 - [x] **3.2** - Execute manual reproduction trial of the three specs created in previous Phase
   - [x] **3.2.1** - Run `/wsd:init --custom` in a fresh Claude Code session
   - [x] **3.2.2** - Run `/refine-plan` against the trigger WSDs
@@ -49,7 +48,8 @@ Collect-Trials-Script-Overview.md`)
 - [x] **3.5** - Update Documentation
   - [x] **3.5.1** - Ensure that `docs/core/Investigation-Journal.md` records the approach and results of Reproduction-Specs-Collection investigation
   - [x] **3.5.2** - Update `README.md` to reflect our current understanding of the issue and include directions on end-users running their own tests.
-  - [x] **3.5.3** - Ensure that there is a clear `docs/core/Experiment-Methodology-#.md` that matches the most recent experiments run
+  - [x] **3.5.3** - Ensure that there is a clear `docs/core/Experiment-Methodology-#.md` that matches the most recent experiments run.
+- [ ] **3.6** - Revisit the Reproduction-Specs-Collection feature, now with new additions based on evaluations of our first attempt (see `docs/features/reproduction-specs-collection/Reproduction-Specs-Collection-Overview.md`)
 
 ## Phase 4: Analysis Tools
 
@@ -58,9 +58,9 @@ Collect-Trials-Script-Overview.md`)
 - [x] **4.3** - Design and create analysis scripts feature
 - [x] **4.4** - Run sample experiments as we would expect end-users to run them. Evaluate analysis scripts results.
 - [ ] **4.5** - Create a tool for generating the `file_token_counts.json` file for collections (see `docs/features/update-file-summary/Update-File-Summary-Overview.md`)
-- [ ] **4.5** - Update Documentation
-  - [ ] **4.5.1** - Ensure that `docs/core/Investigation-Journal.md` records the approach and results of our Analysis Scripts.
-  - [ ] **4.5.2** - Update `README.md` to reflect our current understanding of the issue and include directions on end-users running their own tests AND new analysis tools
-  - [ ] **4.5.3** - Ensure that there is a clear `docs/core/Experiment-Methodology-#.md` that matches the most recent experiments run.
+- [ ] **4.6** - Update Documentation
+  - [ ] **4.6.1** - Ensure that `docs/core/Investigation-Journal.md` records the approach and results of our Analysis Scripts.
+  - [ ] **4.6.2** - Update `README.md` to reflect our current understanding of the issue and include directions on end-users running their own tests AND new analysis tools
+  - [ ] **4.6.3** - Ensure that there is a clear `docs/core/Experiment-Methodology-#.md` that matches the most recent experiments run.
 
 
