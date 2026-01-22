@@ -50,7 +50,6 @@ Collect-Trials-Script-Overview.md`)
   - [x] **3.5.1** - Ensure that `docs/core/Investigation-Journal.md` records the approach and results of Reproduction-Specs-Collection investigation
   - [x] **3.5.2** - Update `README.md` to reflect our current understanding of the issue and include directions on end-users running their own tests.
   - [x] **3.5.3** - Ensure that there is a clear `docs/core/Experiment-Methodology-#.md` that matches the most recent experiments run
-  - [*] **3.5.4** - Refine `docs/features/session-analysis-scripts/Session-Analysis-Scripts-Overview.md` based on our latest findings and theory to ensure we're creating effective analysis scripts.
 
 ## Phase 4: Analysis Tools
 
@@ -58,6 +57,7 @@ Collect-Trials-Script-Overview.md`)
 - [x] **4.2** - Create the `collect_trials.py` script (see `docs/features/collect-trials-script/Collect-Trials-Script-Overview.md`)
 - [x] **4.3** - Design and create analysis scripts feature
 - [x] **4.4** - Run sample experiments as we would expect end-users to run them. Evaluate analysis scripts results.
+- [ ] **4.5** - Create a tool for generating the `file_token_counts.json` file for collections (see `docs/features/update-file-summary/Update-File-Summary-Overview.md`)
 - [ ] **4.5** - Update Documentation
   - [ ] **4.5.1** - Ensure that `docs/core/Investigation-Journal.md` records the approach and results of our Analysis Scripts.
   - [ ] **4.5.2** - Update `README.md` to reflect our current understanding of the issue and include directions on end-users running their own tests AND new analysis tools
