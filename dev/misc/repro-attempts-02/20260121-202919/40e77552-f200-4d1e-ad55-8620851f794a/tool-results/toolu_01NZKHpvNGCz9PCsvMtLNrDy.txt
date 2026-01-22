@@ -1,0 +1,362 @@
+     1→# Workscope-Dev User Guide
+     2→
+     3→**Version:** 1.0.0
+     4→**Audience:** Developers using WSD for AI-assisted development
+     5→
+     6→## Introduction
+     7→
+     8→This guide covers the day-to-day use of Workscope-Dev (WSD) after installation and setup. It explains the workscope lifecycle, available commands, and how to work effectively with the agent system.
+     9→
+    10→For installation, see `Integration-Guide.md`. For platform-specific configuration, see the relevant project guide (`Python-Project-Guide.md`, `Node-Project-Guide.md`, or `Codeless-Project-Guide.md`).
+    11→
+    12→## The Workscope Lifecycle
+    13→
+    14→WSD organizes AI-assisted development into discrete units of work called **workscopes**. Each workscope represents a well-defined set of tasks suitable for a single AI session. The lifecycle follows a structured sequence that ensures quality, traceability, and effective handoffs.
+    15→
+    16→### Lifecycle Overview
+    17→
+    18→```
+    19→┌──────────────────────────────────────────────────────────────┐
+    20→│                        WORKSCOPE LIFECYCLE                   │
+    21→├──────────────────────────────────────────────────────────────┤
+    22→│                                                              │
+    23→│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐    │
+    24→│  │  /wsd:init   │───▶│ /wsd:prepare │───▶│ /wsd:execute │    │
+    25→│  │              │    │              │    │              │    │
+    26→│  │ Initialize   │    │ Onboard with │    │ Execute work │    │
+    27→│  │ session      │    │ context      │    │ + QA checks  │    │
+    28→│  └──────────────┘    └──────────────┘    └──────────────┘    │
+    29→│         │                                       │            │
+    30→│         │                                       ▼            │
+    31→│         │                              ┌──────────────┐      │
+    32→│         │                              │ /wsd:close   │      │
+    33→│         │                              │      or      │      │
+    34→│         ▼                              │ /wsd:abort   │      │
+    35→│  ┌──────────────┐                      │              │      │
+    36→│  │ /wsd:abort   │◀─────────────────────│ Finalize or  │      │
+    37→│  │              │  (cancel anytime)    │ cancel       │      │
+    38→│  │ Cancel work  │                      └──────────────┘      │
+    39→│  └──────────────┘                                            │
+    40→│                                                              │
+    41→└──────────────────────────────────────────────────────────────┘
+    42→```
+    43→
+    44→### Phase 1: Initialization (`/wsd:init`)
+    45→
+    46→The initialization phase prepares a fresh AI session (User Agent) for work.
+    47→
+    48→**What happens:**
+    49→1. The User Agent reads critical WSD system documentation to understand components and workflow
+    50→2. A unique Workscope ID is generated from the current timestamp (format: `YYYYMMDD-HHMMSS`)
+    51→3. A Work Journal is created at `dev/journal/archive/Journal-Workscope-{ID}.md`
+    52→4. The Task-Master agent analyzes project documentation and assigns a workscope using a depth-first search algorithm
+    53→5. An immutable workscope file is created at `dev/workscopes/archive/Workscope-{ID}.md`
+    54→
+    55→**Usage:**
+    56→```
+    57→/wsd:init                              # Standard initialization
+    58→/wsd:init --custom                     # Skip Task-Master, receive custom assignment from User
+    59→/wsd:init Do task 3.5 next             # Provide directive to Task-Master
+    60→```
+    61→
+    62→**Completion:** The User Agent reports their Workscope ID and awaits further instruction.
+    63→
+    64→### Phase 2: Preparation (`/wsd:prepare`)
+    65→
+    66→The preparation phase onboards the User Agent with context relevant to their assigned workscope.
+    67→
+    68→**What happens:**
+    69→1. Context-Librarian identifies documentation files relevant to the workscope tasks
+    70→2. Codebase-Surveyor identifies source code files relevant to the workscope tasks
+    71→3. Project-Bootstrapper educates the User Agent on project rules and behavioral expectations
+    72→
+    73→**Why this matters:** Proper context loading dramatically improves AI accuracy and reduces hallucination. The User Agent enters execution with full awareness of relevant specifications, code patterns, and project conventions.
+    74→
+    75→**Usage:**
+    76→```
+    77→/wsd:prepare
+    78→```
+    79→
+    80→**Completion:** The User Agent confirms readiness to execute.
+    81→
+    82→### Phase 3: Execution (`/wsd:execute`)
+    83→
+    84→The execution phase is where the actual work happens, followed by comprehensive quality assurance.
+    85→
+    86→**What happens:**
+    87→1. The User Agent performs the tasks assigned in their workscope
+    88→2. Work is continuously documented in the Work Journal
+    89→3. Upon completion, several Special Agents review the work in a QA gauntlet:
+    90→   - **Documentation-Steward**: Verifies code and specifications are aligned
+    91→   - **Rule-Enforcer**: Verifies compliance with Agent-Rules.md and standards
+    92→   - **Test-Guardian**: Verifies test coverage and no regressions
+    93→   - **Health-Inspector**: Examines code quality, formatting, security, and health checks
+    94→
+    95→**Important:** Special Agents have **veto power**. They can reject submissions that don't meet standards, requiring the User Agent to revise their work.
+    96→
+    97→Preferably, the User Agent will deal with the Special Agents directly, taking burden off the User for enforcing rules or ensuring specification alginment, but in a stalemate the User Agent will otherwise escalate the Special Agent rejection to the User. The User can choose to override the Special Agents' concerns, but **this is often where bugs, improper implementations, or higher level design inconsistencies are discovered.**
+    98→
+    99→**Usage:**
+   100→```
+   101→/wsd:execute
+   102→```
+   103→
+   104→**Completion:** All QA checks pass and the User Agent reports completion with any notes for the User.
+   105→
+   106→### Phase 4: Termination (`/wsd:close` or `/wsd:abort`)
+   107→
+   108→The termination phase finalizes or cancels the workscope.
+   109→
+   110→#### Successful Completion (`/wsd:close`)
+   111→
+   112→**What happens:**
+   113→1. Context-Librarian reviews workbench documents for potential archival
+   114→2. Task-Master updates checkboxlists to mark completed tasks with `[x]`
+   115→3. The workscope is formally closed
+   116→
+   117→**Usage:**
+   118→```
+   119→/wsd:close
+   120→```
+   121→
+   122→#### Cancellation (`/wsd:abort`)
+   123→
+   124→**What happens:**
+   125→1. Checkboxlists are restored to their original state (assigned `[*]` items become unaddressed `[ ]`)
+   126→2. The workscope is marked as aborted
+   127→3. Any work performed is left in place (use git to revert if needed)
+   128→4. Note: this can be called at any point in the workscope cycle, not just at the end.
+   129→
+   130→**Usage:**
+   131→```
+   132→/wsd:abort
+   133→```
+   134→
+   135→### Post-Workscope Activities
+   136→
+   137→After a workscope completes, the User typically:
+   138→1. Reviews the Work Journal and any Special Agent notes
+   139→2. Stages or commits work in git
+   140→3. Runs `./wsd.py docs:update` to update project reports
+   141→4. Tests new functionality manually if desired
+   142→5. Updates plans, rules, or documentation as needed
+   143→6. Runs `/clear` to create a fresh User Agent
+   144→7. Returns to Phase 1 for another workscope cycle
+   145→
+   146→## Slash Commands Reference
+   147→
+   148→WSD provides custom slash commands that drive the workflow. Commands are organized by category.
+   149→
+   150→### Workscope Lifecycle Commands
+   151→
+   152→| Command        | Description                                            |
+   153→| -------------- | ------------------------------------------------------ |
+   154→| `/wsd:init`    | Initialize a new workscope session                     |
+   155→| `/wsd:prepare` | Onboard User Agent with context for assigned workscope |
+   156→| `/wsd:execute` | Execute the workscope and run QA checks                |
+   157→| `/wsd:close`   | Accept and finalize completed workscope                |
+   158→| `/wsd:abort`   | Cancel workscope and restore checkboxlists             |
+   159→| `/wsd:onboard` | Standalone onboarding (used by `/wsd:init --custom`)   |
+   160→
+   161→### Platform Setup Commands
+   162→
+   163→| Command      | Description                                                |
+   164→| ------------ | ---------------------------------------------------------- |
+   165→| `/wsd:setup` | Configure platform-specific tooling after WSD installation |
+   166→
+   167→### Documentation Commands
+   168→
+   169→| Command           | Description                                                   |
+   170→| ----------------- | ------------------------------------------------------------- |
+   171→| `/open-ticket`    | Create a new ticket with checkboxlist in `docs/tickets/open/` |
+   172→| `/add-dd`         | Add a new design decision to `docs/core/Design-Decisions.md`  |
+   173→| `/create-feature` | Create a new feature specification in `docs/features/`        |
+   174→| `/commit-msg`     | Generate a commit message for staged changes                  |
+   175→
+   176→### Development Commands
+   177→
+   178→| Command     | Description                                             |
+   179→| ----------- | ------------------------------------------------------- |
+   180→| `/fix-loop` | Run iterative fix loop for failing tests or lint errors |
+   181→
+   182→## Special Agents Reference
+   183→
+   184→Special Agents are domain experts that provide specialized capabilities during the workscope lifecycle. They are invoked by User Agents or commands as needed.
+   185→
+   186→### Task Assignment
+   187→
+   188→| Agent           | Role                                                                                                                                                                                             |
+   189→| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+   190→| **Task-Master** | Manages workscope assignment using depth-first search on checkboxlists. Creates immutable workscope files. Updates checkbox states on close. Moves tickets from open to closed folder locations. |
+   191→
+   192→### Context Engineering
+   193→
+   194→| Agent                    | Role                                                                                                                   |
+   195→| ------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+   196→| **Context-Librarian**    | Discovers documentation relevant to tasks. Manages workbench document archival. Maintains institutional memory.        |
+   197→| **Codebase-Surveyor**    | Identifies source code files relevant to tasks. Provides file paths for User Agent to read.                            |
+   198→| **Project-Bootstrapper** | Educates User Agents on project rules and conventions. Improves compliance by setting expectations before work begins. |
+   199→
+   200→### Quality Assurance
+   201→
+   202→| Agent                     | Role                                                                                                     |
+   203→| ------------------------- | -------------------------------------------------------------------------------------------------------- |
+   204→| **Documentation-Steward** | Ensures code implementations match specifications. Flags specification drift. Has veto power.            |
+   205→| **Rule-Enforcer**         | Verifies compliance with Agent-Rules.md and coding standards. Has veto power.                            |
+   206→| **Test-Guardian**         | Runs test suite, verifies coverage, prevents regressions. Reports test results as Proof of Work.         |
+   207→| **Health-Inspector**      | Runs comprehensive health checks (lint, type, security, format). Reports health status as Proof of Work. |
+   208→
+   209→### Specialized Tasks
+   210→
+   211→| Agent                 | Role                                                         |
+   212→| --------------------- | ------------------------------------------------------------ |
+   213→| **Feature-Writer**    | Creates feature specification documents following templates. |
+   214→| **Demo-Presenter**    | Creates executable demonstrations for stakeholders.          |
+   215→| **Process-Inspector** | Audits development tools and processes for accuracy.         |
+   216→
+   217→## Key Artifacts
+   218→
+   219→WSD creates and manages several important artifacts during the workscope lifecycle.
+   220→
+   221→### Workscope Files
+   222→
+   223→**Location:** `dev/workscopes/archive/Workscope-YYYYMMDD-HHMMSS.md`
+   224→
+   225→Immutable records of assigned work. Created by Task-Master during `/wsd:init`. Never modified after creation. Contains:
+   226→- Workscope ID and navigation path
+   227→- Phase inventory of the terminal checkboxlist
+   228→- Assigned task numbers and descriptions (Selected Tasks)
+   229→- Phase 0 status and context documents
+   230→
+   231→For the complete workscope file format specification, see `docs/read-only/Workscope-System.md`.
+   232→
+   233→### Work Journals
+   234→
+   235→**Location:** `dev/journal/archive/Journal-Workscope-YYYYMMDD-HHMMSS.md`
+   236→
+   237→Living records of session activity. Created during `/wsd:init`. Continuously updated by User Agent. Contains:
+   238→- Session timeline
+   239→- Decisions made
+   240→- Special Agent reports
+   241→- Issues encountered
+   242→
+   243→### Checkboxlists
+   244→
+   245→**Primary Location:** `docs/core/Action-Plan.md`
+   246→**Additional Locations:** Feature specs, tickets, and other documentation
+   247→
+   248→Hierarchical task lists using five checkbox states:
+   249→- `[ ]` - Unaddressed (available for selection)
+   250→- `[%]` - Incomplete/unverified (requires fresh review, treated like `[ ]`)
+   251→- `[*]` - Assigned to active workscope
+   252→- `[x]` - Completed
+   253→- `[-]` - Intentionally skipped (requires User authorization)
+   254→
+   255→### Workbench Documents
+   256→
+   257→**Location:** `docs/workbench/`
+   258→
+   259→Temporary working memory for the current focus. Documents here are:
+   260→- Created during active work
+   261→- Reviewed for archival during `/wsd:close`
+   262→- Promoted to permanent locations (`docs/features/`, `docs/read-only/`, etc.) or archived
+   263→
+   264→### AI Diagnostics
+   265→
+   266→**Location:** `dev/diagnostics/`
+   267→
+   268→A digital "scratch pad" for agent work. A place for temporary files to go and be forgotten.
+   269→- Some LLM models insist on creating reports on every task that the User did not request and is not interested in.
+   270→- Some tasks require the creation of a temporary script for a one-off operation.
+   271→- Occasionally, an agent will generate an artifact (document or script) that might be useful in the future or to re-run during a longer investigation, and they can be found here.
+   272→- The Diagnostics folder is for the agents, by the agents, and outside the User's concern.
+   273→
+   274→## Common Workflows
+   275→
+   276→### Starting a New Session
+   277→
+   278→```bash
+   279→# In Claude Code
+   280→/wsd:init                    # Initialize and get workscope assignment
+   281→# Review the assigned workscope
+   282→/wsd:prepare                 # Load context for the work
+   283→/wsd:execute                 # Do the work and pass QA
+   284→# Address any concerns raised by User Agent
+   285→/wsd:close                   # Finalize the workscope
+   286→/clear                       # Start fresh for next session
+   287→```
+   288→
+   289→### Custom Work Assignment
+   290→
+   291→```bash
+   292→/wsd:init --custom           # Initialize without Task-Master assignment
+   293→# Benefits:
+   294→#   - User Agent is briefed on all essential system context
+   295→#   - Workscope-ID is generated and Work Journal is started
+   296→#   - User Agent is onboarded with Project-Bootstrapper to understand rules and conventions
+   297→
+   298→# User provides custom instructions directly in interactive chat
+   299→```
+   300→
+   301→### Handling QA Failures
+   302→
+   303→If a Special Agent rejects work during `/wsd:execute`:
+   304→1. Review the agent's feedback in the Work Journal
+   305→2. Make requested corrections
+   306→3. The User Agent will re-engage the agent for approval (request "resume the conversation with...")
+   307→4. If issues persist, escalate to User for guidance
+   308→
+   309→### Aborting Mid-Session
+   310→
+   311→```bash
+   312→/wsd:abort                   # Cancel at any point
+   313→# Checkboxlists restored to pre-session state
+   314→# Use git to revert any unwanted file changes
+   315→```
+   316→
+   317→## Task Runner Commands
+   318→
+   319→The WSD Task Runner (`./wsd.py`) provides unified commands for development tasks. Full documentation is in `Task-Runner-Guide.md`, but commonly used commands include:
+   320→
+   321→```bash
+   322→./wsd.py health              # Run comprehensive health checks
+   323→./wsd.py test                # Run test suite
+   324→./wsd.py lint                # Check code style
+   325→./wsd.py lint:fix            # Auto-fix lint issues
+   326→./wsd.py format              # Format code
+   327→./wsd.py docs:update         # Update project documentation reports
+   328→```
+   329→
+   330→## Best Practices
+   331→
+   332→### For Effective Sessions
+   333→
+   334→1. **One workscope at a time**: Complete or abort before starting another
+   335→2. **Trust the QA gauntlet**: Special Agents catch issues you might miss
+   336→3. **Use journals**: Work Journals are your audit trail and handoff notes
+   337→4. **Commit frequently**: Git is your safety net for any mistakes
+   338→
+   339→Note: **Parallel workscopes are supported**: the Task-Master agent coordinates "reserved" tasks using `[*]`
+   340→
+   341→### For Project Organization
+   342→
+   343→1. **Keep Action Plan updated**: It drives the entire workscope assignment system
+   344→2. **Use tickets for discoveries**: Found a bug? `/open-ticket` captures it for later
+   345→3. **Interject new work**: Using `Phase 0` in any checkboxlist. Any unaddressed item in Phase 0 is **blocking** and must be prioritized for selection by the Task-Master over any other task in a checkboxlist.
+   346→4. **Archive workbench regularly**: Promote or archive documents to prevent clutter, though the Context-Librarian also cleans up.
+   347→5. **Document design decisions**: `/add-dd` preserves design philosophies specific to a project that will be read by all future agents.
+   348→
+   349→### For Teams
+   350→
+   351→1. **Standardize on lifecycle**: All team members follow init → prepare → execute → close
+   352→2. **Review Work Journals**: They capture what each session accomplished
+   353→3. **Share via workbench**: Cross-session coordination happens through workbench documents
+   354→
+   355→---
+   356→
+   357→*This guide covers WSD usage. For installation, see `Integration-Guide.md`. For updates, see `Update-Guide.md`. For platform configuration, see the project guides.*
+   358→
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>

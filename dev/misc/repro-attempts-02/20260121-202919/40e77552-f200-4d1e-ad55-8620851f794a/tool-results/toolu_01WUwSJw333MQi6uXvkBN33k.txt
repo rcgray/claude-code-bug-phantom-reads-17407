@@ -1,0 +1,16 @@
+/Users/gray/Projects/phantom-read-clone/dev/wsd/Code-Doc-Guide.md
+/Users/gray/Projects/phantom-read-clone/dev/wsd/Codeless-Project-Guide.md
+/Users/gray/Projects/phantom-read-clone/dev/wsd/Health-Check-Guide.md
+/Users/gray/Projects/phantom-read-clone/dev/wsd/Integration-Guide.md
+/Users/gray/Projects/phantom-read-clone/dev/wsd/Node-Project-Guide.md
+/Users/gray/Projects/phantom-read-clone/dev/wsd/Python-Project-Guide.md
+/Users/gray/Projects/phantom-read-clone/dev/wsd/Task-Runner-Guide.md
+/Users/gray/Projects/phantom-read-clone/dev/wsd/Update-Guide.md
+/Users/gray/Projects/phantom-read-clone/dev/wsd/User-Guide.md
+/Users/gray/Projects/phantom-read-clone/dev/wsd/eslintrc.md
+/Users/gray/Projects/phantom-read-clone/dev/wsd/jsdoc.json.md
+/Users/gray/Projects/phantom-read-clone/dev/wsd/package.json.md
+/Users/gray/Projects/phantom-read-clone/dev/wsd/prettierrc.md
+/Users/gray/Projects/phantom-read-clone/dev/wsd/pyproject.toml.md
+/Users/gray/Projects/phantom-read-clone/dev/wsd/tsconfig.json.md
+/Users/gray/Projects/phantom-read-clone/dev/wsd/typedoc.json.md

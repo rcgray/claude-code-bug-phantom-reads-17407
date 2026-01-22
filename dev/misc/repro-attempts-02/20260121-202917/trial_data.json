@@ -1,0 +1,593 @@
+{
+  "schema_version": "1.2",
+  "generated_at": "2026-01-21T21:13:12.921644",
+  "metadata": {
+    "workscope_id": "20260121-202917",
+    "session_uuid": "b807a431-51fe-48c6-a13f-5bd271bd817c",
+    "chat_export_file": "20260121-202917.txt",
+    "session_file": "b807a431-51fe-48c6-a13f-5bd271bd817c.jsonl",
+    "has_subagents": true,
+    "has_tool_results": false
+  },
+  "outcome": {
+    "self_reported": "SUCCESS",
+    "affected_files": [],
+    "notes": "Agent explicitly stated: 'No, I did not experience phantom reads during this session.' and 'This session is NOT a reproduction of the phantom read issue. All read operations returned content inline rather than <persisted-output> markers.' Agent provided verification by citing specific content from files (error codes, IntegrationError structure, log severity scheme)."
+  },
+  "context_metrics": {
+    "pre_operation_tokens": 73000,
+    "pre_operation_percent": 36,
+    "post_operation_tokens": 128000,
+    "post_operation_percent": 64,
+    "headroom_at_trigger": 127000,
+    "context_window_size": 200000
+  },
+  "reset_analysis": {
+    "total_resets": 2,
+    "reset_positions_percent": [
+      48.91304347826087,
+      89.13043478260869
+    ],
+    "pattern_classification": "OTHER",
+    "resets": [
+      {
+        "from_tokens": 69866,
+        "to_tokens": 20104,
+        "session_line": 45,
+        "sequence_position": 45,
+        "total_events": 92,
+        "position_percent": 48.91304347826087
+      },
+      {
+        "from_tokens": 124708,
+        "to_tokens": 20104,
+        "session_line": 82,
+        "sequence_position": 82,
+        "total_events": 92,
+        "position_percent": 89.13043478260869
+      }
+    ]
+  },
+  "file_reads": {
+    "total_operations": 11,
+    "successful_operations": 11,
+    "failed_operations": 0,
+    "unique_files": 9,
+    "unique_file_list": [
+      "/Users/gray/Projects/phantom-read-clone/dev/journal/archive/Journal-Workscope-20260121-202917.md",
+      "/Users/gray/Projects/phantom-read-clone/docs/core/PRD.md",
+      "/Users/gray/Projects/phantom-read-clone/docs/specs/compliance-requirements.md",
+      "/Users/gray/Projects/phantom-read-clone/docs/specs/data-pipeline-overview.md",
+      "/Users/gray/Projects/phantom-read-clone/docs/specs/integration-layer.md",
+      "/Users/gray/Projects/phantom-read-clone/docs/specs/module-alpha.md",
+      "/Users/gray/Projects/phantom-read-clone/docs/specs/module-beta.md",
+      "/Users/gray/Projects/phantom-read-clone/docs/specs/module-gamma.md",
+      "/Users/gray/Projects/phantom-read-clone/docs/wpds/refactor-hard.md"
+    ],
+    "failed_reads": [],
+    "reads": [
+      {
+        "file_path": "/Users/gray/Projects/phantom-read-clone/docs/core/PRD.md",
+        "session_line": 6,
+        "tool_use_id": "toolu_0122mqRzu1AC6EEDJE4Y6ozX",
+        "batch_id": 0,
+        "success": true,
+        "sequence": 1
+      },
+      {
+        "file_path": "/Users/gray/Projects/phantom-read-clone/dev/journal/archive/Journal-Workscope-20260121-202917.md",
+        "session_line": 18,
+        "tool_use_id": "toolu_01UVrALc5hnXQ91X3sMfekdu",
+        "batch_id": 1,
+        "success": true,
+        "sequence": 2
+      },
+      {
+        "file_path": "/Users/gray/Projects/phantom-read-clone/dev/journal/archive/Journal-Workscope-20260121-202917.md",
+        "session_line": 28,
+        "tool_use_id": "toolu_01SKuGZGmoN4nDDFue58FxtE",
+        "batch_id": 2,
+        "success": true,
+        "sequence": 3
+      },
+      {
+        "file_path": "/Users/gray/Projects/phantom-read-clone/docs/wpds/refactor-hard.md",
+        "session_line": 46,
+        "tool_use_id": "toolu_01JqQyKobMJ1Te2jJvXirFG5",
+        "batch_id": 3,
+        "success": true,
+        "sequence": 4
+      },
+      {
+        "file_path": "/Users/gray/Projects/phantom-read-clone/docs/specs/data-pipeline-overview.md",
+        "session_line": 49,
+        "tool_use_id": "toolu_01BjqC9ocwtPYX8zWAwJC5MS",
+        "batch_id": 4,
+        "success": true,
+        "sequence": 5
+      },
+      {
+        "file_path": "/Users/gray/Projects/phantom-read-clone/docs/specs/module-alpha.md",
+        "session_line": 50,
+        "tool_use_id": "toolu_01M6v7NQybnvogkDi48qtgtM",
+        "batch_id": 5,
+        "success": true,
+        "sequence": 6
+      },
+      {
+        "file_path": "/Users/gray/Projects/phantom-read-clone/docs/specs/module-beta.md",
+        "session_line": 51,
+        "tool_use_id": "toolu_01PazKEb9TAVmFW9jQH557XT",
+        "batch_id": 6,
+        "success": true,
+        "sequence": 7
+      },
+      {
+        "file_path": "/Users/gray/Projects/phantom-read-clone/docs/specs/module-gamma.md",
+        "session_line": 52,
+        "tool_use_id": "toolu_01EuDMZXFJqff1bh5N1yCJRi",
+        "batch_id": 7,
+        "success": true,
+        "sequence": 8
+      },
+      {
+        "file_path": "/Users/gray/Projects/phantom-read-clone/docs/specs/integration-layer.md",
+        "session_line": 53,
+        "tool_use_id": "toolu_01A9dcNsAiCKqkceiJCtWKR3",
+        "batch_id": 8,
+        "success": true,
+        "sequence": 9
+      },
+      {
+        "file_path": "/Users/gray/Projects/phantom-read-clone/docs/specs/compliance-requirements.md",
+        "session_line": 54,
+        "tool_use_id": "toolu_01H1v9RAvNMJtn16JV8ZPt5j",
+        "batch_id": 9,
+        "success": true,
+        "sequence": 10
+      },
+      {
+        "file_path": "/Users/gray/Projects/phantom-read-clone/dev/journal/archive/Journal-Workscope-20260121-202917.md",
+        "session_line": 69,
+        "tool_use_id": "toolu_01GmtnRPpaBkXfwAhTDGseJp",
+        "batch_id": 10,
+        "success": true,
+        "sequence": 11
+      }
+    ]
+  },
+  "timeline": [
+    {
+      "sequence": 3,
+      "type": "user_input",
+      "session_line": 3,
+      "preview": "<command-message>wsd:init</command-message>\n<comma",
+      "phase": "init"
+    },
+    {
+      "sequence": 4,
+      "type": "user_input",
+      "session_line": 4,
+      "preview": "# Initialize Workscope\n\nThis command introduces a ",
+      "phase": "init"
+    },
+    {
+      "sequence": 6,
+      "type": "tool_batch",
+      "session_line": 6,
+      "read_count": 1,
+      "files": [
+        "/Users/gray/Projects/phantom-read-clone/docs/core/PRD.md"
+      ]
+    },
+    {
+      "sequence": 11,
+      "type": "user_input",
+      "session_line": 11,
+      "preview": "# WSD Platform Boot\n\nThis command introduces a new",
+      "phase": null
+    },
+    {
+      "sequence": 18,
+      "type": "tool_batch",
+      "session_line": 18,
+      "read_count": 1,
+      "files": [
+        "/Users/gray/Projects/phantom-read-clone/dev/journal/archive/Journal-Workscope-20260121-202917.md"
+      ]
+    },
+    {
+      "sequence": 23,
+      "type": "user_input",
+      "session_line": 23,
+      "preview": "# User Agent Onboarding\n\nThis command collects add",
+      "phase": "init"
+    },
+    {
+      "sequence": 28,
+      "type": "tool_batch",
+      "session_line": 28,
+      "read_count": 1,
+      "files": [
+        "/Users/gray/Projects/phantom-read-clone/dev/journal/archive/Journal-Workscope-20260121-202917.md"
+      ]
+    },
+    {
+      "sequence": 39,
+      "type": "user_input",
+      "session_line": 39,
+      "preview": "<local-command-caveat>Caveat: The messages below w",
+      "phase": null
+    },
+    {
+      "sequence": 40,
+      "type": "user_input",
+      "session_line": 40,
+      "preview": "<command-name>/context</command-name>\n            ",
+      "phase": null
+    },
+    {
+      "sequence": 41,
+      "type": "user_input",
+      "session_line": 41,
+      "preview": "<local-command-stdout>\u001b[?2026h \u001b[1mContext Usage\u001b[",
+      "phase": null
+    },
+    {
+      "sequence": 43,
+      "type": "user_input",
+      "session_line": 43,
+      "preview": "<command-message>refine-plan</command-message>\n<co",
+      "phase": "trigger"
+    },
+    {
+      "sequence": 44,
+      "type": "user_input",
+      "session_line": 44,
+      "preview": "# Refine Work Plan Document\n\nThis command initiate",
+      "phase": "trigger"
+    },
+    {
+      "sequence": 45,
+      "type": "context_reset",
+      "session_line": 45,
+      "from_tokens": 69866,
+      "to_tokens": 20104
+    },
+    {
+      "sequence": 46,
+      "type": "tool_batch",
+      "session_line": 46,
+      "read_count": 1,
+      "files": [
+        "/Users/gray/Projects/phantom-read-clone/docs/wpds/refactor-hard.md"
+      ]
+    },
+    {
+      "sequence": 49,
+      "type": "tool_batch",
+      "session_line": 49,
+      "read_count": 1,
+      "files": [
+        "/Users/gray/Projects/phantom-read-clone/docs/specs/data-pipeline-overview.md"
+      ]
+    },
+    {
+      "sequence": 50,
+      "type": "tool_batch",
+      "session_line": 50,
+      "read_count": 1,
+      "files": [
+        "/Users/gray/Projects/phantom-read-clone/docs/specs/module-alpha.md"
+      ]
+    },
+    {
+      "sequence": 51,
+      "type": "tool_batch",
+      "session_line": 51,
+      "read_count": 1,
+      "files": [
+        "/Users/gray/Projects/phantom-read-clone/docs/specs/module-beta.md"
+      ]
+    },
+    {
+      "sequence": 52,
+      "type": "tool_batch",
+      "session_line": 52,
+      "read_count": 1,
+      "files": [
+        "/Users/gray/Projects/phantom-read-clone/docs/specs/module-gamma.md"
+      ]
+    },
+    {
+      "sequence": 53,
+      "type": "tool_batch",
+      "session_line": 53,
+      "read_count": 1,
+      "files": [
+        "/Users/gray/Projects/phantom-read-clone/docs/specs/integration-layer.md"
+      ]
+    },
+    {
+      "sequence": 54,
+      "type": "tool_batch",
+      "session_line": 54,
+      "read_count": 1,
+      "files": [
+        "/Users/gray/Projects/phantom-read-clone/docs/specs/compliance-requirements.md"
+      ]
+    },
+    {
+      "sequence": 69,
+      "type": "tool_batch",
+      "session_line": 69,
+      "read_count": 1,
+      "files": [
+        "/Users/gray/Projects/phantom-read-clone/dev/journal/archive/Journal-Workscope-20260121-202917.md"
+      ]
+    },
+    {
+      "sequence": 77,
+      "type": "user_input",
+      "session_line": 77,
+      "preview": "<local-command-caveat>Caveat: The messages below w",
+      "phase": null
+    },
+    {
+      "sequence": 78,
+      "type": "user_input",
+      "session_line": 78,
+      "preview": "<command-name>/context</command-name>\n            ",
+      "phase": null
+    },
+    {
+      "sequence": 79,
+      "type": "user_input",
+      "session_line": 79,
+      "preview": "<local-command-stdout>\u001b[?2026h \u001b[1mContext Usage\u001b[",
+      "phase": null
+    },
+    {
+      "sequence": 81,
+      "type": "user_input",
+      "session_line": 81,
+      "preview": "We have recently seen a number of User Agents repo",
+      "phase": "inquiry"
+    },
+    {
+      "sequence": 82,
+      "type": "context_reset",
+      "session_line": 82,
+      "from_tokens": 124708,
+      "to_tokens": 20104
+    },
+    {
+      "sequence": 86,
+      "type": "user_input",
+      "session_line": 86,
+      "preview": "<local-command-caveat>Caveat: The messages below w",
+      "phase": null
+    },
+    {
+      "sequence": 87,
+      "type": "user_input",
+      "session_line": 87,
+      "preview": "<command-name>/export</command-name>\n            <",
+      "phase": null
+    },
+    {
+      "sequence": 88,
+      "type": "user_input",
+      "session_line": 88,
+      "preview": "<local-command-stdout>Conversation exported to: ..",
+      "phase": null
+    },
+    {
+      "sequence": 90,
+      "type": "user_input",
+      "session_line": 90,
+      "preview": "<local-command-caveat>Caveat: The messages below w",
+      "phase": null
+    },
+    {
+      "sequence": 91,
+      "type": "user_input",
+      "session_line": 91,
+      "preview": "<command-name>/exit</command-name>\n            <co",
+      "phase": null
+    },
+    {
+      "sequence": 92,
+      "type": "user_input",
+      "session_line": 92,
+      "preview": "<local-command-stdout>Catch you later!</local-comm",
+      "phase": null
+    }
+  ],
+  "token_progression": [
+    {
+      "sequence": 1,
+      "cache_read_tokens": 23352,
+      "session_line": 5
+    },
+    {
+      "sequence": 2,
+      "cache_read_tokens": 23352,
+      "session_line": 6
+    },
+    {
+      "sequence": 3,
+      "cache_read_tokens": 23352,
+      "session_line": 8
+    },
+    {
+      "sequence": 4,
+      "cache_read_tokens": 23352,
+      "session_line": 9
+    },
+    {
+      "sequence": 5,
+      "cache_read_tokens": 28991,
+      "session_line": 12
+    },
+    {
+      "sequence": 6,
+      "cache_read_tokens": 28991,
+      "session_line": 13
+    },
+    {
+      "sequence": 7,
+      "cache_read_tokens": 65104,
+      "session_line": 15
+    },
+    {
+      "sequence": 8,
+      "cache_read_tokens": 65104,
+      "session_line": 16
+    },
+    {
+      "sequence": 9,
+      "cache_read_tokens": 65453,
+      "session_line": 18
+    },
+    {
+      "sequence": 10,
+      "cache_read_tokens": 65681,
+      "session_line": 20
+    },
+    {
+      "sequence": 11,
+      "cache_read_tokens": 65681,
+      "session_line": 21
+    },
+    {
+      "sequence": 12,
+      "cache_read_tokens": 65907,
+      "session_line": 24
+    },
+    {
+      "sequence": 13,
+      "cache_read_tokens": 65907,
+      "session_line": 25
+    },
+    {
+      "sequence": 14,
+      "cache_read_tokens": 66638,
+      "session_line": 27
+    },
+    {
+      "sequence": 15,
+      "cache_read_tokens": 66638,
+      "session_line": 28
+    },
+    {
+      "sequence": 16,
+      "cache_read_tokens": 69614,
+      "session_line": 31
+    },
+    {
+      "sequence": 17,
+      "cache_read_tokens": 69866,
+      "session_line": 34
+    },
+    {
+      "sequence": 18,
+      "cache_read_tokens": 20104,
+      "session_line": 45
+    },
+    {
+      "sequence": 19,
+      "cache_read_tokens": 20104,
+      "session_line": 46
+    },
+    {
+      "sequence": 20,
+      "cache_read_tokens": 73956,
+      "session_line": 48
+    },
+    {
+      "sequence": 21,
+      "cache_read_tokens": 73956,
+      "session_line": 49
+    },
+    {
+      "sequence": 22,
+      "cache_read_tokens": 73956,
+      "session_line": 50
+    },
+    {
+      "sequence": 23,
+      "cache_read_tokens": 73956,
+      "session_line": 51
+    },
+    {
+      "sequence": 24,
+      "cache_read_tokens": 73956,
+      "session_line": 52
+    },
+    {
+      "sequence": 25,
+      "cache_read_tokens": 73956,
+      "session_line": 53
+    },
+    {
+      "sequence": 26,
+      "cache_read_tokens": 73956,
+      "session_line": 54
+    },
+    {
+      "sequence": 27,
+      "cache_read_tokens": 75033,
+      "session_line": 61
+    },
+    {
+      "sequence": 28,
+      "cache_read_tokens": 75033,
+      "session_line": 62
+    },
+    {
+      "sequence": 29,
+      "cache_read_tokens": 75033,
+      "session_line": 63
+    },
+    {
+      "sequence": 30,
+      "cache_read_tokens": 75033,
+      "session_line": 64
+    },
+    {
+      "sequence": 31,
+      "cache_read_tokens": 83102,
+      "session_line": 68
+    },
+    {
+      "sequence": 32,
+      "cache_read_tokens": 83102,
+      "session_line": 69
+    },
+    {
+      "sequence": 33,
+      "cache_read_tokens": 123389,
+      "session_line": 71
+    },
+    {
+      "sequence": 34,
+      "cache_read_tokens": 124708,
+      "session_line": 73
+    },
+    {
+      "sequence": 35,
+      "cache_read_tokens": 20104,
+      "session_line": 82
+    },
+    {
+      "sequence": 36,
+      "cache_read_tokens": 20104,
+      "session_line": 83
+    }
+  ],
+  "token_analysis": {
+    "available": false,
+    "token_counts_file": null
+  }
+}

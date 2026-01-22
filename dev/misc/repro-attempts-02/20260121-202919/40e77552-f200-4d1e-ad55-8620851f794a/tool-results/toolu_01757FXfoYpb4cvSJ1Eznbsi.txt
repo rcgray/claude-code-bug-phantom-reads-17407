@@ -1,0 +1,4 @@
+/Users/gray/Projects/phantom-read-clone/docs/features/cc-version-script/CC-Version-Script-Overview.md
+/Users/gray/Projects/phantom-read-clone/docs/features/collect-trials-script/Collect-Trials-Script-Overview.md
+/Users/gray/Projects/phantom-read-clone/docs/features/reproduction-specs-collection/Reproduction-Specs-Collection-Overview.md
+/Users/gray/Projects/phantom-read-clone/docs/features/update-file-summary/Update-File-Summary-Overview.md

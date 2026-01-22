@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0",
+  "description": "Token counts for all unique files read across repro-attempts-02 trial collection. Values of 0 are placeholders to be filled via Anthropic API token counting.",
+  "generated_at": "2026-01-21",
+  "source_project": "/Users/gray/Projects/phantom-read-clone",
+  "total_unique_files": 30,
+  "notes": {
+    "project_files": "Stable files from the phantom-read-clone project that can be token-counted"
+  },
+  "project_files": {
+    "README.md": 1990,
+    "dev/wsd/User-Guide.md": 4080,
+    "docs/core/Action-Plan.md": 1414,
+    "docs/core/Investigation-Journal.md": 10270,
+    "docs/core/PRD.md": 4491,
+    "docs/core/Trial-Analysis-Guide.md": 7099,
+    "docs/read-only/standards/Coding-Standards.md": 767,
+    "docs/read-only/standards/Data-Structure-Documentation-Standards.md": 4369,
+    "docs/read-only/standards/Environment-and-Config-Variable-Standards.md": 2832,
+    "docs/read-only/standards/Process-Integrity-Standards.md": 1077,
+    "docs/read-only/standards/Python-Standards.md": 638,
+    "docs/read-only/standards/Specification-Maintenance-Standards.md": 3340,
+    "docs/specs/compliance-requirements.md": 3939,
+    "docs/specs/data-pipeline-overview.md": 6041,
+    "docs/specs/integration-layer.md": 4886,
+    "docs/specs/module-alpha.md": 6204,
+    "docs/specs/module-beta.md": 6198,
+    "docs/specs/module-gamma.md": 7658,
+    "docs/wpds/refactor-easy.md": 305,
+    "docs/wpds/refactor-hard.md": 735,
+    "docs/wpds/refactor-medium.md": 521
+  }
+}

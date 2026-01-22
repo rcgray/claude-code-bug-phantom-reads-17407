@@ -1,0 +1,11 @@
+/Users/gray/Projects/phantom-read-clone/docs/read-only/standards/Coding-Standards.md
+/Users/gray/Projects/phantom-read-clone/docs/read-only/standards/Data-Structure-Documentation-Standards.md
+/Users/gray/Projects/phantom-read-clone/docs/read-only/standards/Environment-and-Config-Variable-Standards.md
+/Users/gray/Projects/phantom-read-clone/docs/read-only/standards/Process-Integrity-Standards.md
+/Users/gray/Projects/phantom-read-clone/docs/read-only/standards/Python-Standards.md
+/Users/gray/Projects/phantom-read-clone/docs/read-only/standards/Python-Test-Environment-Isolation-Standards.md
+/Users/gray/Projects/phantom-read-clone/docs/read-only/standards/Python-Testing-Configuration-Variables-Standards.md
+/Users/gray/Projects/phantom-read-clone/docs/read-only/standards/Specification-Maintenance-Standards.md
+/Users/gray/Projects/phantom-read-clone/docs/read-only/standards/TypeScript-Standards.md
+/Users/gray/Projects/phantom-read-clone/docs/read-only/standards/TypeScript-Test-Environment-Isolation-Standards.md
+/Users/gray/Projects/phantom-read-clone/docs/read-only/standards/TypeScript-Testing-Configuration-Variables-Standards.md
