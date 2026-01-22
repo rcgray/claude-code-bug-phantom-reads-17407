@@ -153,6 +153,15 @@ def extract_trial_data(trial_folder: Path) -> dict[str, Any]:
                                 "session_line": line_num
                             })
 
+                            # Add reset to timeline
+                            timeline.append({
+                                "sequence": sequence_counter,
+                                "type": "context_reset",
+                                "session_line": line_num,
+                                "from_tokens": last_cache_tokens,
+                                "to_tokens": cache_tokens
+                            })
+
                     last_cache_tokens = cache_tokens
 
                 # Track Read operations (content already extracted above)
@@ -219,7 +228,9 @@ def extract_trial_data(trial_folder: Path) -> dict[str, Any]:
     print("Parsing chat export...")
 
     context_snapshots = []
-    self_reported = "UNKNOWN"
+    # Outcome and notes fields are populated by the executing agent via NLP analysis
+    # of the chat export. The script outputs placeholder values for agent processing.
+    self_reported = "PENDING_NLP"
     affected_files = []
 
     with chat_export_file.open() as f:
@@ -230,19 +241,6 @@ def extract_trial_data(trial_folder: Path) -> dict[str, Any]:
             tokens = int(match.group(1)) * 1000
             percent = int(match.group(2))
             context_snapshots.append({"tokens": tokens, "percent": percent})
-
-        # Determine outcome
-        lower_chat = chat_text.lower()
-        if "no phantom read" in lower_chat or "received inline" in lower_chat or "successfully read all" in lower_chat:
-            self_reported = "SUCCESS"
-        elif "phantom read" in lower_chat or "persisted-output" in lower_chat or "did not follow up" in lower_chat:
-            self_reported = "FAILURE"
-
-            # Try to extract affected files
-            for match in re.finditer(r"docs/[a-zA-Z0-9_/-]+\.md", chat_text):
-                file_path = match.group(0)
-                if file_path not in affected_files:
-                    affected_files.append(file_path)
 
     print(f"  Found {len(context_snapshots)} context snapshots")
     print(f"  Outcome: {self_reported}")
@@ -324,7 +322,7 @@ def extract_trial_data(trial_folder: Path) -> dict[str, Any]:
         "outcome": {
             "self_reported": self_reported,
             "affected_files": affected_files,
-            "notes": ""
+            "notes": "PENDING_NLP"
         },
         "context_metrics": {
             "pre_operation_tokens": pre_operation_tokens,

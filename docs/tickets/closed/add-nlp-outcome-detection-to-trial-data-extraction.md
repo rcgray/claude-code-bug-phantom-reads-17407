@@ -138,18 +138,18 @@ The hybrid approach aligns with the project's philosophy of using "Karpathy scri
 
 ### Phase 1: Update Helper Script
 
-- [*] **1.1** - Modify `extract_trial_data.py` to output `"self_reported": "PENDING_NLP"` instead of attempting pattern detection
-- [*] **1.2** - Modify `extract_trial_data.py` to output `"notes": "PENDING_NLP"` instead of empty string
-- [*] **1.3** - Remove the pattern-based outcome detection code from the Python script
-- [*] **1.4** - Add a comment explaining that outcome and notes fields are handled by the executing agent
+- [x] **1.1** - Modify `extract_trial_data.py` to output `"self_reported": "PENDING_NLP"` instead of attempting pattern detection
+- [x] **1.2** - Modify `extract_trial_data.py` to output `"notes": "PENDING_NLP"` instead of empty string
+- [x] **1.3** - Remove the pattern-based outcome detection code from the Python script
+- [x] **1.4** - Add a comment explaining that outcome and notes fields are handled by the executing agent
 
 ### Phase 2: Update Command Definition
 
-- [ ] **2.1** - Update `/update-trial-data` command to include post-script NLP analysis step
-- [ ] **2.2** - Add instructions for the agent to read the chat export file
-- [ ] **2.3** - Add instructions for determining SUCCESS/FAILURE/UNKNOWN based on semantic analysis of the Session Agent's response
-- [ ] **2.4** - Add instructions for extracting a concise summary note describing the Session Agent's experience (e.g., which files were affected, explicit statements made)
-- [ ] **2.5** - Add instructions to update `trial_data.json` with the determined outcome and notes
+- [x] **2.1** - Update `/update-trial-data` command to include post-script NLP analysis step
+- [x] **2.2** - Add instructions for the agent to read the chat export file
+- [x] **2.3** - Add instructions for determining SUCCESS/FAILURE/UNKNOWN based on semantic analysis of the Session Agent's response
+- [x] **2.4** - Add instructions for extracting a concise summary note describing the Session Agent's experience (e.g., which files were affected, explicit statements made)
+- [x] **2.5** - Add instructions to update `trial_data.json` with the determined outcome and notes
 
 ### Phase 3: Validation
 
