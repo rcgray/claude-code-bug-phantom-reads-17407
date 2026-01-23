@@ -1033,4 +1033,297 @@ The Read tool records actual content to the session file, but a separate context
 
 ---
 
-*Last updated: 2026-01-21*
+## 2026-01-22: Experiment-Methodology-03 Design
+
+**Event**: Designed Experiment-Methodology-03 with simplified initialization and scenario-targeted commands.
+
+### Design Goals
+
+Based on the repro-attempts-02 analysis showing that **onboarding context consumption** (not spec content volume) is the real trigger, the v3.0 methodology was designed to:
+
+1. **Eliminate `/wsd:init --custom`** - Replace with minimal `/wsd:getid` for Workscope ID generation only
+2. **Control pre-op consumption via commands** - Three scenario commands (`/analyze-light`, `/analyze-standard`, `/analyze-thorough`) that preload different amounts of context via `@` file notation
+3. **Use unified target WPD** - All scenarios use `docs/wpds/pipeline-refactor.md` as the analysis target
+
+### Preload Strategy
+
+The design used hoisted file loading (`@docs/specs/file.md` notation) to force context inflation before the analysis task:
+
+| Scenario | Preload Files | Target Pre-Op |
+|----------|---------------|---------------|
+| Easy | operations-manual.md | ~35% |
+| Medium | Easy + architecture-deep-dive.md | ~46% |
+| Hard | Medium + troubleshooting-compendium.md | ~55% |
+
+Documentation created: `docs/core/Experiment-Methodology-03.md`
+
+---
+
+## 2026-01-22-23: Methodology 3.0 Trial Failures and Discoveries
+
+**Event**: Initial trials with Experiment-Methodology-03 revealed critical issues requiring methodology refinement.
+
+### Issue 1: Hoisted File Loading Limit (25k Tokens)
+
+**Discovery**: Claude Code's `@` file notation has a ~25,000 token limit for hoisted reads. Files exceeding this limit are **silently ignored**.
+
+The original `operations-manual.md` (~45k tokens) exceeded this limit, causing it to be completely skipped during hoisting. This meant **all scenarios started at the baseline** (~24k tokens, 12%), and all trials trivially succeeded because pre-operation consumption never reached target levels.
+
+**Resolution**: Split `operations-manual.md` into two files:
+- `operations-manual-standard.md` (962 lines, 19,323 tokens)
+- `operations-manual-exceptions.md` (2,497 lines, 21,988 tokens)
+
+Both files are now below the 25k limit and load successfully.
+
+### Issue 2: Hard Scenario Context Overflow
+
+**Discovery**: After fixing the operations-manual split, the Hard scenario consistently failed due to **running out of context entirely** rather than experiencing phantom reads.
+
+The combined preload (operations-manual parts + architecture-deep-dive + troubleshooting-compendium) pushed context too high, causing complete session failure instead of the desired mid-session reset pattern.
+
+**Resolution**: Trimmed `architecture-deep-dive.md` by removing appendices and Section E, reducing its size to better fit the target context window.
+
+### Issue 3: `/context` Cannot Be Called by Agents
+
+**Discovery**: The `/context` command (Claude Code built-in for displaying token consumption) **cannot be invoked programmatically by agents**. It only works when explicitly typed by the user.
+
+This broke the original methodology design that assumed context measurements could be embedded within scenario commands or checked programmatically at key points.
+
+**Resolution**: Restructured the trial protocol to require explicit user `/context` calls at three points:
+1. **Baseline**: Immediately after starting fresh session
+2. **Post-preload**: After running initialization command
+3. **Post-analysis**: After running analysis command
+
+### Methodology Restructuring
+
+Based on these discoveries, the command structure was completely redesigned:
+
+**Old Structure (v3.0 design)**:
+- `/wsd:getid` → Generate ID only
+- `/analyze-light` → Preload + analyze (Easy)
+- `/analyze-standard` → Preload + analyze (Medium)
+- `/analyze-thorough` → Preload + analyze (Hard)
+
+**New Structure (v4.0 design)**:
+- `/setup-easy` → Preload Easy files + generate ID
+- `/setup-medium` → Preload Medium files + generate ID
+- `/setup-hard` → Preload Hard files + generate ID
+- `/analyze-wpd` → Unified analysis command (same for all scenarios)
+
+This separation enables:
+- User can run `/context` between initialization and analysis
+- Scenario differentiation happens during initialization, not analysis
+- Single analysis command simplifies testing
+
+### Calibrated Context Measurements
+
+After all adjustments, calibration trials showed:
+
+| Step | Tokens | % Context |
+|------|--------|-----------|
+| Fresh session baseline | ~24k | 12% |
+| After `/setup-easy` | ~73k | 37% |
+| After `/setup-medium` | ~92k | 46% |
+| After `/setup-hard` | ~120k | 60% |
+
+These match the target ranges for each scenario tier.
+
+### Documentation Updates
+
+1. Created `docs/core/Experiment-Methodology-04.md` documenting the refined 7-step protocol
+2. Updated `docs/features/reproduction-specs-collection/Reproduction-Specs-Collection-Overview.md`:
+   - Version 2.0.0 → 3.0.0
+   - Updated command descriptions and token budgets
+   - Added Phase 9 "Methodology Refinement" to FIP documenting all changes
+
+### Key Lessons Learned
+
+1. **Test hoisting limits early** - Large files may be silently ignored
+2. **User intervention is required** - Some Claude Code features can't be called programmatically
+3. **Calibrate before running trials** - Verify context measurements hit targets
+4. **Document discoveries as they happen** - Trial-and-error insights are valuable for posterity
+
+---
+
+## Evolving Theory
+
+### Theory Status Summary (as of 2026-01-23)
+
+| Theory | Status | Evidence |
+|--------|--------|----------|
+| Reset Timing | **STRONGLY CONFIRMED** | 31/31 trials (100%) |
+| Reset Count | **STRENGTHENED** | 2 resets = safe, 4+ = failure |
+| Headroom | **SUPPORTED** | Correlates but insufficient alone |
+| Mid-Session Accumulation | **SUPPORTED** | 2+ mid-session = likely failure |
+| Sustained Processing Gap | **SUPPORTED** | ~25-30% uninterrupted window |
+| Dynamic Context Pressure | **HYPOTHESIS** | Needs rate-based validation |
+| **Hoisting Limit** | **NEW - CONFIRMED** | ~25k tokens per hoisted file |
+
+### What We Know For Certain (Updated)
+
+All previous certainties remain valid, plus:
+
+15. **Hoisted files have a ~25k token limit** - Files exceeding this are silently ignored
+16. **`/context` command requires user invocation** - Cannot be called by agents programmatically
+17. **Scenario differentiation via preload works** - `/setup-*` commands achieve target pre-op levels
+
+---
+
+## Open Questions (Updated)
+
+Previous questions remain, plus:
+
+10. **Can we achieve reliable failure rates with v4.0 methodology?** - Need validation trials with the refined protocol
+11. **Are there other Claude Code features with similar limitations?** - What else can't agents invoke?
+12. **What determines the hoisting limit?** - Is it exactly 25k? Does it vary by model or context?
+
+---
+
+## Next Steps (Updated)
+
+### Immediate Actions
+
+1. **Run validation trials with Methodology 4.0** - 5 trials per scenario (15 total) to verify success/failure rates
+2. **Document any additional discoveries** - Continue updating this journal
+3. **Refine context targets if needed** - Adjust based on trial results
+
+### Research Priorities
+
+4. **Investigate hoisting limit details** - Determine exact threshold and variation factors
+5. **Test cross-version consistency** - Verify v4.0 methodology works across Claude Code versions
+6. **Continue theory validation** - More data points for Reset Timing and related theories
+
+---
+
+## 2026-01-23: Consolidated Theory and X + Y Model
+
+**Event**: Created `Consolidated-Theory.md` establishing a unified theoretical framework based on manual experimentation with Experiment-Methodology-04.
+
+### The Critical Discovery
+
+All Experiment-Methodology-04 scenarios (Easy, Medium, Hard) succeeded despite reaching high context utilization (up to 90%). The breakthrough insight came from analyzing **why** they all succeeded:
+
+| Scenario | Pre-op (X) | Operation (Y) | X + Y | Outcome |
+|----------|------------|---------------|-------|---------|
+| Easy | 73K (37%) | 40K | 113K | SUCCESS |
+| Medium | 92K (46%) | 40K | 132K | SUCCESS |
+| Hard | 120K (60%) | 40K | 160K | SUCCESS |
+
+**All scenarios succeeded because X + Y remained within the context threshold (~200K).**
+
+When additional files (`module-epsilon.md`, `module-phi.md`) were added to increase Y, the Hard scenario began manifesting phantom reads.
+
+### The X + Y Model
+
+This leads to the primary theoretical framework:
+
+- **X** = Pre-operation context consumption (baseline + preloaded content)
+- **Y** = Operation context requirement (files read during the triggering action)
+- **T** = Context window threshold (appears to be sub-200K based on harness warnings)
+
+**Phantom reads can only occur when X + Y > T**
+
+This reframes our understanding: there is no universally "dangerous" pre-operation consumption level. A session at 60% pre-op with a small Y will succeed; a session at 40% pre-op with a large Y may fail.
+
+### Reframing Previous Theories
+
+The X + Y model explains why previous theories showed strong correlations:
+
+| Previous Theory | Why It Correlated | Actual Mechanism |
+|-----------------|-------------------|------------------|
+| Headroom Theory | Higher X leaves less room for Y | X + Y overflow is what matters |
+| Reset Timing | Mid-session is when deferred reads occur | Reset during deferred processing |
+| Reset Count | More resets = more opportunities | Downstream indicator, not cause |
+| Clean Gap | Operation completes before reset | Allows Y to process uninterrupted |
+
+### Four Conditions Required for Phantom Reads
+
+Based on current evidence, phantom reads require ALL of the following:
+
+1. **Threshold Overflow**: X + Y > T
+2. **Deferred Reads**: Multiple files read simultaneously (batch operation)
+3. **Agent-Initiated**: Reads triggered by agent, not hoisting
+4. **Reset During Processing**: Context reset while reads are deferred
+
+Remove any condition and phantom reads don't occur.
+
+### Why Within-Threshold Operations Succeed
+
+Even the Hard scenario at 90% context utilization succeeded because:
+- All file content (X + Y = 160K) fits within the ~200K threshold
+- No aggressive context management is triggered
+- No reads need to be deferred or cleared
+- The harness can simply accumulate content normally
+
+The "0% remaining" warning at 180K (90%) suggests the harness reserves buffer space, but this is just a warning—not a trigger for phantom reads.
+
+### Open Investigations Identified
+
+1. **Token Accounting Discrepancy**: Files contribute 131K tokens but harness reports 156K total. The ~25K discrepancy may be thinking tokens, system overhead, or message formatting.
+
+2. **Context Reporting Accuracy**: Harness reports "10% remaining" at 76% consumed and "0% remaining" at 90% consumed. Either the effective threshold is lower than 200K, or the harness reserves buffer space.
+
+3. **Hoisting vs Agent-Initiated Reads**: Hoisted files (via `@` notation) appear to use a different code path:
+   - Files >25K tokens are silently skipped
+   - Hoisted files don't seem to trigger phantom reads
+   - Proposed experiment: Hoist >200K tokens to test if phantom reads can occur via hoisting alone
+
+4. **Reset Trigger Mechanism**: Despite extensive observation, we still don't know what triggers a reset. Not a fixed threshold (82K-383K observed), not purely rate-based, not time-based.
+
+### Implications for Reproduction Scenarios
+
+To reliably trigger phantom reads, scenarios must ensure X + Y > T:
+
+| Scenario | Target X | Target Y | Target X+Y | Expected |
+|----------|----------|----------|------------|----------|
+| Easy | 37% (73K) | 40K | 113K (<T) | SUCCESS |
+| Medium | 46% (92K) | 60K | 152K (~T) | MIXED |
+| Hard | 60% (120K) | 80K+ | 200K+ (>T) | FAILURE |
+
+The Hard scenario needs Y increased (adding more spec files) to push X + Y over threshold.
+
+### Correct Harness Behavior When X + Y > T
+
+An important observation: when the original `operations-manual.md` was too large and pushed Hard scenarios over the threshold, the harness responded by **erroring out with a context saturation message**. This is the **correct behavior** that should occur instead of phantom reads.
+
+The MCP Filesystem workaround achieves this same correct behavior—when context fills up, you get an error, not silent phantom reads.
+
+### Documentation Created
+
+Created `docs/core/Consolidated-Theory.md` as the authoritative theoretical reference, superseding individual theory discussions scattered throughout the Investigation Journal.
+
+---
+
+## Theory Status Summary (as of 2026-01-23, Consolidated)
+
+| Theory | Status | Notes |
+|--------|--------|-------|
+| **X + Y Model** | 🆕 PRIMARY | Threshold overflow is necessary condition |
+| **Deferred Reads** | 🆕 PRIMARY | Multi-file agent reads can be deferred |
+| **Reset Timing** | REFRAMED | Artifact of when deferred reads occur in flow |
+| **Headroom** | REFRAMED | Relative to Y, not universal threshold |
+| **Reset Count** | REFRAMED | Downstream indicator, not causal |
+| **Clean Gap** | EXPLAINED | Allows operation to complete before reset |
+| **Dynamic Pressure** | SUPPORTED | May explain batch read vulnerability |
+| **Hoisting Limit** | CONFIRMED | ~25K tokens per hoisted file |
+
+---
+
+## Next Steps (Updated 2026-01-23)
+
+### Immediate Actions
+
+1. **Increase Hard scenario Y**: Add `module-epsilon.md` and `module-phi.md` to push X + Y over threshold
+2. **Run validation trials**: Confirm revised scenarios produce expected outcomes
+3. **Update README**: Reflect consolidated theoretical understanding
+
+### Research Priorities
+
+4. **Investigate token discrepancy**: Account for ~25K missing tokens between file content and reported total
+5. **Test hoisting-only scenario**: Can >200K hoisted tokens trigger phantom reads?
+6. **Determine effective threshold T**: Is it exactly 200K, or lower?
+7. **Investigate reset triggers**: What internally causes a reset at a specific moment?
+
+---
+
+*Last updated: 2026-01-23*

@@ -48,7 +48,9 @@ This repository serves three purposes:
 
 ## Investigation Status
 
-The investigation is ongoing and documented in [docs/core/Investigation-Journal.md](docs/core/Investigation-Journal.md).
+The investigation is ongoing. For a unified explanation of our findings, see the **[Consolidated Theory](docs/core/Consolidated-Theory.md)**, which introduces the **X + Y threshold overflow model**: phantom reads occur when pre-operation context (X) plus operation files (Y) exceeds the context threshold (T). This model explains how our various theories—reset timing, headroom, reset count—fit together as parts of a causal chain.
+
+Detailed experimental history is documented in [docs/core/Investigation-Journal.md](docs/core/Investigation-Journal.md).
 
 ### Latest Progress: 31-Trial Analysis
 
@@ -143,7 +145,8 @@ If you've experienced phantom reads:
 ## References
 
 - **GitHub Issue**: [anthropics/claude-code#17407](https://github.com/anthropics/claude-code/issues/17407)
-- **Investigation Journal**: [docs/core/Investigation-Journal.md](docs/core/Investigation-Journal.md)
+- **Consolidated Theory**: [docs/core/Consolidated-Theory.md](docs/core/Consolidated-Theory.md) — Unified theoretical framework (X + Y model)
+- **Investigation Journal**: [docs/core/Investigation-Journal.md](docs/core/Investigation-Journal.md) — Chronological discovery log
 - **Experiment Methodology**: [docs/core/Experiment-Methodology-01.md](docs/core/Experiment-Methodology-01.md)
 - **Workaround Guide**: [WORKAROUND.md](WORKAROUND.md)
 

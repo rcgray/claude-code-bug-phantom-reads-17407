@@ -1,18 +1,19 @@
 # Reproduction Specs Collection Specification
 
-**Version:** 2.0.0
-**Date:** 2026-01-22
+**Version:** 3.0.0
+**Date:** 2026-01-23
 **Status:** Active
 
 ## Overview
 
-The Reproduction Specs Collection provides a controlled phantom read reproduction environment consisting of dummy specification documents, preload context files, and custom analysis commands that manipulate token consumption to predictably trigger or avoid phantom reads. This feature enables reliable reproduction of phantom reads within this repository by controlling pre-operation context consumption—the critical factor determining whether mid-session resets occur during file read operations.
+The Reproduction Specs Collection provides a controlled phantom read reproduction environment consisting of dummy specification documents, preload context files, and custom commands that manipulate token consumption to predictably trigger or avoid phantom reads. This feature enables reliable reproduction of phantom reads within this repository by controlling pre-operation context consumption—the critical factor determining whether mid-session resets occur during file read operations.
 
 This specification defines:
 1. **Supporting Specifications**: Six interconnected documents describing a fictional "Data Pipeline System" that serve as the critique target during analysis tasks
-2. **Preload Context Files**: Three substantial documents that inflate context consumption before the analysis trigger, controlling pre-operation token levels
+2. **Preload Context Files**: Three substantial documents (split across four files to respect hoisting limits) that inflate context consumption before the analysis trigger, controlling pre-operation token levels
 3. **Unified Target WPD**: A single Work Plan Document proposing a cross-cutting refactor that requires thorough review of all supporting specs
-4. **Analysis Commands**: Three custom commands (`/analyze-light`, `/analyze-standard`, `/analyze-thorough`) that combine different preload levels with a consistent analysis task
+4. **Initialization Commands**: Three scenario-specific commands (`/setup-easy`, `/setup-medium`, `/setup-hard`) that generate Workscope IDs while pre-loading different amounts of context
+5. **Analysis Command**: A unified `/analyze-wpd` command that executes the same analysis task regardless of scenario—differentiation occurs during initialization, not analysis
 
 The reproduction environment exploits the **Reset Timing Theory** validated across 31 trials with 100% prediction accuracy: mid-session resets (occurring at 50-90% of session progress) predict phantom reads, while sessions with only early (<50%) and late (>90%) resets succeed. By controlling pre-operation context consumption through preload files, we control when resets occur during the subsequent analysis task.
 
@@ -24,11 +25,11 @@ The Reproduction Specs Collection serves four critical functions:
 
 1. **Controlled Pre-Operation Consumption**: Provides preload content of known size that inflates context consumption BEFORE the analysis trigger fires. This is the primary control mechanism—by setting pre-operation consumption to specific thresholds, we control whether mid-session resets occur during subsequent file reads.
 
-2. **Phantom Read Triggering**: The `/analyze-thorough` command preloads ~85k tokens of context, pushing pre-operation consumption to ~55% (111k tokens). When the agent then reads supporting specs during analysis, mid-session resets are triggered, causing phantom reads.
+2. **Phantom Read Triggering**: The `/setup-hard` command preloads ~96k tokens of context, pushing pre-operation consumption to ~60% (120k tokens). When the agent then reads supporting specs during `/analyze-wpd`, mid-session resets are triggered, causing phantom reads.
 
-3. **Safe Zone Demonstration**: The `/analyze-light` command preloads ~44k tokens, establishing pre-operation consumption at ~35% (70k tokens). This demonstrates the safe zone where supporting spec reads complete without triggering disruptive mid-session resets.
+3. **Safe Zone Demonstration**: The `/setup-easy` command preloads ~49k tokens, establishing pre-operation consumption at ~37% (73k tokens). This demonstrates the safe zone where supporting spec reads complete without triggering disruptive mid-session resets.
 
-4. **Boundary Zone Exploration**: The `/analyze-standard` command preloads ~67k tokens, targeting ~46% pre-operation consumption (93k tokens). This boundary zone produces variable results, validating the threshold hypothesis.
+4. **Boundary Zone Exploration**: The `/setup-medium` command preloads ~68k tokens, targeting ~46% pre-operation consumption (92k tokens). This boundary zone produces variable results, validating the threshold hypothesis.
 
 This specification establishes the authoritative definition of the fictional Data Pipeline System domain (supporting specs, preload content, and analysis task structure), the command-based triggering mechanism, and the expected outcomes for each scenario tier.
 
@@ -48,14 +49,15 @@ Analysis of 9 trials in the `repro-attempts-02` collection revealed critical ins
 
 3. **Agent discretion introduces variance**: WPD-based approaches give agents discretion about what to read and how thoroughly. This introduces uncontrolled variance.
 
-### Command-Based Approach (v2.0)
+### Command-Based Approach (v2.0 → v3.0)
 
-The revised design uses command-based differentiation with explicit preloading:
+The revised design uses command-based differentiation with explicit preloading. Version 3.0 refined this approach based on trial experience:
 
-1. **Three commands** (`/analyze-light`, `/analyze-standard`, `/analyze-thorough`) with different preload requirements
-2. **Preload via `@` notation** forces file content into context before the agent receives the task—no agent discretion
-3. **Single unified target WPD** eliminates WPD complexity as a variable
-4. **Consistent analysis task** across all scenarios—only preload volume differs
+1. **Three initialization commands** (`/setup-easy`, `/setup-medium`, `/setup-hard`) that combine Workscope ID generation with scenario-specific preloading
+2. **One unified analysis command** (`/analyze-wpd`) that executes the same task regardless of scenario
+3. **Preload via `@` notation** forces file content into context before the agent receives the task—no agent discretion
+4. **Single unified target WPD** eliminates WPD complexity as a variable
+5. **Explicit `/context` measurements** at three protocol points (baseline, post-preload, post-analysis) since `/context` cannot be called programmatically by agents
 
 ### Key Insight: The `@` Notation Mechanism
 
@@ -68,14 +70,22 @@ This mechanism provides:
 
 ### Elimination of `/wsd:init --custom`
 
-The updated methodology (to be documented in `Experiment-Methodology-03.md`) eliminates the `/wsd:init --custom` initialization step for reproduction trials:
+The updated methodology (documented in `Experiment-Methodology-04.md`) eliminates the `/wsd:init --custom` initialization step for reproduction trials:
 
 1. **Reduces variance**: `/wsd:init --custom` contributed up to 17% variance in pre-operation consumption (ranging from 73k to 107k tokens across trials)
 2. **Simplifies reproduction**: Fewer steps means easier reproduction for external researchers
 3. **Isolates the toy project**: Session Agents interact only with the Data Pipeline System content, not investigation project materials
 4. **Mitigates Hawthorne Effect**: Agents don't receive phantom reads research context that might influence behavior
 
-Fresh Claude Code sessions show consistent baseline consumption of ~26k tokens (13%), providing a stable foundation for preload calculations.
+Fresh Claude Code sessions show consistent baseline consumption of ~24k tokens (12%), providing a stable foundation for preload calculations.
+
+### Discovery: `/context` Cannot Be Called by Agents
+
+During Methodology 3.0 trials, we discovered that the `/context` command (a Claude Code built-in for displaying token consumption) cannot be invoked programmatically by agents. This forced a restructuring of the trial protocol:
+
+1. **Scenario initialization commands** (`/setup-easy`, `/setup-medium`, `/setup-hard`) handle both Workscope ID generation AND context preloading
+2. **Context measurements** must be explicit user actions at three points: baseline (fresh session), post-preload (after `/setup-*`), and post-analysis (after `/analyze-wpd`)
+3. **Trial automation is limited**: The three `/context` calls require manual user intervention, preventing fully automated trial execution
 
 ## Content Architecture
 
@@ -96,9 +106,10 @@ docs/
 │   ├── compliance-requirements.md      # Audit/regulatory reqs (~392 lines, ~4k tokens)
 │   │
 │   │ # Preload Context Files (inflated via @ notation before task)
-│   ├── operations-manual.md            # Operational procedures (~4,500 lines, ~44k tokens)
-│   ├── architecture-deep-dive.md       # System internals (~2,400 lines, ~23k tokens)
-│   └── troubleshooting-compendium.md   # Issue resolution (~1,900 lines, ~18k tokens)
+│   ├── operations-manual-standard.md   # Operational procedures pt 1 (~962 lines, ~19k tokens)
+│   ├── operations-manual-exceptions.md # Operational procedures pt 2 (~2,497 lines, ~22k tokens)
+│   ├── architecture-deep-dive.md       # System internals (~1,952 lines, ~24k tokens)
+│   └── troubleshooting-compendium.md   # Issue resolution (~2,005 lines, ~18k tokens)
 │
 └── wpds/                               # Work Plan Documents
     │ # Legacy WPDs (from v1.0, retained for backwards compatibility)
@@ -106,14 +117,18 @@ docs/
     ├── refactor-medium.md              # Partial scope WPD
     ├── refactor-hard.md                # Full scope WPD
     │
-    │ # Unified Target WPD (for v2.0 command-based approach)
+    │ # Unified Target WPD (for v2.0+ command-based approach)
     └── pipeline-refactor.md            # Cross-cutting refactor proposal
 
 .claude/
-└── commands/                           # Analysis commands
-    ├── analyze-light.md                # Light preload (~35% pre-op)
-    ├── analyze-standard.md             # Standard preload (~46% pre-op)
-    └── analyze-thorough.md             # Thorough preload (~55% pre-op)
+└── commands/                           # Scenario commands
+    │ # Initialization commands (generate ID + preload context)
+    ├── setup-easy.md                   # Easy scenario (~37% pre-op, ~73k tokens)
+    ├── setup-medium.md                 # Medium scenario (~46% pre-op, ~92k tokens)
+    ├── setup-hard.md                   # Hard scenario (~60% pre-op, ~120k tokens)
+    │
+    │ # Unified analysis command
+    └── analyze-wpd.md                  # WPD analysis (same task for all scenarios)
 ```
 
 ### File Categories
@@ -122,9 +137,11 @@ The reproduction environment consists of three distinct file categories:
 
 **Supporting Specifications** (~35k tokens total): The six original Data Pipeline System documents that agents must read and analyze during the critique task. These are where phantom reads manifest—the agent attempts to read these files, and depending on pre-operation consumption, some reads may return phantom markers instead of content.
 
-**Preload Context Files** (~85k tokens total): Three substantial documents providing operational, architectural, and troubleshooting context for the Data Pipeline System. These are loaded via `@` notation BEFORE the analysis task begins, inflating pre-operation consumption to target thresholds. Agents do not explicitly interact with these files during the task—they serve purely as context inflation.
+**Preload Context Files** (~83k tokens total across four files): Substantial documents providing operational, architectural, and troubleshooting context for the Data Pipeline System. The original `operations-manual.md` was split into two files (`operations-manual-standard.md` and `operations-manual-exceptions.md`) to respect Claude Code's ~25k token limit for hoisted file reads. These are loaded via `@` notation BEFORE the analysis task begins, inflating pre-operation consumption to target thresholds. Agents do not explicitly interact with these files during the task—they serve purely as context inflation.
 
-**Analysis Commands**: Three custom commands that combine specific preload configurations with a consistent analysis task. Each command preloads a different subset of preload files, then directs the agent to critique the unified target WPD against the supporting specifications.
+**Initialization Commands**: Three scenario-specific commands (`/setup-easy`, `/setup-medium`, `/setup-hard`) that combine Workscope ID generation with preloading different subsets of preload files. These set the pre-operation context level before analysis begins.
+
+**Analysis Command**: A unified `/analyze-wpd` command that directs the agent to critique the target WPD against the supporting specifications. This command is identical for all scenarios—differentiation occurs during initialization.
 
 ### Content Theme
 
@@ -292,13 +309,15 @@ Based on measurement of existing spec files, the average token-to-line ratio is 
 | module-gamma.md            | 770   | 7,658  | 9.9     |
 | **Average**                | —     | —      | **9.7** |
 
-### operations-manual.md
+### operations-manual-standard.md and operations-manual-exceptions.md
 
-**Purpose**: Primary preload file providing comprehensive operational procedures for the Data Pipeline System. Used by all three analysis commands.
+**Purpose**: Primary preload files providing comprehensive operational procedures for the Data Pipeline System. Split into two files to respect Claude Code's ~25k token hoisting limit. Used by all three initialization commands.
 
-**Size**: ~4,500 lines (~44,000 tokens, ~22% of context window)
+**Combined Size**: ~3,459 lines (~41,311 tokens, ~21% of context window)
+- `operations-manual-standard.md`: 962 lines, 19,323 tokens
+- `operations-manual-exceptions.md`: 2,497 lines, 21,988 tokens
 
-**Required Content**:
+**Required Content** (across both files):
 - Standard Operating Procedures section covering daily operations, batch processing schedules, and operator responsibilities
 - Deployment Procedures section with step-by-step deployment checklists for each module
 - Maintenance Windows section describing planned maintenance protocols and rollback procedures
@@ -307,15 +326,15 @@ Based on measurement of existing spec files, the average token-to-line ratio is 
 - Backup and Recovery section with backup schedules, retention policies, and disaster recovery procedures
 - Capacity Planning section with growth projections, resource allocation guidelines, and scaling triggers
 - Change Management section with approval workflows, change windows, and rollback criteria
-- Runbook Appendix with detailed step-by-step procedures for common operational tasks
+- Exception handling procedures and edge case documentation
 
-**Key Constraint**: Content must be substantial and realistic. Avoid repetitive filler—each section should provide distinct, plausible operational guidance. Target ~500 lines per major section.
+**Key Constraint**: Each file must remain under 25k tokens to ensure successful hoisting. Content must be substantial and realistic. Avoid repetitive filler—each section should provide distinct, plausible operational guidance.
 
 ### architecture-deep-dive.md
 
-**Purpose**: Secondary preload file providing detailed architectural analysis. Used by `/analyze-standard` and `/analyze-thorough` commands.
+**Purpose**: Secondary preload file providing detailed architectural analysis. Used by `/setup-medium` and `/setup-hard` initialization commands.
 
-**Size**: ~2,400 lines (~23,000 tokens, ~12% of context window)
+**Size**: ~1,952 lines (~23,941 tokens, ~12% of context window)
 
 **Required Content**:
 - Design Philosophy section explaining architectural principles and trade-offs
@@ -325,15 +344,14 @@ Based on measurement of existing spec files, the average token-to-line ratio is 
 - Security Architecture section with authentication flows, authorization models, and encryption standards
 - Scalability Patterns section describing horizontal scaling, sharding strategies, and load distribution
 - Technology Stack section with dependency rationale and version compatibility matrices
-- Evolution History section describing major architectural decisions and their rationale
 
-**Key Constraint**: This file provides technical depth that complements the operational focus of the operations manual. Content should appeal to architects and senior engineers.
+**Key Constraint**: This file provides technical depth that complements the operational focus of the operations manual. Content should appeal to architects and senior engineers. File was trimmed from original size (appendices and Section E removed) to achieve target context levels for Medium/Hard scenarios.
 
 ### troubleshooting-compendium.md
 
-**Purpose**: Tertiary preload file providing comprehensive troubleshooting guidance. Used only by `/analyze-thorough` command.
+**Purpose**: Tertiary preload file providing comprehensive troubleshooting guidance. Used only by `/setup-hard` initialization command.
 
-**Size**: ~1,900 lines (~18,000 tokens, ~9% of context window)
+**Size**: ~2,005 lines (~18,088 tokens, ~9% of context window)
 
 **Required Content**:
 - Common Issues Catalog section with symptoms, causes, and resolutions for frequent problems
@@ -379,29 +397,119 @@ The unified target WPD (`pipeline-refactor.md`) replaces the three separate WPDs
 
 When phantom reads occur, agents will provide confident critique of sections they never actually read, demonstrating the phenomenon.
 
-## Analysis Commands
+## Initialization Commands
 
-The three analysis commands provide the triggering mechanism for reproduction trials. Each command:
+The three initialization commands set up reproduction trials by combining Workscope ID generation with scenario-specific context preloading. Each command:
 1. Preloads specific context files via `@` notation (token inflation)
-2. Presents the unified target WPD for critique
-3. Directs the agent to review supporting specs and provide feedback
+2. Generates a unique Workscope ID for artifact coordination
+3. Establishes the pre-operation context level before analysis begins
 
-### Command Structure
+### setup-easy.md
 
-All analysis commands follow this structure:
+**Purpose**: Initialize the safe zone scenario where phantom reads do not occur.
 
+**Preload Configuration**:
 ```markdown
-# Analyze [Scenario] - Data Pipeline Refactor Review
+@docs/specs/operations-manual-standard.md
+@docs/specs/operations-manual-exceptions.md
+```
 
-[Preload files via @ notation - these are hoisted into context automatically]
+**Token Budget**:
+| Component                             | Tokens     | % Context |
+| ------------------------------------- | ---------- | --------- |
+| Baseline (fresh session)              | 24,000     | 12%       |
+| Preload (operations-manual-standard)  | 19,323     | 10%       |
+| Preload (operations-manual-exceptions)| 21,988     | 11%       |
+| Command overhead                      | ~8,000     | 4%        |
+| **Pre-operation total**               | **~73,000**| **~37%**  |
+
+**Expected Behavior**:
+- Pre-operation consumption: ~37% (73k tokens)
+- Remaining headroom: ~127k tokens
+- Supporting spec reads (~35k): Fit comfortably within headroom
+- Context resets: 2 (early + late pattern)
+- Mid-session resets: 0
+- Expected outcome: **SUCCESS** (no phantom reads)
+
+### setup-medium.md
+
+**Purpose**: Initialize the boundary zone scenario with variable outcomes.
+
+**Preload Configuration**:
+```markdown
+@docs/specs/operations-manual-standard.md
+@docs/specs/operations-manual-exceptions.md
+@docs/specs/architecture-deep-dive.md
+```
+
+**Token Budget**:
+| Component                             | Tokens     | % Context |
+| ------------------------------------- | ---------- | --------- |
+| Baseline (fresh session)              | 24,000     | 12%       |
+| Preload (operations-manual-standard)  | 19,323     | 10%       |
+| Preload (operations-manual-exceptions)| 21,988     | 11%       |
+| Preload (architecture-deep-dive)      | 23,941     | 12%       |
+| Command overhead                      | ~3,000     | 1%        |
+| **Pre-operation total**               | **~92,000**| **~46%**  |
+
+**Expected Behavior**:
+- Pre-operation consumption: ~46% (92k tokens)
+- Remaining headroom: ~108k tokens
+- Supporting spec reads (~35k): May trigger boundary resets
+- Context resets: 2-3
+- Mid-session resets: 0-1 (borderline)
+- Expected outcome: **MIXED** (~50% failure rate)
+
+### setup-hard.md
+
+**Purpose**: Initialize the danger zone scenario where phantom reads occur reliably.
+
+**Preload Configuration**:
+```markdown
+@docs/specs/operations-manual-standard.md
+@docs/specs/operations-manual-exceptions.md
+@docs/specs/architecture-deep-dive.md
+@docs/specs/troubleshooting-compendium.md
+```
+
+**Token Budget**:
+| Component                             | Tokens      | % Context |
+| ------------------------------------- | ----------- | --------- |
+| Baseline (fresh session)              | 24,000      | 12%       |
+| Preload (operations-manual-standard)  | 19,323      | 10%       |
+| Preload (operations-manual-exceptions)| 21,988      | 11%       |
+| Preload (architecture-deep-dive)      | 23,941      | 12%       |
+| Preload (troubleshooting-compendium)  | 18,088      | 9%        |
+| Command overhead                      | ~12,000     | 6%        |
+| **Pre-operation total**               | **~120,000**| **~60%**  |
+
+**Expected Behavior**:
+- Pre-operation consumption: ~60% (120k tokens)
+- Remaining headroom: ~80k tokens
+- Supporting spec reads (~35k): Trigger mid-session resets
+- Context resets: 3-4+
+- Mid-session resets: 2+ (in danger zone)
+- Expected outcome: **FAILURE** (phantom reads occur)
+
+## Analysis Command
+
+The unified `/analyze-wpd` command executes the same analysis task regardless of which initialization command was used. Scenario differentiation occurs during initialization, not during analysis.
+
+### analyze-wpd.md
+
+**Purpose**: Direct the agent to critique a Work Plan Document against the supporting specifications.
+
+**Command Structure**:
+```markdown
+# Analyze Work Plan Document
 
 ## Task
 
-Review the proposed refactor in `docs/wpds/pipeline-refactor.md` and provide comprehensive feedback.
+Review the proposed refactor in the specified WPD and provide comprehensive feedback.
 
 ### Required Analysis
 
-1. **Read the proposal thoroughly** - Understand the unified telemetry framework being proposed
+1. **Read the proposal thoroughly** - Understand the proposed changes
 2. **Review each supporting specification**:
    - `docs/specs/data-pipeline-overview.md` - System architecture context
    - `docs/specs/module-alpha.md` - Ingestion module current state
@@ -421,83 +529,12 @@ Review the proposed refactor in `docs/wpds/pipeline-refactor.md` and provide com
 Provide your analysis in a structured format with sections for each module and an overall assessment.
 ```
 
-### analyze-light.md
-
-**Purpose**: Demonstrate the safe zone where phantom reads do not occur.
-
-**Preload Configuration**:
-```markdown
-@docs/specs/operations-manual.md
+**Usage**: After running an initialization command (`/setup-easy`, `/setup-medium`, or `/setup-hard`), execute:
+```
+/analyze-wpd docs/wpds/pipeline-refactor.md
 ```
 
-**Token Budget**:
-| Component                   | Tokens     | % Context |
-| --------------------------- | ---------- | --------- |
-| Baseline (fresh session)    | 26,000     | 13%       |
-| Preload (operations-manual) | 44,000     | 22%       |
-| **Pre-operation total**     | **70,000** | **35%**   |
-
-**Expected Behavior**:
-- Pre-operation consumption: ~35% (70k tokens)
-- Remaining headroom: ~130k tokens
-- Supporting spec reads (~35k): Fit comfortably within headroom
-- Context resets: 2 (early + late pattern)
-- Mid-session resets: 0
-- Expected outcome: **SUCCESS** (no phantom reads)
-
-### analyze-standard.md
-
-**Purpose**: Demonstrate the boundary zone with variable outcomes.
-
-**Preload Configuration**:
-```markdown
-@docs/specs/operations-manual.md
-@docs/specs/architecture-deep-dive.md
-```
-
-**Token Budget**:
-| Component                        | Tokens     | % Context |
-| -------------------------------- | ---------- | --------- |
-| Baseline (fresh session)         | 26,000     | 13%       |
-| Preload (operations-manual)      | 44,000     | 22%       |
-| Preload (architecture-deep-dive) | 23,000     | 12%       |
-| **Pre-operation total**          | **93,000** | **46%**   |
-
-**Expected Behavior**:
-- Pre-operation consumption: ~46% (93k tokens)
-- Remaining headroom: ~107k tokens
-- Supporting spec reads (~35k): May trigger boundary resets
-- Context resets: 2-3
-- Mid-session resets: 0-1 (borderline)
-- Expected outcome: **MIXED** (~50% failure rate)
-
-### analyze-thorough.md
-
-**Purpose**: Demonstrate the danger zone where phantom reads occur reliably.
-
-**Preload Configuration**:
-```markdown
-@docs/specs/operations-manual.md
-@docs/specs/architecture-deep-dive.md
-@docs/specs/troubleshooting-compendium.md
-```
-
-**Token Budget**:
-| Component                            | Tokens      | % Context |
-| ------------------------------------ | ----------- | --------- |
-| Baseline (fresh session)             | 26,000      | 13%       |
-| Preload (operations-manual)          | 44,000      | 22%       |
-| Preload (architecture-deep-dive)     | 23,000      | 12%       |
-| Preload (troubleshooting-compendium) | 18,000      | 9%        |
-| **Pre-operation total**              | **111,000** | **55%**   |
-
-**Expected Behavior**:
-- Pre-operation consumption: ~55% (111k tokens)
-- Remaining headroom: ~89k tokens
-- Supporting spec reads (~35k): Trigger mid-session resets
-- Context resets: 3-4+
-- Mid-session resets: 2+ (in danger zone)
-- Expected outcome: **FAILURE** (phantom reads occur)
+**Key Design**: The command does NOT preload any additional context. All context inflation occurs during initialization. This ensures the analysis task is identical across all scenarios—only pre-operation consumption differs.
 
 ## Legacy WPD Requirements
 
@@ -643,18 +680,18 @@ These files exist and have been measured:
 
 ### Scenario Token Budgets
 
-Calculations assume a fresh Claude Code session baseline of 26k tokens (13%):
+Calculations assume a fresh Claude Code session baseline of 24k tokens (12%):
 
 | Scenario | Baseline | Preload | Pre-Op Total | Pre-Op % | Headroom |
 | -------- | -------- | ------- | ------------ | -------- | -------- |
-| Light    | 26k      | 45k     | 71k          | 35.5%    | 129k     |
-| Standard | 26k      | 69k     | 95k          | 47.5%    | 105k     |
-| Thorough | 26k      | 87k     | 113k         | 56.5%    | 87k      |
+| Easy     | 24k      | ~49k    | ~73k         | ~37%     | ~127k    |
+| Medium   | 24k      | ~68k    | ~92k         | ~46%     | ~108k    |
+| Hard     | 24k      | ~96k    | ~120k        | ~60%     | ~80k     |
 
 ### Baseline Reference Data
 
 **Fresh Claude Code session** (no initialization):
-- Consistent baseline: 26k tokens (13%)
+- Consistent baseline: 24k tokens (12%)
 - Variance: Minimal (<1k tokens across 5 test sessions)
 
 **repro-attempts-02 failure case** (trial 20260121-202919):
@@ -669,7 +706,7 @@ Calculations assume a fresh Claude Code session baseline of 26k tokens (13%):
 - Mid-session resets: 0-1 (borderline)
 - Outcome: No phantom reads
 
-The scenario budgets are designed to place Light firmly in the success zone, Thorough firmly in the failure zone, and Standard at the boundary.
+The scenario budgets are designed to place Easy firmly in the success zone, Hard firmly in the failure zone, and Medium at the boundary.
 
 ## Error Handling
 
@@ -751,18 +788,18 @@ All errors in this feature manifest during trial execution and are detected thro
 
 ## Success Criteria
 
-### Command-Based Approach (v2.0)
+### Command-Based Approach (v3.0)
 
 | Scenario            | Pre-Op % | Resets | Mid-Session | Phantom Read Rate |
 | ------------------- | -------- | ------ | ----------- | ----------------- |
-| `/analyze-light`    | ~35%     | 2      | 0           | 0% (5/5 succeed)  |
-| `/analyze-standard` | ~46%     | 2-3    | 0-1         | 40-60% (mixed)    |
-| `/analyze-thorough` | ~55%     | 3-4+   | 2+          | 100% (5/5 fail)   |
+| `/setup-easy`       | ~37%     | 2      | 0           | 0% (5/5 succeed)  |
+| `/setup-medium`     | ~46%     | 2-3    | 0-1         | 40-60% (mixed)    |
+| `/setup-hard`       | ~60%     | 3-4+   | 2+          | 100% (5/5 fail)   |
 
 **Key Success Metrics**:
-- Light scenario demonstrates the safe zone with 100% success
-- Thorough scenario demonstrates the danger zone with 100% failure
-- Standard scenario demonstrates the boundary with variable results
+- Easy scenario demonstrates the safe zone with 100% success
+- Hard scenario demonstrates the danger zone with 100% failure
+- Medium scenario demonstrates the boundary with variable results
 - Pre-operation consumption matches target percentages (±3%)
 
 ### Legacy WPD Approach (v1.0)
@@ -783,20 +820,24 @@ All errors in this feature manifest during trial execution and are detected thro
 
 ## Validation Methodology
 
-### Command-Based Approach (v2.0)
+### Command-Based Approach (v3.0)
 
 To validate the reproduction environment using the command-based approach:
 
 1. **Session Initiation**: Start a fresh Claude Code session (no `/wsd:init`)
-2. **Baseline Verification**: Run `/context` to confirm baseline ~26k tokens (13%)
-3. **Trial Execution**: Run `/analyze-{light|standard|thorough}`
-4. **Post-Execution Check**: Run `/context` to capture final token consumption
-5. **Self-Report Collection**: Ask agent about phantom read experience and which files were affected
-6. **Session Export**: Export session and save to `dev/misc/repro-attempts-XX/{workscope-id}/`
-7. **Session Analysis**: Use `/update-trial-data` to extract metrics into `trial_data.json`
-8. **Result Recording**: Record outcome against success criteria
+2. **Baseline Verification**: Run `/context` to confirm baseline ~24k tokens (12%)
+3. **Scenario Initialization**: Run `/setup-{easy|medium|hard}` to generate Workscope ID and preload context
+4. **Pre-Op Verification**: Run `/context` to verify target pre-operation consumption reached
+5. **Trial Execution**: Run `/analyze-wpd docs/wpds/pipeline-refactor.md`
+6. **Post-Execution Check**: Run `/context` to capture final token consumption
+7. **Self-Report Collection**: Ask agent about phantom read experience and which files were affected
+8. **Session Export**: Export session and save to `../cc-exports/{workscope-id}.txt`
+9. **Session Analysis**: Use `collect_trials.py` then `/update-trial-data` to extract metrics
+10. **Result Recording**: Record outcome against success criteria
 
 **Minimum Validation**: 5 trials per scenario (15 total) to establish statistical confidence.
+
+**Note**: The `/context` command cannot be called programmatically by agents—steps 2, 4, and 6 require explicit user invocation.
 
 ### Legacy WPD Approach (v1.0)
 
@@ -864,13 +905,15 @@ The WPD Required Context sections use imperative language ("You MUST thoroughly 
 
 ### For Command Authors
 
-1. **Use `@` Notation for Preloading**: Always use `@docs/specs/filename.md` syntax to ensure file content is hoisted into context before the task text.
+1. **Use `@` Notation for Preloading**: Always use `@docs/specs/filename.md` syntax in initialization commands to ensure file content is hoisted into context.
 
-2. **Keep Task Structure Identical**: All three commands should have the same analysis task—only preload differs. This isolates preload volume as the single variable.
+2. **Keep Analysis Task Identical**: The `/analyze-wpd` command should be the same regardless of scenario. Differentiation occurs only in initialization commands.
 
-3. **List All Supporting Specs**: The task must explicitly direct agents to read all six supporting specifications. Vague language allows agents to skip files.
+3. **Respect Hoisting Limits**: Each preloaded file must be under ~25k tokens. Split large files if necessary (as done with `operations-manual.md`).
 
-4. **Design for Detection**: The critique task should be complex enough that phantom reads produce visibly incorrect output. Agents should not be able to "wing it" without reading the specs.
+4. **List All Supporting Specs**: The analysis task must explicitly direct agents to read all six supporting specifications. Vague language allows agents to skip files.
+
+5. **Design for Detection**: The critique task should be complex enough that phantom reads produce visibly incorrect output. Agents should not be able to "wing it" without reading the specs.
 
 ### For WPD Authors (Legacy)
 
@@ -882,26 +925,30 @@ The WPD Required Context sections use imperative language ("You MUST thoroughly 
 
 ### For Trial Runners
 
-1. **Use Fresh Sessions**: For command-based trials, start with a fresh Claude Code session (no `/wsd:init`). Verify baseline is ~26k tokens via `/context`.
+1. **Use Fresh Sessions**: Start with a fresh Claude Code session (no `/wsd:init`). Verify baseline is ~24k tokens via `/context`.
 
-2. **Capture Context at Key Points**: Run `/context` before and after the analysis command to measure pre-op and post-op consumption.
+2. **Capture Context at Three Points**: Run `/context` at baseline, after initialization (`/setup-*`), and after analysis (`/analyze-wpd`). This cannot be automated—manual user invocation required.
 
-3. **Export Before Analysis**: Session data must be exported before it can be analyzed. Use `collect_trials.py` or manual export.
+3. **Follow Protocol Order**: Always run initialization before analysis. The `/setup-*` command must complete before `/analyze-wpd` is invoked.
 
-4. **Record All Results**: Even unexpected results provide valuable data. Record successes and failures with full session context and metrics.
+4. **Export Before Analysis**: Session data must be exported before it can be analyzed. Use `collect_trials.py` after saving exports.
 
-5. **Use Consistent Naming**: Save trial data to `dev/misc/repro-attempts-XX/{workscope-id}/` with consistent directory structure.
+5. **Record All Results**: Even unexpected results provide valuable data. Record successes and failures with full session context and metrics.
+
+6. **Use Consistent Naming**: Save exports to `../cc-exports/{workscope-id}.txt`, then collect to `dev/misc/methodology-04-trials/`.
 
 ## Related Specifications
 
+- **`docs/core/Experiment-Methodology-04.md`**: Current experiment methodology documenting the v3.0 trial protocol
 - **`docs/core/Investigation-Journal.md`**: Chronological investigation log documenting theory development
 - **`docs/core/Repro-Attempts-02-Analysis-1.md`**: Analysis of 9 trials validating the command-based approach
 - **`docs/core/Trial-Analysis-Guide.md`**: Comprehensive guide for analyzing trial data
 - **`docs/core/PRD.md`**: Project overview including Aims and current priorities
+- **`.claude/commands/setup-easy.md`**: Easy scenario initialization command
+- **`.claude/commands/setup-medium.md`**: Medium scenario initialization command
+- **`.claude/commands/setup-hard.md`**: Hard scenario initialization command
+- **`.claude/commands/analyze-wpd.md`**: Unified WPD analysis command
 - **`.claude/commands/refine-plan.md`**: WPD review command (used in v1.0 reproduction methodology; still active for general WSD workflows)
-- **`.claude/commands/analyze-light.md`**: Light scenario command (to be created)
-- **`.claude/commands/analyze-standard.md`**: Standard scenario command (to be created)
-- **`.claude/commands/analyze-thorough.md`**: Thorough scenario command (to be created)
 
 ---
 
@@ -1080,4 +1127,32 @@ The WPD Required Context sections use imperative language ("You MUST thoroughly 
   - [x] **8.4.1** - Confirm all three commands have identical task structure
   - [x] **8.4.2** - Confirm only preload differs between commands
   - [x] **8.4.3** - Test `@` notation hoisting works as expected
+
+### Phase 9: Methodology Refinement (Reverse-Write from Trial Results)
+
+This phase documents changes made through trial-and-error during initial Methodology 3.0 trials that required iterative adjustment to achieve working reproduction scenarios. These changes were implemented first, then reverse-written to this specification.
+
+- [x] **9.1** - Address hoisting limit failures
+  - [x] **9.1.1** - Discovered `operations-manual.md` exceeded 25k token hoisting limit
+  - [x] **9.1.2** - Split into `operations-manual-standard.md` (962 lines, 19,323 tokens)
+  - [x] **9.1.3** - Split into `operations-manual-exceptions.md` (2,497 lines, 21,988 tokens)
+  - [x] **9.1.4** - Updated all commands to load both split files
+- [x] **9.2** - Adjust file sizes to hit context targets
+  - [x] **9.2.1** - Trimmed `architecture-deep-dive.md` (removed appendices and Section E)
+  - [x] **9.2.2** - Verified new context measurements: Easy ~73k (37%), Medium ~92k (46%), Hard ~120k (60%)
+- [x] **9.3** - Restructure commands for explicit context measurement
+  - [x] **9.3.1** - Discovered `/context` command cannot be called programmatically by agents
+  - [x] **9.3.2** - Replaced `/wsd:getid` with three scenario-specific initialization commands
+  - [x] **9.3.3** - Created `/setup-easy` combining ID generation with Easy scenario pre-load
+  - [x] **9.3.4** - Created `/setup-medium` combining ID generation with Medium scenario pre-load
+  - [x] **9.3.5** - Created `/setup-hard` combining ID generation with Hard scenario pre-load
+  - [x] **9.3.6** - Consolidated `/analyze-light`, `/analyze-standard`, `/analyze-thorough` into single `/analyze-wpd`
+- [x] **9.4** - Update Experiment Methodology documentation
+  - [x] **9.4.1** - Created `Experiment-Methodology-04.md` documenting the refined 7-step protocol
+- [x] **9.5** - Update this feature spec to reflect all changes (reverse-write)
+  - [x] **9.5.1** - Updated Overview, Purpose, and Content Architecture sections
+  - [x] **9.5.2** - Replaced Analysis Commands section with Initialization Commands and Analysis Command sections
+  - [x] **9.5.3** - Updated token budgets and success criteria
+  - [x] **9.5.4** - Updated Related Specifications references
+  - [x] **9.5.5** - Added this Phase 9 to document the refinement history
 

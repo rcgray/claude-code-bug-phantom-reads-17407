@@ -12,10 +12,6 @@
 
 ---
 
-Read the `docs/core/Investigation-Journal.md` ( @docs/core/Investigation-Journal.md ) and the `docs/core/Trial-Analysis-Guide.md` ( @docs/core/Trial-Analysis-Guide.md ) to prepare yourself for performing an analysis of a new collection. Tell me about your understanding of our current theory (or theories).
-
----
-
 In pursuit of creating "reproduction cases" as part of this investigation repo (Aim #3 of this project), we've built three experimental cases: "Easy" (intended to always succeed with no phantom reads), "Hard" (intended to trigger phantom reads 100% of the time), and "Medium" (intended to trigger with 50% likelihood). We've recently performed analysis on how to improve these cases toward our Aim #3, and we updated and executed a refreshed version of `docs/features/reproduction-specs-collection/Reproduction-Specs-Collection-Overview.md` (Phases 6-8).
 
 This also required us to create a few new scripts and a new experimental workflow, documented in `docs/core/Experiment-Methodology-03.md` ( @docs/core/Experiment-Methodology-03.md ).
@@ -86,8 +82,4 @@ Where:
 
 All tests succeeded, which means that we may not have hit the mark in our redesign of the scenarios. On further investigation, we found that the very important, fundamental file we were pre-loading in each scenario `docs/specs/operations-manual.md` is not successfully loading due to being too large. This means that none of our scenarios are reaching the baseline context levels required to trigger phantom reads.
 
-The current recommended solution is to split `docs/specs/operations-manual.md` into two files.  I have done so, creating: `docs/specs/operations-manual.md` and `docs/specs/operations-manual.md`
-
-  - [ ] **6.5.1** - Created `docs/specs/operations-manual-standard.md` (962 lines, 19323 tokens)
-  - [ ] **6.5.2** - Created `docs/specs/operations-manual-exceptions.md` (2497 lines, 21988 tokens)
 ---
