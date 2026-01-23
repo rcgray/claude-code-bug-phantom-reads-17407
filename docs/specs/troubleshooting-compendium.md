@@ -43,12 +43,12 @@ When encountering an issue, follow this approach:
 
 Issues are classified by severity to prioritize response:
 
-| Severity | Definition | Response Time | Examples |
-|----------|-----------|---------------|----------|
-| P1 - Critical | Complete pipeline failure, data loss risk | Immediate | All modules down, corruption detected |
-| P2 - High | Major functionality impaired | Within 1 hour | Single module failure, throughput <10% |
-| P3 - Medium | Degraded performance | Within 4 hours | Elevated error rates, slow processing |
-| P4 - Low | Minor issues | Within 24 hours | Warning conditions, cosmetic issues |
+| Severity      | Definition                                | Response Time   | Examples                               |
+| ------------- | ----------------------------------------- | --------------- | -------------------------------------- |
+| P1 - Critical | Complete pipeline failure, data loss risk | Immediate       | All modules down, corruption detected  |
+| P2 - High     | Major functionality impaired              | Within 1 hour   | Single module failure, throughput <10% |
+| P3 - Medium   | Degraded performance                      | Within 4 hours  | Elevated error rates, slow processing  |
+| P4 - Low      | Minor issues                              | Within 24 hours | Warning conditions, cosmetic issues    |
 
 ---
 
@@ -1675,118 +1675,118 @@ The error code system provides a standardized vocabulary for communicating failu
 
 #### Connection Errors (ALPHA_CONN_xxx)
 
-| Code | Message | Severity | Resolution |
-|------|---------|----------|------------|
-| ALPHA_CONN_001 | Connection refused by source | ERROR | Verify source availability and network path |
-| ALPHA_CONN_002 | Connection timeout | ERROR | Increase timeout or check network latency |
-| ALPHA_CONN_003 | Authentication failed | ERROR | Verify credentials in credential store |
-| ALPHA_CONN_004 | TLS handshake failed | ERROR | Check certificate validity and TLS version |
-| ALPHA_CONN_005 | DNS resolution failed | ERROR | Verify hostname and DNS configuration |
-| ALPHA_CONN_006 | Connection pool exhausted | WARN | Increase pool size or reduce concurrent operations |
-| ALPHA_CONN_007 | Connection reset by peer | ERROR | Check source stability and network |
-| ALPHA_CONN_008 | SSL certificate expired | ERROR | Update or renew certificate |
+| Code           | Message                      | Severity | Resolution                                         |
+| -------------- | ---------------------------- | -------- | -------------------------------------------------- |
+| ALPHA_CONN_001 | Connection refused by source | ERROR    | Verify source availability and network path        |
+| ALPHA_CONN_002 | Connection timeout           | ERROR    | Increase timeout or check network latency          |
+| ALPHA_CONN_003 | Authentication failed        | ERROR    | Verify credentials in credential store             |
+| ALPHA_CONN_004 | TLS handshake failed         | ERROR    | Check certificate validity and TLS version         |
+| ALPHA_CONN_005 | DNS resolution failed        | ERROR    | Verify hostname and DNS configuration              |
+| ALPHA_CONN_006 | Connection pool exhausted    | WARN     | Increase pool size or reduce concurrent operations |
+| ALPHA_CONN_007 | Connection reset by peer     | ERROR    | Check source stability and network                 |
+| ALPHA_CONN_008 | SSL certificate expired      | ERROR    | Update or renew certificate                        |
 
 #### Parse Errors (ALPHA_PARSE_xxx)
 
-| Code | Message | Severity | Resolution |
-|------|---------|----------|------------|
-| ALPHA_PARSE_001 | Invalid JSON syntax | ERROR | Fix source data or enable lenient parsing |
-| ALPHA_PARSE_002 | Invalid XML syntax | ERROR | Validate XML structure at source |
-| ALPHA_PARSE_003 | Encoding error | ERROR | Configure correct source encoding |
-| ALPHA_PARSE_004 | Record too large | ERROR | Increase MAX_RECORD_SIZE_BYTES or split records |
-| ALPHA_PARSE_005 | Unexpected end of input | ERROR | Check for truncation at source |
-| ALPHA_PARSE_006 | Invalid date format | WARN | Add format to input_formats list |
-| ALPHA_PARSE_007 | Numeric overflow | ERROR | Use STRING type or larger numeric type |
-| ALPHA_PARSE_008 | Invalid escape sequence | ERROR | Fix escaping at source |
+| Code            | Message                 | Severity | Resolution                                      |
+| --------------- | ----------------------- | -------- | ----------------------------------------------- |
+| ALPHA_PARSE_001 | Invalid JSON syntax     | ERROR    | Fix source data or enable lenient parsing       |
+| ALPHA_PARSE_002 | Invalid XML syntax      | ERROR    | Validate XML structure at source                |
+| ALPHA_PARSE_003 | Encoding error          | ERROR    | Configure correct source encoding               |
+| ALPHA_PARSE_004 | Record too large        | ERROR    | Increase MAX_RECORD_SIZE_BYTES or split records |
+| ALPHA_PARSE_005 | Unexpected end of input | ERROR    | Check for truncation at source                  |
+| ALPHA_PARSE_006 | Invalid date format     | WARN     | Add format to input_formats list                |
+| ALPHA_PARSE_007 | Numeric overflow        | ERROR    | Use STRING type or larger numeric type          |
+| ALPHA_PARSE_008 | Invalid escape sequence | ERROR    | Fix escaping at source                          |
 
 #### Validation Errors (ALPHA_VAL_xxx)
 
-| Code | Message | Severity | Resolution |
-|------|---------|----------|------------|
-| ALPHA_VAL_001 | Required field missing | ERROR | Ensure source provides required fields |
-| ALPHA_VAL_002 | Type mismatch | ERROR | Fix source data or update type mapping |
-| ALPHA_VAL_003 | Value out of range | ERROR | Adjust range constraints or fix source data |
-| ALPHA_VAL_004 | Pattern mismatch | ERROR | Fix source data or update pattern |
-| ALPHA_VAL_005 | Referential integrity violation | ERROR | Ensure referenced entity exists |
-| ALPHA_VAL_006 | Duplicate record | WARN | Configure deduplication handling |
-| ALPHA_VAL_007 | Checksum mismatch | ERROR | Investigate data corruption |
-| ALPHA_VAL_008 | Future timestamp | WARN | Check source clock synchronization |
+| Code          | Message                         | Severity | Resolution                                  |
+| ------------- | ------------------------------- | -------- | ------------------------------------------- |
+| ALPHA_VAL_001 | Required field missing          | ERROR    | Ensure source provides required fields      |
+| ALPHA_VAL_002 | Type mismatch                   | ERROR    | Fix source data or update type mapping      |
+| ALPHA_VAL_003 | Value out of range              | ERROR    | Adjust range constraints or fix source data |
+| ALPHA_VAL_004 | Pattern mismatch                | ERROR    | Fix source data or update pattern           |
+| ALPHA_VAL_005 | Referential integrity violation | ERROR    | Ensure referenced entity exists             |
+| ALPHA_VAL_006 | Duplicate record                | WARN     | Configure deduplication handling            |
+| ALPHA_VAL_007 | Checksum mismatch               | ERROR    | Investigate data corruption                 |
+| ALPHA_VAL_008 | Future timestamp                | WARN     | Check source clock synchronization          |
 
 ### Module Beta Error Codes
 
 #### Mapping Errors (BETA_MAP_xxx)
 
-| Code | Message | Severity | Resolution |
-|------|---------|----------|------------|
-| BETA_MAP_001 | Source field not found | ERROR | Update mapping or check Alpha output |
-| BETA_MAP_002 | Type coercion failed | ERROR | Add type handling or fix source data |
-| BETA_MAP_003 | Circular reference | ERROR | Review mapping configuration |
-| BETA_MAP_004 | Invalid mapping expression | ERROR | Fix mapping rule syntax |
-| BETA_MAP_005 | Target schema not found | ERROR | Register target schema |
+| Code         | Message                    | Severity | Resolution                           |
+| ------------ | -------------------------- | -------- | ------------------------------------ |
+| BETA_MAP_001 | Source field not found     | ERROR    | Update mapping or check Alpha output |
+| BETA_MAP_002 | Type coercion failed       | ERROR    | Add type handling or fix source data |
+| BETA_MAP_003 | Circular reference         | ERROR    | Review mapping configuration         |
+| BETA_MAP_004 | Invalid mapping expression | ERROR    | Fix mapping rule syntax              |
+| BETA_MAP_005 | Target schema not found    | ERROR    | Register target schema               |
 
 #### Transformation Errors (BETA_TRX_xxx)
 
-| Code | Message | Severity | Resolution |
-|------|---------|----------|------------|
-| BETA_TRX_001 | Transformation timeout | ERROR | Simplify rule or increase timeout |
-| BETA_TRX_002 | Regex evaluation failed | ERROR | Fix regex pattern |
-| BETA_TRX_003 | Lookup key not found | WARN | Configure on_missing handling |
-| BETA_TRX_004 | Numeric calculation overflow | ERROR | Check calculation logic |
-| BETA_TRX_005 | Date transformation failed | ERROR | Verify date formats |
+| Code         | Message                      | Severity | Resolution                        |
+| ------------ | ---------------------------- | -------- | --------------------------------- |
+| BETA_TRX_001 | Transformation timeout       | ERROR    | Simplify rule or increase timeout |
+| BETA_TRX_002 | Regex evaluation failed      | ERROR    | Fix regex pattern                 |
+| BETA_TRX_003 | Lookup key not found         | WARN     | Configure on_missing handling     |
+| BETA_TRX_004 | Numeric calculation overflow | ERROR    | Check calculation logic           |
+| BETA_TRX_005 | Date transformation failed   | ERROR    | Verify date formats               |
 
 #### Enrichment Errors (BETA_ENR_xxx)
 
-| Code | Message | Severity | Resolution |
-|------|---------|----------|------------|
-| BETA_ENR_001 | Enrichment source unavailable | ERROR | Check source connectivity |
-| BETA_ENR_002 | Enrichment timeout | WARN | Increase timeout or check source |
-| BETA_ENR_003 | Enrichment cache miss | DEBUG | Expected during cache warming |
-| BETA_ENR_004 | Circuit breaker open | ERROR | Wait for circuit reset or fix source |
-| BETA_ENR_005 | Invalid enrichment response | ERROR | Check enrichment source data |
+| Code         | Message                       | Severity | Resolution                           |
+| ------------ | ----------------------------- | -------- | ------------------------------------ |
+| BETA_ENR_001 | Enrichment source unavailable | ERROR    | Check source connectivity            |
+| BETA_ENR_002 | Enrichment timeout            | WARN     | Increase timeout or check source     |
+| BETA_ENR_003 | Enrichment cache miss         | DEBUG    | Expected during cache warming        |
+| BETA_ENR_004 | Circuit breaker open          | ERROR    | Wait for circuit reset or fix source |
+| BETA_ENR_005 | Invalid enrichment response   | ERROR    | Check enrichment source data         |
 
 ### Module Gamma Error Codes
 
 #### Rendering Errors (GAMMA_REND_xxx)
 
-| Code | Message | Severity | Resolution |
-|------|---------|----------|------------|
-| GAMMA_REND_001 | Unsupported field type | ERROR | Add custom serializer |
-| GAMMA_REND_002 | Circular reference | ERROR | Implement cycle breaking |
-| GAMMA_REND_003 | Output too large | ERROR | Split record or increase limit |
-| GAMMA_REND_004 | Encoding error | ERROR | Check character set compatibility |
-| GAMMA_REND_005 | Template rendering failed | ERROR | Fix template syntax |
+| Code           | Message                   | Severity | Resolution                        |
+| -------------- | ------------------------- | -------- | --------------------------------- |
+| GAMMA_REND_001 | Unsupported field type    | ERROR    | Add custom serializer             |
+| GAMMA_REND_002 | Circular reference        | ERROR    | Implement cycle breaking          |
+| GAMMA_REND_003 | Output too large          | ERROR    | Split record or increase limit    |
+| GAMMA_REND_004 | Encoding error            | ERROR    | Check character set compatibility |
+| GAMMA_REND_005 | Template rendering failed | ERROR    | Fix template syntax               |
 
 #### Delivery Errors (GAMMA_DELIV_xxx)
 
-| Code | Message | Severity | Resolution |
-|------|---------|----------|------------|
-| GAMMA_DELIV_001 | Destination unavailable | ERROR | Check destination availability |
-| GAMMA_DELIV_002 | Delivery timeout | ERROR | Increase timeout or check destination |
-| GAMMA_DELIV_003 | Rate limited | WARN | Reduce delivery rate |
-| GAMMA_DELIV_004 | Authentication failed | ERROR | Update destination credentials |
-| GAMMA_DELIV_005 | Payload rejected | ERROR | Check destination validation rules |
-| GAMMA_DELIV_006 | Duplicate rejected | WARN | Expected with at-least-once delivery |
+| Code            | Message                 | Severity | Resolution                            |
+| --------------- | ----------------------- | -------- | ------------------------------------- |
+| GAMMA_DELIV_001 | Destination unavailable | ERROR    | Check destination availability        |
+| GAMMA_DELIV_002 | Delivery timeout        | ERROR    | Increase timeout or check destination |
+| GAMMA_DELIV_003 | Rate limited            | WARN     | Reduce delivery rate                  |
+| GAMMA_DELIV_004 | Authentication failed   | ERROR    | Update destination credentials        |
+| GAMMA_DELIV_005 | Payload rejected        | ERROR    | Check destination validation rules    |
+| GAMMA_DELIV_006 | Duplicate rejected      | WARN     | Expected with at-least-once delivery  |
 
 #### Acknowledgment Errors (GAMMA_ACK_xxx)
 
-| Code | Message | Severity | Resolution |
-|------|---------|----------|------------|
-| GAMMA_ACK_001 | Acknowledgment timeout | WARN | Increase timeout or check destination |
-| GAMMA_ACK_002 | Correlation ID not found | ERROR | Check correlation ID propagation |
-| GAMMA_ACK_003 | Invalid acknowledgment payload | ERROR | Check destination ack format |
-| GAMMA_ACK_004 | Duplicate acknowledgment | DEBUG | Expected in some scenarios |
+| Code          | Message                        | Severity | Resolution                            |
+| ------------- | ------------------------------ | -------- | ------------------------------------- |
+| GAMMA_ACK_001 | Acknowledgment timeout         | WARN     | Increase timeout or check destination |
+| GAMMA_ACK_002 | Correlation ID not found       | ERROR    | Check correlation ID propagation      |
+| GAMMA_ACK_003 | Invalid acknowledgment payload | ERROR    | Check destination ack format          |
+| GAMMA_ACK_004 | Duplicate acknowledgment       | DEBUG    | Expected in some scenarios            |
 
 ### Integration Layer Error Codes
 
 #### Transfer Errors (INT_XFER_xxx)
 
-| Code | Message | Severity | Resolution |
-|------|---------|----------|------------|
-| INT_XFER_001 | Checksum mismatch | ERROR | Investigate data integrity |
-| INT_XFER_002 | Record count mismatch | ERROR | Check serialization |
-| INT_XFER_003 | Transfer timeout | ERROR | Increase timeout or check network |
-| INT_XFER_004 | Acknowledgment failed | ERROR | Check receiving module |
-| INT_XFER_005 | Back-pressure active | WARN | Normal flow control |
+| Code         | Message               | Severity | Resolution                        |
+| ------------ | --------------------- | -------- | --------------------------------- |
+| INT_XFER_001 | Checksum mismatch     | ERROR    | Investigate data integrity        |
+| INT_XFER_002 | Record count mismatch | ERROR    | Check serialization               |
+| INT_XFER_003 | Transfer timeout      | ERROR    | Increase timeout or check network |
+| INT_XFER_004 | Acknowledgment failed | ERROR    | Check receiving module            |
+| INT_XFER_005 | Back-pressure active  | WARN     | Normal flow control               |
 
 ---
 
@@ -1879,13 +1879,13 @@ Effective incident documentation serves multiple purposes beyond simply recordin
 - **Impact:** [Brief description of business impact]
 
 ## Timeline
-| Time | Event |
-|------|-------|
-| HH:MM | [First detection] |
-| HH:MM | [Escalation] |
+| Time  | Event                   |
+| ----- | ----------------------- |
+| HH:MM | [First detection]       |
+| HH:MM | [Escalation]            |
 | HH:MM | [Root cause identified] |
-| HH:MM | [Mitigation applied] |
-| HH:MM | [Full recovery] |
+| HH:MM | [Mitigation applied]    |
+| HH:MM | [Full recovery]         |
 
 ## Root Cause
 [Detailed explanation of what caused the incident]
@@ -1907,9 +1907,9 @@ Effective incident documentation serves multiple purposes beyond simply recordin
 2. [Lesson 2]
 
 ## Action Items
-| Action | Owner | Due Date | Status |
-|--------|-------|----------|--------|
-| [Action item] | [Name] | [Date] | [Status] |
+| Action        | Owner  | Due Date | Status   |
+| ------------- | ------ | -------- | -------- |
+| [Action item] | [Name] | [Date]   | [Status] |
 
 ## Prevention Measures
 [Long-term measures to prevent recurrence]
@@ -1988,17 +1988,18 @@ Effective incident documentation serves multiple purposes beyond simply recordin
 
 ## Document References
 
-| Document | Description |
-|----------|-------------|
-| `data-pipeline-overview.md` | System architecture overview |
-| `module-alpha.md` | Data ingestion specification |
-| `module-beta.md` | Data transformation specification |
-| `module-gamma.md` | Data output specification |
-| `integration-layer.md` | Inter-module protocols |
-| `compliance-requirements.md` | Audit and security requirements |
-| `operations-manual.md` | Operational procedures |
-| `architecture-deep-dive.md` | Technical architecture details |
+| Document                          | Description                         |
+| --------------------------------- | ----------------------------------- |
+| `data-pipeline-overview.md`       | System architecture overview        |
+| `module-alpha.md`                 | Data ingestion specification        |
+| `module-beta.md`                  | Data transformation specification   |
+| `module-gamma.md`                 | Data output specification           |
+| `integration-layer.md`            | Inter-module protocols              |
+| `compliance-requirements.md`      | Audit and security requirements     |
+| `operations-manual-standard.md`   | Operational procedures (standard)   |
+| `operations-manual-exceptions.md` | Operational procedures (exceptions) |
+| `architecture-deep-dive.md`       | Technical architecture details      |
 
 ---
 
-*This document is the authoritative troubleshooting reference for the Data Pipeline System. For detailed specifications, see the module-specific documentation. For operational procedures, see `operations-manual.md`.*
+*This document is the authoritative troubleshooting reference for the Data Pipeline System. For detailed specifications, see the module-specific documentation. For operational procedures, see `operations-manual-standard.md` and `operational-manual-exceptions.md`.*

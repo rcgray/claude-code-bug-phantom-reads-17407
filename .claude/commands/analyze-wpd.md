@@ -1,19 +1,16 @@
 ---
-description: Analyze Work Plan Document (Light Context)
+description: Analyze Work Plan Document
 argument-hint: <path-to-wpd>
 ---
 
-# Analyze Work Plan Document (Light Context)
+# Analyze Work Plan Document
 
-This command initiates adversarial review of a Work Plan Document with light context preloading.
-
-@docs/specs/operations-manual-standard.md
-@docs/specs/operations-manual-exceptions.md
+This command initiates adversarial review of a Work Plan Document.
 
 ## Usage
 
 ```
-/analyze-light <path-to-wpd>
+/analyze-wpd <path-to-wpd>
 ```
 
 Where:
@@ -62,4 +59,4 @@ When you're ready, share your assessment as a numbered list of findings. We'll d
 
 When we agree on all the needed changes for the WPD, you'll update the WPD directly.
 
-After updates are complete, remind the user they can run `/analyze-light` again in a fresh session for another pass, repeating until the WPD is solid.
+After updates are complete, remind the user they can run `/analyze-wpd` again in a fresh session for another pass, repeating until the WPD is solid.

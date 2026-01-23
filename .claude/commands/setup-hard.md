@@ -7,6 +7,11 @@ argument-hint:
 
 This command generates a unique Workscope ID for trial coordination without the full WSD platform initialization overhead. Use this for Phantom Read Experiment trials where minimal context consumption is required.
 
+@docs/specs/operations-manual-standard.md
+@docs/specs/operations-manual-exceptions.md
+@docs/specs/architecture-deep-dive.md
+@docs/specs/troubleshooting-compendium.md
+
 ## Usage
 
 ```

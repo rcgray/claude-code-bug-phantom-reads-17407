@@ -389,17 +389,4 @@ The unified telemetry framework addresses compliance requirements from `complian
 
 ---
 
-## Document References
-
-| Document | Relevance |
-|----------|-----------|
-| `data-pipeline-overview.md` | System architecture context |
-| `module-alpha.md` | Ingestion module specifications |
-| `module-beta.md` | Transformation module specifications |
-| `module-gamma.md` | Output module specifications |
-| `integration-layer.md` | Inter-module protocol specifications |
-| `compliance-requirements.md` | Audit and compliance requirements |
-
----
-
 *This Work Plan Document proposes a refactor to the Data Pipeline System. Implementation should proceed only after thorough review of the affected specifications and approval from system architects.*
