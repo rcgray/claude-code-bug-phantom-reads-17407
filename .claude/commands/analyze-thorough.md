@@ -7,7 +7,8 @@ argument-hint: <path-to-wpd>
 
 This command initiates adversarial review of a Work Plan Document with thorough context preloading.
 
-@docs/specs/operations-manual.md
+@docs/specs/operations-manual-standard.md
+@docs/specs/operations-manual-exceptions.md
 @docs/specs/architecture-deep-dive.md
 @docs/specs/troubleshooting-compendium.md
 

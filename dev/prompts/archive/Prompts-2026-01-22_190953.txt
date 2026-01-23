@@ -1,0 +1,93 @@
+## Models:
+## `opus` : claude-opus-4-5-20251101
+## `sonnet` : claude-sonnet-4-5-20250929
+## `sonnet[1m]` : claude-sonnet-4-5-20250929[1m]
+## `haiku` : claude-haiku-4-5-20251001
+
+## New Session: Claude Code v2.1.6: `opus` (locked, 2.1.15 is current)
+
+---
+
+/wsd:init --custom
+
+---
+
+Read the `docs/core/Investigation-Journal.md` ( @docs/core/Investigation-Journal.md ) and the `docs/core/Trial-Analysis-Guide.md` ( @docs/core/Trial-Analysis-Guide.md ) to prepare yourself for performing an analysis of a new collection. Tell me about your understanding of our current theory (or theories).
+
+---
+
+In pursuit of creating "reproduction cases" as part of this investigation repo (Aim #3 of this project), we've built three experimental cases: "Easy" (intended to always succeed with no phantom reads), "Hard" (intended to trigger phantom reads 100% of the time), and "Medium" (intended to trigger with 50% likelihood). We've recently performed analysis on how to improve these cases toward our Aim #3, and we updated and executed a refreshed version of `docs/features/reproduction-specs-collection/Reproduction-Specs-Collection-Overview.md` (Phases 6-8).
+
+This also required us to create a few new scripts and a new experimental workflow, documented in `docs/core/Experiment-Methodology-03.md` ( @docs/core/Experiment-Methodology-03.md ).
+
+The new collection is under `dev/misc/repro-attempts-03-firstrun`, and it has been set up and pre-processed (with `trial_data.json` files), ready to be analyzed. Intentionally, we have not created a `file_token_counts.json` for this collection, because it would appear we have some faulty logic with respect to counting file sizes for predicting context fill. Let me know if that's a problem, or how that affects our analysis.  The Trials and observed results were as follows:
+
+- "Hard" scenario:
+  - 20260122-182020 - Success
+  - 20260122-184620 - Success
+  - 20260122-182033 - Success
+- "Medium" scenario:
+  - 20260122-182627 - Success
+  - 20260122-182636 - Success
+  - 20260122-182646 - Success
+- "Easy" scenario:
+  - 20260122-183100 - Success
+  - 20260122-183106 - Success
+  - 20260122-183114 - Success
+
+Where:
+- Success = no phantom reads self-reported
+- Failure = phantom reads self-reported
+
+All tests succeeded, which means that we may not have hit the mark in our redesign of the scenarios. What we need to figure out is if we can learn anything from this first run of Experiment-Methodology-03 and where we need to go from here.
+
+Let me know what you find.
+
+---
+
+So you should understand that all three scripts perform the same thing (read the relevant specs and perform their critical analysis of the WPD). The difference is in the data that should be pre-loaded into them ahead of time.
+
+Before you go giving advice on how we should change things - have you fully investigated their current state?  This may be less of a "how do we change the design" issue and more of a "what might have gone wrong" issue.  Before we change our design, we should verify that our design was even actually performed properly.
+
+In fairness, that wasn't requested specifically, where you were primed to perform an alalysis of the collection of trials, but that's what I'm looking for you to do here.
+
+---
+
+## New Session: Claude Code v2.1.6: `opus` (locked, 2.1.15 is current)
+
+---
+
+/wsd:init --custom
+
+---
+
+In pursuit of creating "reproduction cases" as part of this investigation repo (Aim #3 of this project), we've built three experimental cases: "Easy" (intended to always succeed with no phantom reads), "Hard" (intended to trigger phantom reads 100% of the time), and "Medium" (intended to trigger with 50% likelihood). We've recently performed analysis on how to improve these cases toward our Aim #3, and we updated and executed a refreshed version of `docs/features/reproduction-specs-collection/Reproduction-Specs-Collection-Overview.md` (Phases 6-8).
+
+This also required us to create a few new scripts and a new experimental workflow, documented in `docs/core/Experiment-Methodology-03.md` ( @docs/core/Experiment-Methodology-03.md ).
+
+The new collection is under `dev/misc/repro-attempts-03-firstrun`, and it has been set up and pre-processed (with `trial_data.json` files), ready to be analyzed. Intentionally, we have not created a `file_token_counts.json` for this collection, because it would appear we have some faulty logic with respect to counting file sizes for predicting context fill. Let me know if that's a problem, or how that affects our analysis.  The Trials and observed results were as follows:
+
+- "Hard" scenario:
+  - 20260122-182020 - Success
+  - 20260122-184620 - Success
+  - 20260122-182033 - Success
+- "Medium" scenario:
+  - 20260122-182627 - Success
+  - 20260122-182636 - Success
+  - 20260122-182646 - Success
+- "Easy" scenario:
+  - 20260122-183100 - Success
+  - 20260122-183106 - Success
+  - 20260122-183114 - Success
+
+Where:
+- Success = no phantom reads self-reported
+- Failure = phantom reads self-reported
+
+All tests succeeded, which means that we may not have hit the mark in our redesign of the scenarios. On further investigation, we found that the very important, fundamental file we were pre-loading in each scenario `docs/specs/operations-manual.md` is not successfully loading due to being too large. This means that none of our scenarios are reaching the baseline context levels required to trigger phantom reads.
+
+The current recommended solution is to split `docs/specs/operations-manual.md` into two files.  I have done so, creating: `docs/specs/operations-manual.md` and `docs/specs/operations-manual.md`
+
+  - [ ] **6.5.1** - Created `docs/specs/operations-manual-standard.md` (962 lines, 19323 tokens)
+  - [ ] **6.5.2** - Created `docs/specs/operations-manual-exceptions.md` (2497 lines, 21988 tokens)
+---

@@ -633,12 +633,13 @@ These files exist and have been measured:
 
 ### Preload Files Budget (Actual)
 
-| File                          | Lines     | Tokens     | % Context | Purpose             |
-| ----------------------------- | --------- | ---------- | --------- | ------------------- |
-| operations-manual.md          | 4,155     | 45,049     | 22.5%     | All scenarios       |
-| architecture-deep-dive.md     | 1,952     | 23,941     | 12.0%     | Standard + Thorough |
-| troubleshooting-compendium.md | 2,005     | 18,088     | 9.0%      | Thorough only       |
-| **TOTAL**                     | **8,112** | **87,078** | **43.5%** |                     |
+| File                            | Lines     | Tokens     | % Context | Purpose             |
+| ------------------------------- | --------- | ---------- | --------- | ------------------- |
+| operations-manual-standard.md   | 962       | 19,323     | 9.6%      | All scenarios       |
+| operations-manual-exceptions.md | 2,497     | 21,988     | 11.0%     | All scenarios       |
+| architecture-deep-dive.md       | 1,952     | 23,941     | 12.0%     | Standard + Thorough |
+| troubleshooting-compendium.md   | 2,005     | 18,088     | 9.0%      | Thorough only       |
+| **TOTAL**                       | **7,416** | **83,249** | **41.6%** |                     |
 
 ### Scenario Token Budgets
 
@@ -1035,6 +1036,11 @@ The WPD Required Context sections use imperative language ("You MUST thoroughly 
 - [x] **6.5** - Measure actual token counts and document in this spec
   - [x] **6.5.1** - Update Token Budget tables with measured values
   - [x] **6.5.2** - Adjust line counts if token targets are not met
+- [x] **6.5** - Split `docs/specs/operations-manual.md` into two separate files (hoisted file reads have a 25k token limit)
+  - [x] **6.5.1** - Created `docs/specs/operations-manual-standard.md` (962 lines, 19323 tokens)
+  - [x] **6.5.2** - Created `docs/specs/operations-manual-exceptions.md` (2497 lines, 21988 tokens)
+  - [x] **6.5.3** - Update this spec to reflect new line and token counts
+  - [x] **6.5.4** - Update three commands to load both of these files instead of `operations-manual.md`
 
 ### Phase 7: Unified Target WPD
 
