@@ -36,17 +36,17 @@ This specification establishes the authoritative definition of the file summary 
 
 ### Arguments
 
-| Argument | Required | Description |
-|----------|----------|-------------|
-| `collection-path` | Yes | Path to trial collection directory containing trial folders with `trial_data.json` files |
-| `--help` | No | Display usage information and exit |
+| Argument          | Required | Description                                                                              |
+| ----------------- | -------- | ---------------------------------------------------------------------------------------- |
+| `collection-path` | Yes      | Path to trial collection directory containing trial folders with `trial_data.json` files |
+| `--help`          | No       | Display usage information and exit                                                       |
 
 ### Exit Codes
 
-| Code | Meaning |
-|------|---------|
-| 0 | Success (file summary created or updated) |
-| 1 | Error (invalid path, malformed JSON, or processing failure) |
+| Code | Meaning                                                     |
+| ---- | ----------------------------------------------------------- |
+| 0    | Success (file summary created or updated)                   |
+| 1    | Error (invalid path, malformed JSON, or processing failure) |
 
 ## Data Structures
 

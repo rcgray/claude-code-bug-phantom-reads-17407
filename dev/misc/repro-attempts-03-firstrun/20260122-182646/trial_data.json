@@ -1,0 +1,431 @@
+{
+  "schema_version": "1.2",
+  "generated_at": "2026-01-22T19:01:17.150963",
+  "metadata": {
+    "workscope_id": "20260122-182646",
+    "session_uuid": "72f0cf9e-efe5-48b9-83e0-a9699b1dc09e",
+    "chat_export_file": "20260122-182646.txt",
+    "session_file": "72f0cf9e-efe5-48b9-83e0-a9699b1dc09e.jsonl",
+    "has_subagents": false,
+    "has_tool_results": false
+  },
+  "outcome": {
+    "self_reported": "SUCCESS",
+    "affected_files": [],
+    "notes": "Agent explicitly stated: 'No, I did not experience the phantom read issue in this session.' All 8 Read operations returned actual file contents with line numbers. No <persisted-output> tags received. One file (operations-manual.md) not read due to legitimate token limit error, not phantom read."
+  },
+  "context_metrics": {
+    "pre_operation_tokens": null,
+    "pre_operation_percent": null,
+    "post_operation_tokens": null,
+    "post_operation_percent": null,
+    "headroom_at_trigger": null,
+    "context_window_size": 200000
+  },
+  "reset_analysis": {
+    "total_resets": 1,
+    "reset_positions_percent": [
+      83.05084745762711
+    ],
+    "pattern_classification": "SINGLE_LATE",
+    "resets": [
+      {
+        "from_tokens": 113867,
+        "to_tokens": 20407,
+        "session_line": 49,
+        "sequence_position": 49,
+        "total_events": 59,
+        "position_percent": 83.05084745762711
+      }
+    ]
+  },
+  "file_reads": {
+    "total_operations": 8,
+    "successful_operations": 8,
+    "failed_operations": 0,
+    "unique_files": 8,
+    "unique_file_list": [
+      "/Users/gray/Projects/phantom-read-clone/docs/specs/compliance-requirements.md",
+      "/Users/gray/Projects/phantom-read-clone/docs/specs/data-pipeline-overview.md",
+      "/Users/gray/Projects/phantom-read-clone/docs/specs/integration-layer.md",
+      "/Users/gray/Projects/phantom-read-clone/docs/specs/module-alpha.md",
+      "/Users/gray/Projects/phantom-read-clone/docs/specs/module-beta.md",
+      "/Users/gray/Projects/phantom-read-clone/docs/specs/module-gamma.md",
+      "/Users/gray/Projects/phantom-read-clone/docs/specs/operations-manual.md",
+      "/Users/gray/Projects/phantom-read-clone/docs/wpds/pipeline-refactor.md"
+    ],
+    "failed_reads": [],
+    "reads": [
+      {
+        "file_path": "/Users/gray/Projects/phantom-read-clone/docs/wpds/pipeline-refactor.md",
+        "session_line": 16,
+        "tool_use_id": "toolu_01CthUMR6TehxaJ7ncVLxvCV",
+        "batch_id": 0,
+        "success": true,
+        "sequence": 1
+      },
+      {
+        "file_path": "/Users/gray/Projects/phantom-read-clone/docs/specs/data-pipeline-overview.md",
+        "session_line": 17,
+        "tool_use_id": "toolu_01AtaWeBRNRdYHdsNPeW95iw",
+        "batch_id": 1,
+        "success": true,
+        "sequence": 2
+      },
+      {
+        "file_path": "/Users/gray/Projects/phantom-read-clone/docs/specs/operations-manual.md",
+        "session_line": 18,
+        "tool_use_id": "toolu_01MnE2T8nmSSs2VfoYkjPqdT",
+        "batch_id": 2,
+        "success": true,
+        "sequence": 3
+      },
+      {
+        "file_path": "/Users/gray/Projects/phantom-read-clone/docs/specs/module-alpha.md",
+        "session_line": 23,
+        "tool_use_id": "toolu_01TNpAVMtoU52TiPhw9GgD8u",
+        "batch_id": 3,
+        "success": true,
+        "sequence": 4
+      },
+      {
+        "file_path": "/Users/gray/Projects/phantom-read-clone/docs/specs/module-beta.md",
+        "session_line": 24,
+        "tool_use_id": "toolu_015uJFY3bVzUUGrajQpSarda",
+        "batch_id": 4,
+        "success": true,
+        "sequence": 5
+      },
+      {
+        "file_path": "/Users/gray/Projects/phantom-read-clone/docs/specs/module-gamma.md",
+        "session_line": 25,
+        "tool_use_id": "toolu_016KLSCunoHaCsMuRioEZF6Y",
+        "batch_id": 5,
+        "success": true,
+        "sequence": 6
+      },
+      {
+        "file_path": "/Users/gray/Projects/phantom-read-clone/docs/specs/integration-layer.md",
+        "session_line": 30,
+        "tool_use_id": "toolu_01KZAwXG5osaxwbgwMH4Pi3x",
+        "batch_id": 6,
+        "success": true,
+        "sequence": 7
+      },
+      {
+        "file_path": "/Users/gray/Projects/phantom-read-clone/docs/specs/compliance-requirements.md",
+        "session_line": 31,
+        "tool_use_id": "toolu_01KiN44B5yW3rbQqABXpk5H3",
+        "batch_id": 7,
+        "success": true,
+        "sequence": 8
+      }
+    ]
+  },
+  "timeline": [
+    {
+      "sequence": 2,
+      "type": "user_input",
+      "session_line": 2,
+      "preview": "<command-message>wsd:getid</command-message>\n<comm",
+      "phase": null
+    },
+    {
+      "sequence": 3,
+      "type": "user_input",
+      "session_line": 3,
+      "preview": "# Get Workscope ID\n\nThis command generates a uniqu",
+      "phase": "inquiry"
+    },
+    {
+      "sequence": 9,
+      "type": "user_input",
+      "session_line": 9,
+      "preview": "<local-command-caveat>Caveat: The messages below w",
+      "phase": null
+    },
+    {
+      "sequence": 10,
+      "type": "user_input",
+      "session_line": 10,
+      "preview": "<command-name>/context</command-name>\n            ",
+      "phase": null
+    },
+    {
+      "sequence": 11,
+      "type": "user_input",
+      "session_line": 11,
+      "preview": "<local-command-stdout>\u001b[?2026h \u001b[1mContext Usage\u001b[",
+      "phase": null
+    },
+    {
+      "sequence": 13,
+      "type": "user_input",
+      "session_line": 13,
+      "preview": "<command-message>analyze-standard</command-message",
+      "phase": null
+    },
+    {
+      "sequence": 14,
+      "type": "user_input",
+      "session_line": 14,
+      "preview": "# Analyze Work Plan Document (Standard Context)\n\nT",
+      "phase": null
+    },
+    {
+      "sequence": 16,
+      "type": "tool_batch",
+      "session_line": 16,
+      "read_count": 1,
+      "files": [
+        "/Users/gray/Projects/phantom-read-clone/docs/wpds/pipeline-refactor.md"
+      ]
+    },
+    {
+      "sequence": 17,
+      "type": "tool_batch",
+      "session_line": 17,
+      "read_count": 1,
+      "files": [
+        "/Users/gray/Projects/phantom-read-clone/docs/specs/data-pipeline-overview.md"
+      ]
+    },
+    {
+      "sequence": 18,
+      "type": "tool_batch",
+      "session_line": 18,
+      "read_count": 1,
+      "files": [
+        "/Users/gray/Projects/phantom-read-clone/docs/specs/operations-manual.md"
+      ]
+    },
+    {
+      "sequence": 23,
+      "type": "tool_batch",
+      "session_line": 23,
+      "read_count": 1,
+      "files": [
+        "/Users/gray/Projects/phantom-read-clone/docs/specs/module-alpha.md"
+      ]
+    },
+    {
+      "sequence": 24,
+      "type": "tool_batch",
+      "session_line": 24,
+      "read_count": 1,
+      "files": [
+        "/Users/gray/Projects/phantom-read-clone/docs/specs/module-beta.md"
+      ]
+    },
+    {
+      "sequence": 25,
+      "type": "tool_batch",
+      "session_line": 25,
+      "read_count": 1,
+      "files": [
+        "/Users/gray/Projects/phantom-read-clone/docs/specs/module-gamma.md"
+      ]
+    },
+    {
+      "sequence": 30,
+      "type": "tool_batch",
+      "session_line": 30,
+      "read_count": 1,
+      "files": [
+        "/Users/gray/Projects/phantom-read-clone/docs/specs/integration-layer.md"
+      ]
+    },
+    {
+      "sequence": 31,
+      "type": "tool_batch",
+      "session_line": 31,
+      "read_count": 1,
+      "files": [
+        "/Users/gray/Projects/phantom-read-clone/docs/specs/compliance-requirements.md"
+      ]
+    },
+    {
+      "sequence": 44,
+      "type": "user_input",
+      "session_line": 44,
+      "preview": "<local-command-caveat>Caveat: The messages below w",
+      "phase": null
+    },
+    {
+      "sequence": 45,
+      "type": "user_input",
+      "session_line": 45,
+      "preview": "<command-name>/context</command-name>\n            ",
+      "phase": null
+    },
+    {
+      "sequence": 46,
+      "type": "user_input",
+      "session_line": 46,
+      "preview": "<local-command-stdout>\u001b[?2026h \u001b[1mContext Usage\u001b[",
+      "phase": null
+    },
+    {
+      "sequence": 48,
+      "type": "user_input",
+      "session_line": 48,
+      "preview": "We have recently seen a number of User Agents repo",
+      "phase": "inquiry"
+    },
+    {
+      "sequence": 49,
+      "type": "context_reset",
+      "session_line": 49,
+      "from_tokens": 113867,
+      "to_tokens": 20407
+    },
+    {
+      "sequence": 53,
+      "type": "user_input",
+      "session_line": 53,
+      "preview": "<local-command-caveat>Caveat: The messages below w",
+      "phase": null
+    },
+    {
+      "sequence": 54,
+      "type": "user_input",
+      "session_line": 54,
+      "preview": "<command-name>/export</command-name>\n            <",
+      "phase": null
+    },
+    {
+      "sequence": 55,
+      "type": "user_input",
+      "session_line": 55,
+      "preview": "<local-command-stdout>Conversation exported to: ..",
+      "phase": null
+    },
+    {
+      "sequence": 57,
+      "type": "user_input",
+      "session_line": 57,
+      "preview": "<local-command-caveat>Caveat: The messages below w",
+      "phase": null
+    },
+    {
+      "sequence": 58,
+      "type": "user_input",
+      "session_line": 58,
+      "preview": "<command-name>/exit</command-name>\n            <co",
+      "phase": null
+    },
+    {
+      "sequence": 59,
+      "type": "user_input",
+      "session_line": 59,
+      "preview": "<local-command-stdout>Goodbye!</local-command-stdo",
+      "phase": null
+    }
+  ],
+  "token_progression": [
+    {
+      "sequence": 1,
+      "cache_read_tokens": 22342,
+      "session_line": 4
+    },
+    {
+      "sequence": 2,
+      "cache_read_tokens": 22437,
+      "session_line": 6
+    },
+    {
+      "sequence": 3,
+      "cache_read_tokens": 22522,
+      "session_line": 15
+    },
+    {
+      "sequence": 4,
+      "cache_read_tokens": 22522,
+      "session_line": 16
+    },
+    {
+      "sequence": 5,
+      "cache_read_tokens": 22522,
+      "session_line": 17
+    },
+    {
+      "sequence": 6,
+      "cache_read_tokens": 22522,
+      "session_line": 18
+    },
+    {
+      "sequence": 7,
+      "cache_read_tokens": 58575,
+      "session_line": 22
+    },
+    {
+      "sequence": 8,
+      "cache_read_tokens": 58575,
+      "session_line": 23
+    },
+    {
+      "sequence": 9,
+      "cache_read_tokens": 58575,
+      "session_line": 24
+    },
+    {
+      "sequence": 10,
+      "cache_read_tokens": 58575,
+      "session_line": 25
+    },
+    {
+      "sequence": 11,
+      "cache_read_tokens": 72993,
+      "session_line": 29
+    },
+    {
+      "sequence": 12,
+      "cache_read_tokens": 72993,
+      "session_line": 30
+    },
+    {
+      "sequence": 13,
+      "cache_read_tokens": 72993,
+      "session_line": 31
+    },
+    {
+      "sequence": 14,
+      "cache_read_tokens": 101324,
+      "session_line": 34
+    },
+    {
+      "sequence": 15,
+      "cache_read_tokens": 101324,
+      "session_line": 35
+    },
+    {
+      "sequence": 16,
+      "cache_read_tokens": 113582,
+      "session_line": 37
+    },
+    {
+      "sequence": 17,
+      "cache_read_tokens": 113582,
+      "session_line": 38
+    },
+    {
+      "sequence": 18,
+      "cache_read_tokens": 113867,
+      "session_line": 40
+    },
+    {
+      "sequence": 19,
+      "cache_read_tokens": 20407,
+      "session_line": 49
+    },
+    {
+      "sequence": 20,
+      "cache_read_tokens": 20407,
+      "session_line": 50
+    }
+  ],
+  "token_analysis": {
+    "available": false,
+    "token_counts_file": null
+  }
+}

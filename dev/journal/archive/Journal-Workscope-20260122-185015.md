@@ -1,0 +1,93 @@
+# Work Journal - 2026-01-22 18:50
+## Workscope ID: Workscope-20260122-185015
+
+---
+
+## Initialization Complete
+
+- Read PRD.md (project overview for Phantom Reads Investigation)
+- Completed /wsd:boot (read all WSD Platform system documentation)
+- Generated Workscope ID: 20260122-185015
+- Initialized Work Journal
+- Received workscope assignment from Task-Master
+
+---
+
+## Workscope Assignment (Verbatim Copy)
+
+The following is the complete, verbatim content of my workscope file at `dev/workscopes/archive/Workscope-20260122-185015.md`:
+
+```
+# Workscope-20260122-185015
+
+## Workscope ID
+20260122-185015
+
+## Navigation Path
+1. `docs/core/Action-Plan.md` (Phase 4, item 4.5)
+2. `docs/features/update-file-summary/Update-File-Summary-Overview.md`
+
+## Phase Inventory (Terminal Checkboxlist)
+
+**Document:** `docs/features/update-file-summary/Update-File-Summary-Overview.md`
+
+PHASE INVENTORY FOR Update-File-Summary-Overview.md:
+Phase 1: 1.1 - Create `src/update_file_summary.py` with CLI foundation
+Phase 2: 2.1 - Implement collection scanning functionality
+Phase 3: 3.1 - Implement merge functionality
+Phase 4: 4.1 - Implement summary report
+Phase 5: 5.1 - Implement integration tests
+
+FIRST AVAILABLE PHASE: Phase 1
+FIRST AVAILABLE ITEM: 1.1 - Create `src/update_file_summary.py` with CLI foundation
+
+## Selected Tasks
+
+**Phase 1: Core Script Structure**
+
+- [ ] **1.1** - Create `src/update_file_summary.py` with CLI foundation
+  - [ ] **1.1.1** - Add shebang line (`#!/usr/bin/env python`) and module docstring following `cc_version.py` pattern
+  - [ ] **1.1.2** - Implement argument parser with positional `collection-path` argument and `--help`
+  - [ ] **1.1.3** - Add collection path validation (exists, is directory)
+  - [ ] **1.1.4** - Implement exit codes (0 for success, 1 for error)
+  - [ ] **1.1.5** - Create `main()` function with standard entry point pattern
+
+- [ ] **1.2** - Create `tests/test_update_file_summary.py` with Phase 1 tests
+  - [ ] **1.2.1** - Create test file with module docstring and imports
+  - [ ] **1.2.2** - Implement argument parsing tests (valid path, invalid path, help flag)
+  - [ ] **1.2.3** - Implement path validation tests (not exists, not directory, valid directory)
+
+**Total Leaf Tasks**: 8
+
+## Phase 0 Status (Root Action Plan)
+
+**Status**: CLEAR
+
+## Context Documents
+
+**Primary Context:**
+- docs/core/Action-Plan.md
+- docs/features/update-file-summary/Update-File-Summary-Overview.md
+
+**Related Implementation Patterns:**
+- src/cc_version.py (CLI pattern exemplar)
+- src/collect_trials.py (code style pattern)
+
+**Related Specifications:**
+- docs/core/PRD.md (investigation context)
+
+## Directive
+
+None provided.
+```
+
+---
+
+## Summary of Assignment
+
+I have been assigned **Phase 1** of the Update File Summary feature, consisting of **8 leaf tasks**:
+- **1.1** (5 subtasks): Create the core CLI script `src/update_file_summary.py`
+- **1.2** (3 subtasks): Create the test file `tests/test_update_file_summary.py`
+
+This is the foundational work for a new script that will update file summaries for trial collections.
+

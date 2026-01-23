@@ -39,7 +39,7 @@ def create_timestamped_archive_file() -> Path:
         Path: Path to the newly created archive file
     """
     timestamp = get_timestamp()
-    new_filename = f"Prompts-{timestamp}.md"
+    new_filename = f"Prompts-{timestamp}.txt"
     archive_path = ARCHIVE_DIR / new_filename
 
     if TEMPLATE_FILE.exists():
