@@ -49,7 +49,7 @@ The following are the steps for implementing the project, where the full list is
   - [x] **3.5.1** - Ensure that `docs/core/Investigation-Journal.md` records the approach and results of Reproduction-Specs-Collection investigation
   - [x] **3.5.2** - Update `README.md` to reflect our current understanding of the issue and include directions on end-users running their own tests.
   - [x] **3.5.3** - Ensure that there is a clear `docs/core/Experiment-Methodology-#.md` that matches the most recent experiments run.
-- [ ] **3.6** - Revisit the Reproduction-Specs-Collection feature, now with new additions based on evaluations of our first attempt (see `docs/features/reproduction-specs-collection/Reproduction-Specs-Collection-Overview.md`)
+- [x] **3.6** - Revisit the Reproduction-Specs-Collection feature, now with new additions based on evaluations of our first attempt (see `docs/features/reproduction-specs-collection/Reproduction-Specs-Collection-Overview.md`)
 
 ## Phase 4: Analysis Tools
 

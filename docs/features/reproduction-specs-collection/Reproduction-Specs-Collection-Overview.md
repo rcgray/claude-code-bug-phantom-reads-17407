@@ -282,15 +282,15 @@ All preload content must be:
 
 Based on measurement of existing spec files, the average token-to-line ratio is **9.7 tokens per line**. This ratio is used for all size calculations in this specification.
 
-| Existing File | Lines | Tokens | Ratio |
-|---------------|-------|--------|-------|
-| compliance-requirements.md | 392 | 3,939 | 10.0 |
-| data-pipeline-overview.md | 425 | 6,041 | 14.2 |
-| integration-layer.md | 529 | 4,886 | 9.2 |
-| module-alpha.md | 742 | 6,204 | 8.4 |
-| module-beta.md | 741 | 6,198 | 8.4 |
-| module-gamma.md | 770 | 7,658 | 9.9 |
-| **Average** | — | — | **9.7** |
+| Existing File              | Lines | Tokens | Ratio   |
+| -------------------------- | ----- | ------ | ------- |
+| compliance-requirements.md | 392   | 3,939  | 10.0    |
+| data-pipeline-overview.md  | 425   | 6,041  | 14.2    |
+| integration-layer.md       | 529   | 4,886  | 9.2     |
+| module-alpha.md            | 742   | 6,204  | 8.4     |
+| module-beta.md             | 741   | 6,198  | 8.4     |
+| module-gamma.md            | 770   | 7,658  | 9.9     |
+| **Average**                | —     | —      | **9.7** |
 
 ### operations-manual.md
 
@@ -431,11 +431,11 @@ Provide your analysis in a structured format with sections for each module and a
 ```
 
 **Token Budget**:
-| Component | Tokens | % Context |
-|-----------|--------|-----------|
-| Baseline (fresh session) | 26,000 | 13% |
-| Preload (operations-manual) | 44,000 | 22% |
-| **Pre-operation total** | **70,000** | **35%** |
+| Component                   | Tokens     | % Context |
+| --------------------------- | ---------- | --------- |
+| Baseline (fresh session)    | 26,000     | 13%       |
+| Preload (operations-manual) | 44,000     | 22%       |
+| **Pre-operation total**     | **70,000** | **35%**   |
 
 **Expected Behavior**:
 - Pre-operation consumption: ~35% (70k tokens)
@@ -456,12 +456,12 @@ Provide your analysis in a structured format with sections for each module and a
 ```
 
 **Token Budget**:
-| Component | Tokens | % Context |
-|-----------|--------|-----------|
-| Baseline (fresh session) | 26,000 | 13% |
-| Preload (operations-manual) | 44,000 | 22% |
-| Preload (architecture-deep-dive) | 23,000 | 12% |
-| **Pre-operation total** | **93,000** | **46%** |
+| Component                        | Tokens     | % Context |
+| -------------------------------- | ---------- | --------- |
+| Baseline (fresh session)         | 26,000     | 13%       |
+| Preload (operations-manual)      | 44,000     | 22%       |
+| Preload (architecture-deep-dive) | 23,000     | 12%       |
+| **Pre-operation total**          | **93,000** | **46%**   |
 
 **Expected Behavior**:
 - Pre-operation consumption: ~46% (93k tokens)
@@ -483,13 +483,13 @@ Provide your analysis in a structured format with sections for each module and a
 ```
 
 **Token Budget**:
-| Component | Tokens | % Context |
-|-----------|--------|-----------|
-| Baseline (fresh session) | 26,000 | 13% |
-| Preload (operations-manual) | 44,000 | 22% |
-| Preload (architecture-deep-dive) | 23,000 | 12% |
-| Preload (troubleshooting-compendium) | 18,000 | 9% |
-| **Pre-operation total** | **111,000** | **55%** |
+| Component                            | Tokens      | % Context |
+| ------------------------------------ | ----------- | --------- |
+| Baseline (fresh session)             | 26,000      | 13%       |
+| Preload (operations-manual)          | 44,000      | 22%       |
+| Preload (architecture-deep-dive)     | 23,000      | 12%       |
+| Preload (troubleshooting-compendium) | 18,000      | 9%        |
+| **Pre-operation total**              | **111,000** | **55%**   |
 
 **Expected Behavior**:
 - Pre-operation consumption: ~55% (111k tokens)
@@ -631,26 +631,24 @@ These files exist and have been measured:
 | compliance-requirements.md | 392          | 3,939         | 2.0%      |
 | **TOTAL**                  | **3,599**    | **34,926**    | **17.5%** |
 
-### Preload Files Budget (Target)
+### Preload Files Budget (Actual)
 
-These files are specified but not yet created:
-
-| File                       | Target Lines | Est. Tokens | % Context | Purpose |
-| -------------------------- | ------------ | ----------- | --------- | ------- |
-| operations-manual.md       | 4,500        | ~44,000     | ~22%      | All scenarios |
-| architecture-deep-dive.md  | 2,400        | ~23,000     | ~12%      | Standard + Thorough |
-| troubleshooting-compendium.md | 1,900     | ~18,000     | ~9%       | Thorough only |
-| **TOTAL**                  | **8,800**    | **~85,000** | **~43%**  | |
+| File                          | Lines     | Tokens     | % Context | Purpose             |
+| ----------------------------- | --------- | ---------- | --------- | ------------------- |
+| operations-manual.md          | 4,155     | 45,049     | 22.5%     | All scenarios       |
+| architecture-deep-dive.md     | 1,952     | 23,941     | 12.0%     | Standard + Thorough |
+| troubleshooting-compendium.md | 2,005     | 18,088     | 9.0%      | Thorough only       |
+| **TOTAL**                     | **8,112** | **87,078** | **43.5%** |                     |
 
 ### Scenario Token Budgets
 
 Calculations assume a fresh Claude Code session baseline of 26k tokens (13%):
 
 | Scenario | Baseline | Preload | Pre-Op Total | Pre-Op % | Headroom |
-|----------|----------|---------|--------------|----------|----------|
-| Light    | 26k      | 44k     | 70k          | 35%      | 130k     |
-| Standard | 26k      | 67k     | 93k          | 46%      | 107k     |
-| Thorough | 26k      | 85k     | 111k         | 55%      | 89k      |
+| -------- | -------- | ------- | ------------ | -------- | -------- |
+| Light    | 26k      | 45k     | 71k          | 35.5%    | 129k     |
+| Standard | 26k      | 69k     | 95k          | 47.5%    | 105k     |
+| Thorough | 26k      | 87k     | 113k         | 56.5%    | 87k      |
 
 ### Baseline Reference Data
 
@@ -754,11 +752,11 @@ All errors in this feature manifest during trial execution and are detected thro
 
 ### Command-Based Approach (v2.0)
 
-| Scenario       | Pre-Op %  | Resets | Mid-Session | Phantom Read Rate    |
-| -------------- | --------- | ------ | ----------- | -------------------- |
-| `/analyze-light`    | ~35%      | 2      | 0           | 0% (5/5 succeed)     |
-| `/analyze-standard` | ~46%      | 2-3    | 0-1         | 40-60% (mixed)       |
-| `/analyze-thorough` | ~55%      | 3-4+   | 2+          | 100% (5/5 fail)      |
+| Scenario            | Pre-Op % | Resets | Mid-Session | Phantom Read Rate |
+| ------------------- | -------- | ------ | ----------- | ----------------- |
+| `/analyze-light`    | ~35%     | 2      | 0           | 0% (5/5 succeed)  |
+| `/analyze-standard` | ~46%     | 2-3    | 0-1         | 40-60% (mixed)    |
+| `/analyze-thorough` | ~55%     | 3-4+   | 2+          | 100% (5/5 fail)   |
 
 **Key Success Metrics**:
 - Light scenario demonstrates the safe zone with 100% success
@@ -998,82 +996,82 @@ The WPD Required Context sections use imperative language ("You MUST thoroughly 
 
 ### Phase 6: Preload Context Documents
 
-- [ ] **6.1** - Create `docs/specs/operations-manual.md` (~4,500 lines, ~44k tokens)
-  - [ ] **6.1.1** - Write Standard Operating Procedures section (~500 lines)
-  - [ ] **6.1.2** - Write Deployment Procedures section (~500 lines)
-  - [ ] **6.1.3** - Write Maintenance Windows section (~400 lines)
-  - [ ] **6.1.4** - Write Incident Response section (~500 lines)
-  - [ ] **6.1.5** - Write Monitoring and Alerting section (~500 lines)
-  - [ ] **6.1.6** - Write Backup and Recovery section (~500 lines)
-  - [ ] **6.1.7** - Write Capacity Planning section (~400 lines)
-  - [ ] **6.1.8** - Write Change Management section (~400 lines)
-  - [ ] **6.1.9** - Write Runbook Appendix section (~800 lines)
-  - [ ] **6.1.10** - Verify total length is ~4,500 lines (±200). Measure actual token count.
-- [ ] **6.2** - Create `docs/specs/architecture-deep-dive.md` (~2,400 lines, ~23k tokens)
-  - [ ] **6.2.1** - Write Design Philosophy section (~300 lines)
-  - [ ] **6.2.2** - Write Component Deep Dives section (~400 lines)
-  - [ ] **6.2.3** - Write Data Flow Analysis section with ASCII diagrams (~350 lines)
-  - [ ] **6.2.4** - Write Performance Architecture section (~300 lines)
-  - [ ] **6.2.5** - Write Security Architecture section (~300 lines)
-  - [ ] **6.2.6** - Write Scalability Patterns section (~300 lines)
-  - [ ] **6.2.7** - Write Technology Stack section (~250 lines)
-  - [ ] **6.2.8** - Write Evolution History section (~200 lines)
-  - [ ] **6.2.9** - Verify total length is ~2,400 lines (±150). Measure actual token count.
-- [ ] **6.3** - Create `docs/specs/troubleshooting-compendium.md` (~1,900 lines, ~18k tokens)
-  - [ ] **6.3.1** - Write Common Issues Catalog section (~300 lines)
-  - [ ] **6.3.2** - Write Module Alpha Troubleshooting section (~200 lines)
-  - [ ] **6.3.3** - Write Module Beta Troubleshooting section (~200 lines)
-  - [ ] **6.3.4** - Write Module Gamma Troubleshooting section (~200 lines)
-  - [ ] **6.3.5** - Write Integration Troubleshooting section (~200 lines)
-  - [ ] **6.3.6** - Write Performance Troubleshooting section (~200 lines)
-  - [ ] **6.3.7** - Write Data Quality Issues section (~200 lines)
-  - [ ] **6.3.8** - Write Error Code Reference section (~200 lines)
-  - [ ] **6.3.9** - Write Diagnostic Procedures section (~100 lines)
-  - [ ] **6.3.10** - Write Post-Mortem Templates section (~100 lines)
-  - [ ] **6.3.11** - Verify total length is ~1,900 lines (±100). Measure actual token count.
-- [ ] **6.4** - Verify all preload content is self-contained within Data Pipeline System domain
-  - [ ] **6.4.1** - Grep for "phantom", "investigation", "reproduction" - must return zero matches
-  - [ ] **6.4.2** - Review for technical plausibility and consistency with existing specs
-- [ ] **6.5** - Measure actual token counts and document in this spec
-  - [ ] **6.5.1** - Update Token Budget tables with measured values
-  - [ ] **6.5.2** - Adjust line counts if token targets are not met
+- [x] **6.1** - Create `docs/specs/operations-manual.md` (~4,500 lines, ~44k tokens)
+  - [x] **6.1.1** - Write Standard Operating Procedures section (~500 lines)
+  - [x] **6.1.2** - Write Deployment Procedures section (~500 lines)
+  - [x] **6.1.3** - Write Maintenance Windows section (~400 lines)
+  - [x] **6.1.4** - Write Incident Response section (~500 lines)
+  - [x] **6.1.5** - Write Monitoring and Alerting section (~500 lines)
+  - [x] **6.1.6** - Write Backup and Recovery section (~500 lines)
+  - [x] **6.1.7** - Write Capacity Planning section (~400 lines)
+  - [x] **6.1.8** - Write Change Management section (~400 lines)
+  - [x] **6.1.9** - Write Runbook Appendix section (~800 lines)
+  - [x] **6.1.10** - Verify total length is ~4,500 lines (±200). Measure actual token count. (Final: 4155 lines, 45049 tokens)
+- [x] **6.2** - Create `docs/specs/architecture-deep-dive.md` (~2,400 lines, ~23k tokens)
+  - [x] **6.2.1** - Write Design Philosophy section (~300 lines)
+  - [x] **6.2.2** - Write Component Deep Dives section (~400 lines)
+  - [x] **6.2.3** - Write Data Flow Analysis section with ASCII diagrams (~350 lines)
+  - [x] **6.2.4** - Write Performance Architecture section (~300 lines)
+  - [x] **6.2.5** - Write Security Architecture section (~300 lines)
+  - [x] **6.2.6** - Write Scalability Patterns section (~300 lines)
+  - [x] **6.2.7** - Write Technology Stack section (~250 lines)
+  - [x] **6.2.8** - Write Evolution History section (~200 lines)
+  - [x] **6.2.9** - Verify total length is ~2,400 lines (±150). Measure actual token count. (Final: 1952 lines, 23941 tokens)
+- [x] **6.3** - Create `docs/specs/troubleshooting-compendium.md` (~1,900 lines, ~18k tokens)
+  - [x] **6.3.1** - Write Common Issues Catalog section (~300 lines)
+  - [x] **6.3.2** - Write Module Alpha Troubleshooting section (~200 lines)
+  - [x] **6.3.3** - Write Module Beta Troubleshooting section (~200 lines)
+  - [x] **6.3.4** - Write Module Gamma Troubleshooting section (~200 lines)
+  - [x] **6.3.5** - Write Integration Troubleshooting section (~200 lines)
+  - [x] **6.3.6** - Write Performance Troubleshooting section (~200 lines)
+  - [x] **6.3.7** - Write Data Quality Issues section (~200 lines)
+  - [x] **6.3.8** - Write Error Code Reference section (~200 lines)
+  - [x] **6.3.9** - Write Diagnostic Procedures section (~100 lines)
+  - [x] **6.3.10** - Write Post-Mortem Templates section (~100 lines)
+  - [x] **6.3.11** - Verify total length is ~1,900 lines (±100). Measure actual token count. (Final: 2005 lines, 18088 tokens)
+- [x] **6.4** - Verify all preload content is self-contained within Data Pipeline System domain
+  - [x] **6.4.1** - Grep for "phantom", "investigation", "reproduction" - must return zero matches
+  - [x] **6.4.2** - Review for technical plausibility and consistency with existing specs
+- [x] **6.5** - Measure actual token counts and document in this spec
+  - [x] **6.5.1** - Update Token Budget tables with measured values
+  - [x] **6.5.2** - Adjust line counts if token targets are not met
 
 ### Phase 7: Unified Target WPD
 
-- [ ] **7.1** - Create `docs/wpds/pipeline-refactor.md`
-  - [ ] **7.1.1** - Write Overview section describing unified telemetry framework
-  - [ ] **7.1.2** - Write Motivation section explaining current observability gaps
-  - [ ] **7.1.3** - Write Scope section explicitly listing ALL six supporting specs
-  - [ ] **7.1.4** - Write Technical Approach section with framework design
-  - [ ] **7.1.5** - Write Module Impact sections for Alpha, Beta, and Gamma
-  - [ ] **7.1.6** - Write Integration Impact section
-  - [ ] **7.1.7** - Write Compliance Impact section
-  - [ ] **7.1.8** - Write Implementation Phases section with 10-15 task checkboxlist
-  - [ ] **7.1.9** - Write Risk Assessment section
-  - [ ] **7.1.10** - Write Success Criteria section
-- [ ] **7.2** - Verify WPD requires thorough understanding of all supporting specs
-  - [ ] **7.2.1** - Verify each module is referenced with specific requirements
-  - [ ] **7.2.2** - Verify critique task cannot be completed by "winging it"
+- [x] **7.1** - Create `docs/wpds/pipeline-refactor.md`
+  - [x] **7.1.1** - Write Overview section describing unified telemetry framework
+  - [x] **7.1.2** - Write Motivation section explaining current observability gaps
+  - [x] **7.1.3** - Write Scope section explicitly listing ALL six supporting specs
+  - [x] **7.1.4** - Write Technical Approach section with framework design
+  - [x] **7.1.5** - Write Module Impact sections for Alpha, Beta, and Gamma
+  - [x] **7.1.6** - Write Integration Impact section
+  - [x] **7.1.7** - Write Compliance Impact section
+  - [x] **7.1.8** - Write Implementation Phases section with 10-15 task checkboxlist
+  - [x] **7.1.9** - Write Risk Assessment section
+  - [x] **7.1.10** - Write Success Criteria section
+- [x] **7.2** - Verify WPD requires thorough understanding of all supporting specs
+  - [x] **7.2.1** - Verify each module is referenced with specific requirements
+  - [x] **7.2.2** - Verify critique task cannot be completed by "winging it"
 
 ### Phase 8: Analysis Commands
 
-- [ ] **8.1** - Create `.claude/commands/analyze-light.md`
-  - [ ] **8.1.1** - Add `@docs/specs/operations-manual.md` preload
-  - [ ] **8.1.2** - Write analysis task directing review of all supporting specs
-  - [ ] **8.1.3** - Write output format requirements
-- [ ] **8.2** - Create `.claude/commands/analyze-standard.md`
-  - [ ] **8.2.1** - Add `@docs/specs/operations-manual.md` preload
-  - [ ] **8.2.2** - Add `@docs/specs/architecture-deep-dive.md` preload
-  - [ ] **8.2.3** - Write analysis task (identical to light)
-  - [ ] **8.2.4** - Write output format requirements (identical to light)
-- [ ] **8.3** - Create `.claude/commands/analyze-thorough.md`
-  - [ ] **8.3.1** - Add `@docs/specs/operations-manual.md` preload
-  - [ ] **8.3.2** - Add `@docs/specs/architecture-deep-dive.md` preload
-  - [ ] **8.3.3** - Add `@docs/specs/troubleshooting-compendium.md` preload
-  - [ ] **8.3.4** - Write analysis task (identical to light)
-  - [ ] **8.3.5** - Write output format requirements (identical to light)
-- [ ] **8.4** - Verify command consistency
-  - [ ] **8.4.1** - Confirm all three commands have identical task structure
-  - [ ] **8.4.2** - Confirm only preload differs between commands
-  - [ ] **8.4.3** - Test `@` notation hoisting works as expected
+- [x] **8.1** - Create `.claude/commands/analyze-light.md`
+  - [x] **8.1.1** - Add `@docs/specs/operations-manual.md` preload
+  - [x] **8.1.2** - Write analysis task directing review of all supporting specs
+  - [x] **8.1.3** - Write output format requirements
+- [x] **8.2** - Create `.claude/commands/analyze-standard.md` - Use `.claude/commands/analyze-light.md` as a template.
+  - [x] **8.2.1** - Add `@docs/specs/operations-manual.md` preload
+  - [x] **8.2.2** - Add `@docs/specs/architecture-deep-dive.md` preload
+  - [x] **8.2.3** - Write analysis task (identical to light)
+  - [x] **8.2.4** - Write output format requirements (identical to light)
+- [x] **8.3** - Create `.claude/commands/analyze-thorough.md` - Use `.claude/commands/analyze-light.md` as a template.
+  - [x] **8.3.1** - Add `@docs/specs/operations-manual.md` preload
+  - [x] **8.3.2** - Add `@docs/specs/architecture-deep-dive.md` preload
+  - [x] **8.3.3** - Add `@docs/specs/troubleshooting-compendium.md` preload
+  - [x] **8.3.4** - Write analysis task (identical to light)
+  - [x] **8.3.5** - Write output format requirements (identical to light)
+- [x] **8.4** - Verify command consistency
+  - [x] **8.4.1** - Confirm all three commands have identical task structure
+  - [x] **8.4.2** - Confirm only preload differs between commands
+  - [x] **8.4.3** - Test `@` notation hoisting works as expected
 

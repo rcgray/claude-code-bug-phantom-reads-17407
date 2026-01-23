@@ -311,3 +311,4 @@ coverage/
 # =============================================================================
 # Add any project-specific exclusions below
 # Examples: *.proprietary, local-config.json, custom-data-files/
+~**
