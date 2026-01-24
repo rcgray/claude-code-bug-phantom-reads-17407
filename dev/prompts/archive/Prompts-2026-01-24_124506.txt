@@ -1,0 +1,148 @@
+## Models:
+## `opus` : claude-opus-4-5-20251101
+## `sonnet` : claude-sonnet-4-5-20250929
+## `sonnet[1m]` : claude-sonnet-4-5-20250929[1m]
+## `haiku` : claude-haiku-4-5-20251001
+
+## New Session: Claude Code v2.1.6: `opus` (locked, 2.1.15 is current)
+
+---
+
+/wsd:init --custom
+
+---
+
+Read the `docs/core/Investigation-Journal.md` ( @docs/core/Investigation-Journal.md ) to catch up on our latest state. Tell me about your understanding of our current theories, and how this led to changes between Experiment-Methodology-03 and Experiment-Methodology-04.
+
+---
+
+Excellent, so our plan was to add additional files (like `module-epsilon.md` and `module-phi.md` to apply extra burden to the `/analyze-wpd` task and increase our `Y` value).  We have done just that, and we now have new data testing out Experiment-Methodology-04! If you recall, we found in our tinkering with Experiment-Methodology-03 that _all_ our scenarios were passing (no phantom reads). In contrast, we found with Experiment-Methodology-04 that _all_ of our scenarios (even "Easy") are failing (experiencing phantom reads).  Ultimately, this is a good thing - we can now reliably hit both cases.  We just need to figure out _how_.
+
+Given what we understand about the differences between the two experiments, and from looking at the trial data resulting from both experiments, the fact that one is universally passing and the other is universally failing should help us narrow down and refine our theory.
+
+I would like you to take a look at this new collection: `dev/misc/repro-attempts-04-firstrun`. Here, we only ran "Hard" and "Easy" (the two extremes), where for the sake of time we will treat pursuit of the "Medium" case for a later step, once we have established our expected behaviors for the extremes.  I intentionally did not create a `file_token_counts.json` file, but you can see line and token counts in my hand notes.  Here were the notes that I took:
+
+**Hard Scenario**:
+```
+Baseline (fresh session):
+- Total: 23k (12%)
+- Messages: 0.0k (0.0%)
+
+After `/setup-hard`:
+- Loaded command itself (51 lines, 402 tokens)
+- Loaded (via @ hoisting) 68112 tokens:
+  - `docs/specs/operations-manual-standard.md` (963 lines, 19323 tokens)
+  - `docs/specs/operations-manual-exceptions.md` (1593 lines, 15636 tokens)
+  - `docs/specs/architecture-deep-dive.md` (1071 lines, 14676 tokens)
+  - `docs/specs/troubleshooting-compendium.md` (2006 lines, 18477 tokens)
+- Total: 120k (60%)
+- Messages: 97.0k (48.5%)
+
+After `/analyze-wpd docs/wpds/pipeline-refactor.md`:
+- Loaded (via self-initiated Read calls) 57220 tokens:
+  - `Read(docs/wpds/pipeline-refactor.md)` (451 lines, 5652 tokens)
+  - `Read(docs/specs/data-pipeline-overview.md)` (459 lines, 6732 tokens)
+  - `Read(docs/specs/module-alpha.md)` (742 lines, 6204 tokens)
+  - `Read(docs/specs/module-beta.md)` (741 lines, 6198 tokens)
+  - `Read(docs/specs/module-gamma.md)` (771 lines, 7658 tokens)
+  - `Read(docs/specs/module-epsilon.md)` (875 lines, 7666 tokens)
+  - `Read(docs/specs/module-phi.md)` (900 lines, 7639 tokens)
+  - `Read(docs/specs/integration-layer.md)` (631 lines, 5532 tokens)
+  - `Read(docs/specs/compliance-requirements.md)` (392 lines, 3939 tokens)
+
+* Order of files read varied slightly among trials
+
+Trial 20260124-112940:
+  - Total: 170k (85%) == Suggests RESET?
+  - Messages: 146.5k (73.3%)
+Trial 20260124-113003:
+  - Total: 189k (95%)
+  - Messages: 166.0k (83.0%)
+Trial 20260124-114431:
+  - Total: 170k (85%) == Suggests RESET?
+  - Messages: 146.7k (73.3%)
+Trial 20260124-114434:
+  - Total: 170k (85%) == Suggests RESET?
+  - Messages: 146.6k (73.3%)
+
+Note: Harness warning popped up: "Context low (0% remaining) - Run /compact to compact & continue" on all trials
+
+Outcome (via self-report prompt):
+  - Trial 20260124-112940: Failure (self-reported phantom reads)
+  - Trial 20260124-113003: Failure (self-reported phantom reads)
+  - Trial 20260124-114431: Failure (self-reported phantom reads)
+  - Trial 20260124-114434: Failure (self-reported phantom reads)
+```
+
+**Easy Scenario**:
+```
+Baseline (fresh session):
+- Total: 23k (12%)
+- Messages: 0.0k (0.0%)
+
+After `/setup-easy`:
+- Loaded command itself (51 lines, 402 tokens)
+- Loaded (via @ hoisting) 34959 tokens:
+  - `docs/specs/operations-manual-standard.md` (963 lines, 19323 tokens)
+  - `docs/specs/operations-manual-exceptions.md` (1593 lines, 15636 tokens)
+- Total: 73k (37%)
+- Messages: 49.6k (24.8%)
+
+After `/analyze-wpd docs/wpds/pipeline-refactor.md`:
+- Loaded (via self-initiated Read calls) 57220 tokens:
+  - `Read(docs/wpds/pipeline-refactor.md)` (451 lines, 5652 tokens)
+  - `Read(docs/specs/data-pipeline-overview.md)` (459 lines, 6732 tokens)
+  - `Read(docs/specs/module-alpha.md)` (742 lines, 6204 tokens)
+  - `Read(docs/specs/module-beta.md)` (741 lines, 6198 tokens)
+  - `Read(docs/specs/module-gamma.md)` (771 lines, 7658 tokens)
+  - `Read(docs/specs/module-epsilon.md)` (875 lines, 7666 tokens)
+  - `Read(docs/specs/module-phi.md)` (900 lines, 7639 tokens)
+  - `Read(docs/specs/integration-layer.md)` (631 lines, 5532 tokens)
+  - `Read(docs/specs/compliance-requirements.md)` (392 lines, 3939 tokens)
+
+* Order of files read varied slightly among trials
+
+Trial 20260124-115841:
+  - Total: 120k (60%)
+  - Messages: 96.5k (48.2%)
+Trial 20260124-115846:
+  - Total: 113k (56%) == Suggests RESET?
+  - Messages: 89.8k (44.9%)
+Trial 20260124-120502:
+  - Total: 114k (57%) == Suggests RESET?
+  - Messages: 91.0k (45.5%)
+Trial 20260124-120507:
+  - Total: 113k (57%) == Suggests RESET?
+  - Messages: 90.3k (45.5%)
+
+Note: Harness warning popped up: "Context low (8% remaining) - Run /compact to compact & continue" on all trials
+
+Outcome (via self-report prompt):
+  - Trial 20260124-115841: Failure (self-reported phantom reads)
+  - Trial 20260124-115846: Failure (self-reported phantom reads)
+  - Trial 20260124-120502: Failure (self-reported phantom reads)
+  - Trial 20260124-120507: Failure (self-reported phantom reads)
+```
+
+Take a look at the data and tell me what you observe.
+
+---
+
+A quick clarification: can you list the files (6 files and 9 files) used in both experiments?  I seem to recall only adding `module-epsilon.md` and `module-phi.md` in the latest experiment, so I'm trying to reconcile my records.
+
+---
+
+So we are theorizing that _only_ `Y` matters.  The running theory was that `Y` matters with respect to `X` and `T`.  We have the option of changing all three of these variables - Experiment-Methdology-03 -> Experiment-Methodology-04 changed the `Y` value, and our "Easy" vs. "Hard" changes the `X` value.  Let's brainstorm some other experiments:
+
+1. You suggested we could reduce Method-04's Y back to 7 files, except that would make it essentially Method-03 again, which we already have data for.  I would expect all trials to return to 100% passing.  Maybe it's worth double-checking, but there are probably higher ROI experiments.
+2. You suggested we "batch" load the (current) 9-file `Y`.  We know that this will exceed `T` in the "Hard" scenario, but we could try doing so in the "Easy" scenario.  However, if we load the "Easy" scenario's pre-load (via `@` hoisting), and then load a couple files (via `@` hoisting again?), and then a couple more files, and then a couple more.... that's the same as creating a new pre-load definition.  We've just transferred files from `Y` -> `X`.  And we would expect a small `Y` to succeed.  However, it might be worth trying: load up ALL files (the pre-load AND 8 of the operation files) as pre-load, and then have the `/analyze-wpd` file only load the WPD itself (i.e., a minimal `Y`).
+3. We could try setting `X` to minimum by not having a pre-load step at all.  Like a new "Easy-0" scenario where we skip the `/setup-easy` step entirely.
+4. We actually can adjust `T` - the model we're using (`claude-opus-4-5-20251101`) has a context window of 200k, but there is another model we could run tests with (`claude-sonnet-4-5-20250929[1m]`) that has a context window of 1 million. Though we don't know for certain if the harness behaves differently in hidden ways when you swap models, if we found that results failed even when `X` + `Y` is nowhere near `T`, that could shed light on our theory.
+
+Can you think of other experiments that would help us better understand these variables, or even simply confirming the model that we've constructed regarding them?  Let's brainstorm.
+
+---
+
+Can you write all of these up (all 11 of them, even if there are some we've felt we should skip) into a new document: `/docs/core/Post-Experiment-04-Ideas.md`?  Be thorough in your explanations, provide rationale for how we reached this decision point, and provide your recommendation of priorities.
+
+---
