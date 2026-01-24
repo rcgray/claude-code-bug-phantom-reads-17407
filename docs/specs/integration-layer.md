@@ -17,11 +17,11 @@
 
 ## Overview
 
-The Integration Layer defines the communication protocols, message formats, and coordination mechanisms that enable reliable data transfer between the three core modules of the Data Pipeline System. This specification establishes the authoritative contracts governing inter-module communication.
+The Integration Layer defines the communication protocols, message formats, and coordination mechanisms that enable reliable data transfer between the modules of the Data Pipeline System. This specification establishes the authoritative contracts governing inter-module communication.
 
 ### Purpose and Scope
 
-The Integration Layer serves as the connective tissue binding Module Alpha (Data Ingestion), Module Beta (Data Transformation), and Module Gamma (Data Output) into a cohesive processing pipeline. Its responsibilities include:
+The Integration Layer serves as the connective tissue binding Module Alpha (Data Ingestion), Module Beta (Data Transformation), Module Gamma (Data Output), Module Epsilon (Data Caching), and Module Phi (Pipeline Orchestration) into a cohesive processing pipeline. Its responsibilities include:
 
 **Protocol Definition**: Establishing the exact sequence of operations, message formats, and acknowledgment patterns for each inter-module handoff.
 
@@ -468,6 +468,105 @@ Status determination:
 
 ---
 
+## Module Epsilon Integration
+
+Module Epsilon provides caching services to all pipeline modules through the Integration Layer.
+
+### Cache Access Protocol
+
+All modules access the cache through standardized cache operations:
+
+```
+CacheAccessRequest:
+  header: MessageHeader
+  operation: enum              # GET, PUT, INVALIDATE
+  cache_key: string
+  cache_namespace: string      # e.g., "enrichment", "transformation"
+  value: bytes                 # For PUT operations
+  ttl_seconds: integer         # Optional TTL override
+```
+
+```
+CacheAccessResponse:
+  header: MessageHeader
+  status: enum                 # HIT, MISS, ERROR
+  value: bytes                 # For successful GET
+  source_tier: enum            # L1, L2, L3
+  latency_ms: float
+```
+
+### Cache Warm-Up Coordination
+
+Before batch processing, modules can request cache warm-up:
+
+```
+CacheWarmUpRequest:
+  header: MessageHeader
+  cache_namespace: string
+  key_patterns: list<string>
+  priority: enum               # NORMAL, HIGH
+```
+
+### Cache Health Integration
+
+Cache health is included in pipeline health status. See `module-epsilon.md` for complete cache specification.
+
+---
+
+## Module Phi Integration
+
+Module Phi orchestrates pipeline execution through the Integration Layer.
+
+### Job Control Protocol
+
+Pipeline jobs are controlled through standardized messages:
+
+```
+JobControlRequest:
+  header: MessageHeader
+  operation: enum              # START, STOP, PAUSE, RESUME
+  job_id: string
+  parameters: map<string, any>
+```
+
+```
+JobStatusUpdate:
+  header: MessageHeader
+  job_id: string
+  execution_id: string
+  status: enum                 # PENDING, RUNNING, COMPLETED, FAILED
+  progress_percent: float
+  records_processed: integer
+```
+
+### Dependency Coordination
+
+Module Phi coordinates job dependencies across modules:
+
+```
+DependencySignal:
+  header: MessageHeader
+  signal_type: enum            # JOB_COMPLETE, JOB_FAILED, DATA_READY
+  job_id: string
+  downstream_jobs: list<string>
+```
+
+### Execution Scheduling Integration
+
+Phi notifies modules of scheduled executions:
+
+```
+ScheduleNotification:
+  header: MessageHeader
+  job_id: string
+  scheduled_time: datetime
+  parameters: map<string, any>
+```
+
+See `module-phi.md` for complete orchestration specification.
+
+---
+
 ## Configuration
 
 ### Alpha-to-Beta Configuration
@@ -522,9 +621,11 @@ Status determination:
 | `module-alpha.md` | Data ingestion module specification |
 | `module-beta.md` | Data transformation module specification |
 | `module-gamma.md` | Data output module specification |
+| `module-epsilon.md` | Data caching layer specification |
+| `module-phi.md` | Pipeline orchestration specification |
 | `compliance-requirements.md` | Audit, security, and regulatory requirements |
 
 ---
 
-*This document is the authoritative specification for the Integration Layer. For module-specific details, see `module-alpha.md`, `module-beta.md`, and `module-gamma.md`.*
+*This document is the authoritative specification for the Integration Layer. For module-specific details, see `module-alpha.md`, `module-beta.md`, `module-gamma.md`, `module-epsilon.md`, and `module-phi.md`.*
 

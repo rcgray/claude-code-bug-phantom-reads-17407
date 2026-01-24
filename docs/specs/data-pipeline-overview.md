@@ -136,6 +136,10 @@ Each module in the Data Pipeline System operates as a distinct processing unit w
 
 **Module Gamma** manages all output concerns including format rendering, delivery routing, acknowledgment handling, and dead letter queue management. Gamma receives transformed records from Beta and ensures reliable delivery to downstream consumers. See `module-gamma.md` for the complete output specification.
 
+**Module Epsilon** provides caching services across all pipeline modules, accelerating enrichment lookups, storing transformation results for replay, and buffering inter-module data transfers. Epsilon implements a multi-tier cache hierarchy optimizing for both latency and capacity. See `module-epsilon.md` for the complete caching specification.
+
+**Module Phi** orchestrates pipeline execution, managing job scheduling, dependency resolution, failure recovery, and execution coordination across all modules. Phi ensures reliable end-to-end pipeline operation through DAG-based workflow management. See `module-phi.md` for the complete orchestration specification.
+
 ### Inter-Module Communication
 
 Modules communicate through a standardized message protocol that ensures loose coupling while maintaining data integrity and traceability. The integration layer defines message formats, handoff procedures, and error propagation patterns. See `integration-layer.md` for the complete protocol specification.
@@ -187,6 +191,34 @@ Module Gamma delivers transformed records to downstream consumers. Its responsib
 **Dead Letter Queue**: Records that cannot be delivered after exhausting retry attempts are written to a dead letter queue with comprehensive diagnostic information. Operators can inspect, correct, and replay failed records through administrative interfaces.
 
 Key configuration parameters include `DELIVERY_TIMEOUT_MS`, `MAX_DELIVERY_RETRIES`, `RETRY_BACKOFF_MULTIPLIER`, `DLQ_RETENTION_DAYS`, and `ACK_WAIT_TIMEOUT_MS`. See `module-gamma.md` for complete configuration documentation.
+
+### Module Epsilon: Data Caching
+
+Module Epsilon provides high-performance caching services to all pipeline modules. Its responsibilities include:
+
+**Enrichment Caching**: Caching lookup results from external data sources to minimize redundant API calls and database queries. The enrichment cache stores reference data retrieved by Module Beta during transformation, with configurable TTL policies based on data volatility.
+
+**Transformation Result Caching**: Maintaining cached copies of transformation outputs for records that may require reprocessing. This enables efficient replay without re-executing expensive transformation chains.
+
+**Inter-Module Buffer Caching**: Providing temporary storage buffers between pipeline stages to smooth throughput variations and handle backpressure scenarios.
+
+**Multi-Tier Architecture**: Epsilon implements L1 (in-memory), L2 (distributed), and L3 (persistent) cache tiers with intelligent routing based on data characteristics and access patterns.
+
+Key configuration parameters include `CACHE_L1_MAX_SIZE_MB`, `CACHE_L2_CLUSTER_NODES`, `CACHE_DEFAULT_TTL_SECONDS`, `CACHE_COMPRESSION_ENABLED`, and `CACHE_OPERATION_TIMEOUT_MS`. See `module-epsilon.md` for complete configuration documentation.
+
+### Module Phi: Pipeline Orchestration
+
+Module Phi coordinates the execution of data processing workflows across all pipeline modules. Its responsibilities include:
+
+**Job Scheduling**: Managing the timing and triggering of pipeline jobs based on schedules, events, or manual invocation. The scheduler supports cron-based scheduling, event-driven triggers, and dependency-based execution chains.
+
+**Execution Coordination**: Orchestrating the flow of data through pipeline stages, ensuring proper sequencing of Module Alpha ingestion, Module Beta transformation, and Module Gamma output operations.
+
+**Dependency Management**: Resolving and enforcing dependencies between pipeline jobs, ensuring prerequisite jobs complete successfully before dependent jobs execute.
+
+**Failure Recovery**: Detecting execution failures, implementing retry policies, managing dead-letter handling, and coordinating recovery procedures to maintain pipeline resilience.
+
+Key configuration parameters include `SCHEDULER_ENABLED`, `EXECUTOR_PARALLELISM`, `RETRY_DEFAULT_MAX_ATTEMPTS`, `DEPENDENCY_RESOLUTION_TIMEOUT_SECONDS`, and `EXECUTOR_HEARTBEAT_INTERVAL_SECONDS`. See `module-phi.md` for complete configuration documentation.
 
 ---
 
@@ -389,6 +421,8 @@ This overview document provides architectural context for the Data Pipeline Syst
 | `module-alpha.md` | Data ingestion module specification |
 | `module-beta.md` | Data transformation module specification |
 | `module-gamma.md` | Data output module specification |
+| `module-epsilon.md` | Data caching layer specification |
+| `module-phi.md` | Pipeline orchestration specification |
 | `integration-layer.md` | Inter-module communication protocols |
 | `compliance-requirements.md` | Audit, security, and regulatory requirements |
 

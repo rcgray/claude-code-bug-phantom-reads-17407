@@ -25,11 +25,11 @@ The Reproduction Specs Collection serves four critical functions:
 
 1. **Controlled Pre-Operation Consumption**: Provides preload content of known size that inflates context consumption BEFORE the analysis trigger fires. This is the primary control mechanism—by setting pre-operation consumption to specific thresholds, we control whether mid-session resets occur during subsequent file reads.
 
-2. **Phantom Read Triggering**: The `/setup-hard` command preloads ~96k tokens of context, pushing pre-operation consumption to ~60% (120k tokens). When the agent then reads supporting specs during `/analyze-wpd`, mid-session resets are triggered, causing phantom reads.
+2. **Phantom Read Triggering**: The `/setup-hard` command preloads ~68k tokens of context, pushing pre-operation consumption to ~52% (104k tokens). When the agent then reads supporting specs during `/analyze-wpd`, mid-session resets are triggered, causing phantom reads.
 
-3. **Safe Zone Demonstration**: The `/setup-easy` command preloads ~49k tokens, establishing pre-operation consumption at ~37% (73k tokens). This demonstrates the safe zone where supporting spec reads complete without triggering disruptive mid-session resets.
+3. **Safe Zone Demonstration**: The `/setup-easy` command preloads ~35k tokens, establishing pre-operation consumption at ~34% (67k tokens). This demonstrates the safe zone where supporting spec reads complete without triggering disruptive mid-session resets.
 
-4. **Boundary Zone Exploration**: The `/setup-medium` command preloads ~68k tokens, targeting ~46% pre-operation consumption (92k tokens). This boundary zone produces variable results, validating the threshold hypothesis.
+4. **Boundary Zone Exploration**: The `/setup-medium` command preloads ~50k tokens, targeting ~39% pre-operation consumption (77k tokens). This boundary zone produces variable results, validating the threshold hypothesis.
 
 This specification establishes the authoritative definition of the fictional Data Pipeline System domain (supporting specs, preload content, and analysis task structure), the command-based triggering mechanism, and the expected outcomes for each scenario tier.
 
@@ -98,17 +98,19 @@ docs/
 ├── specs/                              # Data Pipeline System documentation
 │   │
 │   │ # Supporting Specifications (read during analysis task)
-│   ├── data-pipeline-overview.md       # Hub document (~425 lines, ~6k tokens)
+│   ├── data-pipeline-overview.md       # Hub document (~459 lines, ~7k tokens)
 │   ├── module-alpha.md                 # Ingestion module (~742 lines, ~6k tokens)
 │   ├── module-beta.md                  # Transformation module (~741 lines, ~6k tokens)
-│   ├── module-gamma.md                 # Output module (~770 lines, ~8k tokens)
-│   ├── integration-layer.md            # Cross-module protocols (~529 lines, ~5k tokens)
+│   ├── module-gamma.md                 # Output module (~771 lines, ~8k tokens)
+│   ├── module-epsilon.md               # Caching layer (~875 lines, ~8k tokens)
+│   ├── module-phi.md                   # Pipeline orchestration (~900 lines, ~8k tokens)
+│   ├── integration-layer.md            # Cross-module protocols (~631 lines, ~6k tokens)
 │   ├── compliance-requirements.md      # Audit/regulatory reqs (~392 lines, ~4k tokens)
 │   │
 │   │ # Preload Context Files (inflated via @ notation before task)
 │   ├── operations-manual-standard.md   # Operational procedures pt 1 (~962 lines, ~19k tokens)
-│   ├── operations-manual-exceptions.md # Operational procedures pt 2 (~2,497 lines, ~22k tokens)
-│   ├── architecture-deep-dive.md       # System internals (~1,952 lines, ~24k tokens)
+│   ├── operations-manual-exceptions.md # Operational procedures pt 2 (~1,592 lines, ~16k tokens)
+│   ├── architecture-deep-dive.md       # System internals (~1,070 lines, ~15k tokens)
 │   └── troubleshooting-compendium.md   # Issue resolution (~2,005 lines, ~18k tokens)
 │
 └── wpds/                               # Work Plan Documents
@@ -123,9 +125,9 @@ docs/
 .claude/
 └── commands/                           # Scenario commands
     │ # Initialization commands (generate ID + preload context)
-    ├── setup-easy.md                   # Easy scenario (~37% pre-op, ~73k tokens)
-    ├── setup-medium.md                 # Medium scenario (~46% pre-op, ~92k tokens)
-    ├── setup-hard.md                   # Hard scenario (~60% pre-op, ~120k tokens)
+    ├── setup-easy.md                   # Easy scenario (~34% pre-op, ~67k tokens)
+    ├── setup-medium.md                 # Medium scenario (~39% pre-op, ~77k tokens)
+    ├── setup-hard.md                   # Hard scenario (~52% pre-op, ~104k tokens)
     │
     │ # Unified analysis command
     └── analyze-wpd.md                  # WPD analysis (same task for all scenarios)
@@ -135,9 +137,9 @@ docs/
 
 The reproduction environment consists of three distinct file categories:
 
-**Supporting Specifications** (~35k tokens total): The six original Data Pipeline System documents that agents must read and analyze during the critique task. These are where phantom reads manifest—the agent attempts to read these files, and depending on pre-operation consumption, some reads may return phantom markers instead of content.
+**Supporting Specifications** (~52k tokens total): The eight Data Pipeline System documents that agents must read and analyze during the critique task. These are where phantom reads manifest—the agent attempts to read these files, and depending on pre-operation consumption, some reads may return phantom markers instead of content. The original six modules (alpha, beta, gamma, integration-layer, compliance-requirements, and data-pipeline-overview) were supplemented with two additional modules (epsilon and phi) to increase the operation-phase token consumption (Y) and ensure Hard scenarios reliably trigger phantom reads.
 
-**Preload Context Files** (~83k tokens total across four files): Substantial documents providing operational, architectural, and troubleshooting context for the Data Pipeline System. The original `operations-manual.md` was split into two files (`operations-manual-standard.md` and `operations-manual-exceptions.md`) to respect Claude Code's ~25k token limit for hoisted file reads. These are loaded via `@` notation BEFORE the analysis task begins, inflating pre-operation consumption to target thresholds. Agents do not explicitly interact with these files during the task—they serve purely as context inflation.
+**Preload Context Files** (~68k tokens total across four files): Substantial documents providing operational, architectural, and troubleshooting context for the Data Pipeline System. The original `operations-manual.md` was split into two files (`operations-manual-standard.md` and `operations-manual-exceptions.md`) to respect Claude Code's ~25k token limit for hoisted file reads. These are loaded via `@` notation BEFORE the analysis task begins, inflating pre-operation consumption to target thresholds. Agents do not explicitly interact with these files during the task—they serve purely as context inflation.
 
 **Initialization Commands**: Three scenario-specific commands (`/setup-easy`, `/setup-medium`, `/setup-hard`) that combine Workscope ID generation with preloading different subsets of preload files. These set the pre-operation context level before analysis begins.
 
@@ -313,9 +315,9 @@ Based on measurement of existing spec files, the average token-to-line ratio is 
 
 **Purpose**: Primary preload files providing comprehensive operational procedures for the Data Pipeline System. Split into two files to respect Claude Code's ~25k token hoisting limit. Used by all three initialization commands.
 
-**Combined Size**: ~3,459 lines (~41,311 tokens, ~21% of context window)
+**Combined Size**: ~2,554 lines (~34,959 tokens, ~17% of context window)
 - `operations-manual-standard.md`: 962 lines, 19,323 tokens
-- `operations-manual-exceptions.md`: 2,497 lines, 21,988 tokens
+- `operations-manual-exceptions.md`: 1,592 lines, 15,636 tokens
 
 **Required Content** (across both files):
 - Standard Operating Procedures section covering daily operations, batch processing schedules, and operator responsibilities
@@ -334,7 +336,7 @@ Based on measurement of existing spec files, the average token-to-line ratio is 
 
 **Purpose**: Secondary preload file providing detailed architectural analysis. Used by `/setup-medium` and `/setup-hard` initialization commands.
 
-**Size**: ~1,952 lines (~23,941 tokens, ~12% of context window)
+**Size**: ~1,070 lines (~14,676 tokens, ~7% of context window)
 
 **Required Content**:
 - Design Philosophy section explaining architectural principles and trade-offs
@@ -351,7 +353,7 @@ Based on measurement of existing spec files, the average token-to-line ratio is 
 
 **Purpose**: Tertiary preload file providing comprehensive troubleshooting guidance. Used only by `/setup-hard` initialization command.
 
-**Size**: ~2,005 lines (~18,088 tokens, ~9% of context window)
+**Size**: ~2,005 lines (~18,477 tokens, ~9% of context window)
 
 **Required Content**:
 - Common Issues Catalog section with symptoms, causes, and resolutions for frequent problems
@@ -415,13 +417,13 @@ The three initialization commands set up reproduction trials by combining Worksc
 ```
 
 **Token Budget**:
-| Component                             | Tokens     | % Context |
-| ------------------------------------- | ---------- | --------- |
-| Baseline (fresh session)              | 24,000     | 12%       |
-| Preload (operations-manual-standard)  | 19,323     | 10%       |
-| Preload (operations-manual-exceptions)| 21,988     | 11%       |
-| Command overhead                      | ~8,000     | 4%        |
-| **Pre-operation total**               | **~73,000**| **~37%**  |
+| Component                              | Tokens      | % Context |
+| -------------------------------------- | ----------- | --------- |
+| Baseline (fresh session)               | 24,000      | 12%       |
+| Preload (operations-manual-standard)   | 19,323      | 10%       |
+| Preload (operations-manual-exceptions) | 21,988      | 11%       |
+| Command overhead                       | ~8,000      | 4%        |
+| **Pre-operation total**                | **~73,000** | **~37%**  |
 
 **Expected Behavior**:
 - Pre-operation consumption: ~37% (73k tokens)
@@ -443,14 +445,14 @@ The three initialization commands set up reproduction trials by combining Worksc
 ```
 
 **Token Budget**:
-| Component                             | Tokens     | % Context |
-| ------------------------------------- | ---------- | --------- |
-| Baseline (fresh session)              | 24,000     | 12%       |
-| Preload (operations-manual-standard)  | 19,323     | 10%       |
-| Preload (operations-manual-exceptions)| 21,988     | 11%       |
-| Preload (architecture-deep-dive)      | 23,941     | 12%       |
-| Command overhead                      | ~3,000     | 1%        |
-| **Pre-operation total**               | **~92,000**| **~46%**  |
+| Component                              | Tokens      | % Context |
+| -------------------------------------- | ----------- | --------- |
+| Baseline (fresh session)               | 24,000      | 12%       |
+| Preload (operations-manual-standard)   | 19,323      | 10%       |
+| Preload (operations-manual-exceptions) | 21,988      | 11%       |
+| Preload (architecture-deep-dive)       | 23,941      | 12%       |
+| Command overhead                       | ~3,000      | 1%        |
+| **Pre-operation total**                | **~92,000** | **~46%**  |
 
 **Expected Behavior**:
 - Pre-operation consumption: ~46% (92k tokens)
@@ -473,15 +475,15 @@ The three initialization commands set up reproduction trials by combining Worksc
 ```
 
 **Token Budget**:
-| Component                             | Tokens      | % Context |
-| ------------------------------------- | ----------- | --------- |
-| Baseline (fresh session)              | 24,000      | 12%       |
-| Preload (operations-manual-standard)  | 19,323      | 10%       |
-| Preload (operations-manual-exceptions)| 21,988      | 11%       |
-| Preload (architecture-deep-dive)      | 23,941      | 12%       |
-| Preload (troubleshooting-compendium)  | 18,088      | 9%        |
-| Command overhead                      | ~12,000     | 6%        |
-| **Pre-operation total**               | **~120,000**| **~60%**  |
+| Component                              | Tokens       | % Context |
+| -------------------------------------- | ------------ | --------- |
+| Baseline (fresh session)               | 24,000       | 12%       |
+| Preload (operations-manual-standard)   | 19,323       | 10%       |
+| Preload (operations-manual-exceptions) | 21,988       | 11%       |
+| Preload (architecture-deep-dive)       | 23,941       | 12%       |
+| Preload (troubleshooting-compendium)   | 18,088       | 9%        |
+| Command overhead                       | ~12,000      | 6%        |
+| **Pre-operation total**                | **~120,000** | **~60%**  |
 
 **Expected Behavior**:
 - Pre-operation consumption: ~60% (120k tokens)
@@ -660,23 +662,40 @@ These files exist and have been measured:
 
 | File                       | Actual Lines | Actual Tokens | % Context |
 | -------------------------- | ------------ | ------------- | --------- |
-| data-pipeline-overview.md  | 425          | 6,041         | 3.0%      |
+| data-pipeline-overview.md  | 459          | 6,732         | 3.4%      |
 | module-alpha.md            | 742          | 6,204         | 3.1%      |
 | module-beta.md             | 741          | 6,198         | 3.1%      |
-| module-gamma.md            | 770          | 7,658         | 3.8%      |
-| integration-layer.md       | 529          | 4,886         | 2.4%      |
+| module-gamma.md            | 771          | 7,658         | 3.8%      |
+| module-epsilon.md          | 875          | 7,666         | 3.8%      |
+| module-phi.md              | 900          | 7,639         | 3.8%      |
+| integration-layer.md       | 631          | 5,532         | 2.8%      |
 | compliance-requirements.md | 392          | 3,939         | 2.0%      |
-| **TOTAL**                  | **3,599**    | **34,926**    | **17.5%** |
+| **TOTAL**                  | **5,511**    | **51,568**    | **25.8%** |
 
 ### Preload Files Budget (Actual)
 
 | File                            | Lines     | Tokens     | % Context | Purpose             |
 | ------------------------------- | --------- | ---------- | --------- | ------------------- |
 | operations-manual-standard.md   | 962       | 19,323     | 9.6%      | All scenarios       |
-| operations-manual-exceptions.md | 2,497     | 21,988     | 11.0%     | All scenarios       |
-| architecture-deep-dive.md       | 1,952     | 23,941     | 12.0%     | Standard + Thorough |
-| troubleshooting-compendium.md   | 2,005     | 18,088     | 9.0%      | Thorough only       |
-| **TOTAL**                       | **7,416** | **83,249** | **41.6%** |                     |
+| operations-manual-exceptions.md | 1,592     | 15,636     | 7.8%      | All scenarios       |
+| architecture-deep-dive.md       | 1,070     | 14,676     | 7.3%      | Standard + Thorough |
+| troubleshooting-compendium.md   | 2,005     | 18,477     | 9.2%      | Thorough only       |
+| **TOTAL**                       | **5,629** | **68,112** | **34.1%** |                     |
+
+### Command Files Budget (Actual)
+
+| File                                | Lines | Tokens | % Context |
+| ----------------------------------- | ----- | ------ | --------- |
+| .claude/commands/setup-hard.md      | 51    | 402    | 0.2%      |
+| .claude/commands/analyze-wpd.md     | 64    | 655    | 0.3%      |
+| .claude/commands/analyze-wpd-doc.md | 49    | 545    | 0.3%      |
+
+### Target WPD Budget (Actual)
+
+| File                           | Lines | Tokens | % Context |
+| ------------------------------ | ----- | ------ | --------- |
+| docs/wpds/pipeline-refactor.md | 451   | 5,652  | 2.8%      |
+
 
 ### Scenario Token Budgets
 
@@ -790,11 +809,11 @@ All errors in this feature manifest during trial execution and are detected thro
 
 ### Command-Based Approach (v3.0)
 
-| Scenario            | Pre-Op % | Resets | Mid-Session | Phantom Read Rate |
-| ------------------- | -------- | ------ | ----------- | ----------------- |
-| `/setup-easy`       | ~37%     | 2      | 0           | 0% (5/5 succeed)  |
-| `/setup-medium`     | ~46%     | 2-3    | 0-1         | 40-60% (mixed)    |
-| `/setup-hard`       | ~60%     | 3-4+   | 2+          | 100% (5/5 fail)   |
+| Scenario        | Pre-Op % | Resets | Mid-Session | Phantom Read Rate |
+| --------------- | -------- | ------ | ----------- | ----------------- |
+| `/setup-easy`   | ~34%     | 2      | 0           | 0% (5/5 succeed)  |
+| `/setup-medium` | ~39%     | 2-3    | 0-1         | 40-60% (mixed)    |
+| `/setup-hard`   | ~52%     | 3-4+   | 2+          | 100% (5/5 fail)   |
 
 **Key Success Metrics**:
 - Easy scenario demonstrates the safe zone with 100% success
@@ -1155,4 +1174,39 @@ This phase documents changes made through trial-and-error during initial Methodo
   - [x] **9.5.3** - Updated token budgets and success criteria
   - [x] **9.5.4** - Updated Related Specifications references
   - [x] **9.5.5** - Added this Phase 9 to document the refinement history
+
+### Phase 10: Y-Increase Module Expansion
+
+This phase adds two new module specifications to increase the operation-phase token consumption (Y), ensuring Hard scenarios reliably push X + Y over the context threshold and trigger phantom reads. Based on the X + Y model documented in `docs/core/Consolidated-Theory.md`, the original supporting specifications (~35k tokens) were insufficient to trigger phantom reads even at 60% pre-op consumption. Adding ~12k tokens of additional module content increases Y to ~47k tokens, pushing Hard scenario totals over the threshold.
+
+- [x] **10.1** - Create `docs/specs/module-epsilon.md` (Data Caching Layer)
+  - [x] **10.1.1** - Write Overview section describing caching responsibilities and multi-tier architecture
+  - [x] **10.1.2** - Write Cache Architecture section with L1/L2/distributed tiers and ASCII diagram
+  - [x] **10.1.3** - Write Data Structures section with CacheEntry, CachePolicy, CacheStats schemas
+  - [x] **10.1.4** - Write Cache Policies section with minimum 15 numbered policies (TTL, eviction, invalidation)
+  - [x] **10.1.5** - Write Error Handling section (minimum 150 lines) covering cache misses, stale data, sync failures
+  - [x] **10.1.6** - Write Configuration section with 5+ named constants (CACHE_TTL, MAX_CACHE_SIZE, EVICTION_POLICY, etc.)
+  - [x] **10.1.7** - Write Integration Points section referencing Alpha, Beta, Gamma, and integration-layer
+  - [x] **10.1.8** - Write Compliance section referencing compliance-requirements.md
+  - [x] **10.1.9** - Verify total length is 700-900 lines (~6k tokens) (actual: 875 lines)
+- [x] **10.2** - Create `docs/specs/module-phi.md` (Pipeline Orchestration)
+  - [x] **10.2.1** - Write Overview section describing orchestration responsibilities and execution model
+  - [x] **10.2.2** - Write Execution Architecture section with scheduling, triggers, and dependency management
+  - [x] **10.2.3** - Write Data Structures section with Job, Execution, Schedule, Trigger schemas
+  - [x] **10.2.4** - Write Execution Rules section with minimum 15 numbered rules (retry, failure handling, dependencies)
+  - [x] **10.2.5** - Write Error Handling section (minimum 150 lines) covering job failures, scheduler errors, deadlocks
+  - [x] **10.2.6** - Write Configuration section with 5+ named constants (MAX_CONCURRENT_JOBS, SCHEDULER_INTERVAL, etc.)
+  - [x] **10.2.7** - Write Integration Points section referencing all other modules
+  - [x] **10.2.8** - Write Compliance section referencing compliance-requirements.md
+  - [x] **10.2.9** - Verify total length is 700-900 lines (~6k tokens) (actual: 900 lines)
+- [x] **10.3** - Integrate new modules into existing specifications
+  - [x] **10.3.1** - Update `data-pipeline-overview.md` to reference module-epsilon and module-phi
+  - [x] **10.3.2** - Update `integration-layer.md` with caching and orchestration protocols
+  - [x] **10.3.3** - Update `pipeline-refactor.md` WPD to include new modules in scope
+- [x] **10.4** - Update analysis command to require new modules
+  - [x] **10.4.1** - Update `.claude/commands/analyze-wpd.md` to list module-epsilon and module-phi in required reading
+- [x] **10.5** - Verify integration and token counts
+  - [x] **10.5.1** - Verify all cross-references are valid
+  - [-] **10.5.2** - Measure actual token counts and update this spec if needed (will be manually performed after all files are finalized)
+  - [x] **10.5.3** - Run calibration trial with Hard scenario to verify phantom read triggering
 

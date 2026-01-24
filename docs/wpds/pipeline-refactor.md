@@ -8,7 +8,7 @@
 
 ## Overview
 
-This Work Plan Document proposes a comprehensive refactor to implement a Unified Telemetry and Observability Framework across all components of the Data Pipeline System. The framework will standardize metric collection, tracing, and logging across Module Alpha (Data Ingestion), Module Beta (Data Transformation), and Module Gamma (Data Output), providing end-to-end visibility into data flow, performance characteristics, and operational health.
+This Work Plan Document proposes a comprehensive refactor to implement a Unified Telemetry and Observability Framework across all components of the Data Pipeline System. The framework will standardize metric collection, tracing, and logging across Module Alpha (Data Ingestion), Module Beta (Data Transformation), Module Gamma (Data Output), Module Epsilon (Data Caching), and Module Phi (Pipeline Orchestration), providing end-to-end visibility into data flow, performance characteristics, and operational health.
 
 The refactor introduces a centralized telemetry schema, unified metric naming conventions, distributed tracing with correlation propagation, and a consolidated observability API. This enables operators to trace individual records from source ingestion through final delivery, correlate performance anomalies across module boundaries, and maintain compliance audit trails with consistent granularity.
 
@@ -63,6 +63,10 @@ This refactor affects the following specifications and their implementations:
 5. **Integration Layer Specification** (`integration-layer.md`): Cross-module protocols must be enhanced with trace context propagation requirements, unified health aggregation, and telemetry collection endpoints. Affects message formats (Section 2), error propagation (Section 5), and monitoring (Section 6).
 
 6. **Compliance Requirements Specification** (`compliance-requirements.md`): Audit logging requirements (Section 3), data lineage requirements (Section 4), and reporting requirements (Section 10) must be updated to reflect unified telemetry capabilities.
+
+7. **Module Epsilon Specification** (`module-epsilon.md`): Data caching layer must implement cache telemetry, hit/miss metrics, tier performance tracking, and integration with the unified observability framework. Affects cache architecture (Section 2), cache policies (Section 4), and error handling (Section 5).
+
+8. **Module Phi Specification** (`module-phi.md`): Pipeline orchestration must implement job execution telemetry, scheduling metrics, dependency resolution tracing, and failure recovery observability. Affects execution architecture (Section 2), execution rules (Section 4), and error handling (Section 5).
 
 ### Out of Scope
 
@@ -231,6 +235,61 @@ HealthIndicator:
 - Expiration rates
 
 **Acknowledgment Tracing**: All acknowledgment patterns (synchronous, asynchronous, batch) defined in Section 5 must emit trace-correlated telemetry.
+
+### Module Epsilon Impact
+
+**Cache Telemetry**: Module Epsilon's caching layer (Section 2 of `module-epsilon.md`) must emit comprehensive cache telemetry:
+
+- Per-tier hit/miss rates and latency histograms
+- Cache capacity utilization and eviction rates
+- Compression effectiveness metrics
+- Replication lag and consistency metrics
+
+**Cache Access Tracing**: All cache operations must propagate trace context, enabling correlation of cache performance with record processing:
+
+- Enrichment cache lookups correlated with Beta transformation traces
+- Buffer cache operations correlated with module handoff traces
+- Cache warm-up operations linked to job execution traces
+
+**Cache Health Observability**: Enhanced health metrics for cache operations:
+
+- Tier health status and degradation indicators
+- Connection pool metrics for distributed cache
+- Circuit breaker state for cache operations
+
+**Policy Effectiveness Telemetry**: Metrics for cache policy evaluation:
+
+- TTL policy effectiveness and expiration rates
+- Eviction policy hit rates
+- Promotion/demotion frequency between tiers
+
+### Module Phi Impact
+
+**Orchestration Telemetry**: Module Phi's orchestration engine (Section 2 of `module-phi.md`) must emit comprehensive execution telemetry:
+
+- Job scheduling metrics including trigger rates and schedule accuracy
+- Execution queue depth and wait times
+- Dependency resolution latency and success rates
+- Retry attempt counts and backoff timing
+
+**Job Execution Tracing**: All job executions must create trace spans enabling correlation across pipeline stages:
+
+- Job start/complete spans linked to triggered module operations
+- Dependency resolution spans showing job graph traversal
+- Recovery operation spans for failure handling
+
+**Scheduler Observability**: Enhanced metrics for scheduling decisions:
+
+- Schedule evaluation timing and outcomes
+- Trigger processing latency
+- Resource allocation decisions and queue prioritization
+
+**Failure Recovery Telemetry**: Comprehensive observability for recovery operations:
+
+- Retry attempt metrics with outcome tracking
+- Dead letter routing and age distribution
+- Checkpoint creation and recovery timing
+- Circuit breaker state for job execution
 
 ---
 
