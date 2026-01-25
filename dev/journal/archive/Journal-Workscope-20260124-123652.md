@@ -112,9 +112,20 @@ Collaborated with User to brainstorm 11 experiments to test the refined theory:
 **Tier 3 (Supporting)**:
 - Experiments C, E, G, I, J - Various refinements and diagnostics
 
-### Artifact Created
+### Artifacts Created/Updated
 
-Wrote comprehensive experiment planning document:
-- `docs/core/Post-Experiment-04-Ideas.md`
-- Includes background, rationale, all 11 experiments, priority rankings, and execution plan
+**Investigation Journal Update:**
+- Added 2026-01-24 entry to `docs/core/Investigation-Journal.md`
+- Documented Method-04 first run results, reset pattern anomaly, Y-size threshold hypothesis
+- Updated Theory Status Summary and Next Steps
+
+**Experiment Planning Document:**
+- Created `docs/core/Post-Experiment-04-Ideas.md`
+- Updated with Experiment-04[A-K] naming convention
+- Added preparation requirements for each experiment
+- Added "Ease of Running" assessment section
+- Noted that 04B/04C are simpler because epsilon/phi weren't fully cross-integrated
+- Noted that 04E and 04H may be covered by 04D results
+- Updated priority summary with ease column
+- Revised execution plan to account for preparation effort
 

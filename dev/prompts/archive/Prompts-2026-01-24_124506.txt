@@ -146,3 +146,64 @@ Can you think of other experiments that would help us better understand these va
 Can you write all of these up (all 11 of them, even if there are some we've felt we should skip) into a new document: `/docs/core/Post-Experiment-04-Ideas.md`?  Be thorough in your explanations, provide rationale for how we reached this decision point, and provide your recommendation of priorities.
 
 ---
+
+Let's add what we've done today to the `docs/core/Investigation-Journal.md`.
+
+---
+
+So our experiments are the following (and I'm prefixing them with "Experiment-04[letter]" to maintain a sense of the generation of methodology in which we are conducting them). I'm going to consider what kind of preparation is required to run each of them; in addition to our "priority" list for how important the experiment is, there is also appeal in running the experiments that require fewer additional steps to launch first. Let me know if I'm correct:
+
+**Experiment-04A** - "Minimal X (Easy-0)" - No extra prep work is required, just run the existing Experiment-Methodlogy-04 setup but skipping `/setup-easy` step. This will tell us if the `Y` threshold is universal and not dependent on any relationship to `X` (or `T`, given that it will be well within the 200k window).
+
+**Experiment-04B** - "8-File Y Threshold" - Requires preparation of removing one of the files (say, `module-phi.md`) from the project. It would need to be deleted from the `/analyze-script` file and also mentions of it it would need to be removed from the other files, where it has been inter-connected. Where we currently know that a 7-file, 42k operation is a success and a 9-file, 57k operation is a failure, this would tell us what happens with an 8-file, 49.5k operation.
+
+**Experiment-04C** - "7-File Confirmation of Experiment-Methodology-03." This requires some preparation (similar to B), where we would need to "undo" the work we did between Methodology-03 and Methodology-04. We need to remove the `module-epsilon.md` and `module-phi.md` files we added and remove the interconnected references as well. This would help confirm our previous findings, which is not without value.
+
+**Experiment-04D** - "Max X, Minimal Y" - This requires minimal setup, needing only the creation of a `/setup-maxload` script that loads the 8 spec files via hoisting and a new `/analyze-wpd-minimal` that merely provides the WPD filename but no others.  This is an experiment I had alreayd considered, and therefore I have already created `/analyze-wpd-doc` to remove mention of any spec files (the naming isn't specific, but I didn't want the Session Agent to read incorrectly into the command name and perform "minimal" audit).  So we're ready to go with this one easily as well (I just need to create `/setup-maxload`, which is trivial).  When running this with `/setup-easy`, it will teach us if hoisted reads are truly immune to phantom reads below the context window limit. When running this with `/setup-hard`, it will teach us if hoisted reads fail properly when the context is fully consumed.
+
+**Experiment-04E** - "Batch Y" - The question here is where the `/analyze-wpd` command run. I have difficutly seeing how this is different than Experiment D except dividing the `/setup-maxload` into three smaller scripts that accomplish the same thing. One benefit is the running of `/context` between them all. However, we do believe at this moment that it's the agent-invoked file reads (i.e., initiated via the `/analyze-wpd` directive) that causes the reads.  We perhaps investigate this based on the results of Experiment 5G
+
+**Experiment-04F** - "File Count vs Tokens" - This requires preparation similar to B, where we would need to not simply squish the file contents together, but we would also have to change their internal references so that we only mention these new files (and we don't accidentally trigger the Session Agent to go off and read the other specs).  This will take a little bit of work. What we would learn is if it's actually just the total size of content to read or if it's the number of files that triggers the phantom reads.
+
+**Experiment-04G** - "Sequential vs Parallel" - I believe that the current (default) is parallel, which resolves to sequential reporting of the files read by the Session Agent. The preparation for this then would be the creation of a new command `/analyze-wpd-sequential` (an innocuous enough name) that would put in some forcing function like requesting user input between each file read, forcing them to be read in turn. It's worth a shot, and probably not too complicated. This will help us learn whether parallel reads are the cause of phantom reads.
+
+**Experiment-04H** - "Initial Early Reset" - This is a little tricky because we don't know exactly how to reliably force resets. If reading files via hoisting can trigger a reset, then this experiment is already covered by Experiment-04D, correct?
+
+**Experiment-04I** - "Partial MCP Hybrid" - This is a clever idea. We would create a new command `/analyze-wpd-mcp` that would instruct the Session Agent (to the degree that it would follow directions, and they _don't_) to use different read methods for specs while ostensibly auditing the WPD.  Something that might help is to make the MCP files otherwise unavailable (and we have ways of making some parts of the filesystem blocked for direct harness access).
+
+**Experiment-04J** - "Examine Persisted-Output Files" - This sounds a little outside our `X` + `Y` investigation, but it is indeed something we want to understand about phantom reads. My impression was that this work had been done earlier. If it hasn't, then it's something we can (and should) confirm with our existing data.
+
+**Experiment-04K** - "Larger Context Window" - We can do this immediately with no changes - we would simply swap in the other model and repeat our last round of tests. This would teach us if phantom reads are bound by `T` or if the phenomenon is independent even when `T` is functionally removed as a concern.
+
+In terms of the "Ease of Running" for these experiments, I would put them in this order:
+
+Possible:
+
+J - We can use existing trial data
+A - Simply omit a command in the existing experiment flow
+K - Simply switch models and perform same experiment
+D - A new command that is very straightforward
+I - A new command and some testing around harness permissions
+B - Requires extraction rewriting and rewiring of specs. Similar effort as the Method-03 -> Method-04 move.
+C - Requires extraction rewriting and rewiring of specs. Similar effort as the Method-03 -> Method-04 move.
+F - Requires larger rewriting and rewiring of specs.
+
+Unsure:
+
+E - Not entirely sure how we force agent-invoked reads to be sequential. Might be covered already by D.
+H - Difficult to "force" a Reset when we don't entirely understand them. Might be covered already by D. Requires not just implementation but also research before we make a plan.
+
+Does this make sense?  Do you have anything to add or correct?  We may want to update our existing `Post-Experiment-04.md` file with this extra context.
+
+---
+
+A slight correction: the `/analyze-wpd` gives guidance on what specs may be helpful, but the agent is given freedom to explore and read _any_ file it wants. Simply removing this list does not stop the agent from noticing references to other files in the specs as it explores, which I've confirmed it then will follow up and read.  Ideally, we would remove the explicit list of files entirely from the `/analyze-wpd` script, as `/refine-plan` was originally designed. In my tinkering experiments where I have simply removed a file like `module-phi.md` from the explicit list, the Session Agent would still end up reading it because it found a reference in another file.
+
+However, this was during manual testing, when I had added the references by hand.  I later reverted all of my edits to create them properly via workscope flows. Looking at what was built as a result of Phase 10 in `Reproduction-Specs-Collection-Overview.md` (our formal implementation following my "tinkering"), I see that these files were not actually properly integrated into the existing material. This error may have worked in our favor, where it may now indeed be possible to achive B and C by merely editing the list in `/analyze-wpd`.
+
+In other words, you are right, but I had to update my understanding to realize this missed aspect of our current implementation.  This would _not_ be the case for any of the other files (`module-alpha.md`, `module-beta.md`, etc.), which were cross-integrated correctly prior to Experiment-Methodology-04.
+
+And yes, your understanding appears correct - let's update the doc.
+
+---
+

@@ -1294,36 +1294,151 @@ Created `docs/core/Consolidated-Theory.md` as the authoritative theoretical refe
 
 ---
 
-## Theory Status Summary (as of 2026-01-23, Consolidated)
+## 2026-01-24: Experiment-Methodology-04 First Run - Universal Failure
+
+**Event**: Ran first validation trials with Experiment-Methodology-04 and discovered unexpected universal failure across all scenarios.
+
+### Trial Collection
+
+Conducted 8 trials (4 Hard, 4 Easy) using the updated methodology with increased Y (added `module-epsilon.md` and `module-phi.md`). Trial data collected in `dev/misc/repro-attempts-04-firstrun/`.
+
+### Results Summary
+
+| Scenario | Trials | X (Pre-op) | Y (Operation) | X + Y | Outcome |
+|----------|--------|------------|---------------|-------|---------|
+| Hard | 4 | 120K (60%) | 57K | 177K | **100% FAILURE** |
+| Easy | 4 | 73K (37%) | 57K | 130K | **100% FAILURE** |
+
+**Critical Finding**: Even the Easy scenario, with X + Y = 130K (well under the 200K threshold), failed consistently. This directly contradicts the X + Y model.
+
+### Reset Pattern Anomaly
+
+All trials showed SINGLE_LATE reset patterns (resets at 64-83% through session):
+
+| Trial | Scenario | Reset Position | Reset From | Pattern | Outcome |
+|-------|----------|----------------|------------|---------|---------|
+| 20260124-112940 | Hard | 64% | 129K | SINGLE_LATE | FAILURE |
+| 20260124-115841 | Easy | 83% | 132K | SINGLE_LATE | FAILURE |
+| 20260124-120502 | Easy | 83% | 119K | SINGLE_LATE | FAILURE |
+
+According to the Reset Timing Theory (previously 31/31 = 100% accuracy), SINGLE_LATE patterns should predict SUCCESS. This represents the **first systematic violation** of that theory.
+
+### The Critical Variable: Y Size
+
+Comparing Method-03 (100% success) to Method-04 (100% failure):
+
+| Variable | Method-03 | Method-04 | Changed? |
+|----------|-----------|-----------|----------|
+| Easy X | 73K | 73K | No |
+| Hard X | 120K | 120K | No |
+| Y | 42K (7 files) | 57K (9 files) | **YES** |
+| T | 200K | 200K | No |
+
+The ONLY change was Y: from 42K tokens (7 files) to 57K tokens (9 files).
+
+**Files in Method-03 Y** (7 files, ~42K tokens):
+1. `pipeline-refactor.md` (5,652 tokens)
+2. `data-pipeline-overview.md` (6,732 tokens)
+3. `module-alpha.md` (6,204 tokens)
+4. `module-beta.md` (6,198 tokens)
+5. `module-gamma.md` (7,658 tokens)
+6. `integration-layer.md` (5,532 tokens)
+7. `compliance-requirements.md` (3,939 tokens)
+
+**Files in Method-04 Y** (9 files, ~57K tokens):
+- All of the above, plus:
+8. `module-epsilon.md` (7,666 tokens) ← NEW
+9. `module-phi.md` (7,639 tokens) ← NEW
+
+### New Hypothesis: Y-Size Threshold
+
+**Hypothesis**: Y has an absolute threshold (~40-50K tokens) beyond which phantom reads occur regardless of X.
+
+Supporting evidence:
+- Method-03 (Y=42K): 100% success across all X values
+- Method-04 (Y=57K): 100% failure across all X values
+- X values were identical between experiments
+- T was unchanged
+
+This reframes the model: it's not X + Y > T that triggers phantom reads, but Y > Y_threshold.
+
+### Post-Analysis Context Deficit
+
+Post-operation context was lower than expected X + Y, indicating content loss:
+
+| Scenario | Expected (X + Y) | Actual Post-Analysis | Deficit |
+|----------|------------------|----------------------|---------|
+| Easy | 130K | 113-120K | 10-17K lost |
+| Hard | 177K | 170-189K | 0-7K lost |
+
+The Easy scenario showed MORE deficit despite having MORE headroom, suggesting phantom reads hit both scenarios equally.
+
+### Experiment Brainstorming
+
+Identified 11 experiments to test the refined hypothesis. Full details in `docs/core/Post-Experiment-04-Ideas.md`.
+
+**Tier 1 - Critical (Run First)**:
+- **Experiment A**: Minimal X (Easy-0) - Test if Y threshold is absolute
+- **Experiment B**: 8-File Y Threshold - Find exact cutoff (test Y=50K)
+- **Experiment D**: Max X, Minimal Y - Test if hoisted content is safe
+
+**Tier 2 - Important**:
+- **Experiment F**: File Count vs Tokens - What triggers the threshold?
+- **Experiment H**: Intentional Early Reset - Can we create safe windows?
+- **Experiment K**: 1M Context Model - Does T matter at all?
+
+**Tier 3 - Supporting**:
+- Experiments C, E, G, I, J - Various refinements and diagnostics
+
+### Key Questions for Next Phase
+
+1. Is Y threshold absolute (independent of X)?
+2. Where exactly is the Y threshold (42K-57K range)?
+3. Is the trigger file count or token count?
+4. Does hoisted content contribute to phantom reads?
+5. Does T (context window) matter at all?
+
+---
+
+## Theory Status Summary (as of 2026-01-24)
 
 | Theory | Status | Notes |
 |--------|--------|-------|
-| **X + Y Model** | 🆕 PRIMARY | Threshold overflow is necessary condition |
-| **Deferred Reads** | 🆕 PRIMARY | Multi-file agent reads can be deferred |
-| **Reset Timing** | REFRAMED | Artifact of when deferred reads occur in flow |
-| **Headroom** | REFRAMED | Relative to Y, not universal threshold |
+| **Y-Size Threshold** | 🆕 HYPOTHESIS | Y alone may have ~40-50K ceiling |
+| **X + Y Model** | ⚠️ CHALLENGED | Easy scenario failed despite X+Y < T |
+| **Reset Timing** | ⚠️ VIOLATED | SINGLE_LATE predicted success, got failure |
+| **Deferred Reads** | SUPPORTED | Multi-file agent reads can be deferred |
+| **Headroom** | WEAKENED | X variation didn't affect outcomes |
 | **Reset Count** | REFRAMED | Downstream indicator, not causal |
-| **Clean Gap** | EXPLAINED | Allows operation to complete before reset |
+| **Clean Gap** | UNCERTAIN | May not apply when Y exceeds threshold |
 | **Dynamic Pressure** | SUPPORTED | May explain batch read vulnerability |
 | **Hoisting Limit** | CONFIRMED | ~25K tokens per hoisted file |
 
 ---
 
-## Next Steps (Updated 2026-01-23)
+## Next Steps (Updated 2026-01-24)
 
-### Immediate Actions
+### Immediate Actions (Tier 1 Experiments)
 
-1. **Increase Hard scenario Y**: Add `module-epsilon.md` and `module-phi.md` to push X + Y over threshold
-2. **Run validation trials**: Confirm revised scenarios produce expected outcomes
-3. **Update README**: Reflect consolidated theoretical understanding
+1. ✅ **Increase Hard scenario Y**: Added `module-epsilon.md` and `module-phi.md` - DONE
+2. ✅ **Run validation trials**: Completed 8 trials - DONE (unexpected 100% failure)
+3. **Run Experiment A**: Minimal X (Easy-0) to test if Y threshold is absolute
+4. **Run Experiment B**: 8-File threshold test to narrow Y threshold range
+5. **Run Experiment D**: Max X, Minimal Y to test hoisting safety
 
 ### Research Priorities
 
-4. **Investigate token discrepancy**: Account for ~25K missing tokens between file content and reported total
-5. **Test hoisting-only scenario**: Can >200K hoisted tokens trigger phantom reads?
-6. **Determine effective threshold T**: Is it exactly 200K, or lower?
-7. **Investigate reset triggers**: What internally causes a reset at a specific moment?
+6. **Determine Y threshold**: Is it between 42K-50K or 50K-57K?
+7. **Test file count vs token count**: Is the trigger quantity of files or total tokens?
+8. **Test 1M context model**: Does T actually matter, or is threshold internal?
+
+### Documentation
+
+9. **Update Consolidated-Theory.md**: Reflect Y-Size Threshold hypothesis
+10. **Update README**: Once theory is validated
+
+See `docs/core/Post-Experiment-04-Ideas.md` for full experiment details and execution plan.
 
 ---
 
-*Last updated: 2026-01-23*
+*Last updated: 2026-01-24*
