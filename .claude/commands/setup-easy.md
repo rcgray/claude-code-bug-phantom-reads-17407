@@ -13,7 +13,7 @@ This command generates a unique Workscope ID for trial coordination without the 
 ## Usage
 
 ```
-/wsd:getid
+/setup-easy
 ```
 
 ## Purpose
@@ -43,7 +43,3 @@ After generating the ID, display it prominently:
 ```
 Workscope ID: YYYYMMDD-HHMMSS
 ```
-
-Then confirm completion with:
-
-**"WORKSCOPE ID GENERATED. Record this ID for trial artifact naming. To run a reproduction scenario, use `/analyze-light`, `/analyze-standard`, or `/analyze-thorough` with the target WPD."**

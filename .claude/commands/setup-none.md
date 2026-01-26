@@ -7,14 +7,10 @@ argument-hint:
 
 This command generates a unique Workscope ID for trial coordination without the full WSD platform initialization overhead. Use this for Phantom Read Experiment trials where minimal context consumption is required.
 
-@docs/specs/operations-manual-standard.md
-@docs/specs/operations-manual-exceptions.md
-@docs/specs/architecture-deep-dive.md
-
 ## Usage
 
 ```
-/setup-medium
+/setup-none
 ```
 
 ## Purpose
@@ -45,3 +41,6 @@ After generating the ID, display it prominently:
 Workscope ID: YYYYMMDD-HHMMSS
 ```
 
+Then confirm completion with:
+
+**"WORKSCOPE ID GENERATED. Record this ID for trial artifact naming. To run a reproduction scenario, use `/analyze-light`, `/analyze-standard`, or `/analyze-thorough` with the target WPD."**
