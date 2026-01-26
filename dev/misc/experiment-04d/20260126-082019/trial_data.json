@@ -1,0 +1,280 @@
+{
+  "schema_version": "1.2",
+  "generated_at": "2026-01-26T11:32:01.247606",
+  "metadata": {
+    "workscope_id": "20260126-082019",
+    "session_uuid": "cc495972-f587-45ec-a318-a549fc068299",
+    "chat_export_file": "20260126-082019.txt",
+    "session_file": "cc495972-f587-45ec-a318-a549fc068299.jsonl",
+    "has_subagents": false,
+    "has_tool_results": false
+  },
+  "outcome": {
+    "self_reported": "SUCCESS",
+    "affected_files": [],
+    "notes": "Agent explicitly stated: 'No, I did not experience the phantom read issue in this session.' Provided detailed evidence that 8 spec files came through via @file references and explicit Read call returned full 452-line content with verifiable line number references."
+  },
+  "context_metrics": {
+    "pre_operation_tokens": null,
+    "pre_operation_percent": null,
+    "post_operation_tokens": null,
+    "post_operation_percent": null,
+    "headroom_at_trigger": null,
+    "context_window_size": 200000
+  },
+  "reset_analysis": {
+    "total_resets": 1,
+    "reset_positions_percent": [
+      78.26086956521739
+    ],
+    "pattern_classification": "SINGLE_LATE",
+    "resets": [
+      {
+        "from_tokens": 150600,
+        "to_tokens": 20339,
+        "session_line": 36,
+        "sequence_position": 36,
+        "total_events": 46,
+        "position_percent": 78.26086956521739
+      }
+    ]
+  },
+  "file_reads": {
+    "total_operations": 1,
+    "successful_operations": 1,
+    "failed_operations": 0,
+    "unique_files": 1,
+    "unique_file_list": [
+      "/Users/gray/Projects/phantom-read-clone/docs/wpds/pipeline-refactor.md"
+    ],
+    "failed_reads": [],
+    "reads": [
+      {
+        "file_path": "/Users/gray/Projects/phantom-read-clone/docs/wpds/pipeline-refactor.md",
+        "session_line": 25,
+        "tool_use_id": "toolu_01C2XFW5UGP89ML3XHocfTST",
+        "batch_id": 0,
+        "success": true,
+        "sequence": 1
+      }
+    ]
+  },
+  "timeline": [
+    {
+      "sequence": 2,
+      "type": "user_input",
+      "session_line": 2,
+      "preview": "<local-command-caveat>Caveat: The messages below w",
+      "phase": null
+    },
+    {
+      "sequence": 3,
+      "type": "user_input",
+      "session_line": 3,
+      "preview": "<command-name>/context</command-name>\n            ",
+      "phase": null
+    },
+    {
+      "sequence": 4,
+      "type": "user_input",
+      "session_line": 4,
+      "preview": "<local-command-stdout>\u001b[?2026h \u001b[1mContext Usage\u001b[",
+      "phase": null
+    },
+    {
+      "sequence": 6,
+      "type": "user_input",
+      "session_line": 6,
+      "preview": "<command-message>setup-easy</command-message>\n<com",
+      "phase": null
+    },
+    {
+      "sequence": 7,
+      "type": "user_input",
+      "session_line": 7,
+      "preview": "# Get Workscope ID\n\nThis command generates a uniqu",
+      "phase": "inquiry"
+    },
+    {
+      "sequence": 13,
+      "type": "user_input",
+      "session_line": 13,
+      "preview": "<command-message>setup-maxload</command-message>\n<",
+      "phase": null
+    },
+    {
+      "sequence": 14,
+      "type": "user_input",
+      "session_line": 14,
+      "preview": "# Key Context\n\nThis command prepares the agent for",
+      "phase": null
+    },
+    {
+      "sequence": 18,
+      "type": "user_input",
+      "session_line": 18,
+      "preview": "<local-command-caveat>Caveat: The messages below w",
+      "phase": null
+    },
+    {
+      "sequence": 19,
+      "type": "user_input",
+      "session_line": 19,
+      "preview": "<command-name>/context</command-name>\n            ",
+      "phase": null
+    },
+    {
+      "sequence": 20,
+      "type": "user_input",
+      "session_line": 20,
+      "preview": "<local-command-stdout>\u001b[?2026h \u001b[1mContext Usage\u001b[",
+      "phase": null
+    },
+    {
+      "sequence": 22,
+      "type": "user_input",
+      "session_line": 22,
+      "preview": "<command-message>analyze-wpd</command-message>\n<co",
+      "phase": null
+    },
+    {
+      "sequence": 23,
+      "type": "user_input",
+      "session_line": 23,
+      "preview": "# Analyze Work Plan Document\n\nThis command initiat",
+      "phase": null
+    },
+    {
+      "sequence": 25,
+      "type": "tool_batch",
+      "session_line": 25,
+      "read_count": 1,
+      "files": [
+        "/Users/gray/Projects/phantom-read-clone/docs/wpds/pipeline-refactor.md"
+      ]
+    },
+    {
+      "sequence": 31,
+      "type": "user_input",
+      "session_line": 31,
+      "preview": "<local-command-caveat>Caveat: The messages below w",
+      "phase": null
+    },
+    {
+      "sequence": 32,
+      "type": "user_input",
+      "session_line": 32,
+      "preview": "<command-name>/context</command-name>\n            ",
+      "phase": null
+    },
+    {
+      "sequence": 33,
+      "type": "user_input",
+      "session_line": 33,
+      "preview": "<local-command-stdout>\u001b[?2026h \u001b[1mContext Usage\u001b[",
+      "phase": null
+    },
+    {
+      "sequence": 35,
+      "type": "user_input",
+      "session_line": 35,
+      "preview": "We have recently seen a number of User Agents repo",
+      "phase": "inquiry"
+    },
+    {
+      "sequence": 36,
+      "type": "context_reset",
+      "session_line": 36,
+      "from_tokens": 150600,
+      "to_tokens": 20339
+    },
+    {
+      "sequence": 40,
+      "type": "user_input",
+      "session_line": 40,
+      "preview": "<local-command-caveat>Caveat: The messages below w",
+      "phase": null
+    },
+    {
+      "sequence": 41,
+      "type": "user_input",
+      "session_line": 41,
+      "preview": "<command-name>/export</command-name>\n            <",
+      "phase": null
+    },
+    {
+      "sequence": 42,
+      "type": "user_input",
+      "session_line": 42,
+      "preview": "<local-command-stdout>Conversation exported to: ..",
+      "phase": null
+    },
+    {
+      "sequence": 44,
+      "type": "user_input",
+      "session_line": 44,
+      "preview": "<local-command-caveat>Caveat: The messages below w",
+      "phase": null
+    },
+    {
+      "sequence": 45,
+      "type": "user_input",
+      "session_line": 45,
+      "preview": "<command-name>/exit</command-name>\n            <co",
+      "phase": null
+    },
+    {
+      "sequence": 46,
+      "type": "user_input",
+      "session_line": 46,
+      "preview": "<local-command-stdout>Bye!</local-command-stdout>",
+      "phase": null
+    }
+  ],
+  "token_progression": [
+    {
+      "sequence": 1,
+      "cache_read_tokens": 20710,
+      "session_line": 8
+    },
+    {
+      "sequence": 2,
+      "cache_read_tokens": 71152,
+      "session_line": 10
+    },
+    {
+      "sequence": 3,
+      "cache_read_tokens": 71282,
+      "session_line": 15
+    },
+    {
+      "sequence": 4,
+      "cache_read_tokens": 147156,
+      "session_line": 24
+    },
+    {
+      "sequence": 5,
+      "cache_read_tokens": 147156,
+      "session_line": 25
+    },
+    {
+      "sequence": 6,
+      "cache_read_tokens": 150600,
+      "session_line": 27
+    },
+    {
+      "sequence": 7,
+      "cache_read_tokens": 20339,
+      "session_line": 36
+    },
+    {
+      "sequence": 8,
+      "cache_read_tokens": 20339,
+      "session_line": 37
+    }
+  ],
+  "token_analysis": {
+    "available": false,
+    "token_counts_file": null
+  }
+}

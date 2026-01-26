@@ -23,6 +23,14 @@
 
 ---
 
+/analyze-wpd docs/wpds/pipeline-refactor.md
+
+---
+
+/context
+
+---
+
 We have recently seen a number of User Agents reporting issues reading files like the following:
 
 <session-agent-response>

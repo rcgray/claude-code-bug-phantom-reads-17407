@@ -21,10 +21,10 @@ Prior to Experiment-Methodology-04, our consolidated theory proposed that phanto
 Method-03 tested three scenarios with different X values (via preloaded content) but identical Y values:
 
 | Scenario | X (Pre-op) | Y (Operation) | X + Y | Outcome |
-|----------|------------|---------------|-------|---------|
-| Easy | 73K (37%) | ~42K | ~115K | SUCCESS |
-| Medium | 92K (46%) | ~42K | ~134K | SUCCESS |
-| Hard | 120K (60%) | ~42K | ~162K | SUCCESS |
+| -------- | ---------- | ------------- | ----- | ------- |
+| Easy     | 73K (37%)  | ~42K          | ~115K | SUCCESS |
+| Medium   | 92K (46%)  | ~42K          | ~134K | SUCCESS |
+| Hard     | 120K (60%) | ~42K          | ~162K | SUCCESS |
 
 **Result**: 100% success across all scenarios. The X + Y model appeared validated—all totals remained under the ~200K threshold.
 
@@ -39,10 +39,10 @@ This increased Y from ~42K tokens (7 files) to ~57K tokens (9 files).
 
 ### Experiment-Methodology-04 Results (First Run)
 
-| Scenario | X (Pre-op) | Y (Operation) | X + Y | Outcome |
-|----------|------------|---------------|-------|---------|
-| Easy | 73K (37%) | ~57K | ~130K | **FAILURE** |
-| Hard | 120K (60%) | ~57K | ~177K | **FAILURE** |
+| Scenario | X (Pre-op) | Y (Operation) | X + Y | Outcome     |
+| -------- | ---------- | ------------- | ----- | ----------- |
+| Easy     | 73K (37%)  | ~57K          | ~130K | **FAILURE** |
+| Hard     | 120K (60%) | ~57K          | ~177K | **FAILURE** |
 
 **Result**: 100% failure across ALL scenarios (8/8 trials). Even Easy, with X + Y = 130K (well under the 200K threshold), failed consistently.
 
@@ -50,12 +50,12 @@ This increased Y from ~42K tokens (7 files) to ~57K tokens (9 files).
 
 The ONLY change between Method-03 (100% success) and Method-04 (100% failure) was the Y value:
 
-| Variable | Method-03 | Method-04 |
-|----------|-----------|-----------|
-| Easy X | 73K | 73K (unchanged) |
-| Hard X | 120K | 120K (unchanged) |
-| Y | 42K (7 files) | 57K (9 files) |
-| T | 200K | 200K (unchanged) |
+| Variable | Method-03     | Method-04        |
+| -------- | ------------- | ---------------- |
+| Easy X   | 73K           | 73K (unchanged)  |
+| Hard X   | 120K          | 120K (unchanged) |
+| Y        | 42K (7 files) | 57K (9 files)    |
+| T        | 200K          | 200K (unchanged) |
 
 This suggests that **Y alone may have a threshold**, independent of X and T. The X + Y model may be incomplete or incorrect.
 
@@ -89,15 +89,16 @@ Based on these observations, we identified key questions requiring experimental 
 
 ### Experiment-04A: Minimal X ("Easy-0")
 
-**Concept**: Test Y=57K with X≈0 by skipping the `/setup-*` step entirely.
+**Concept**: Test Y=57K with X≈0 by using a setup command that pre-loads no files.
 
 **Procedure**:
 1. Start fresh session
-2. Run `/context` (baseline)
-3. Run `/analyze-wpd docs/wpds/pipeline-refactor.md` directly (no setup)
-4. Run `/context` (post-operation)
-5. Prompt for phantom read self-report
-6. Export session
+2. Run `/setup-none` (generates Workscope ID but pre-loads no files)
+3. Run `/context` (baseline)
+4. Run `/analyze-wpd docs/wpds/pipeline-refactor.md` directly
+5. Run `/context` (post-operation)
+6. Prompt for phantom read self-report
+7. Export session
 
 **What It Tests**: Whether the Y threshold is absolute and independent of X.
 
@@ -107,7 +108,9 @@ Based on these observations, we identified key questions requiring experimental 
 
 **Priority**: **VERY HIGH** - This is the most direct test of the "Y-only" hypothesis.
 
-**Preparation**: None required. Simply omit the `/setup-easy` step in the existing Methodology-04 flow.
+**Preparation**: ~~None required. Simply omit the `/setup-easy` step in the existing Methodology-04 flow.~~
+
+**CORRECTION (2026-01-26)**: Requires creation of `/setup-none` command. The `/setup-*` commands do more than pre-load files—they also generate the Workscope ID required for the trial. A `/setup-none` variant is needed that generates the Workscope ID but pre-loads no files, achieving X≈0 while maintaining the trial infrastructure.
 
 ---
 
@@ -128,7 +131,16 @@ Based on these observations, we identified key questions requiring experimental 
 
 **Priority**: **HIGH** - Narrows down the threshold boundary.
 
-**Preparation**: Modify `/analyze-wpd` command to list 8 files instead of 9 (remove `module-phi.md` from the list). Because `module-epsilon.md` and `module-phi.md` were not fully cross-integrated into the other spec files during Phase 10 implementation, they can be excluded simply by removing them from the command's file list—the Session Agent will not discover them via cross-references in other files.
+**Preparation**: ~~Modify `/analyze-wpd` command to list 8 files instead of 9 (remove `module-phi.md` from the list). Because `module-epsilon.md` and `module-phi.md` were not fully cross-integrated into the other spec files during Phase 10 implementation, they can be excluded simply by removing them from the command's file list—the Session Agent will not discover them via cross-references in other files.~~
+
+**CORRECTION (2026-01-26)**: The original preparation assessment was incorrect. Testing with `/analyze-wpd-doc` (command without explicit file list) revealed that the Session Agent consistently discovers and reads `module-epsilon.md` and `module-phi.md` through cross-references in other spec files. The agent takes initiative to seek out relevant files regardless of command instructions.
+
+**Revised Preparation**: Requires invasive surgical edits throughout the spec scenario:
+1. Remove all cross-references to `module-phi.md` from other spec files
+2. Ensure no spec file mentions or links to phi in a way that would prompt the agent to read it
+3. Verify the scenario still functions coherently with phi removed
+
+This is **Significant Preparation**, not minimal as originally assessed.
 
 ---
 
@@ -149,7 +161,16 @@ Based on these observations, we identified key questions requiring experimental 
 
 **Priority**: **LOW** - We already have Method-03 data. Only valuable as a sanity check if other experiments produce surprising results.
 
-**Preparation**: Similar to Experiment-04B—modify `/analyze-wpd` to list only the original 7 files (exclude both `module-epsilon.md` and `module-phi.md`). Same ease of modification applies since these files lack cross-references from other specs.
+**Preparation**: ~~Similar to Experiment-04B—modify `/analyze-wpd` to list only the original 7 files (exclude both `module-epsilon.md` and `module-phi.md`). Same ease of modification applies since these files lack cross-references from other specs.~~
+
+**CORRECTION (2026-01-26)**: The original preparation assessment was incorrect. See Experiment-04B correction—the Session Agent discovers and reads epsilon and phi through cross-references regardless of command instructions.
+
+**Revised Preparation**: Requires invasive surgical edits throughout the spec scenario:
+1. Remove all cross-references to both `module-epsilon.md` and `module-phi.md` from other spec files
+2. Ensure no spec file mentions or links to epsilon or phi in a way that would prompt the agent to read them
+3. Verify the scenario still functions coherently with both files removed
+
+This is **Significant Preparation**, not minimal as originally assessed. Even more invasive than 04B since both files must be surgically removed from the cross-reference network.
 
 ---
 
@@ -360,47 +381,78 @@ This is the most labor-intensive preparation among all experiments.
 
 ---
 
+### Experiment-04L: Hoisted Content Re-Read Behavior
+
+**Concept**: Verify that files pre-loaded via hoisting are not re-injected into context when the Session Agent subsequently issues Read commands for those same files.
+
+**Procedure**:
+1. Run trials with `/setup-maxload` (hoists all 8 spec files) followed by `/analyze-wpd` (explicitly lists the 8 files)
+2. Run trials with `/setup-maxload` followed by `/analyze-wpd-doc` (does NOT list files, agent discovers them)
+3. Compare context usage between both command variants
+4. Measure whether explicit file listing causes context duplication
+
+**What It Tests**: Whether the Claude Code harness is intelligent enough to recognize that a file already exists in context and avoid re-injecting it when a Read is issued.
+
+**Expected Outcomes**:
+- If similar context usage: Confirms harness avoids redundant reads; `/analyze-wpd` is safe to use after hoisting
+- If higher context with `/analyze-wpd`: Suggests explicit file listing causes re-reads; `/analyze-wpd-doc` is required after hoisting
+
+**Priority**: **HIGH** - Foundational for Experiment-04D. Must confirm this behavior before running 04D with confidence that explicit file listing doesn't cause context duplication.
+
+**Preparation**: The `/analyze-wpd-doc` command already exists. No additional preparation required.
+
+**Note**: This behavior has been observed anecdotally during normal agent interactions, but this experiment provides formal confirmation. Results directly inform the design of Experiment-04D, where we need to know whether using `/analyze-wpd` (with explicit file list) after `/setup-maxload` (which hoists those same files) would cause redundant context consumption.
+
+---
+
 ## Preparation Requirements and Ease of Running
 
 Based on the preparation requirements identified above, experiments are grouped by ease of execution:
 
 ### Immediate (No Preparation Required)
 
-| Experiment | Description | Notes |
-|------------|-------------|-------|
-| **04J** | Examine Persisted Files | Uses existing trial data |
-| **04A** | Minimal X (Easy-0) | Omit `/setup-easy` from existing flow |
-| **04K** | 1M Context Model | Swap model, run same protocol |
+| Experiment | Description              | Notes                             |
+| ---------- | ------------------------ | --------------------------------- |
+| **04J**    | Examine Persisted Files  | Uses existing trial data          |
+| **04K**    | 1M Context Model         | Swap model, run same protocol     |
+| **04L**    | Hoisted Re-Read Behavior | `/analyze-wpd-doc` already exists |
+
+**Note (2026-01-26)**: 04A moved to "Minimal Preparation" below—requires creation of `/setup-none` command.
 
 ### Minimal Preparation (Command Changes Only)
 
-| Experiment | Description | Preparation |
-|------------|-------------|-------------|
-| **04D** | Max X, Minimal Y | Create `/setup-maxload`; `/analyze-wpd-doc` already exists |
-| **04B** | 8-File Threshold | Modify `/analyze-wpd` file list (remove phi) |
-| **04C** | 7-File Confirmation | Modify `/analyze-wpd` file list (remove epsilon + phi) |
+| Experiment | Description      | Preparation                                                |
+| ---------- | ---------------- | ---------------------------------------------------------- |
+| **04A**    | Minimal X        | Create `/setup-none` (Workscope ID only, no file hoisting) |
+| **04D**    | Max X, Minimal Y | Create `/setup-maxload`; `/analyze-wpd-doc` already exists |
 
-**Note on 04B/04C**: These are simple because `module-epsilon.md` and `module-phi.md` were not fully cross-integrated into other specs during Phase 10 implementation. They can be excluded by editing the command's file list without triggering the Session Agent to discover them via cross-references.
+~~**Note on 04B/04C**: These are simple because `module-epsilon.md` and `module-phi.md` were not fully cross-integrated into other specs during Phase 10 implementation. They can be excluded by editing the command's file list without triggering the Session Agent to discover them via cross-references.~~
+
+**CORRECTION (2026-01-26)**: 04B and 04C have been moved to "Significant Preparation" below. Testing revealed that the Session Agent discovers and reads epsilon/phi through cross-references regardless of whether they are listed in the command.
 
 ### Moderate Preparation
 
-| Experiment | Description | Preparation |
-|------------|-------------|-------------|
-| **04I** | Partial MCP Hybrid | Create command + configure harness permissions |
-| **04G** | Sequential vs Parallel | Create command to force sequential reads |
+| Experiment | Description            | Preparation                                    |
+| ---------- | ---------------------- | ---------------------------------------------- |
+| **04I**    | Partial MCP Hybrid     | Create command + configure harness permissions |
+| **04G**    | Sequential vs Parallel | Create command to force sequential reads       |
 
 ### Significant Preparation
 
-| Experiment | Description | Preparation |
-|------------|-------------|-------------|
-| **04F** | File Count vs Tokens | Create mega-spec files + update all internal references |
+| Experiment | Description          | Preparation                                                        |
+| ---------- | -------------------- | ------------------------------------------------------------------ |
+| **04F**    | File Count vs Tokens | Create mega-spec files + update all internal references            |
+| **04B**    | 8-File Threshold     | Remove all cross-references to phi from other spec files           |
+| **04C**    | 7-File Confirmation  | Remove all cross-references to epsilon + phi from other spec files |
+
+**Note on 04B/04C (added 2026-01-26)**: Originally assessed as "Minimal Preparation," but testing revealed the Session Agent discovers omitted files through cross-references regardless of command instructions. Requires surgical removal of cross-references throughout the spec scenario.
 
 ### Uncertain / May Be Redundant
 
-| Experiment | Description | Notes |
-|------------|-------------|-------|
-| **04E** | Batch Y | May be covered by 04D results |
-| **04H** | Intentional Early Reset | May be covered by 04D results; requires reset mechanism research |
+| Experiment | Description             | Notes                                                            |
+| ---------- | ----------------------- | ---------------------------------------------------------------- |
+| **04E**    | Batch Y                 | May be covered by 04D results                                    |
+| **04H**    | Intentional Early Reset | May be covered by 04D results; requires reset mechanism research |
 
 ---
 
@@ -408,72 +460,88 @@ Based on the preparation requirements identified above, experiments are grouped 
 
 ### Tier 1 - Critical Experiments (Run First)
 
-| ID | Experiment | Key Question | ROI | Ease |
-|----|------------|--------------|-----|------|
-| 04A | Minimal X (Easy-0) | Is Y threshold absolute? | Very High | Immediate |
-| 04B | 8-File Y Threshold | Where exactly is the cutoff? | High | Minimal |
-| 04D | Max X, Minimal Y | Is hoisted content safe? | High | Minimal |
+| ID  | Experiment          | Key Question                        | ROI       | Ease        |
+| --- | ------------------- | ----------------------------------- | --------- | ----------- |
+| 04L | Hoisted Re-Read     | Does harness avoid redundant reads? | High      | Immediate   |
+| 04A | Minimal X (Easy-0)  | Is Y threshold absolute?            | Very High | Minimal     |
+| 04D | Max X, Minimal Y    | Is hoisted content safe?            | High      | Minimal     |
+| 04B | 8-File Y Threshold  | Where exactly is the cutoff?        | High      | Significant |
 
-These three experiments directly test the core hypothesis that Y has an absolute threshold independent of X.
+These experiments directly test the core hypothesis that Y has an absolute threshold independent of X. Note: 04L should be run before 04D to confirm that explicit file listing after hoisting doesn't cause context duplication.
+
+**Note (2026-01-26)**: 04A ease updated from "Immediate" to "Minimal" (requires `/setup-none` command). 04B was demoted in run order due to significant preparation requirements (surgical removal of cross-references). Run 04L first (immediate), then 04A and 04D (minimal preparation).
 
 ### Tier 2 - Important Experiments (Run Second)
 
-| ID | Experiment | Key Question | ROI | Ease |
-|----|------------|--------------|-----|------|
-| 04K | 1M Context Model | Does T matter at all? | Medium | Immediate |
-| 04F | File Count vs Tokens | What's the actual trigger? | High | Significant |
+| ID  | Experiment           | Key Question               | ROI    | Ease        |
+| --- | -------------------- | -------------------------- | ------ | ----------- |
+| 04K | 1M Context Model     | Does T matter at all?      | Medium | Immediate   |
+| 04F | File Count vs Tokens | What's the actual trigger? | High   | Significant |
 
 These experiments refine our understanding or test mitigation strategies.
 
 ### Tier 3 - Supporting Experiments (Run If Time Permits)
 
-| ID | Experiment | Key Question | ROI | Ease |
-|----|------------|--------------|-----|------|
-| 04G | Sequential vs Parallel | Does read pattern matter? | Medium | Moderate |
-| 04I | Partial MCP Hybrid | Is MCP immunity read-level? | Medium | Moderate |
+| ID  | Experiment             | Key Question                | ROI    | Ease     |
+| --- | ---------------------- | --------------------------- | ------ | -------- |
+| 04G | Sequential vs Parallel | Does read pattern matter?   | Medium | Moderate |
+| 04I | Partial MCP Hybrid     | Is MCP immunity read-level? | Medium | Moderate |
 
 These experiments explore secondary questions or confirm existing understanding.
 
 ### Tier 4 - Low Priority or Redundant
 
-| ID | Experiment | Key Question | ROI | Ease |
-|----|------------|--------------|-----|------|
-| 04C | Reduce Y to 7 Files | Sanity check only | Low | Minimal |
-| 04J | Examine Persisted Files | Diagnostic, not theoretical | Low | Immediate |
-| 04E | Batch Y | May be covered by 04D | Low | Uncertain |
-| 04H | Intentional Early Reset | May be covered by 04D | Low | Uncertain |
+| ID  | Experiment              | Key Question                | ROI | Ease        |
+| --- | ----------------------- | --------------------------- | --- | ----------- |
+| 04C | Reduce Y to 7 Files     | Sanity check only           | Low | Significant |
+| 04J | Examine Persisted Files | Diagnostic, not theoretical | Low | Immediate   |
+| 04E | Batch Y                 | May be covered by 04D       | Low | Uncertain   |
+| 04H | Intentional Early Reset | May be covered by 04D       | Low | Uncertain   |
 
 These experiments are only valuable in specific circumstances or may be redundant with other experiments.
+
+**Note (2026-01-26)**: 04C ease updated from "Minimal" to "Significant" due to required surgical removal of cross-references (see experiment definition).
 
 ---
 
 ## Recommended Execution Plan
 
-### Phase 1: Establish Y Threshold Independence (Immediate)
+### Phase 1: Establish Y Threshold Independence (Minimal Prep)
 
-1. Run **Experiment-04A** (Minimal X) with 4 trials
+1. Create `/setup-none` command (generates Workscope ID only, no file hoisting)
+
+2. Run **Experiment-04A** (Minimal X) with 4 trials
    - If all fail: Y threshold confirmed independent of X
    - Proceed to Phase 2
 
-2. Run **Experiment-04B** (8-File Threshold) with 4 trials per scenario
-   - Narrows threshold to 42-50K or 50-57K range
+~~3. Run **Experiment-04B** (8-File Threshold) with 4 trials per scenario~~
+   ~~- Narrows threshold to 42-50K or 50-57K range~~
 
-### Phase 2: Confirm Hoisting Safety (Minimal Prep)
+**CORRECTION (2026-01-26)**: Experiment-04B has been deferred due to significant preparation requirements. The Session Agent discovers and reads omitted files through cross-references, requiring surgical removal of all cross-references to `module-phi.md` from other spec files. This makes 04B impractical to run in Phase 1.
 
-3. Run **Experiment-04D** (Max X, Minimal Y) with 4 trials
+**Revised Phase 1**: Create `/setup-none`, then run 04A to establish whether Y threshold is independent of X. Threshold boundary testing (04B) deferred until preparation work is completed or deemed worthwhile based on 04A/04D results.
+
+### Phase 2: Confirm Hoisting Behavior (Immediate + Minimal Prep)
+
+3. Run **Experiment-04L** (Hoisted Re-Read Behavior) with 4 trials
+   - Compare context usage between `/analyze-wpd` and `/analyze-wpd-doc` after hoisting
+   - If similar: Confirms harness avoids redundant reads; proceed with 04D using `/analyze-wpd`
+   - If different: Use `/analyze-wpd-doc` for 04D to avoid context duplication
+
+4. Run **Experiment-04D** (Max X, Minimal Y) with 4 trials
    - If success: Confirms hoisting is safe, Y is critical
    - If failure: Revise theory to include hoisting effects
    - **Note**: Results may also inform Experiment-04E and Experiment-04H
 
 ### Phase 3: Test Context Window Relevance (Immediate)
 
-4. Run **Experiment-04K** (1M Model) with 4 trials
+5. Run **Experiment-04K** (1M Model) with 4 trials
    - If same failures: T is irrelevant, internal threshold governs
    - If success: T matters, 200K model has lower effective threshold
 
 ### Phase 4: Understand Trigger Mechanism (Significant Prep - Optional)
 
-5. Run **Experiment-04F** (File Count vs Tokens) if Phase 1-3 results suggest file count may matter
+6. Run **Experiment-04F** (File Count vs Tokens) if Phase 1-3 results suggest file count may matter
    - Requires creating consolidated mega-spec files
 
 ---
@@ -494,4 +562,7 @@ This understanding will enable us to create reliable reproduction scenarios and 
 
 *Document created: 2026-01-24*
 *Updated: 2026-01-24 (added preparation requirements and ease of running assessment)*
+*Updated: 2026-01-26 (added Experiment-04L: Hoisted Content Re-Read Behavior)*
+*Updated: 2026-01-26 (corrected 04B/04C preparation: Session Agent discovers omitted files via cross-references)*
+*Updated: 2026-01-26 (corrected 04A preparation: requires `/setup-none` command for Workscope ID generation)*
 *Based on analysis of: `dev/misc/repro-attempts-04-firstrun/` (8 trials)*

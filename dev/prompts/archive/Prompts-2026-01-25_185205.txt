@@ -1,0 +1,547 @@
+## Models:
+## `opus` : claude-opus-4-5-20251101
+## `sonnet` : claude-sonnet-4-5-20250929
+## `sonnet[1m]` : claude-sonnet-4-5-20250929[1m]
+## `haiku` : claude-haiku-4-5-20251001
+
+## New Session: Claude Code v2.1.6: `opus` (locked, 2.1.15 is current)
+## Generatingtrials for Experiment-Methodology-04A
+## In phantom-read-clone
+
+---
+
+/context
+
+---
+
+/setup-none
+
+---
+
+/context
+
+---
+
+/analyze-wpd docs/wpds/pipeline-refactor.md
+
+---
+
+/context
+
+---
+
+We have recently seen a number of User Agents reporting issues reading files like the following:
+
+<session-agent-response>
+Looking back at my history, you're right. My first Read call for the file returned:
+
+  <persisted-output>Tool result saved to: /Users/gray/.claude/projects/-Users-gray-Projects-workscope/dadf32a6-c83d-462d-b678-fbe7f191f42f/tool-results/toolu_019Nqx8qLWvdFSjvMsy5xFkM.txt
+
+  Use Read to view</persisted-output>
+
+  I did not follow up with a Read call to view that persisted output. I proceeded with my "investigation" without ever having actually read the file contents. I was operating completely blind, making assumptions about a document I never saw.
+
+  The same thing happened with several other files at the start - WSD-Runtime-Metadata-Schema.md, WSD-Manifest-Schema.md, Manifest-Driven-Pipeline-Overview.md all returned <persisted-output> messages that I never followed up on
+</session-agent-response>
+
+I am debugging this recurring issue and I am checking to see if this particular session is a reproduction of this issue. Did you experience this during your execution of the command?
+
+---
+
+## ../cc-exports/[workscope_id].txt
+/export
+
+---
+
+## 20260125-190604 - Success
+## 20260125-190609 - Success
+## 20260125-191433 - Success
+## 20260125-191438 - Success
+## 20260125-193336 - Success
+## 20260125-193404 - Success
+
+## In `phantom-read-clone` project:
+## mkdir '../claude-code-bug-phantom-reads-17407/dev/misc/experiment-04a'
+## ./src/collect_trials.py -e '../cc-exports/' -d '../claude-code-bug-phantom-reads-17407/dev/misc/experiment-04a' -v
+
+```
+(🐍)gray@charon:~/Projects/phantom-read-clone (🧪main)$ ./src/collect_trials.py -e '../cc-exports/' -d '../claude-code-bug-phantom-reads-17407/dev/misc/experiment-04a' -v
+Collecting 20260125-193336 (from 20260125-193336.txt)
+  Copied: 20260125-193336.txt (chat export)
+  Copied: 63996426-b42b-44a9-a6b7-0a4fc87a7fa1.jsonl
+Collecting 20260125-190604 (from 20260125-190604.txt)
+  Copied: 20260125-190604.txt (chat export)
+  Copied: c4ae8701-ea05-46e6-92b8-d8a35ffd7b29.jsonl
+Collecting 20260125-191433 (from 20260125-191433.txt)
+  Copied: 20260125-191433.txt (chat export)
+  Copied: 0fa16f77-9b07-434b-a6e1-f7d0d5fd0372.jsonl
+Collecting 20260125-193404 (from 20260125-193404.txt)
+  Copied: 20260125-193404.txt (chat export)
+  Copied: 0ffa105e-0272-4e1a-a007-bd1346a81046.jsonl
+Collecting 20260125-191438 (from 20260125-191438.txt)
+  Copied: 20260125-191438.txt (chat export)
+  Copied: a94e7224-fc8d-4093-99a9-e389043d7c9d.jsonl
+Collecting 20260125-190609 (from 20260125-190609.txt)
+  Copied: 20260125-190609.txt (chat export)
+  Copied: 60651980-9ec9-41b8-8b87-1dab5b8ccc0d.jsonl
+
+==================================================
+Collection Summary
+==================================================
+Total trials processed: 6
+Total files collected:  12
+
+Collected:              6
+Skipped (exists):       0
+Skipped (no ID):        0
+Failed:                 0
+
+Output directory:       ../claude-code-bug-phantom-reads-17407/dev/misc/experiment-04a
+(🐍)gray@charon:~/Projects/phantom-read-clone (🧪main)$
+```
+---
+
+## New Session: Claude Code v2.1.6: `sonnet[1m]` (locked, 2.1.15 is current)
+## Generatingtrials for Experiment-Methodology-04K
+## In phantom-read-clone
+
+---
+
+/context
+
+---
+
+## 6 rounds each of:
+/setup-hard
+
+---
+
+/context
+
+---
+
+/analyze-wpd docs/wpds/pipeline-refactor.md
+
+---
+
+/context
+
+---
+
+We have recently seen a number of User Agents reporting issues reading files like the following:
+
+<session-agent-response>
+Looking back at my history, you're right. My first Read call for the file returned:
+
+  <persisted-output>Tool result saved to: /Users/gray/.claude/projects/-Users-gray-Projects-workscope/dadf32a6-c83d-462d-b678-fbe7f191f42f/tool-results/toolu_019Nqx8qLWvdFSjvMsy5xFkM.txt
+
+  Use Read to view</persisted-output>
+
+  I did not follow up with a Read call to view that persisted output. I proceeded with my "investigation" without ever having actually read the file contents. I was operating completely blind, making assumptions about a document I never saw.
+
+  The same thing happened with several other files at the start - WSD-Runtime-Metadata-Schema.md, WSD-Manifest-Schema.md, Manifest-Driven-Pipeline-Overview.md all returned <persisted-output> messages that I never followed up on
+</session-agent-response>
+
+I am debugging this recurring issue and I am checking to see if this particular session is a reproduction of this issue. Did you experience this during your execution of the command?
+
+---
+
+## ../cc-exports/[workscope_id].txt
+/export
+
+---
+
+## 20260125-210757 - Success
+## 20260125-210837 - Success
+## 20260125-210913 - Success
+## 20260125-211516 - Success
+## 20260125-211544 - Success
+## 20260125-211609 - Success
+
+## In `phantom-read-clone` project:
+## mkdir '../claude-code-bug-phantom-reads-17407/dev/misc/experiment-04k'
+## ./src/collect_trials.py -e '../cc-exports/' -d '../claude-code-bug-phantom-reads-17407/dev/misc/experiment-04k' -v
+
+```
+(🐍)gray@charon:~/Projects/phantom-read-clone (🧪main)$ ./src/collect_trials.py -e '../cc-exports/' -d '../claude-code-bug-phantom-reads-17407/dev/misc/experiment-04k' -v
+Collecting 20260125-210913 (from 20260125-210913.txt)
+  Copied: 20260125-210913.txt (chat export)
+  Copied: 8d425997-3206-4ff2-8eb5-9a854b89bc83.jsonl
+Collecting 20260125-210757 (from 20260125-210757.txt)
+  Copied: 20260125-210757.txt (chat export)
+  Copied: ec81194a-69fc-4c6d-b71a-d0ebe0d0de8d.jsonl
+Collecting 20260125-211516 (from 20260125-211516.txt)
+  Copied: 20260125-211516.txt (chat export)
+  Copied: ddcc8ce1-6455-4df5-a32f-4baddd363bd6.jsonl
+Collecting 20260125-210837 (from 20260125-210837.txt)
+  Copied: 20260125-210837.txt (chat export)
+  Copied: a438fd2a-2228-49ff-a0cf-ab5598df67b4.jsonl
+Collecting 20260125-211609 (from 20260125-211609.txt)
+  Copied: 20260125-211609.txt (chat export)
+  Copied: 34b3ec7b-d150-4f75-99c5-232ff4d352b1.jsonl
+Collecting 20260125-211544 (from 20260125-211544.txt)
+  Copied: 20260125-211544.txt (chat export)
+  Copied: 8bc80a1f-e8b8-484f-a08c-7d3c97022b82.jsonl
+
+==================================================
+Collection Summary
+==================================================
+Total trials processed: 6
+Total files collected:  12
+
+Collected:              6
+Skipped (exists):       0
+Skipped (no ID):        0
+Failed:                 0
+
+Output directory:       ../claude-code-bug-phantom-reads-17407/dev/misc/experiment-04k
+(🐍)gray@charon:~/Projects/phantom-read-clone (🧪main)$
+```
+---
+
+## New Session: Claude Code v2.1.6: `opus` (locked, 2.1.15 is current)
+## Generatingtrials for Experiment-Methodology-04D
+## In phantom-read-clone
+
+---
+
+/context
+
+---
+
+## 3 rounds each of:
+/setup-hard
+/setup-easy
+
+---
+
+/context
+
+---
+
+/setup-maxload
+
+---
+
+/context
+
+---
+
+/analyze-wpd docs/wpds/pipeline-refactor.md
+
+---
+
+/context
+
+---
+
+We have recently seen a number of User Agents reporting issues reading files like the following:
+
+<session-agent-response>
+Looking back at my history, you're right. My first Read call for the file returned:
+
+  <persisted-output>Tool result saved to: /Users/gray/.claude/projects/-Users-gray-Projects-workscope/dadf32a6-c83d-462d-b678-fbe7f191f42f/tool-results/toolu_019Nqx8qLWvdFSjvMsy5xFkM.txt
+
+  Use Read to view</persisted-output>
+
+  I did not follow up with a Read call to view that persisted output. I proceeded with my "investigation" without ever having actually read the file contents. I was operating completely blind, making assumptions about a document I never saw.
+
+  The same thing happened with several other files at the start - WSD-Runtime-Metadata-Schema.md, WSD-Manifest-Schema.md, Manifest-Driven-Pipeline-Overview.md all returned <persisted-output> messages that I never followed up on
+</session-agent-response>
+
+I am debugging this recurring issue and I am checking to see if this particular session is a reproduction of this issue. Did you experience this during your execution of the command?
+
+---
+
+## ../cc-exports/[workscope_id].txt
+/export
+
+---
+
+## /setup-hard
+## 20260126-081157 - Context filled (/analyze-wpd could not be executed)
+## 20260126-081436 - Context filled (/analyze-wpd could not be executed)
+## 20260126-081607 - Context filled (/analyze-wpd could not be executed)
+## /setup-easy
+## 20260126-081943 - Success (no phantom reads self-reported)
+## 20260126-082019 - Success (no phantom reads self-reported)
+## 20260126-082029 - Success (no phantom reads self-reported)
+
+## In `phantom-read-clone` project:
+## mkdir '../claude-code-bug-phantom-reads-17407/dev/misc/experiment-04d'
+## ./src/collect_trials.py -e '../cc-exports/' -d '../claude-code-bug-phantom-reads-17407/dev/misc/experiment-04d' -v
+
+```
+(🐍)gray@charon:~/Projects/phantom-read-clone (🧪main)$ ./src/collect_trials.py -e '../cc-exports/' -d '../claude-code-bug-phantom-reads-17407/dev/misc/experiment-04d' -v
+Collecting 20260126-082019 (from 20260126-082019.txt)
+  Copied: 20260126-082019.txt (chat export)
+  Copied: cc495972-f587-45ec-a318-a549fc068299.jsonl
+Collecting 20260126-081607 (from 20260126-081607.txt)
+  Copied: 20260126-081607.txt (chat export)
+  Copied: 22c9f3be-569b-42ee-86ed-20644f79c5ef.jsonl
+Collecting 20260126-081943 (from 20260126-081943.txt)
+  Copied: 20260126-081943.txt (chat export)
+  Copied: 3ea92b70-4f5f-49c1-9f58-6a986b6b30b9.jsonl
+Collecting 20260126-081436 (from 20260126-081436.txt)
+  Copied: 20260126-081436.txt (chat export)
+  Copied: 1630fe3f-3ec6-4a08-8bbc-850468580b26.jsonl
+Collecting 20260126-081157 (from 20260126-081157.txt)
+  Copied: 20260126-081157.txt (chat export)
+  Copied: fcb76b64-b7bf-419a-b7c1-4fac18c96ca5.jsonl
+Collecting 20260126-082029 (from 20260126-082029.txt)
+  Copied: 20260126-082029.txt (chat export)
+  Copied: 3d58640c-9635-45db-8b55-4a5de3f9faed.jsonl
+
+==================================================
+Collection Summary
+==================================================
+Total trials processed: 6
+Total files collected:  12
+
+Collected:              6
+Skipped (exists):       0
+Skipped (no ID):        0
+Failed:                 0
+
+Output directory:       ../claude-code-bug-phantom-reads-17407/dev/misc/experiment-04d
+(🐍)gray@charon:~/Projects/phantom-read-clone (🧪main)$
+```
+---
+
+## New Session: Claude Code v2.1.6: `opus` (locked, 2.1.15 is current)
+## Generatingtrials for Experiment-Methodology-04L
+## In phantom-read-clone
+
+---
+
+/context
+
+---
+
+/setup-easy
+
+---
+
+/context
+
+---
+
+/setup-maxload
+
+---
+
+/context
+
+---
+
+## 3 rounds each of:
+/analyze-wpd-doc docs/wpds/pipeline-refactor.md
+/analyze-wpd docs/wpds/pipeline-refactor.md
+
+---
+
+/context
+
+---
+
+We have recently seen a number of User Agents reporting issues reading files like the following:
+
+<session-agent-response>
+Looking back at my history, you're right. My first Read call for the file returned:
+
+  <persisted-output>Tool result saved to: /Users/gray/.claude/projects/-Users-gray-Projects-workscope/dadf32a6-c83d-462d-b678-fbe7f191f42f/tool-results/toolu_019Nqx8qLWvdFSjvMsy5xFkM.txt
+
+  Use Read to view</persisted-output>
+
+  I did not follow up with a Read call to view that persisted output. I proceeded with my "investigation" without ever having actually read the file contents. I was operating completely blind, making assumptions about a document I never saw.
+
+  The same thing happened with several other files at the start - WSD-Runtime-Metadata-Schema.md, WSD-Manifest-Schema.md, Manifest-Driven-Pipeline-Overview.md all returned <persisted-output> messages that I never followed up on
+</session-agent-response>
+
+I am debugging this recurring issue and I am checking to see if this particular session is a reproduction of this issue. Did you experience this during your execution of the command?
+
+---
+
+## ../cc-exports/[workscope_id].txt
+/export
+
+---
+
+## /analyze-wpd-doc docs/wpds/pipeline-refactor.md
+## 20260126-083436 - Success (no self-reported phantom reads)
+## 20260126-083737 - Success (no self-reported phantom reads)
+## 20260126-083842 - Success (no self-reported phantom reads)
+## /analyze-wpd docs/wpds/pipeline-refactor.md
+## 20260126-084319 - Success (no self-reported phantom reads)
+## 20260126-084419 - Success (no self-reported phantom reads)
+## 20260126-084512 - Success (no self-reported phantom reads)
+
+## In `phantom-read-clone` project:
+## mkdir '../claude-code-bug-phantom-reads-17407/dev/misc/experiment-04l'
+## ./src/collect_trials.py -e '../cc-exports/' -d '../claude-code-bug-phantom-reads-17407/dev/misc/experiment-04l' -v
+
+```
+(🐍)gray@charon:~/Projects/phantom-read-clone (🧪main)$ ./src/collect_trials.py -e '../cc-exports/' -d '../claude-code-bug-phantom-reads-17407/dev/misc/experiment-04l' -v
+Collecting 20260126-083842 (from 20260126-083842.txt)
+  Copied: 20260126-083842.txt (chat export)
+  Copied: 35a4e683-6616-4a1c-8581-c4a8238e613f.jsonl
+Collecting 20260126-084319 (from 20260126-084319.txt)
+  Copied: 20260126-084319.txt (chat export)
+  Copied: 11fde480-ccb6-403f-ab46-7443895ae9fc.jsonl
+Collecting 20260126-084419 (from 20260126-084419.txt)
+  Copied: 20260126-084419.txt (chat export)
+  Copied: 2b456fed-7ded-4b20-98b9-f676375c0aa3.jsonl
+Collecting 20260126-083436 (from 20260126-083436.txt)
+  Copied: 20260126-083436.txt (chat export)
+  Copied: 65bfc9e1-c53a-4dd5-9500-fe25b8fa0685.jsonl
+Collecting 20260126-084512 (from 20260126-084512.txt)
+  Copied: 20260126-084512.txt (chat export)
+  Copied: c47df348-a449-4b74-8b03-037d995124e1.jsonl
+Collecting 20260126-083737 (from 20260126-083737.txt)
+  Copied: 20260126-083737.txt (chat export)
+  Copied: d9966472-a492-4c9b-b118-44fabb3f0768.jsonl
+
+==================================================
+Collection Summary
+==================================================
+Total trials processed: 6
+Total files collected:  12
+
+Collected:              6
+Skipped (exists):       0
+Skipped (no ID):        0
+Failed:                 0
+
+Output directory:       ../claude-code-bug-phantom-reads-17407/dev/misc/experiment-04l
+(🐍)gray@charon:~/Projects/phantom-read-clone (🧪main)$
+```
+---
+
+## New Session: Claude Code v2.1.6: `opus` (locked, 2.1.15 is current)
+## Returning to the claude-code-bug-phantom-reads-17407 project
+## Adding definition of the Experiment-Methodology-04L
+
+---
+
+/wsd:init --custom
+
+---
+
+Please review our current preliminary experiments: `docs/core/Post-Experiment-04-Ideas.md` ( @docs/core/Post-Experiment-04-Ideas.md ). We need to add a new experiment to it.
+
+We created a new command `/analyze-spec-doc`, which is identical to `/analyze-spec` except that it does not explicitly list the files in `docs/specs` that we expect the Session Agent to read. The purpose of the experiment is to determine two things:
+
+1) If files are _reloaded_ when they are encountered by the Session Agent as being relevant and the Session Agent decides to issue a read. We expect that the harness is capable of understanding that the file has already been read and exists in context and therefore should not be injected into context again. In the case of Experiment-Methodology-04D, where we pre-load (via hoisting) the 8 spec documents relevant to our tests before issuing the command, is it necessary for us to use `/analyze-spec-doc` instead of `/analyze-spec` to avoid re-invoking Reads of these 8 files?  We do not believe that this is necessary, but Experiment-04L will confirm this.
+
+This behaviors has already been confirmed anecdotally through experience with the agent, but Experiment-04L in particular sets a foundation required for Experiment-04D, in which we will run our experiment with `/analyze-spec` with the belief that it does not matter whether the files are listed explicitly in the command.
+
+We will soon have these results and will process them, but for now we simply need a definition for this study among the others, in which we run Trials with both versions of the command to verify similar context usage in both cases (indicating that files were not reloaded).
+
+---
+
+Next, and related to the above (as it was discovered experimenting with `/analyze-spec-doc` with explicit file list removed), we need to add notes to confirm that Experiment-04B and Experiment-04C require more work than previously expected. Currently, this document expects that lowering the spec load from the (current) 9 files to 8 or 7 is as simple as removing them from the list in the `/analyze-spec` command. This is incorrect. The Session Agent is very capable and will discover the omitted files (e.g., `module-epsilon.md` and `module-phi.md`) due to their integration and cross-referencing among the other files. It will consistently take initiative to seek out and read these files, not depending merely on their suggestion in the command. What this means is that in order to perform Experiment-04B or Experiment-04C, we will have to perform more invasive surgical edits throughout the current spec scenario.  There is no possibility of a `/analyze-wpd-8files` command easily solving this.
+
+---
+
+Experiment-04A should be updated to include the creation of `/setup-none`, which is identical to the other `/setup-*` commands, except that it pre-loads NO files. It was not as straightforward as "simply omit the `/setup-easy` step in the existing...", because the Trial still needed to generate a Workscope ID.
+
+---
+
+## New Session: Claude Code v2.1.6: `opus` (locked, 2.1.15 is current)
+## Returning to the claude-code-bug-phantom-reads-17407 project
+## Pre-processing Experiment-Methodology-04L
+
+---
+
+/wsd:init --custom
+
+---
+
+## /analyze-wpd-doc docs/wpds/pipeline-refactor.md
+/update-trial-data dev/misc/experiment-04l/20260126-083436
+/update-trial-data dev/misc/experiment-04l/20260126-083737
+/update-trial-data dev/misc/experiment-04l/20260126-083842
+
+## /analyze-wpd docs/wpds/pipeline-refactor.md
+/update-trial-data dev/misc/experiment-04l/20260126-084319
+/update-trial-data dev/misc/experiment-04l/20260126-084419
+/update-trial-data dev/misc/experiment-04l/20260126-084512
+
+---
+
+## intentionaly did not create `file_token_counts.json`
+
+---
+
+## New Session: Claude Code v2.1.6: `opus` (locked, 2.1.15 is current)
+## Returning to the claude-code-bug-phantom-reads-17407 project
+## Pre-processing  Experiment-Methodology-04A
+
+---
+
+/wsd:init --custom
+
+---
+
+/update-trial-data dev/misc/experiment-04a/20260125-190604
+/update-trial-data dev/misc/experiment-04a/20260125-190609
+/update-trial-data dev/misc/experiment-04a/20260125-191433
+
+/update-trial-data dev/misc/experiment-04a/20260125-191438
+/update-trial-data dev/misc/experiment-04a/20260125-193336
+/update-trial-data dev/misc/experiment-04a/20260125-193404
+
+---
+
+## intentionaly did not create `file_token_counts.json`
+
+---
+
+## New Session: Claude Code v2.1.6: `opus` (locked, 2.1.15 is current)
+## Returning to the claude-code-bug-phantom-reads-17407 project
+## Pre-processing  Experiment-Methodology-04K
+
+---
+
+/wsd:init --custom
+
+---
+
+/update-trial-data dev/misc/experiment-04k/20260125-210757
+/update-trial-data dev/misc/experiment-04k/20260125-210837
+/update-trial-data dev/misc/experiment-04k/20260125-210913
+
+/update-trial-data dev/misc/experiment-04k/20260125-211516
+/update-trial-data dev/misc/experiment-04k/20260125-211544
+/update-trial-data dev/misc/experiment-04k/20260125-211609
+
+---
+
+## intentionaly did not create `file_token_counts.json`
+
+---
+
+## New Session: Claude Code v2.1.6: `opus` (locked, 2.1.15 is current)
+## Returning to the claude-code-bug-phantom-reads-17407 project
+## Pre-processing  Experiment-Methodology-04D
+
+---
+
+/wsd:init --custom
+
+---
+
+## /setup-hard
+/update-trial-data dev/misc/experiment-04d/20260126-081157
+/update-trial-data dev/misc/experiment-04d/20260126-081436
+/update-trial-data dev/misc/experiment-04d/20260126-081607
+## /setup-easy
+/update-trial-data dev/misc/experiment-04d/20260126-081943
+/update-trial-data dev/misc/experiment-04d/20260126-082019
+/update-trial-data dev/misc/experiment-04d/20260126-082029
+
+---
+
+## intentionaly did not create `file_token_counts.json`
+
+
