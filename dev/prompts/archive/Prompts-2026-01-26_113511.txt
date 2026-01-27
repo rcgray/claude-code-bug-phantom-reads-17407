@@ -1,0 +1,309 @@
+## Models:
+## `opus` : claude-opus-4-5-20251101
+## `sonnet` : claude-sonnet-4-5-20250929
+## `sonnet[1m]` : claude-sonnet-4-5-20250929[1m]
+## `haiku` : claude-haiku-4-5-20251001
+
+## New Session: Claude Code v2.1.6: `opus` (locked, 2.1.15 is current)
+## Experiment-04L discussion
+
+---
+
+/wsd:init --custom
+
+---
+
+Please read `docs/core/Post-Experiment-04-Ideas.md` ( @docs/core/Post-Experiment-04-Ideas.md ) to catch up on our experiment definitions. These are smaller, preliminary experiences (`Experiment-04A` through `Experiment-04L`) that we are pursuing to clarify some of our assumptions before we determine the direction we should go from here.
+
+We need to work with a new document `docs/core/Experiment-04-Prelim-Results.md`, which I would ask you to either create or append to with the results of our latest variant.
+
+We have generated Trials for `Experiment-04L`. Before we look at the data, explain to me the purpose of this experiment and what we expect to see. What would the results inform us about and how would it refine our existing theories?
+
+---
+
+The Trials for this study can be found in `dev/misc/experiment-04l`.
+
+We ran six Trials, with the following results:
+
+## /analyze-wpd-doc docs/wpds/pipeline-refactor.md
+- 20260126-083436 - Success (no self-reported phantom reads)
+- 20260126-083737 - Success (no self-reported phantom reads)
+- 20260126-083842 - Success (no self-reported phantom reads)
+## /analyze-wpd docs/wpds/pipeline-refactor.md
+- 20260126-084319 - Success (no self-reported phantom reads)
+- 20260126-084419 - Success (no self-reported phantom reads)
+- 20260126-084512 - Success (no self-reported phantom reads)
+
+Please record your results in our Prelim-Results file as well as reporting them to me so we can discuss. Let me know what you find.
+
+---
+
+## New Session: Claude Code v2.1.6: `opus` (locked, 2.1.15 is current)
+## Experiment-04A discussion
+
+---
+
+/wsd:init --custom
+
+---
+
+Please read `docs/core/Post-Experiment-04-Ideas.md` ( @docs/core/Post-Experiment-04-Ideas.md ) to catch up on our experiment definitions. These are smaller, preliminary experiences (`Experiment-04A` through `Experiment-04L`) that we are pursuing to clarify some of our assumptions before we determine the direction we should go from here.
+
+We need to work with a new document `docs/core/Experiment-04-Prelim-Results.md`, which I would ask you to either create or append to with the results of our latest variant.
+
+We have generated Trials for `Experiment-04A`. Before we look at the data, explain to me the purpose of this experiment and what we expect to see. What would the results inform us about and how would it refine our existing theories?
+
+---
+
+The Trials for this study can be found in `dev/misc/experiment-04a`.
+
+We ran six Trials, with the following results:
+
+- 20260125-190604 - Success (no self-reported phantom reads)
+- 20260125-190609 - Success (no self-reported phantom reads)
+- 20260125-191433 - Success (no self-reported phantom reads)
+- 20260125-191438 - Success (no self-reported phantom reads)
+- 20260125-193336 - Success (no self-reported phantom reads)
+- 20260125-193404 - Success (no self-reported phantom reads)
+
+Please record your results in our Prelim-Results file as well as reporting them to me so we can discuss. Let me know what you find.
+
+---
+
+## New Session: Claude Code v2.1.6: `opus` (locked, 2.1.15 is current)
+## Experiment-04K discussion
+
+---
+
+/wsd:init --custom
+
+---
+
+Please read `docs/core/Post-Experiment-04-Ideas.md` ( @docs/core/Post-Experiment-04-Ideas.md ) to catch up on our experiment definitions. These are smaller, preliminary experiences (`Experiment-04A` through `Experiment-04L`) that we are pursuing to clarify some of our assumptions before we determine the direction we should go from here.
+
+We need to work with a new document `docs/core/Experiment-04-Prelim-Results.md`, which I would ask you to either create or append to with the results of our latest variant.
+
+We have generated Trials for `Experiment-04K`. Before we look at the data, explain to me the purpose of this experiment and what we expect to see. What would the results inform us about and how would it refine our existing theories?
+
+---
+
+The Trials for this study can be found in `dev/misc/experiment-04k`.
+
+We ran six Trials, with the following results:
+
+- 20260125-210757 - Success (no self-reported phantom reads)
+- 20260125-210837 - Success (no self-reported phantom reads)
+- 20260125-210913 - Success (no self-reported phantom reads)
+- 20260125-211516 - Success (no self-reported phantom reads)
+- 20260125-211544 - Success (no self-reported phantom reads)
+- 20260125-211609 - Success (no self-reported phantom reads)
+
+Please record your results in our Prelim-Results file as well as reporting them to me so we can discuss. Let me know what you find.
+
+---
+
+## New Session: Claude Code v2.1.6: `opus` (locked, 2.1.15 is current)
+## Experiment-04D discussion
+
+---
+
+/wsd:init --custom
+
+---
+
+Please read `docs/core/Post-Experiment-04-Ideas.md` ( @docs/core/Post-Experiment-04-Ideas.md ) to catch up on our experiment definitions. These are smaller, preliminary experiences (`Experiment-04A` through `Experiment-04L`) that we are pursuing to clarify some of our assumptions before we determine the direction we should go from here.
+
+We need to work with a new document `docs/core/Experiment-04-Prelim-Results.md`, which I would ask you to either create or append to with the results of our latest variant.
+
+We have generated Trials for `Experiment-04D`. Before we look at the data, explain to me the purpose of this experiment and what we expect to see. What would the results inform us about and how would it refine our existing theories?
+
+---
+
+The Trials for this study can be found in `dev/misc/experiment-04d`.
+
+We ran six Trials, with the following results:
+
+## /setup-hard
+- 20260126-081157 - Context filled (/analyze-wpd could not be executed) - but no phantom reads
+- 20260126-081436 - Context filled (/analyze-wpd could not be executed) - but no phantom reads
+- 20260126-081607 - Context filled (/analyze-wpd could not be executed) - but no phantom reads
+## /setup-easy
+- 20260126-081943 - Success (no phantom reads self-reported)
+- 20260126-082019 - Success (no phantom reads self-reported)
+- 20260126-082029 - Success (no phantom reads self-reported)
+
+Please record your results in our Prelim-Results file as well as reporting them to me so we can discuss. Let me know what you find.
+
+---
+
+## New Session: Claude Code v2.1.6: `opus` (locked, 2.1.15 is current)
+## Experiment-04D discussion
+
+---
+
+/wsd:init --custom
+
+---
+
+Please read `docs/core/Investigation-Journal.md` ( @docs/core/Investigation-Journal.md ) to understand where we are at with our investigation.  Please explain the current state of theories that we are pursuing to figure out what causes the phantom reads phenomenon and how we might create a reliable reproduction of it in this project.
+
+---
+
+Great, I'm glad you listed open questions, because that is the next step we need to take.  Please then read `docs/core/Post-Experiment-04-Ideas.md` ( @docs/core/Post-Experiment-04-Ideas.md ) to catch up on our experiment definitions. These are smaller, preliminary experiences (`Experiment-04A` through `Experiment-04L`) that we are pursuing to clarify some of our assumptions before we determine the direction we should go from here.
+
+Please enumerate the "open questions" (including those you've already stated) that we need to answer in order to continue our investigation. Be exhaustive in this, and number the questions `RQ-#`. We're going to be creating a more formal catalog of these as we continue to explore how the Claude Code harness works with file reads.
+
+Let's create a new document: `docs/core/Research-Questions.md` where we document all of these numbered questions.  Some of these may be major, some minor, but we need a central place to record everything that we question or confirm about how the Claude Code harness behaves.
+
+---
+
+Great, and well done on tying the RQs to the Experiments we've defined so far. I'm happy to say we've actually now executed four of our preliminary experiments in the `Experiment-04*` family: `Experiment-04L`, `Experiment-04A`, `Experiment-04K`, and `Experiment-04D`. The analysis of the results of these can be found in `docs/core/Experiment-04-Prelim-Results.md` ( @docs/core/Experiment-04-Prelim-Results.md ).
+
+I would like to take the things we've learned from these experiments and update our `docs/core/Research-Questions.md` file. If there are aspects of the harness's behavior that we've learned in these experiments that don't yet have an RQ, we should create a new one for it, so that we can be sure we're building a comprehensive record of all the things we learn.  We should update our Research-Questions.md document and also list them in your response so that we can discuss what you've found.
+
+---
+
+## New Session: Claude Code v2.1.6: `opus` (locked, 2.1.15 is current)
+## Experiment-04D discussion
+
+---
+
+/wsd:init --custom
+
+---
+
+Please read `docs/core/Investigation-Journal.md` ( @docs/core/Investigation-Journal.md ) to understand where we are at with our investigation. After that, familiarize yourself with `docs/core/Research-Questions.md` ( @docs/core/Research-Questions.md ) to understand the exhaustive list of questions we are pursuing in our experiments. This was recently updated following the completion of several experiments (`Experiment-04L`, `Experiment-04A`, `Experiment-04K`, and `Experiment-04D`) outlined among others in `docs/core/Post-Experiment-04-Ideas.md` ( @docs/core/Post-Experiment-04-Ideas.md ).
+
+What we need to figure out is what we should be working on next.  Do the results of the initial preliminary experiments from the `Experiment-04*` family change our priority list for the next round of experiments?  What is the most pressing unanswered research question that can be determined most easily?  Are there _new_ experiments that we should consider in light of the insight gained from this most recent batch?
+
+---
+
+This is not quite what I was hoping for, which lead me to believe we need to update our documentation.
+
+Regarding your proposed `Experiment-04M`: this is preciely what our experiments looked like _building up_ to this point. In fact, it is what _defined_ `Experiment-Methodology-04.md` (which is the the "parent" study to this smaller letter-named breakout studies spinning from it). Please explain how the proposed commands you've suggested vary materially from the existing `/setup-easy`, `/setup-medium`, and `/setup-hard` commands.  Is it just the precision/resolution of the pre-loaded (`X`) value?
+
+And on this note, does our current documentation reflect the very first `Experiment-Methdology-04` studies where when `Y` only consisted of 7 files, all Trials "passed" (both Easy and Hard), and by upping this to 9 files by adding `module_epsilon.md` and `module_phi.md` to the specs, all Trials "failed"?  There should be an instinctual understanding that `X` and `Y` are _dependent on each other_ (i.e., with respect to `T`), but somehow we've devolved into thinking we're trying to find a "magic value" again for `X`... I thought we had moved past this.  I'm not reprimanding, but rather hoonestly inquiring to take advantage of this opportunity of apparent misunderstanding: has this not been clearly explained in our documentation that you've onboarded with?
+
+Regarding your proposed `Experiment-04N`: we are not at all interested in the 1M token model as a solution. This was tested _purely_ to examine the behavior when `T` was changed, because it was the only way we could do so when evaluating our working model of `X` + `Y` with regard to `T`. This was a one-time exploration concession, and for many reasons, this investigation must remain focused on the 200k limit model.  We perhaps want to make this clearer in our documentation, because you are not the first agent to improperly pursue this.
+
+Regarding your proposed `Experiment-04O`: I need you to explain this in a little more detail. The way I'm interpreting your definition, I can't differentiate it from the existing `Experiment-04A` (zero pre-load using `/setup-none`, then all files loaded via agent-invoked Reads during the `/analyze-wpd` operation). It also sounds limiar to `Experiment-04D`, where the `/setup-maxload` command is used to load (via hoisting) all of the spec files prior to the `/analyze-wpd` operation (so that the agent has no reads to invoke other than the WPD itself).  Would this be something like simply moving the `/setup-maxload` _into_ the `/analyze-wpd` command so that the agent invokes the hoisted reads?  I'm not totally understanding.
+
+---
+
+Well, said, I like your clarification regarding "understanding the X+Y surface with with respect to T". Can we update the existing RQ-B8 to include this nuance and prevent further instinct to hunt for magic numbers?
+
+On the 1M Model, I think you have a good suggestion on updating _both_ the `Post-Experiment-04-Ideas.md` and the `Research-Questions.md` files to include this explicit note. Updating both might be helpful, because these two documents will have different lifecycles in the overall project - `Research-Questions.md` will be with us through to the end, but misunderstandings will be more likely while `Post-Experiment-04-Ideas.md` is still relevant, so a duplicate warning there is valuable.
+
+To answer your numbered questions:
+
+1) I am less concerned with "mapping" the X+Y surface than I am merely finding a set of points that render the repro cases that we're aiming to provide users of this project (via GitHub).  We want to provide the harness developers and other interested parties with an easy way to demonstrate the phenomenon happening and not happening (Aim #3 discussed in the PRD.md doc).  In a way, we've meandered through this "mapping" already - first by establishing different `X` values based on anecdotal evidence from our earliest WPD Dev project runs (where this issue was first discovered and originally our only repro source). Then, we adjusted various `Y` values until we hit our mark. The key point was in finding that our initial Experiment-Methodology-04 has successes at all three `X` levels (i.e., `/setup-easy`, `/setup-medium`, and `/setup-hard`), and we finally saw phantom reads when we increased our `Y` by adding `module_epsilon.md` and `module_phi.md` to the operational scenario.  Though with this change we were able to finally observe a phantom read "in the lab" for the first time, we observed that _all_ Trials failed regardless of `/setup-easy` or `/setup-hard` status (i.e., regardless of `X` level).  Our post-04 experiments (the `Experiment-04#` explorations) are trying to dig into why, or what additional elements we need to consider in our mental model, because a simple explanation of `X` + `Y` > `T` is not sufficient.
+
+2) 04F is still valuable, because it isolates one of the things that changed between the "all success" and "all failing" modes of `Experiment-Methodology-04`.  Yes, the point of adding `module_epsilon.md` and `module_phi.md` increased our token consumption, but it did so via the addition of two files. It's not expected that this should matter, but if we're searching for "nuance that we need to add to our mental model", then that's one aspect we can investigate and rule out.
+
+3) See above for documentation updates that I think would be valuable.
+
+So that's where we are now - we have some hope in that at least we finally have constructed a lab-based instance of phantom reads, but we're discouraged by the fact that it doesn't fit our current mental model.
+
+---
+
+OK, I will put 0F4 as a candidate for working toward. I'll need to craft a plan for establishing the setup files, but in the meantime I want to focus on the "next steps" question. Yes, let me know your thoughts on this - I'm a bit stuck on the best way for us to enhance our current mental model, and what kind of experiments could help get us there.
+
+---
+
+On Hypothesis A, 04F sounds like a good next step, and I think your alternative (04P) is brilliant. However, if 9 files is a file-count limit, then wouldn't have 04A failed?
+
+On Hypothesis B, you state that " We know X≈0 + Y=57K succeeds, and X=73K + Y=57K fails. The transition is somewhere in between" and then propose to create `/setup-30k` and `/setup-50k` variants. Did you forget about the existing `/setup-easy`, `/setup-medium` and `/setup-hard`? I realize that even if it "smells" like magic number-chasing, sometimes "mapping the X+Y surface" means holding one value steady and testing the other one. I'm not saying you're wrong, but your suggestion appears to be lacking in some intuition, so I want to double-check it.
+
+On Hypothesis C, if there was something specifici about Epsilon/Phi, then wouldn't 04A have failed?
+
+On Hypothesis D, we could put 04G on the next priority list along with 04F.
+
+Another note - Running 04F means that we have to set up 04C as a prerequisite, so we might as well do that.  We don't have to go through the whole surgical edit process we did to add `module_epsilon.md` and `module_phi.md` - we can just branch the repository and I can restore the files in `docs/specs` (and `/analyze-wpd`) to what they were pre-episilon/phi.
+
+---
+
+AHH, I get it.  I was looking at the token counts of the three existing `/setup-*` commands as:
+
+- `/setup-easy`: 35k tokens of pre-loaded file content
+- `/setup-medium`: 50k tokens of pre-loaded file content
+- `/setup-hard`: 68k tokens of pre-loaded file content
+
+And therefore I was suspcious when I saw you call for creating one for "30k" and "50k" (i.e., thinking _we already basically have those_).  What I misunderstood was that you were talking about _total_ observed token count after preloading (which is what `X` actually means), and noting that our existing values include the 23k baseline and the extra "unaccounted" overhead resulting from reads.
+
+- `/setup-easy`: 73k observed = 23k baseline + 35k preload + 15k unaccounted
+- `/setup-medium`: 92k observed = 23k baseline + 50k preload + 19k unaccounted
+- `/setup-hard` = 120k observed = 23k baseline + 68k preload + 29k unaccounted
+
+(there's a 38-42% token overhead for reading files that we haven't figured out yet)
+
+It's worth noting (and clarifying in our documentation!) that the `/setup-none` has zero _preload_ (and associated unaccounted), but it still has the 23k baseline that all sessions start with filled by the harness (system prompt, tools, etc.).
+
+So Hypothesis B is saying "since `/setup-none` succeeds with `Y` = 57k and `X` = 23k (0 preload), and `/setup-easy` fails with `Y` = 57k and `X` = 73k (35k + 15k preload)", maybe we explore different values of preload to find where this changes. So we create a `/setup-easy-#` that simply loads one of the preload files and explores loading between 0k and 35k.  For this, we have the following options at hand already:
+
+- `docs/specs/operations-manual-standard.md`: 19.3k (= 27.1k added)
+- `docs/specs/operations-manual-exceptions.md`: 15.6k (= 21.8k added)
+- `docs/specs/architecture-deep-dive.md`: 14.7k (= 20.6k added)
+- `docs/specs/troubleshooting-compendium.md`: 18.5k (= 25.9k added)
+
+We could cut one of these down as well to hit additional targets.
+
+An experiment for this would be easy to set up - Give me your precise prescription for what we should do. Then, append this to the experiments discussed in `docs/core/Post-Experiment-04-Ideas.md`.  It should be named whatever is next in the list, and let me know what that name is (`04M`?)
+
+Then, let's update our documentation to make sure that we stay consistent regarding preload file token size and total loading budget following pre-load. Notes regarding `/setup-none` should be clarified that these have 0 contribution from files, but still have the harness baseline.
+
+And yes, I think it's worth studying 04B/04C/04F as well via a branch, especially if we can hit all of those experiments that way.
+
+Our next steps will be 04M and the 04B/04C/04F via git branch.
+
+---
+
+## New Session: Claude Code v2.1.6: `opus` (locked, 2.1.20 is current)
+
+---
+
+/wsd:init --custom
+
+---
+
+Please read `docs/core/Investigation-Journal.md` ( @docs/core/Investigation-Journal.md ) to understand where we are at with our investigation. After that, familiarize yourself with `docs/core/Research-Questions.md` ( @docs/core/Research-Questions.md ) to understand the exhaustive list of questions we are pursuing in our experiments.
+
+---
+
+I would like to add a new Research Question. We've noticed when pre-loading files, where we've set up several different levels of preload across three different commands, that the harness empirically reports more context consumed than the actual tokens contained in the file data:
+
+The following measurements were taken while performing `Experiment-Methdology-04` right before the `/analyze-wpd` operation:
+
+- `/setup-easy`:
+  - Total Context: 73k observed = 23k baseline + 35k preload + 15k unaccounted (?)
+  - Message Context: 49.6k observed = 0k baseline + 35k preload + 14.6k unaccounted (?)
+- `/setup-medium`:
+  - Total Context: 92k observed = 23k baseline + 50k preload + 19k unaccounted (?)
+  - Message Context: 68.9k observed = 0k baseline + 50k preload + 18.9k unaccounted (?)
+- `/setup-hard`:
+  - Total Context: 120k observed = 23k baseline + 68k preload + 29k unaccounted (?)
+  - Message Context: 96.9k observed = 0k baseline + 68k preload + 28.9k unaccounted (?)
+
+14600 / 34959 = 41.8%
+18900 / 49635 = 38.1%
+28900 / 68112 = 42.4%
+
+There appears to be a ~40% token "overhead" incurred from reading files. We don't know where this comes from or why it's happening.  It's not a high priority (we'll simply work around it), but it is one of those mysteries of the harness that we should know is an open question.
+
+Figure out the best place for this question to live among the RQs and add it.
+
+---
+
+As the project is growing, I want to take some time to reorganize it, since some parts are growing cluttered and we're losing track of things:
+
+- **Timeline**: We have the `Investigation-Journal.md` file that we occasionally update, but I realized when looking for the result of a particular experiment round, I couldn't quite place it. Having a simple history of the tasks we've performed, experiments we ran, and the results we found organized into a concise chronological record would be helpful.  If I want to know "when were the `WSD-Dev-02-Analysis-2` results created, and what were they exploring?", or "when did we test the Sonnet-1m model?", I would like to have a place I could go to and perform a quick scan to find out.
+
+- **Documents**: Documents that have begun to fill up the `docs/core/` folder, especially as the project has progressed and we've mixed different kinds of files together. Help me come up with a better organization structure under `docs/` for this - the `docs/core/` folder should really only be for _core_ documentation that is expected to serve the project for its entirety.
+
+- **RQs and Knowledge Base**: We've recently created `docs/core/Research-Questions.md` ( @docs/core/Research-Questions.md ) to track everything we do and do not understand about the Claude Code harness. However, these RQs were created from (and confirmed by) more recent experiments, and I want to ensure the full breadth of everything we've discovered is accounted for in this document. Case in point, I was recently going through an old prompt log and I remembered that we at one point discovered it's impossible to have the Session Agent run the `/context` command - it must always be run manually by the User. This would be a good piece of information to know. It's not directly related to our RQs, but it does affect our approach and it is something we experimented on and learned during this study - perhaps there can be a section of our `Research-Questions.md` document that can record these additional pieces of knowledge.
+
+Further, we need to perform a more exhaustive search for the things we've learned that may belong in this file. I would propose processing the prompt logs we've generated over the course of this project.  However, there is a lot of information (~30 files) and the context is too large, so this would need to be broken up over workscopes.
+
+I'm curious to know what your plan would be for a project like this, which we would likely implement as a "feature" and process through multiple sessions.
+
+---
+

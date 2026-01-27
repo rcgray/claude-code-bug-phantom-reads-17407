@@ -1441,4 +1441,57 @@ See `docs/core/Post-Experiment-04-Ideas.md` for full experiment details and exec
 
 ---
 
-*Last updated: 2026-01-24*
+## 2026-01-26: Token Accounting Clarification and Experiment Status Update
+
+**Event**: Clarified token accounting terminology and updated experiment status following completion of 04A, 04D, 04K, and 04L.
+
+### Token Accounting Reference
+
+When discussing context consumption, we use the following terms consistently:
+
+| Term | Definition | Example |
+|------|------------|---------|
+| **Baseline** | Harness overhead present in ALL sessions (system prompt, tools, etc.) | ~23K tokens |
+| **Preload** | File tokens hoisted via `@` notation in setup commands | Varies by command |
+| **Overhead** | Additional tokens observed beyond file content (~38-42% of preload) | Reading overhead, message formatting |
+| **X (total)** | Total observed context after setup = Baseline + Preload + Overhead | Reported by `/context` |
+
+**Setup Command Token Breakdown**:
+
+| Command | Preload (file tokens) | Observed X (total) | Overhead |
+|---------|----------------------|-------------------|----------|
+| `/setup-none` | 0K | ~23K | 0K (no files) |
+| `/setup-easy` | ~35K | ~73K | ~15K (43%) |
+| `/setup-medium` | ~50K | ~92K | ~19K (38%) |
+| `/setup-hard` | ~68K | ~120K | ~29K (43%) |
+
+**Key Insight**: The `/setup-none` command has zero preload but still has the ~23K baseline that ALL sessions start with (harness system prompt, tools, etc.). This is why 04A reports X≈23K, not X=0.
+
+### Completed Experiment Summary
+
+| Experiment | X (total) | Y | Outcome | Key Finding |
+|------------|-----------|---|---------|-------------|
+| **04A** | ~23K (0 preload) | 57K (9 files) | 6/6 SUCCESS | Y=57K is safe when X is low |
+| **04D** | ~150K (maxload) | 6K (1 file) | SUCCESS | High X is safe when Y is minimal |
+| **04K** | Various | 57K (9 files) | 6/6 SUCCESS | 1M model avoids phantom reads |
+| **04L** | ~150K (maxload) | 6K (1 file) | SUCCESS | Harness avoids redundant reads |
+| **Method-04** | 73K-120K | 57K (9 files) | 8/8 FAILURE | High X + High Y = danger zone |
+
+### Current Understanding
+
+The X+Y interaction is the critical factor:
+- **Low X + High Y** → SUCCESS (04A)
+- **High X + Low Y** → SUCCESS (04D)
+- **High X + High Y** → FAILURE (Method-04)
+
+The transition point for X (when Y=57K) lies somewhere between 23K and 73K. Experiment-04M will explore this boundary by testing intermediate X values.
+
+### Next Experiments
+
+1. **04M** (X Boundary Exploration): Create `/setup-mid` (~50K X) and test with Y=57K
+2. **04C/04F via Git Branch**: Restore pre-epsilon/phi state and test file count vs token count
+3. **04G** (Sequential vs Parallel): Test accumulation rate hypothesis
+
+---
+
+*Last updated: 2026-01-26*

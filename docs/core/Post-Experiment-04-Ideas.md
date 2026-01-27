@@ -379,6 +379,8 @@ This is the most labor-intensive preparation among all experiments.
 
 **Preparation**: None required. Simply switch the model configuration and repeat the Methodology-04 protocol.
 
+**⚠️ SCOPE LIMITATION**: This experiment is a **one-time diagnostic** to validate whether T is a relevant variable in the X+Y model. The 1M model is **NOT a direction to pursue** for this investigation. Regardless of 04K's outcome, this project must remain focused on the **200K model**, which represents the default user experience. Do not propose further 1M model experiments or frame the 1M model as a recommended workaround for reproduction scenarios.
+
 ---
 
 ### Experiment-04L: Hoisted Content Re-Read Behavior
@@ -405,6 +407,57 @@ This is the most labor-intensive preparation among all experiments.
 
 ---
 
+### Experiment-04M: X Boundary Exploration (Intermediate Preload Values)
+
+**Concept**: Find where in the X range between `/setup-none` (X≈23K) and `/setup-easy` (X≈73K) the transition from success to failure occurs when Y=57K.
+
+**Background**: We know:
+- `/setup-none` + Y=57K → SUCCESS (04A): X ≈ 23K (0 preload + 23K baseline)
+- `/setup-easy` + Y=57K → FAILURE (Method-04): X ≈ 73K (35K preload + 23K baseline + 15K overhead)
+
+The transition point lies somewhere in the 23K-73K X range. Understanding where this boundary is helps quantify the X+Y interaction and potentially enables calibration of a reliable "Medium" reproduction scenario (target 50% failure rate).
+
+**Token Accounting Reference** (see also Investigation-Journal.md):
+- **Baseline**: ~23K tokens (harness system prompt, tools, etc.) - present in ALL sessions
+- **Preload**: File tokens hoisted via `@` notation
+- **Overhead**: ~38-42% additional tokens observed beyond file content (reading overhead, message formatting)
+- **X (total)**: Baseline + Preload + Overhead
+
+**Available Single-File Preload Options**:
+
+| File | File Tokens | Expected X (total observed) |
+|------|-------------|----------------------------|
+| `architecture-deep-dive.md` | 14.7K | ~44K |
+| `operations-manual-exceptions.md` | 15.6K | ~45K |
+| `troubleshooting-compendium.md` | 18.5K | ~49K |
+| `operations-manual-standard.md` | 19.3K | ~50K |
+
+**Procedure**:
+1. Create `/setup-mid` command that preloads ONE file (recommend `operations-manual-standard.md` for X≈50K, roughly midpoint of the gap)
+2. Run 4-6 trials: `/setup-mid` → `/context` → `/analyze-wpd` → `/context` → self-report → `/export`
+3. Record outcomes and compare to 04A (X≈23K, SUCCESS) and Method-04 Easy (X≈73K, FAILURE)
+4. If results are mixed (some success, some failure), this X value may be near the boundary
+5. If all succeed, try a higher preload; if all fail, try a lower preload
+
+**What It Tests**: Where in the X range does Y=57K become dangerous?
+
+**Expected Outcomes**:
+- If X≈50K + Y=57K → **ALL SUCCESS**: Boundary is between 50K and 73K; consider testing X≈60K
+- If X≈50K + Y=57K → **ALL FAILURE**: Boundary is between 23K and 50K; consider testing X≈35K
+- If X≈50K + Y=57K → **MIXED**: X≈50K may be near the boundary; useful for "Medium" scenario calibration
+
+**Priority**: **HIGH** - Directly addresses the X+Y interaction and enables scenario calibration.
+
+**Preparation**: Minimal - create `/setup-mid` command that hoists a single file. Can iterate with different files to test different X values.
+
+**Recommended First Test**: Use `operations-manual-standard.md` (19.3K file tokens → X≈50K) as it's roughly the midpoint between setup-none and setup-easy.
+
+**Follow-up Variants** (if needed):
+- `/setup-low`: Use `architecture-deep-dive.md` (14.7K) for X≈44K
+- `/setup-high`: Combine two smaller files for X≈60K (e.g., architecture + troubleshooting)
+
+---
+
 ## Preparation Requirements and Ease of Running
 
 Based on the preparation requirements identified above, experiments are grouped by ease of execution:
@@ -421,10 +474,11 @@ Based on the preparation requirements identified above, experiments are grouped 
 
 ### Minimal Preparation (Command Changes Only)
 
-| Experiment | Description      | Preparation                                                |
-| ---------- | ---------------- | ---------------------------------------------------------- |
-| **04A**    | Minimal X        | Create `/setup-none` (Workscope ID only, no file hoisting) |
-| **04D**    | Max X, Minimal Y | Create `/setup-maxload`; `/analyze-wpd-doc` already exists |
+| Experiment | Description          | Preparation                                                |
+| ---------- | -------------------- | ---------------------------------------------------------- |
+| **04A**    | Minimal X            | Create `/setup-none` (Workscope ID only, no file hoisting) |
+| **04D**    | Max X, Minimal Y     | Create `/setup-maxload`; `/analyze-wpd-doc` already exists |
+| **04M**    | Intermediate X       | Create `/setup-mid` (single-file preload for X≈50K)        |
 
 ~~**Note on 04B/04C**: These are simple because `module-epsilon.md` and `module-phi.md` were not fully cross-integrated into other specs during Phase 10 implementation. They can be excluded by editing the command's file list without triggering the Session Agent to discover them via cross-references.~~
 
@@ -458,45 +512,46 @@ Based on the preparation requirements identified above, experiments are grouped 
 
 ## Priority Summary
 
-### Tier 1 - Critical Experiments (Run First)
+### Completed Experiments
 
-| ID  | Experiment          | Key Question                        | ROI       | Ease        |
-| --- | ------------------- | ----------------------------------- | --------- | ----------- |
-| 04L | Hoisted Re-Read     | Does harness avoid redundant reads? | High      | Immediate   |
-| 04A | Minimal X (Easy-0)  | Is Y threshold absolute?            | Very High | Minimal     |
-| 04D | Max X, Minimal Y    | Is hoisted content safe?            | High      | Minimal     |
-| 04B | 8-File Y Threshold  | Where exactly is the cutoff?        | High      | Significant |
+| ID  | Experiment          | Result | Key Finding |
+| --- | ------------------- | ------ | ----------- |
+| 04A | Minimal X (Easy-0)  | ✅ 6/6 SUCCESS | Y=57K succeeds when X≈23K; Y threshold is NOT absolute |
+| 04D | Max X, Minimal Y    | ✅ SUCCESS | Hoisting is safe; minimal Y succeeds even at high X |
+| 04K | 1M Context Model    | ✅ 6/6 SUCCESS | T matters; 1M model avoids phantom reads *(diagnostic only, out of scope)* |
+| 04L | Hoisted Re-Read     | ✅ SUCCESS | Harness avoids redundant reads for hoisted files |
 
-These experiments directly test the core hypothesis that Y has an absolute threshold independent of X. Note: 04L should be run before 04D to confirm that explicit file listing after hoisting doesn't cause context duplication.
+### Tier 1 - Critical Experiments (Run Next)
 
-**Note (2026-01-26)**: 04A ease updated from "Immediate" to "Minimal" (requires `/setup-none` command). 04B was demoted in run order due to significant preparation requirements (surgical removal of cross-references). Run 04L first (immediate), then 04A and 04D (minimal preparation).
+| ID  | Experiment              | Key Question                          | ROI       | Ease      |
+| --- | ----------------------- | ------------------------------------- | --------- | --------- |
+| 04M | Intermediate X          | Where in 23K-73K does Y=57K fail?     | Very High | Minimal   |
+| 04C | 7-File Sanity Check     | Confirm Method-03 behavior still holds | High     | Git branch |
+| 04F | File Count vs Tokens    | Is trigger file count or token count? | High      | Git branch |
 
-### Tier 2 - Important Experiments (Run Second)
+**04M**: Create `/setup-mid` to test X≈50K with Y=57K. Maps the X boundary for the danger zone.
 
-| ID  | Experiment           | Key Question               | ROI    | Ease        |
-| --- | -------------------- | -------------------------- | ------ | ----------- |
-| 04K | 1M Context Model     | Does T matter at all?      | Medium | Immediate   |
-| 04F | File Count vs Tokens | What's the actual trigger? | High   | Significant |
+**04C/04F via Git Branch**: Instead of surgical edits, branch the repo and restore pre-epsilon/phi state. Run 04C first (sanity check), then 04F (mega-spec consolidation).
 
-These experiments refine our understanding or test mitigation strategies.
+### Tier 2 - Important Experiments
 
-### Tier 3 - Supporting Experiments (Run If Time Permits)
+| ID  | Experiment             | Key Question                | ROI    | Ease      |
+| --- | ---------------------- | --------------------------- | ------ | --------- |
+| 04G | Sequential vs Parallel | Does read pattern matter?   | Medium | Moderate  |
+| 04B | 8-File Y Threshold     | Where is Y boundary?        | Medium | Git branch |
 
-| ID  | Experiment             | Key Question                | ROI    | Ease     |
-| --- | ---------------------- | --------------------------- | ------ | -------- |
-| 04G | Sequential vs Parallel | Does read pattern matter?   | Medium | Moderate |
-| 04I | Partial MCP Hybrid     | Is MCP immunity read-level? | Medium | Moderate |
+**04G**: Tests the Dynamic Context Pressure hypothesis (accumulation rate).
 
-These experiments explore secondary questions or confirm existing understanding.
+**04B**: If 04C/04F are informative, 04B may help narrow the Y threshold further.
 
-### Tier 4 - Low Priority or Redundant
+### Tier 3 - Lower Priority
 
-| ID  | Experiment              | Key Question                | ROI | Ease        |
-| --- | ----------------------- | --------------------------- | --- | ----------- |
-| 04C | Reduce Y to 7 Files     | Sanity check only           | Low | Significant |
-| 04J | Examine Persisted Files | Diagnostic, not theoretical | Low | Immediate   |
-| 04E | Batch Y                 | May be covered by 04D       | Low | Uncertain   |
-| 04H | Intentional Early Reset | May be covered by 04D       | Low | Uncertain   |
+| ID  | Experiment              | Key Question                | ROI | Notes |
+| --- | ----------------------- | --------------------------- | --- | ----- |
+| 04I | Partial MCP Hybrid      | Is MCP immunity read-level? | Low | Mechanism investigation |
+| 04J | Examine Persisted Files | Diagnostic only             | Low | Uses existing trial data |
+| 04E | Batch Y                 | Covered by 04D results      | Low | Likely redundant |
+| 04H | Intentional Early Reset | Covered by 04D results      | Low | Likely redundant |
 
 These experiments are only valuable in specific circumstances or may be redundant with other experiments.
 
@@ -506,43 +561,43 @@ These experiments are only valuable in specific circumstances or may be redundan
 
 ## Recommended Execution Plan
 
-### Phase 1: Establish Y Threshold Independence (Minimal Prep)
+### Completed Phases
 
-1. Create `/setup-none` command (generates Workscope ID only, no file hoisting)
+**Phase 1: Y Threshold Independence** - ✅ COMPLETE
+- 04A (Minimal X): Confirmed Y=57K succeeds when X≈23K
+- **Finding**: Y threshold is NOT absolute; it depends on X
 
-2. Run **Experiment-04A** (Minimal X) with 4 trials
-   - If all fail: Y threshold confirmed independent of X
-   - Proceed to Phase 2
+**Phase 2: Hoisting Behavior** - ✅ COMPLETE
+- 04L (Hoisted Re-Read): Confirmed harness avoids redundant reads
+- 04D (Max X, Minimal Y): Confirmed hoisting is safe; minimal Y succeeds at any X
 
-~~3. Run **Experiment-04B** (8-File Threshold) with 4 trials per scenario~~
-   ~~- Narrows threshold to 42-50K or 50-57K range~~
+**Phase 3: Context Window Relevance** - ✅ COMPLETE (Diagnostic Only)
+- 04K (1M Model): Confirmed T matters; 1M model avoids phantom reads
+- **⚠️ Note**: This was diagnostic only. The 1M model is NOT a direction to pursue.
 
-**CORRECTION (2026-01-26)**: Experiment-04B has been deferred due to significant preparation requirements. The Session Agent discovers and reads omitted files through cross-references, requiring surgical removal of all cross-references to `module-phi.md` from other spec files. This makes 04B impractical to run in Phase 1.
+### Current Phase: Map X+Y Interaction Surface
 
-**Revised Phase 1**: Create `/setup-none`, then run 04A to establish whether Y threshold is independent of X. Threshold boundary testing (04B) deferred until preparation work is completed or deemed worthwhile based on 04A/04D results.
+**Step 1: Experiment-04M (X Boundary Exploration)**
 
-### Phase 2: Confirm Hoisting Behavior (Immediate + Minimal Prep)
+1. Create `/setup-mid` command that preloads `operations-manual-standard.md` (19.3K → X≈50K)
+2. Run 4-6 trials with Y=57K (9 files)
+3. Based on results:
+   - If all SUCCESS: Boundary is between 50K and 73K; consider `/setup-high` (X≈60K)
+   - If all FAILURE: Boundary is between 23K and 50K; consider `/setup-low` (X≈44K)
+   - If MIXED: X≈50K is near the boundary; useful for "Medium" scenario calibration
 
-3. Run **Experiment-04L** (Hoisted Re-Read Behavior) with 4 trials
-   - Compare context usage between `/analyze-wpd` and `/analyze-wpd-doc` after hoisting
-   - If similar: Confirms harness avoids redundant reads; proceed with 04D using `/analyze-wpd`
-   - If different: Use `/analyze-wpd-doc` for 04D to avoid context duplication
+**Step 2: Experiments 04C/04F via Git Branch**
 
-4. Run **Experiment-04D** (Max X, Minimal Y) with 4 trials
-   - If success: Confirms hoisting is safe, Y is critical
-   - If failure: Revise theory to include hoisting effects
-   - **Note**: Results may also inform Experiment-04E and Experiment-04H
+1. Branch the repository
+2. Restore `docs/specs/` and `/analyze-wpd` to pre-epsilon/phi state (7 files, ~42K Y)
+3. Run **04C** (sanity check): Confirm Y=42K still succeeds at all X levels
+4. Run **04F** (file count vs tokens): Create mega-specs (~57K in 4 files) and test
+   - If SUCCESS: File count matters (fewer files is safer)
+   - If FAILURE: Token count matters (or both)
 
-### Phase 3: Test Context Window Relevance (Immediate)
+**Step 3: Experiment-04G (Sequential vs Parallel)** - If time permits
 
-5. Run **Experiment-04K** (1M Model) with 4 trials
-   - If same failures: T is irrelevant, internal threshold governs
-   - If success: T matters, 200K model has lower effective threshold
-
-### Phase 4: Understand Trigger Mechanism (Significant Prep - Optional)
-
-6. Run **Experiment-04F** (File Count vs Tokens) if Phase 1-3 results suggest file count may matter
-   - Requires creating consolidated mega-spec files
+Test the Dynamic Context Pressure hypothesis by forcing sequential reads with pauses.
 
 ---
 
@@ -550,11 +605,11 @@ These experiments are only valuable in specific circumstances or may be redundan
 
 After completing these experiments, we should be able to answer:
 
-1. **What is the Y threshold?** (Exact range in tokens)
-2. **Does X matter?** (At all, or only for timing?)
-3. **Does T matter?** (Or is there an internal threshold?)
-4. **What triggers the threshold?** (File count, token count, or both?)
-5. **Can we reliably produce 0%, 50%, 100% failure rates?** (For Easy/Medium/Hard scenarios)
+1. ~~**What is the Y threshold?**~~ → Reframed: How do X and Y interact?
+2. ~~**Does X matter?**~~ → **ANSWERED**: Yes, critically. Low X makes high Y safe.
+3. ~~**Does T matter?**~~ → **ANSWERED**: Yes. 1M model avoids phantom reads.
+4. **What triggers the threshold?** (File count, token count, or both?) - 04F addresses this
+5. **Can we reliably produce 0%, 50%, 100% failure rates?** - 04M helps calibrate scenarios
 
 This understanding will enable us to create reliable reproduction scenarios and potentially identify mitigation strategies.
 
@@ -565,4 +620,8 @@ This understanding will enable us to create reliable reproduction scenarios and 
 *Updated: 2026-01-26 (added Experiment-04L: Hoisted Content Re-Read Behavior)*
 *Updated: 2026-01-26 (corrected 04B/04C preparation: Session Agent discovers omitted files via cross-references)*
 *Updated: 2026-01-26 (corrected 04A preparation: requires `/setup-none` command for Workscope ID generation)*
+*Updated: 2026-01-26 (added scope limitation note to 04K: 1M model is diagnostic only, not a direction to pursue)*
+*Updated: 2026-01-26 (added Experiment-04M: X Boundary Exploration with intermediate preload values)*
+*Updated: 2026-01-26 (overhauled Priority Summary and Execution Plan to reflect completed experiments and new priorities)*
+*Updated: 2026-01-26 (added git-branch approach for 04B/04C/04F as alternative to surgical edits)*
 *Based on analysis of: `dev/misc/repro-attempts-04-firstrun/` (8 trials)*
