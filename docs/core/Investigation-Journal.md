@@ -333,7 +333,7 @@ This confirms the phenomenon is real - the agent genuinely did not receive the f
 
 **Event**: Created formal analysis document for context reset theory.
 
-Findings from session file analysis were formalized in `docs/core/Context-Reset-Analysis.md`, documenting:
+Findings from session file analysis were formalized in `docs/theories/Context-Reset-Analysis.md`, documenting:
 - The correlation between context reset frequency and phantom read occurrence
 - The ~140K token threshold hypothesis for reset triggers
 - Detection algorithm for counting resets in session files
@@ -494,7 +494,7 @@ The theories are complementary:
 
 ### Documentation
 
-Created `docs/core/Headroom-Theory.md` to formally document these findings and their relationship to the Reset Theory.
+Created `docs/theories/Headroom-Theory.md` to formally document these findings and their relationship to the Reset Theory.
 
 ### Implications for Reproduction Environment
 
@@ -707,7 +707,7 @@ Analysis revealed that **reset timing pattern** is more predictive than either h
 
 Created `.claude/commands/update-trial-data.md` - a preprocessing tool that extracts data from trial session files into structured `trial_data.json` files for analysis. This enables systematic comparison across trials.
 
-Full analysis documented in: `docs/core/WSD-Dev-02-Analysis-1.md`
+Full analysis documented in: `docs/experiments/results/WSD-Dev-02-Analysis-1.md`
 
 ---
 
@@ -752,7 +752,7 @@ Successful sessions exhibit a "clean gap" pattern:
 
 This suggests the agent's context can "survive" resets at natural breakpoints, but cannot survive resets that interrupt active file processing.
 
-Full analysis documented in: `docs/core/WSD-Dev-02-Analysis-2.md`
+Full analysis documented in: `docs/experiments/results/WSD-Dev-02-Analysis-2.md`
 
 ---
 
@@ -813,7 +813,7 @@ Based on the data:
 | **HIGH**     | Any reset in 50-90% range              | Active work disrupted           |
 | **CRITICAL** | Multiple resets in 50-90%              | Repeated mid-session disruption |
 
-Full analysis documented in: `docs/core/WSD-Dev-02-Analysis-3.md`
+Full analysis documented in: `docs/experiments/results/WSD-Dev-02-Analysis-3.md`
 
 ---
 
@@ -927,7 +927,7 @@ Notably, the failure was a **recovered failure**. The agent:
 
 This suggests the Hawthorne Effect may not prevent phantom reads from occurring, but may enable recovery through agent awareness.
 
-Full analysis documented in: `docs/core/Repro-Attempts-02-Analysis-1.md`
+Full analysis documented in: `docs/experiments/results/Repro-Attempts-02-Analysis-1.md`
 
 ---
 
@@ -1055,7 +1055,7 @@ The design used hoisted file loading (`@docs/specs/file.md` notation) to force c
 | Medium | Easy + architecture-deep-dive.md | ~46% |
 | Hard | Medium + troubleshooting-compendium.md | ~55% |
 
-Documentation created: `docs/core/Experiment-Methodology-03.md`
+Documentation created: `docs/experiments/methodologies/Experiment-Methodology-03.md`
 
 ---
 
@@ -1130,7 +1130,7 @@ These match the target ranges for each scenario tier.
 
 ### Documentation Updates
 
-1. Created `docs/core/Experiment-Methodology-04.md` documenting the refined 7-step protocol
+1. Created `docs/experiments/methodologies/Experiment-Methodology-04.md` documenting the refined 7-step protocol
 2. Updated `docs/features/reproduction-specs-collection/Reproduction-Specs-Collection-Overview.md`:
    - Version 2.0.0 → 3.0.0
    - Updated command descriptions and token budgets
@@ -1290,7 +1290,7 @@ The MCP Filesystem workaround achieves this same correct behavior—when context
 
 ### Documentation Created
 
-Created `docs/core/Consolidated-Theory.md` as the authoritative theoretical reference, superseding individual theory discussions scattered throughout the Investigation Journal.
+Created `docs/theories/Consolidated-Theory.md` as the authoritative theoretical reference, superseding individual theory discussions scattered throughout the Investigation Journal.
 
 ---
 
@@ -1375,7 +1375,7 @@ The Easy scenario showed MORE deficit despite having MORE headroom, suggesting p
 
 ### Experiment Brainstorming
 
-Identified 11 experiments to test the refined hypothesis. Full details in `docs/core/Post-Experiment-04-Ideas.md`.
+Identified 11 experiments to test the refined hypothesis. Full details in `docs/experiments/planning/Post-Experiment-04-Ideas.md`.
 
 **Tier 1 - Critical (Run First)**:
 - **Experiment A**: Minimal X (Easy-0) - Test if Y threshold is absolute
@@ -1437,7 +1437,7 @@ Identified 11 experiments to test the refined hypothesis. Full details in `docs/
 9. **Update Consolidated-Theory.md**: Reflect Y-Size Threshold hypothesis
 10. **Update README**: Once theory is validated
 
-See `docs/core/Post-Experiment-04-Ideas.md` for full experiment details and execution plan.
+See `docs/experiments/planning/Post-Experiment-04-Ideas.md` for full experiment details and execution plan.
 
 ---
 

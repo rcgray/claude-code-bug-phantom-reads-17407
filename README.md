@@ -48,9 +48,9 @@ This repository serves three purposes:
 
 ## Investigation Status
 
-The investigation is ongoing. For a unified explanation of our findings, see the **[Consolidated Theory](docs/core/Consolidated-Theory.md)**, which introduces the **X + Y threshold overflow model**: phantom reads occur when pre-operation context (X) plus operation files (Y) exceeds the context threshold (T). This model explains how our various theories—reset timing, headroom, reset count—fit together as parts of a causal chain.
+The investigation is ongoing. For a unified explanation of our findings, see the **[Consolidated Theory](docs/theories/Consolidated-Theory.md)**, which introduces the **X + Y threshold overflow model**: phantom reads occur when pre-operation context (X) plus operation files (Y) exceeds the context threshold (T). This model explains how our various theories—reset timing, headroom, reset count—fit together as parts of a causal chain.
 
-Detailed experimental history is documented in [docs/core/Investigation-Journal.md](docs/core/Investigation-Journal.md).
+Detailed experimental history is documented in [docs/core/Investigation-Journal.md](docs/core/Investigation-Journal.md), with as summary available in [docs/core/Timeline.md](docs/core/Timeline.md).
 
 ### Latest Progress: 31-Trial Analysis
 
@@ -58,11 +58,11 @@ We conducted 31 controlled trials across two collections and confirmed that **re
 
 **Recent milestone**: First successful phantom read reproduction in a controlled scenario, demonstrating the bug can be reliably triggered under specific conditions.
 
-| Pattern | Description | Outcome |
-|---------|-------------|---------|
+| Pattern      | Description                                 | Outcome          |
+| ------------ | ------------------------------------------- | ---------------- |
 | EARLY + LATE | First reset <50%, last >95%, no mid-session | **100% SUCCESS** |
-| SINGLE_LATE | Single reset >95% | **100% SUCCESS** |
-| MID-SESSION | Any reset between 50-90% of session | **100% FAILURE** |
+| SINGLE_LATE  | Single reset >95%                           | **100% SUCCESS** |
+| MID-SESSION  | Any reset between 50-90% of session         | **100% FAILURE** |
 
 The critical finding: **mid-session resets (50-90% through the session) predict phantom reads with near-perfect accuracy**, regardless of reset count or starting headroom.
 
@@ -88,22 +88,22 @@ The "Clean Gap" pattern describes successful sessions: an early reset clears ini
 
 ### Theories Summary
 
-| Theory | Status | Notes |
-|--------|--------|-------|
-| **Reset Timing Theory** | ✅ CONFIRMED | 100% prediction accuracy on 31 trials |
-| **Reset Count Theory** | ✅ STRENGTHENED | 2 resets = safe, 4+ resets = failure |
-| **Mid-Session Accumulation** | 🆕 NEW | 2+ mid-session resets = likely failure |
-| **Sustained Processing Gap** | 🆕 NEW | ~25-30% uninterrupted window required |
-| **Headroom Theory** | ⚠️ SUPPORTED | Correlates but insufficient alone |
-| **Dynamic Context Pressure** | 🔬 HYPOTHESIS | Rate of accumulation may trigger resets |
+| Theory                       | Status         | Notes                                   |
+| ---------------------------- | -------------- | --------------------------------------- |
+| **Reset Timing Theory**      | ✅ CONFIRMED    | 100% prediction accuracy on 31 trials   |
+| **Reset Count Theory**       | ✅ STRENGTHENED | 2 resets = safe, 4+ resets = failure    |
+| **Mid-Session Accumulation** | 🆕 NEW          | 2+ mid-session resets = likely failure  |
+| **Sustained Processing Gap** | 🆕 NEW          | ~25-30% uninterrupted window required   |
+| **Headroom Theory**          | ⚠️ SUPPORTED    | Correlates but insufficient alone       |
+| **Dynamic Context Pressure** | 🔬 HYPOTHESIS   | Rate of accumulation may trigger resets |
 
-See [docs/core/Repro-Attempts-02-Analysis-1.md](docs/core/Repro-Attempts-02-Analysis-1.md) for the latest analysis, or [docs/core/WSD-Dev-02-Analysis-3.md](docs/core/WSD-Dev-02-Analysis-3.md) for the detailed token-based analysis.
+See [docs/experiments/results/Repro-Attempts-02-Analysis-1.md](docs/experiments/results/Repro-Attempts-02-Analysis-1.md) for the latest analysis, or [docs/experiments/results/WSD-Dev-02-Analysis-3.md](docs/experiments/results/WSD-Dev-02-Analysis-3.md) for the detailed token-based analysis.
 
 ## Original Experiment
 
 The bug was discovered during development work in early January 2026. Systematic testing across Claude Code versions identified version boundaries and characterized the two error mechanisms.
 
-The original experiment methodology is documented in [docs/core/Experiment-Methodology-01.md](docs/core/Experiment-Methodology-01.md). Key findings from the original investigation:
+The original experiment methodology is documented in [docs/experiments/methodologies/Experiment-Methodology-01.md](docs/experiments/methodologies/Experiment-Methodology-01.md). Key findings from the original investigation:
 
 - **Trigger condition**: Multi-file read operations, especially via custom commands like `/refine-plan`
 - **Detection method**: Self-report methodology—prompting agents to introspect on their read history
@@ -131,7 +131,7 @@ We have achieved the first successful phantom read reproduction in a controlled 
 - **Multiple file reads during onboarding** (inflates baseline context)
 - **Aggressive multi-file read operations** (triggers mid-session resets)
 
-A reliable, user-friendly reproduction protocol is in development. Current methodology documented in [docs/core/Experiment-Methodology-02.md](docs/core/Experiment-Methodology-02.md).
+A reliable, user-friendly reproduction protocol is in development. Current methodology documented in [docs/experiments/methodologies/Experiment-Methodology-02.md](docs/experiments/methodologies/Experiment-Methodology-02.md).
 
 ## Contributing
 
@@ -145,9 +145,10 @@ If you've experienced phantom reads:
 ## References
 
 - **GitHub Issue**: [anthropics/claude-code#17407](https://github.com/anthropics/claude-code/issues/17407)
-- **Consolidated Theory**: [docs/core/Consolidated-Theory.md](docs/core/Consolidated-Theory.md) — Unified theoretical framework (X + Y model)
-- **Investigation Journal**: [docs/core/Investigation-Journal.md](docs/core/Investigation-Journal.md) — Chronological discovery log
-- **Experiment Methodology**: [docs/core/Experiment-Methodology-01.md](docs/core/Experiment-Methodology-01.md)
+- **Consolidated Theory**: [docs/theories/Consolidated-Theory.md](docs/theories/Consolidated-Theory.md) — Unified theoretical framework (X + Y model)
+- **Timeline**: [docs/core/Timeline.md](docs/core/Timeline.md) — Concise chronological record of experiments and findings
+- **Investigation Journal**: [docs/core/Investigation-Journal.md](docs/core/Investigation-Journal.md) — Detailed narrative discovery log
+- **Experiment Methodology**: [docs/experiments/methodologies/Experiment-Methodology-01.md](docs/experiments/methodologies/Experiment-Methodology-01.md)
 - **Workaround Guide**: [WORKAROUND.md](WORKAROUND.md)
 
 ## License

@@ -10,7 +10,7 @@ The Collect Trials Script is a Python CLI tool (`src/collect_trials.py`) that au
 
 This specification defines the complete behavior of the trial collection script, including the export scanning algorithm, session file discovery mechanism, and output directory structure. The script operates on the principle that Workscope ID serves as the primary trial identifier, with Session UUID being an internal implementation detail used only for locating associated files.
 
-For the broader investigation context this tool supports, see `docs/core/PRD.md`. For the experimental methodology that generates trials to be collected, see `docs/core/Experiment-Methodology-02.md`.
+For the broader investigation context this tool supports, see `docs/core/PRD.md`. For the experimental methodology that generates trials to be collected, see `docs/experiments/methodologies/Experiment-Methodology-02.md`.
 
 ## Purpose
 
@@ -761,6 +761,6 @@ Tests are organized into these categories, implemented across phases:
 
 ### Phase 7: Documentation Updates
 
-- [x] **7.1** - Update `docs/core/Experiment-Methodology-02.md`
+- [x] **7.1** - Update `docs/experiments/methodologies/Experiment-Methodology-02.md`
   - [x] **7.1.1** - Add section on using `collect_trials.py` for artifact collection
   - [x] **7.1.2** - Document recommended workflow with exports and collection

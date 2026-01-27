@@ -307,3 +307,54 @@ I'm curious to know what your plan would be for a project like this, which we wo
 
 ---
 
+Let's tackle these here in this session. Perhaps we don't need to outsource this to feature work.
+
+Let's start with #2, where I'll ask that you simply make the changes you've proposed. I like this directory structure.
+
+---
+
+Yes, we should be updating just the active documents. Those that you have identified as immutable historical records should be considered protected directories and not touched.
+
+---
+
+Can you add guidance to our directory structure--including the directories you just created as well as the existing ones (`docs/specs/` and `docs/wpds/` for the "operation" data used in our repro cases)--to the PRD.md file?  This way, all agents working on this project will be briefed on it, and we'll have a better chance of maintaining this structure.
+
+---
+
+---
+
+## New Session: Claude Code v2.1.6: `opus` (locked, 2.1.20 is current)
+
+---
+
+/wsd:init --custom
+
+---
+
+Please read `docs/core/Investigation-Journal.md` ( @docs/core/Investigation-Journal.md ) to understand where we are at with our investigation. After that, familiarize yourself with `docs/core/Research-Questions.md` ( @docs/core/Research-Questions.md ) to understand the exhaustive list of questions we are pursuing in our experiments.
+
+---
+
+I would like to create a new core document: `docs/core/Timeline.md`. We have the `Investigation-Journal.md` file that we occasionally update, but I realized when looking for the result of a particular experiment round, I couldn't quite place it. Having a simple history of the tasks we've performed, experiments we ran, and the results we found organized into a concise chronological record would be helpful.  If I want to know "when were the `WSD-Dev-02-Analysis-2` results created, and what were they exploring?", or "when did we test the Sonnet-1m model?", I would like to have a place I could go to and perform a quick scan to find out.
+
+Can you craft this document for me given what we've accomplished so far?  We then would work to keep this updated (just as we do with the `Investigation-Journal.md` and `README.md`) as we go.
+
+Speaking of which, let's also add a link to this timeline at an appropriate place in the `README.md`.
+
+---
+
+Another issue I'd like to address as our project continues:
+
+We've recently created `docs/core/Research-Questions.md` ( @docs/core/Research-Questions.md ) to track everything we do and do not understand about the Claude Code harness. However, these RQs were created from (and confirmed by) more recent experiments, and I want to ensure the full breadth of everything we've discovered is accounted for in this document. Case in point, I was recently going through an old prompt log and I remembered that we at one point discovered it's impossible to have the Session Agent run the `/context` command - it must always be run manually by the User. This would be a good piece of information to know. It's not directly related to our RQs, but it does affect our approach and it is something we experimented on and learned during this study - perhaps there can be a section of our `Research-Questions.md` document that can record these additional pieces of knowledge.
+
+Further, we need to perform a more exhaustive search for the things we've learned that may belong in this file. I would propose processing the prompt logs we've generated over the course of this project.  However, there is a lot of information (~30 files) and the context is too large, so this would need to be broken up over workscopes.
+
+What we may want to do is draft a new command, similar to `/refine-plan`, which would take in a prompt log as an argument and make whatever updates were necessary to our core files, including:
+
+- `docs/core/Timeline.md`
+- `docs/core/Investigation-Journal.md`
+- `docs/core/Research-Questions.md`
+
+Go ahead and craft such a command - `/process-prompt-log`, and we can discuss your draft.
+
+---

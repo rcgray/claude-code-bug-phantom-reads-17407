@@ -788,6 +788,6 @@ SAFE CONDITIONS:
 - **2026-01-26**: Added RQ-F4 (token overhead on file reads) based on Experiment-Methodology-04 observations
 - **Source Documents**:
   - `docs/core/Investigation-Journal.md`
-  - `docs/core/Post-Experiment-04-Ideas.md`
-  - `docs/core/Experiment-04-Prelim-Results.md`
-  - `docs/core/Consolidated-Theory.md`
+  - `docs/experiments/planning/Post-Experiment-04-Ideas.md`
+  - `docs/experiments/results/Experiment-04-Prelim-Results.md`
+  - `docs/theories/Consolidated-Theory.md`

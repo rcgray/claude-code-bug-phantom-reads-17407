@@ -136,7 +136,7 @@ The failure case read significantly more files (19) compared to successes (6-11)
 
 **Failure case additional reads**:
 - `docs/core/Investigation-Journal.md` (878 lines)
-- `docs/core/Trial-Analysis-Guide.md` (677 lines)
+- `docs/experiments/guides/Trial-Analysis-Guide.md` (677 lines)
 - `docs/core/Action-Plan.md`
 - `README.md`
 - Various standards files

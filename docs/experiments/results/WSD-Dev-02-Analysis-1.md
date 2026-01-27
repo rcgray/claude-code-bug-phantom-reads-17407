@@ -43,7 +43,7 @@ Analysis revealed that **reset timing pattern** is more predictive than either h
 
 This trial had identical metrics to successful trials (86K pre-op, 114K headroom, 2 resets) but FAILED due to LATE CLUSTERED timing (resets at 83% and 97%). This proves timing matters more than count or headroom.
 
-Full theory documented in: `docs/core/Reset-Timing-Theory.md`
+Full theory documented in: `docs/theories/Reset-Timing-Theory.md`
 
 ---
 

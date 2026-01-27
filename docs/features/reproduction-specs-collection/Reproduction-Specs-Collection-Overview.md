@@ -17,7 +17,7 @@ This specification defines:
 
 The reproduction environment exploits the **Reset Timing Theory** validated across 31 trials with 100% prediction accuracy: mid-session resets (occurring at 50-90% of session progress) predict phantom reads, while sessions with only early (<50%) and late (>90%) resets succeed. By controlling pre-operation context consumption through preload files, we control when resets occur during the subsequent analysis task.
 
-For background on the Reset Timing Theory and supporting evidence, see `docs/core/Investigation-Journal.md` and `docs/core/Repro-Attempts-02-Analysis-1.md`.
+For background on the Reset Timing Theory and supporting evidence, see `docs/core/Investigation-Journal.md` and `docs/experiments/results/Repro-Attempts-02-Analysis-1.md`.
 
 ## Purpose
 
@@ -958,10 +958,10 @@ The WPD Required Context sections use imperative language ("You MUST thoroughly 
 
 ## Related Specifications
 
-- **`docs/core/Experiment-Methodology-04.md`**: Current experiment methodology documenting the v3.0 trial protocol
+- **`docs/experiments/methodologies/Experiment-Methodology-04.md`**: Current experiment methodology documenting the v3.0 trial protocol
 - **`docs/core/Investigation-Journal.md`**: Chronological investigation log documenting theory development
-- **`docs/core/Repro-Attempts-02-Analysis-1.md`**: Analysis of 9 trials validating the command-based approach
-- **`docs/core/Trial-Analysis-Guide.md`**: Comprehensive guide for analyzing trial data
+- **`docs/experiments/results/Repro-Attempts-02-Analysis-1.md`**: Analysis of 9 trials validating the command-based approach
+- **`docs/experiments/guides/Trial-Analysis-Guide.md`**: Comprehensive guide for analyzing trial data
 - **`docs/core/PRD.md`**: Project overview including Aims and current priorities
 - **`.claude/commands/setup-easy.md`**: Easy scenario initialization command
 - **`.claude/commands/setup-medium.md`**: Medium scenario initialization command
@@ -1177,7 +1177,7 @@ This phase documents changes made through trial-and-error during initial Methodo
 
 ### Phase 10: Y-Increase Module Expansion
 
-This phase adds two new module specifications to increase the operation-phase token consumption (Y), ensuring Hard scenarios reliably push X + Y over the context threshold and trigger phantom reads. Based on the X + Y model documented in `docs/core/Consolidated-Theory.md`, the original supporting specifications (~35k tokens) were insufficient to trigger phantom reads even at 60% pre-op consumption. Adding ~12k tokens of additional module content increases Y to ~47k tokens, pushing Hard scenario totals over the threshold.
+This phase adds two new module specifications to increase the operation-phase token consumption (Y), ensuring Hard scenarios reliably push X + Y over the context threshold and trigger phantom reads. Based on the X + Y model documented in `docs/theories/Consolidated-Theory.md`, the original supporting specifications (~35k tokens) were insufficient to trigger phantom reads even at 60% pre-op consumption. Adding ~12k tokens of additional module content increases Y to ~47k tokens, pushing Hard scenario totals over the threshold.
 
 - [x] **10.1** - Create `docs/specs/module-epsilon.md` (Data Caching Layer)
   - [x] **10.1.1** - Write Overview section describing caching responsibilities and multi-tier architecture

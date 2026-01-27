@@ -16,17 +16,17 @@ The following are the steps for implementing the project, where the full list is
 
 ## Phase 1: Open-Ended Investigation
 
-- [x] **1.1** - Create `docs/core/Investigation-Journal.md` and `docs/core/Experiment-Methodology-01.md`
+- [x] **1.1** - Create `docs/core/Investigation-Journal.md` and `docs/experiments/methodologies/Experiment-Methodology-01.md`
 - [x] **1.2** - Collect samples of success and failure cases, store in `dev/misc/example-sessions`
   - [x] **1.2.1** - Good/Bad examples for various builds (`2.0.58`, `2.0.59`, `2.0.60`, `2.1.3`, `2.1.6`)
 - [*] **1.3** - Examine success/failure cases to find log evidence of phantom reads
-  - [x] **1.3.1** - Create `docs/core/Example-Session-Analysis.md`
+  - [x] **1.3.1** - Create `docs/experiments/results/Example-Session-Analysis.md`
 - [x] **1.4** - Publish to Github
 - [x] **1.5** - Create feature plan for reproduction environment (Phase 3)
 
 ## Phase 2: Explore Temporary Workarounds
 
-- [x] **2.1** - Brainstorm ideas and draft `docs/core/Possible-Workarounds.md`
+- [x] **2.1** - Brainstorm ideas and draft `docs/mitigations/Possible-Workarounds.md`
 - [x] **2.2** - Test "Warning in Onboarding" approach
 - [x] **2.3** - Test "PostToolUse Detection Hook" approach
 - [-] **2.4** - Test "Proof-of-Work Verification" approach
@@ -48,7 +48,7 @@ The following are the steps for implementing the project, where the full list is
 - [x] **3.5** - Update Documentation
   - [x] **3.5.1** - Ensure that `docs/core/Investigation-Journal.md` records the approach and results of Reproduction-Specs-Collection investigation
   - [x] **3.5.2** - Update `README.md` to reflect our current understanding of the issue and include directions on end-users running their own tests.
-  - [x] **3.5.3** - Ensure that there is a clear `docs/core/Experiment-Methodology-#.md` that matches the most recent experiments run.
+  - [x] **3.5.3** - Ensure that there is a clear `docs/experiments/methodologies/Experiment-Methodology-#.md` that matches the most recent experiments run.
 - [x] **3.6** - Revisit the Reproduction-Specs-Collection feature, now with new additions based on evaluations of our first attempt in prep for Experiment-Methodology-03 (see `docs/features/reproduction-specs-collection/Reproduction-Specs-Collection-Overview.md`)
 - [x] **3.7** - Revisit the Reproduction-Specs-Collection feature for Experiment-Methodology-04 updates (see `docs/features/reproduction-specs-collection/Reproduction-Specs-Collection-Overview.md`)
 
@@ -62,6 +62,6 @@ The following are the steps for implementing the project, where the full list is
 - [ ] **4.6** - Update Documentation
   - [ ] **4.6.1** - Ensure that `docs/core/Investigation-Journal.md` records the approach and results of our Analysis Scripts.
   - [ ] **4.6.2** - Update `README.md` to reflect our current understanding of the issue and include directions on end-users running their own tests AND new analysis tools
-  - [ ] **4.6.3** - Ensure that there is a clear `docs/core/Experiment-Methodology-#.md` that matches the most recent experiments run.
+  - [ ] **4.6.3** - Ensure that there is a clear `docs/experiments/methodologies/Experiment-Methodology-#.md` that matches the most recent experiments run.
 
 

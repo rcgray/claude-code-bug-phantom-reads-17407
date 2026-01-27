@@ -650,12 +650,12 @@ For deeper background on specific topics:
 | ---------------------------------------- | ---------------------------------------------------------- |
 | `docs/core/PRD.md`                       | Project overview and goals                                 |
 | `docs/core/Investigation-Journal.md`     | Chronological discovery log                                |
-| `docs/core/Context-Reset-Analysis.md`    | Detailed Reset Theory analysis                             |
-| `docs/core/Headroom-Theory.md`           | Detailed Headroom Theory analysis                          |
-| `docs/core/Example-Session-Analysis.md`  | Session file structure details                             |
-| `docs/core/Experiment-Methodology-02.md` | Trial execution protocol                                   |
-| `docs/core/WSD-Dev-02-Analysis-1.md`     | Initial 7-trial analysis, Reset Timing Theory origin       |
-| `docs/core/WSD-Dev-02-Analysis-2.md`     | Expanded 22-trial analysis, Reset Timing Theory validation |
+| `docs/theories/Context-Reset-Analysis.md`    | Detailed Reset Theory analysis                             |
+| `docs/theories/Headroom-Theory.md`           | Detailed Headroom Theory analysis                          |
+| `docs/experiments/results/Example-Session-Analysis.md`  | Session file structure details                             |
+| `docs/experiments/methodologies/Experiment-Methodology-02.md` | Trial execution protocol                                   |
+| `docs/experiments/results/WSD-Dev-02-Analysis-1.md`     | Initial 7-trial analysis, Reset Timing Theory origin       |
+| `docs/experiments/results/WSD-Dev-02-Analysis-2.md`     | Expanded 22-trial analysis, Reset Timing Theory validation |
 
 ## Appendix D: Theory Status (as of 2026-01-21)
 

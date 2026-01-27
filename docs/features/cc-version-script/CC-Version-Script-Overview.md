@@ -10,7 +10,7 @@ The CC Version Script is a Python CLI tool (`src/cc_version.py`) that manages Cl
 
 This specification defines the complete behavior of the version management script, including CLI command structure, settings file manipulation, npm command orchestration, and the conservative error-handling philosophy that governs all operations. The script operates as a convenience wrapper around existing npm and Claude Code commands, prioritizing clarity and safety over robustness.
 
-For the broader investigation context this tool supports, see `docs/core/PRD.md`. For the experimental methodology that benefits from this script, see `docs/core/Experiment-Methodology-01.md`.
+For the broader investigation context this tool supports, see `docs/core/PRD.md`. For the experimental methodology that benefits from this script, see `docs/experiments/methodologies/Experiment-Methodology-01.md`.
 
 ## Purpose
 
@@ -714,5 +714,5 @@ def test_disable_auto_update_idempotent(tmp_settings_dir):
 
 ### Phase 8: Testing Support Infrastructure
 
-- [x] **8.1** - Add notes to `docs/core/Experiment-Methodology-02.md` on using this script to disable CC auto-updater and set to the desired CC version.
+- [x] **8.1** - Add notes to `docs/experiments/methodologies/Experiment-Methodology-02.md` on using this script to disable CC auto-updater and set to the desired CC version.
 - [x] **8.2** - Add mention of this script to `README.md` on using this script to setup on CC for an experiment.
