@@ -528,6 +528,8 @@ With the addition of `file_token_counts.json`, we can now perform deeper analysi
 
 This file contains precise token counts (via Anthropic API) for all unique files read across the trial collection. Token counts are in Claude tokens, directly comparable to `cache_read_input_tokens` values in session files.
 
+**Tokenizer Calibration Note**: If using the local `count_tokens.py` script (`dev/diagnostics/count_tokens.py`), be aware it uses OpenAI's tiktoken tokenizer, which yields approximately **88% of the true Anthropic token count**. For example, to estimate 23K Anthropic tokens, target ~20,240 tiktoken tokens. The `file_token_counts.json` files use official Anthropic API counts and don't require this adjustment.
+
 **Notable Large Files**:
 | File                                               | Tokens | Risk Factor                               |
 | -------------------------------------------------- | ------ | ----------------------------------------- |

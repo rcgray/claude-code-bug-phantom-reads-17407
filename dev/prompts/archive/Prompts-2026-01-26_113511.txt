@@ -321,8 +321,6 @@ Can you add guidance to our directory structure--including the directories you j
 
 ---
 
----
-
 ## New Session: Claude Code v2.1.6: `opus` (locked, 2.1.20 is current)
 
 ---
@@ -358,3 +356,37 @@ What we may want to do is draft a new command, similar to `/refine-plan`, which 
 Go ahead and craft such a command - `/process-prompt-log`, and we can discuss your draft.
 
 ---
+
+## New Session: Claude Code v2.1.6: `opus` (locked, 2.1.20 is current)
+
+---
+
+/wsd:init --custom
+
+---
+
+/process-prompt-log dev/todo/Prompts-2026-01-12_122905.txt
+/process-prompt-log dev/todo/Prompts-2026-01-12_145540.txt
+/process-prompt-log dev/todo/Prompts-2026-01-13_102438.txt
+/process-prompt-log dev/todo/Prompts-2026-01-13_140924.txt
+/process-prompt-log dev/todo/Prompts-2026-01-13_175615.txt
+/process-prompt-log dev/todo/Prompts-2026-01-14_083344.txt
+/process-prompt-log dev/todo/Prompts-2026-01-14_120425.txt
+/process-prompt-log dev/todo/Prompts-2026-01-16_111840.txt
+/process-prompt-log dev/todo/Prompts-2026-01-18_135303.txt
+/process-prompt-log dev/todo/Prompts-2026-01-19_104652.txt
+/process-prompt-log dev/todo/Prompts-2026-01-19_163432.txt
+/process-prompt-log dev/todo/Prompts-2026-01-20_085334.txt
+/process-prompt-log dev/todo/Prompts-2026-01-20_140742.txt
+/process-prompt-log dev/todo/Prompts-2026-01-20_183604.txt
+/process-prompt-log dev/todo/Prompts-2026-01-21_165249.txt
+/process-prompt-log dev/todo/Prompts-2026-01-21_202159.txt
+/process-prompt-log dev/todo/Prompts-2026-01-21_225438.txt
+/process-prompt-log dev/todo/Prompts-2026-01-22_133714.txt
+/process-prompt-log dev/todo/Prompts-2026-01-22_181315.txt
+/process-prompt-log dev/todo/Prompts-2026-01-22_190953.txt
+/process-prompt-log dev/todo/Prompts-2026-01-23_100643.txt
+/process-prompt-log dev/todo/Prompts-2026-01-23_154950.txt
+/process-prompt-log dev/todo/Prompts-2026-01-24_121136.txt
+/process-prompt-log dev/todo/Prompts-2026-01-24_124506.txt
+/process-prompt-log dev/todo/Prompts-2026-01-25_185205.txt

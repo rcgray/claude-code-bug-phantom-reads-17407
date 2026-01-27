@@ -6,6 +6,36 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This project uses **Workscope-Dev (WSD)**, an orchestration framework for AI-assisted coding. Work is organized into bounded **workscopes** that follow a structured lifecycle: init → prepare → execute → close.
 
+## Research Context
+
+This repository documents and investigates the **Phantom Reads bug** in Claude Code ([Issue #17407](https://github.com/anthropics/claude-code/issues/17407)). The bug causes Claude to believe it has successfully read file contents when it has not.
+
+Key research artifacts:
+- `docs/theories/Consolidated-Theory.md` - Unified theoretical framework (X + Y threshold model)
+- `docs/core/Investigation-Journal.md` - Detailed discovery narrative
+- `docs/experiments/` - Experiment methodologies and results
+
+### Source Code
+
+- `src/cc_version.py` - Claude Code version management for testing
+- `src/collect_trials.py` - Trial data collection utilities
+
+## File Reading Instructions
+
+This project uses the Filesystem MCP server for reliable file reading. The native `Read` tool is disabled.
+
+**To read files, use these MCP tools instead:**
+- `mcp__filesystem__read_text_file` - Read a single file
+- `mcp__filesystem__read_multiple_files` - Read multiple files at once
+- `mcp__filesystem__list_directory` - List directory contents
+- `mcp__filesystem__search_files` - Search for files by pattern
+
+**Example usage:**
+Instead of: `Read` tool with `file_path` parameter
+Use: `mcp__filesystem__read_text_file` with `path` parameter
+
+This workaround prevents the Phantom Reads bug (Issue #17407).
+
 ## Essential Commands
 
 ### WSD Workflow (in Claude Code)
@@ -17,10 +47,18 @@ This project uses **Workscope-Dev (WSD)**, an orchestration framework for AI-ass
 /wsd:abort                   # Cancel workscope at any point
 ```
 
+### Environment Setup
+```bash
+uv sync                      # Install dependencies
+uv run pytest               # Run tests in virtual environment
+```
+
 ### Task Runner (in terminal)
 ```bash
 ./wsd.py health              # Run comprehensive health checks
-./wsd.py test                # Run test suite
+./wsd.py test                # Run full test suite
+pytest tests/test_cc_version.py -v                    # Run single test file
+pytest tests/test_cc_version.py::test_func_name -v   # Run single test
 ./wsd.py lint                # Check code style
 ./wsd.py lint:fix            # Auto-fix lint issues
 ./wsd.py format              # Format code
@@ -50,13 +88,17 @@ This project uses **Workscope-Dev (WSD)**, an orchestration framework for AI-ass
 - `docs/read-only/Workscope-System.md` - Workscope file format
 - `docs/core/Design-Decisions.md` - Project-specific design philosophies
 
+### Utility Scripts
+- `scripts/health_check.py` - Health check implementation
+- `scripts/update_docs.py` - Documentation update tooling
+- `scripts/archive_claude_sessions.py` - Session archival
+
 ## Critical Rules
 
 ### Forbidden Actions
 - Do NOT edit files in `docs/read-only/`, `docs/references/`, or `dev/wsd/`
 - Do NOT run git commands that modify state (only read-only git commands allowed)
 - Do NOT edit `.env` files (edit `.env.example` instead)
-- Do NOT use `cat >>`, `echo >>`, `<< EOF`, or similar shell patterns to write files
 
 ### Code Quality
 - Fail immediately at point of failure; no workarounds for internal logic errors

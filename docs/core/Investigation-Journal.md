@@ -213,6 +213,32 @@ Implement hook-based detection as first mitigation attempt. The existing `.claud
 
 ---
 
+## 2026-01-13: PreToolUse Hook Workaround Attempt
+
+**Event**: Attempted to use Claude Code hooks as a workaround mechanism before discovering the MCP solution.
+
+### Approach
+
+The idea was to use a PreToolUse hook with a "deny" response as a hack to inject file contents through the error mechanism. When a hook returns a deny message, that message is shown to the agent. By including the actual file contents in the deny message, we could theoretically bypass the phantom read issue.
+
+### Implementation
+
+Created a hook script (similar to the existing `reliable_read.py` in `dev/misc/`) that would:
+1. Intercept Read tool calls via PreToolUse hook
+2. Read the file contents directly
+3. Return a "deny" response containing the actual file contents
+4. The agent would receive the contents via the error message
+
+### Result: FAILED
+
+**Hooks are not reliable enough in Claude Code.** Even when the hooks were observed to fire (in the terminal), the agent behaved normally—still experiencing and confirming `<persisted-output>` responses. The hooks appeared to not fire consistently.
+
+### Conclusion
+
+Hook-based workarounds are not viable for phantom read mitigation. This led to exploring the MCP Filesystem server as an alternative approach.
+
+---
+
 ## 2026-01-13: MCP Filesystem Workaround Confirmed
 
 **Event**: Successfully implemented and validated a workaround using the official Anthropic Filesystem MCP server.
@@ -1056,6 +1082,47 @@ The design used hoisted file loading (`@docs/specs/file.md` notation) to force c
 | Hard | Medium + troubleshooting-compendium.md | ~55% |
 
 Documentation created: `docs/experiments/methodologies/Experiment-Methodology-03.md`
+
+---
+
+## 2026-01-22: Repro-Attempts-03 First Trial Collection
+
+**Event**: Conducted first trials using Experiment-Methodology-03.
+
+### Collection Details
+
+Ran 9 trials across three scenario commands:
+- `/analyze-thorough docs/wpds/pipeline-refactor.md` (Hard) - 3 trials
+- `/analyze-standard docs/wpds/pipeline-refactor.md` (Medium) - 3 trials  
+- `/analyze-light docs/wpds/pipeline-refactor.md` (Easy) - 3 trials
+
+All trials conducted in `phantom-read-clone` project (repository without MCP workaround) using Claude Code v2.1.6 (locked).
+
+### Results
+
+**ALL 9 TRIALS SUCCEEDED** - no phantom reads reported.
+
+| Trial ID | Scenario | Outcome |
+|----------|----------|---------|
+| 20260122-182020 | Mixed | SUCCESS |
+| 20260122-182033 | Mixed | SUCCESS |
+| 20260122-182627 | Mixed | SUCCESS |
+| 20260122-182636 | Mixed | SUCCESS |
+| 20260122-182646 | Mixed | SUCCESS |
+| 20260122-183100 | Mixed | SUCCESS |
+| 20260122-183106 | Mixed | SUCCESS |
+| 20260122-183114 | Mixed | SUCCESS |
+| 20260122-184620 | Mixed | SUCCESS |
+
+### Post-Processing
+
+- Trials collected to `dev/misc/repro-attempts-03-firstrun/`
+- Each trial preprocessed with `/update-trial-data` to create `trial_data.json`
+- `file_token_counts.json` was intentionally NOT created for this collection
+
+### Significance
+
+The unexpected 100% success rate across ALL scenarios (including hard) triggered investigation into why the methodology wasn't producing the expected differentiated results. This investigation led to the discoveries documented in the following section - specifically the ~25K hoisting limit and the inability of agents to invoke `/context`.
 
 ---
 

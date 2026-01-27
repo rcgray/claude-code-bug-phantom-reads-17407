@@ -716,19 +716,114 @@ Questions specific to the Era 2 `<persisted-output>` behavior.
 
 ---
 
+## Category I: Discovered Behaviors
+
+This section catalogs confirmed facts about Claude Code behavior discovered during experimentation. These are NOT questions but established knowledge that affects methodology or would be valuable for future investigators.
+
+### DB-I1: PreToolUse hooks are unreliable for file read interception
+
+**Status**: CONFIRMED
+
+**Discovery Date**: 2026-01-13
+
+**Description**: Claude Code hooks (PreToolUse) do not fire consistently. Even when observed firing in the terminal, agent behavior may not be affected. Hooks cannot be relied upon for critical operations like phantom read mitigation.
+
+**Evidence**: Attempted to use PreToolUse hook with "deny" response to inject file contents via error mechanism. Despite hooks visibly firing, agents still experienced `<persisted-output>` responses.
+
+**Implication**: Hook-based workarounds are not viable for phantom read mitigation.
+
+---
+
+### DB-I2: Project-level `permissions.deny` has limited scope
+
+**Status**: CONFIRMED
+
+**Discovery Date**: 2026-01-13
+
+**Description**: When using `permissions.deny: ["Read"]` in `.claude/settings.local.json` (project config), the denial only affects the main Claude Code session agent. It does NOT restrict:
+- Slash commands and skills (custom commands may still use native Read tool)
+- Sub-agents spawned via the Task tool
+
+**Evidence**: Observed during MCP Filesystem workaround implementation and testing.
+
+**Implication**: For complete phantom read protection, global configuration (`~/.claude/settings.json`) may be needed, but this requires configuring MCP server paths for each project.
+
+---
+
+### DB-I3: Claude Code configuration file paths
+
+**Status**: CONFIRMED
+
+**Discovery Date**: 2026-01-13
+
+**Description**: Claude Code uses two distinct configuration file locations:
+- **Global config**: `~/.claude/settings.json` - affects all projects
+- **Project config**: `.claude/settings.local.json` - affects only the current project
+
+Note: `.claude/settings.json` (without `.local`) is NOT a valid project config path.
+
+**Evidence**: Discovered when documenting the MCP Filesystem workaround; initial documentation incorrectly referenced `.claude/settings.json`.
+
+**Implication**: When documenting workarounds or configurations, specify the correct path based on intended scope.
+
+---
+
+### DB-I4: Chat exports must be saved OUTSIDE the project directory
+
+**Status**: CONFIRMED
+
+**Discovery Date**: 2026-01-14
+
+**Description**: When running `/export` to save chat transcripts, the export file must be saved OUTSIDE the project directory. If saved within the project, the session ID appears in the chat export file, and when Claude Code runs in that same project later, the new session's `.jsonl` files will contain grep-able references to the old session ID (because the export file is within the project scope).
+
+**Evidence**: User ran trials sequentially and noticed session UUIDs from earlier trials appearing in later session files via grep. Investigation revealed this was due to `/export` files being saved within the project directory, not actual session contamination.
+
+**Implication**: Always export chat transcripts to a directory OUTSIDE the project (e.g., `../cc-exports/`) to avoid polluting session file analysis. This is now documented in Experiment-Methodology-02.
+
+---
+
+### DB-I5: `/context` command cannot be called by agents programmatically
+
+**Status**: CONFIRMED
+
+**Discovery Date**: 2026-01-22-23
+
+**Description**: The `/context` command (Claude Code built-in for displaying token consumption) only works when explicitly typed by the user. Agents cannot invoke it programmatically from within custom commands, slash commands, or any automated script context.
+
+**Evidence**: Discovered during Experiment-Methodology-03 development when attempting to integrate `/context` calls into scenario commands (`/analyze-light`, `/analyze-standard`, `/analyze-thorough`). The commands failed to produce context measurements, leading to investigation that confirmed agents cannot invoke this built-in command.
+
+**Implication**: Trial protocols must include explicit user `/context` calls at key measurement points (baseline, post-preload, post-operation). Context consumption cannot be automatically logged within commands, requiring the methodology restructuring that led to Experiment-Methodology-04's separated setup and analysis commands.
+
+---
+
+### DB-I6: Session Agents discover and read cross-referenced files independently
+
+**Status**: CONFIRMED
+
+**Discovery Date**: 2026-01-25
+
+**Description**: Session Agents will independently discover and read files that are cross-referenced in other loaded specifications, even when those files are deliberately omitted from command file lists. This prevents simple "file list reduction" approaches to controlling Y (operation context).
+
+**Evidence**: Discovered during Experiment-04B/04C planning when attempting to reduce spec count from 9 to 8 files by removing `module-epsilon.md` and `module-phi.md` from the `/analyze-wpd` command. Despite omission from the command's explicit file list, agents consistently found and read these files via cross-references in `data-pipeline-overview.md`, `integration-layer.md`, and the `pipeline-refactor.md` WPD.
+
+**Implication**: To test different Y values via file count reduction, invasive surgical edits must be made to remove cross-references throughout the spec scenario, not just the command file list. Experiments 04B and 04C require more preparation work than initially anticipated.
+
+---
+
 ## Summary Statistics
 
-| Category | Total | Open | Answered | Hypothesis |
-|----------|-------|------|----------|------------|
-| A: Core Mechanism | 5 | 3 | 0 | 2 |
-| B: Threshold Behavior | 8 | 3 | 4 | 1 |
-| C: Hoisting Behavior | 4 | 0 | 3 | 1 |
-| D: Reset Timing | 3 | 1 | 0 | 2 |
-| E: Read Patterns | 6 | 3 | 0 | 3 |
-| F: Measurement | 4 | 3 | 1 | 0 |
-| G: Cross-Version/Model | 5 | 3 | 1 | 1 |
-| H: Persisted Output | 3 | 3 | 0 | 0 |
-| **TOTAL** | **38** | **19** | **9** | **10** |
+| Category | Total | Open | Answered | Hypothesis | Confirmed |
+|----------|-------|------|----------|------------|----------|
+| A: Core Mechanism | 5 | 3 | 0 | 2 | - |
+| B: Threshold Behavior | 8 | 3 | 4 | 1 | - |
+| C: Hoisting Behavior | 4 | 0 | 3 | 1 | - |
+| D: Reset Timing | 3 | 1 | 0 | 2 | - |
+| E: Read Patterns | 6 | 3 | 0 | 3 | - |
+| F: Measurement | 4 | 3 | 1 | 0 | - |
+| G: Cross-Version/Model | 5 | 3 | 1 | 1 | - |
+| H: Persisted Output | 3 | 3 | 0 | 0 | - |
+| I: Discovered Behaviors | 6 | - | - | - | 6 |
+| **TOTAL** | **44** | **19** | **9** | **10** | **6** |
 
 ---
 
@@ -786,8 +881,20 @@ SAFE CONDITIONS:
   - Added Key Findings Summary section
   - Updated statistics and experiment coverage
 - **2026-01-26**: Added RQ-F4 (token overhead on file reads) based on Experiment-Methodology-04 observations
+- **2026-01-26**: Added Category I: Discovered Behaviors from prompt log analysis (`Prompts-2026-01-13_140924.txt`)
+  - Added DB-I1 (PreToolUse hook unreliability)
+  - Added DB-I2 (permissions.deny scope limitation)
+  - Added DB-I3 (configuration file paths)
+  - Updated summary statistics to include new category
+- **2026-01-26**: Added DB-I4 (chat export location best practice) from prompt log analysis (`Prompts-2026-01-14_120425.txt`)
+- **2026-01-26**: Added DB-I5 (`/context` command limitation) from prompt log analysis (`Prompts-2026-01-23_100643.txt`)
+- **2026-01-26**: Added DB-I6 (agent cross-reference file discovery) from prompt log analysis (`Prompts-2026-01-25_185205.txt`)
 - **Source Documents**:
   - `docs/core/Investigation-Journal.md`
   - `docs/experiments/planning/Post-Experiment-04-Ideas.md`
   - `docs/experiments/results/Experiment-04-Prelim-Results.md`
   - `docs/theories/Consolidated-Theory.md`
+  - `dev/todo/Prompts-2026-01-13_140924.txt` (prompt log analysis)
+  - `dev/todo/Prompts-2026-01-14_120425.txt` (prompt log analysis)
+  - `dev/todo/Prompts-2026-01-23_100643.txt` (prompt log analysis)
+  - `dev/todo/Prompts-2026-01-25_185205.txt` (prompt log analysis)

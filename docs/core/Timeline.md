@@ -70,6 +70,11 @@ A concise chronological record of the Phantom Reads investigation. For detailed 
 - Documented ~140K token threshold hypothesis
 - Created reproduction environment plan
 
+**Baseline Trial Collection**
+- Captured 3 successful baseline trials on cloned repository
+- Location: `dev/misc/self-examples/` (2.1.6-good-baseline-1, -2, -3)
+- Purpose: Establish baseline measurements for reproduction environment
+
 ---
 
 ## 2026-01-15
@@ -158,9 +163,10 @@ A concise chronological record of the Phantom Reads investigation. For detailed 
 
 ## 2026-01-21
 
-**Trial Data Schema Upgrade (1.2)**
-- Fixed `scripts/extract_trial_data.py` reliability issues
-- All trials upgraded to Schema 1.2
+**Trial Data Schema Upgrade (1.1 → 1.2)**
+- Schema 1.2 correctly handles failed file reads (file not found) in token counting timeline
+- Stabilized helper script `dev/karpathy/extract_trial_data.py` for reliable extraction
+- Reprocessed all 25 existing trials to Schema 1.2 (22 in wsd-dev-02, 3 in repro-attempts)
 
 **Repro-Attempts-02 Collection**
 - 9 trials across Easy/Medium/Hard scenarios
@@ -181,6 +187,12 @@ A concise chronological record of the Phantom Reads investigation. For detailed 
 - Simplified initialization with `/wsd:getid`
 - Scenario-targeted commands with preload via `@` file notation
 - Target: Control pre-op consumption via hoisted files
+
+**Methodology 3.0 First Trial Collection**
+- 9 trials collected using Experiment-Methodology-03 commands
+- All trials reported SUCCESS (unexpected - hard scenarios expected to fail)
+- Collection: `dev/misc/repro-attempts-03-firstrun/`
+- Note: This unexpectedly uniform success led to discovery of methodology issues documented 2026-01-22-23
 
 ---
 
@@ -206,6 +218,14 @@ A concise chronological record of the Phantom Reads investigation. For detailed 
 - X = pre-operation context, Y = operation context, T = threshold
 - Phantom reads require X + Y > T (with additional conditions)
 - Documentation: [docs/theories/Consolidated-Theory.md](../theories/Consolidated-Theory.md)
+
+**Phase 10: Y-Increase Module Expansion**
+- Created `docs/specs/module-epsilon.md` (Data Caching Layer, ~875 lines, ~8k tokens)
+- Created `docs/specs/module-phi.md` (Pipeline Orchestration, ~900 lines, ~8k tokens)
+- Integrated new modules into existing specs (data-pipeline-overview, integration-layer, pipeline-refactor WPD)
+- Updated `/analyze-wpd` command to include new modules in required reading
+- Purpose: Increase Y (operation context) from 42K to 57K tokens to reliably trigger phantom reads
+- Added Phase 10 to [Reproduction-Specs-Collection FIP](../features/reproduction-specs-collection/Reproduction-Specs-Collection-Overview.md)
 
 ---
 

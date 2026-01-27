@@ -117,6 +117,8 @@ Before updating documents, check what's already recorded:
 
 **Only add NEW information** that isn't already documented.
 
+Note: The project directory structure may have changed since the time of the Prompt log. Some files that may have existed under `docs/core/` at the time of the prompt may have moved elsewhere (often an organization folder underneath `docs/experiments/`).
+
 ### Phase 3: Report Findings
 
 Present your findings as a structured report:
