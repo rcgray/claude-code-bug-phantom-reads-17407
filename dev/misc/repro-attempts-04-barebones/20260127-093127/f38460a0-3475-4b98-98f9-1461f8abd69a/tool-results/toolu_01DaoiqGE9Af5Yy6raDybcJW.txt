@@ -1,0 +1,756 @@
+     1→     1→     1→# Module Beta: Data Transformation Specification
+     2→     2→     2→
+     3→     3→     3→**Version:** 1.0.0
+     4→     4→     4→**Status:** Active
+     5→     5→     5→
+     6→     6→     6→## Table of Contents
+     7→     7→     7→
+     8→     8→     8→1. [Overview](#overview)
+     9→     9→     9→2. [Transformation Pipeline](#transformation-pipeline)
+    10→    10→    10→3. [Data Structures](#data-structures)
+    11→    11→    11→4. [Transformation Rules](#transformation-rules)
+    12→    12→    12→5. [Error Handling](#error-handling)
+    13→    13→    13→6. [Configuration](#configuration)
+    14→    14→    14→7. [Integration Points](#integration-points)
+    15→    15→    15→8. [Compliance Requirements](#compliance-requirements)
+    16→    16→    16→
+    17→    17→    17→---
+    18→    18→    18→
+    19→    19→    19→## Overview
+    20→    20→    20→
+    21→    21→    21→Module Beta serves as the data transformation layer of the Data Pipeline System, responsible for converting validated records from Module Alpha into the enriched, normalized format required by Module Gamma for output delivery. As the central processing stage in the pipeline, Module Beta implements comprehensive transformation capabilities including schema mapping, field-level transformations, data enrichment, and quality scoring.
+    22→    22→    22→
+    23→    23→    23→### Core Responsibilities
+    24→    24→    24→
+    25→    25→    25→**Schema Mapping**: Converting records from the internal ingestion format to one or more target output schemas. The mapping engine supports field renaming, type conversion, composite field construction, and conditional logic based on record content or metadata.
+    26→    26→    26→
+    27→    27→    27→**Field Transformation**: Applying transformation operations to individual field values including string manipulation, numeric calculations, date/time reformatting, encoding conversion, and lookup table substitution. Transformations execute in a defined sequence with intermediate results available to subsequent operations.
+    28→    28→    28→
+    29→    29→    29→**Data Enrichment**: Augmenting records with data from external reference sources including lookup databases, caching layers, and external APIs. The enrichment engine manages cache lifecycle, handles source unavailability gracefully, and tracks enrichment success rates for monitoring.
+    30→    30→    30→
+    31→    31→    31→**Quality Scoring**: Evaluating each record against configurable quality criteria and assigning a numeric score reflecting data completeness, consistency, and conformance to expected patterns.
+    32→    32→    32→
+    33→    33→    33→### Processing Model
+    34→    34→    34→
+    35→    35→    35→Module Beta processes records through a multi-stage transformation pipeline:
+    36→    36→    36→
+    37→    37→    37→```
+    38→    38→    38→┌─────────────────────────────────────────────────────────────────────────────┐
+    39→    39→    39→│                      MODULE BETA TRANSFORMATION PIPELINE                     │
+    40→    40→    40→├─────────────────────────────────────────────────────────────────────────────┤
+    41→    41→    41→│  From Alpha ──▶ ┌──────────────┐    ┌──────────────┐    ┌──────────────┐   │
+    42→    42→    42→│                 │    Schema    │    │    Field     │    │     Data     │   │
+    43→    43→    43→│                 │   Mapping    │───▶│  Transform   │───▶│  Enrichment  │   │
+    44→    44→    44→│                 └──────────────┘    └──────────────┘    └──────────────┘   │
+    45→    45→    45→│                        │                   │                   │            │
+    46→    46→    46→│                        ▼                   ▼                   ▼            │
+    47→    47→    47→│                 ┌──────────────┐    ┌──────────────┐    ┌──────────────┐   │
+    48→    48→    48→│                 │   Mapping    │    │  Transform   │    │  Enrichment  │   │
+    49→    49→    49→│                 │    Errors    │    │    Errors    │    │   Failures   │   │
+    50→    50→    50→│                 └──────────────┘    └──────────────┘    └──────────────┘   │
+    51→    51→    51→│                                          │                                   │
+    52→    52→    52→│                                          ▼                                   │
+    53→    53→    53→│                                   ┌──────────────┐                          │
+    54→    54→    54→│                                   │   Quality    │──▶ To Gamma              │
+    55→    55→    55→│                                   │   Scoring    │                          │
+    56→    56→    56→│                                   └──────────────┘                          │
+    57→    57→    57→└─────────────────────────────────────────────────────────────────────────────┘
+    58→    58→    58→```
+    59→    59→    59→
+    60→    60→    60→### Design Principles
+    61→    61→    61→
+    62→    62→    62→**Declarative Transformation**: Transformation logic is expressed through declarative rule definitions rather than imperative code, enabling non-developers to understand and modify transformation behavior.
+    63→    63→    63→
+    64→    64→    64→**Idempotent Operations**: All transformations produce identical results when applied to identical inputs, enabling safe retry and replay of failed transformations.
+    65→    65→    65→
+    66→    66→    66→**Preserving Provenance**: The transformation pipeline maintains complete lineage tracking, recording which rules were applied to each field and intermediate values at each stage.
+    67→    67→    67→
+    68→    68→    68→**Graceful Degradation**: When enrichment sources are unavailable or transformation rules encounter unexpected data, the pipeline continues processing with appropriate fallback behavior.
+    69→    69→    69→
+    70→    70→    70→---
+    71→    71→    71→
+    72→    72→    72→## Transformation Pipeline
+    73→    73→    73→
+    74→    74→    74→The transformation pipeline consists of four sequential stages that process records in a defined order.
+    75→    75→    75→
+    76→    76→    76→### Stage 1: Schema Mapping
+    77→    77→    77→
+    78→    78→    78→Schema mapping converts records from Module Alpha's internal format to target schema(s) required by downstream consumers.
+    79→    79→    79→
+    80→    80→    80→**Mapping Operations**:
+    81→    81→    81→
+    82→    82→    82→**Direct Field Mapping**: Copies a source field value to a target field, optionally with type conversion.
+    83→    83→    83→
+    84→    84→    84→**Composite Field Construction**: Combines multiple source fields into a single target field with configurable separators and templates.
+    85→    85→    85→
+    86→    86→    86→**Field Decomposition**: Splits a single source field into multiple target fields using delimiters or patterns.
+    87→    87→    87→
+    88→    88→    88→**Conditional Mapping**: Applies different mapping rules based on source field values or record metadata.
+    89→    89→    89→
+    90→    90→    90→**Default Value Assignment**: Assigns default values when source fields are missing or null.
+    91→    91→    91→
+    92→    92→    92→### Stage 2: Field Transformation
+    93→    93→    93→
+    94→    94→    94→Field transformation applies value-level operations to individual fields after schema mapping.
+    95→    95→    95→
+    96→    96→    96→**String Transformations**: Case conversion, trimming, padding, substring extraction, pattern replacement.
+    97→    97→    97→
+    98→    98→    98→**Numeric Transformations**: Arithmetic operations, rounding, scaling, unit conversion.
+    99→    99→    99→
+   100→   100→   100→**Temporal Transformations**: Date/time parsing, formatting, timezone conversion.
+   101→   101→   101→
+   102→   102→   102→**Lookup Transformations**: Value substitution based on lookup tables.
+   103→   103→   103→
+   104→   104→   104→### Stage 3: Data Enrichment
+   105→   105→   105→
+   106→   106→   106→Data enrichment augments records with information from external sources including reference databases, external APIs, and cache layers.
+   107→   107→   107→
+   108→   108→   108→When an enrichment source is unavailable, the engine applies configured behaviors: FAIL (route to error handling), SKIP (leave empty), DEFAULT (apply defaults), or STALE (use expired cache).
+   109→   109→   109→
+   110→   110→   110→### Stage 4: Quality Scoring
+   111→   111→   111→
+   112→   112→   112→Quality scoring evaluates transformed records and assigns a score between 0.0 and 1.0 based on completeness, consistency, conformance, and timeliness.
+   113→   113→   113→
+   114→   114→   114→---
+   115→   115→   115→
+   116→   116→   116→## Data Structures
+   117→   117→   117→
+   118→   118→   118→Module Beta defines structures representing records at various pipeline stages.
+   119→   119→   119→
+   120→   120→   120→### TransformationRequest
+   121→   121→   121→
+   122→   122→   122→Represents a batch received from Module Alpha:
+   123→   123→   123→
+   124→   124→   124→```
+   125→   125→   125→TransformationRequest:
+   126→   126→   126→  request_id: string            # UUID v4 generated by Module Alpha
+   127→   127→   127→  batch_id: string              # Links to source batch
+   128→   128→   128→  records: list<ValidatedRecord>
+   129→   129→   129→  priority: enum                # NORMAL, HIGH, CRITICAL
+   130→   130→   130→  transformation_profile: string
+   131→   131→   131→```
+   132→   132→   132→
+   133→   133→   133→### IntermediateRecord
+   134→   134→   134→
+   135→   135→   135→Represents a record during transformation processing:
+   136→   136→   136→
+   137→   137→   137→```
+   138→   138→   138→IntermediateRecord:
+   139→   139→   139→  record_id: string
+   140→   140→   140→  original_fields: map<string, FieldValue>
+   141→   141→   141→  current_fields: map<string, FieldValue>
+   142→   142→   142→  target_schema: string
+   143→   143→   143→  stage: enum                   # MAPPING, TRANSFORM, ENRICHMENT, SCORING
+   144→   144→   144→  applied_rules: list<string>
+   145→   145→   145→  transformation_log: list<TransformationLogEntry>
+   146→   146→   146→```
+   147→   147→   147→
+   148→   148→   148→### TransformationLogEntry
+   149→   149→   149→
+   150→   150→   150→Captures details of a single transformation operation:
+   151→   151→   151→
+   152→   152→   152→```
+   153→   153→   153→TransformationLogEntry:
+   154→   154→   154→  timestamp: datetime
+   155→   155→   155→  rule_id: string
+   156→   156→   156→  field_name: string
+   157→   157→   157→  previous_value: FieldValue
+   158→   158→   158→  new_value: FieldValue
+   159→   159→   159→  operation: string
+   160→   160→   160→```
+   161→   161→   161→
+   162→   162→   162→### TransformedRecord
+   163→   163→   163→
+   164→   164→   164→Represents a fully transformed record ready for Module Gamma:
+   165→   165→   165→
+   166→   166→   166→```
+   167→   167→   167→TransformedRecord:
+   168→   168→   168→  record_id: string
+   169→   169→   169→  fields: map<string, FieldValue>
+   170→   170→   170→  target_schema: string
+   171→   171→   171→  quality_score: float          # 0.0 to 1.0
+   172→   172→   172→  quality_dimensions: QualityDimensions
+   173→   173→   173→  transformation_timestamp: datetime
+   174→   174→   174→  rules_applied: integer
+   175→   175→   175→  lineage_id: string
+   176→   176→   176→```
+   177→   177→   177→
+   178→   178→   178→### QualityDimensions
+   179→   179→   179→
+   180→   180→   180→Breakdown of quality score components:
+   181→   181→   181→
+   182→   182→   182→```
+   183→   183→   183→QualityDimensions:
+   184→   184→   184→  completeness_score: float
+   185→   185→   185→  consistency_score: float
+   186→   186→   186→  conformance_score: float
+   187→   187→   187→  timeliness_score: float
+   188→   188→   188→  overall_score: float
+   189→   189→   189→```
+   190→   190→   190→
+   191→   191→   191→### TransformationFailure
+   192→   192→   192→
+   193→   193→   193→Captures information about failed records:
+   194→   194→   194→
+   195→   195→   195→```
+   196→   196→   196→TransformationFailure:
+   197→   197→   197→  record_id: string
+   198→   198→   198→  failure_stage: enum
+   199→   199→   199→  failure_rule: string
+   200→   200→   200→  error_code: string
+   201→   201→   201→  error_message: string
+   202→   202→   202→  field_name: string
+   203→   203→   203→  is_recoverable: boolean
+   204→   204→   204→```
+   205→   205→   205→
+   206→   206→   206→---
+   207→   207→   207→
+   208→   208→   208→## Transformation Rules
+   209→   209→   209→
+   210→   210→   210→Module Beta implements a comprehensive transformation rule framework.
+   211→   211→   211→
+   212→   212→   212→### Rule Categories
+   213→   213→   213→
+   214→   214→   214→- **Schema Rules**: Field mapping and structural transformation
+   215→   215→   215→- **String Rules**: Text manipulation and formatting
+   216→   216→   216→- **Numeric Rules**: Arithmetic and numeric formatting
+   217→   217→   217→- **Temporal Rules**: Date/time manipulation
+   218→   218→   218→- **Lookup Rules**: Reference data substitution
+   219→   219→   219→- **Conditional Rules**: Logic-based transformation selection
+   220→   220→   220→
+   221→   221→   221→### Standard Transformation Rules
+   222→   222→   222→
+   223→   223→   223→#### Rule 1: Field Rename Mapping
+   224→   224→   224→
+   225→   225→   225→Renames fields from source schema to target schema.
+   226→   226→   226→
+   227→   227→   227→**Configuration**: `field_mappings` (map), `preserve_unmapped` (boolean)
+   228→   228→   228→
+   229→   229→   229→```
+   230→   230→   230→field_mappings: {"cust_id": "customer_identifier", "ord_date": "order_date"}
+   231→   231→   231→```
+   232→   232→   232→
+   233→   233→   233→#### Rule 2: Type Coercion
+   234→   234→   234→
+   235→   235→   235→Converts field values between compatible data types.
+   236→   236→   236→
+   237→   237→   237→**Configuration**: `type_conversions` (map), `strict_mode` (boolean)
+   238→   238→   238→
+   239→   239→   239→```
+   240→   240→   240→type_conversions: {"quantity": {source_type: STRING, target_type: INTEGER}}
+   241→   241→   241→```
+   242→   242→   242→
+   243→   243→   243→#### Rule 3: String Case Transformation
+   244→   244→   244→
+   245→   245→   245→Converts string values to specified case format.
+   246→   246→   246→
+   247→   247→   247→**Configuration**: `field_cases` (map with UPPER, LOWER, TITLE)
+   248→   248→   248→
+   249→   249→   249→```
+   250→   250→   250→field_cases: {"country_code": "UPPER", "email": "LOWER"}
+   251→   251→   251→```
+   252→   252→   252→
+   253→   253→   253→#### Rule 4: String Trimming and Padding
+   254→   254→   254→
+   255→   255→   255→Removes or adds whitespace to achieve target lengths.
+   256→   256→   256→
+   257→   257→   257→**Configuration**: `field_formatting` (map with trim, pad, target_length)
+   258→   258→   258→
+   259→   259→   259→```
+   260→   260→   260→field_formatting: {"account_number": {pad_left: "0", target_length: 10}}
+   261→   261→   261→```
+   262→   262→   262→
+   263→   263→   263→#### Rule 5: Pattern-Based Extraction
+   264→   264→   264→
+   265→   265→   265→Extracts substrings using regular expressions.
+   266→   266→   266→
+   267→   267→   267→**Configuration**: `extractions` (list with source, target, pattern, group)
+   268→   268→   268→
+   269→   269→   269→```
+   270→   270→   270→extractions: [{source: "phone", target: "area_code", pattern: "^\\((\\d{3})\\)"}]
+   271→   271→   271→```
+   272→   272→   272→
+   273→   273→   273→#### Rule 6: Composite Field Construction
+   274→   274→   274→
+   275→   275→   275→Combines multiple source fields into one target field.
+   276→   276→   276→
+   277→   277→   277→**Configuration**: `composites` (list with target, sources, separator or template)
+   278→   278→   278→
+   279→   279→   279→```
+   280→   280→   280→composites: [{target: "full_name", sources: ["first", "last"], separator: " "}]
+   281→   281→   281→```
+   282→   282→   282→
+   283→   283→   283→#### Rule 7: Numeric Rounding and Scaling
+   284→   284→   284→
+   285→   285→   285→Applies rounding rules and scale factors.
+   286→   286→   286→
+   287→   287→   287→**Configuration**: `numeric_rules` (map with round_mode, decimal_places, scale_factor)
+   288→   288→   288→
+   289→   289→   289→```
+   290→   290→   290→numeric_rules: {"price": {round_mode: HALF_UP, decimal_places: 2}}
+   291→   291→   291→```
+   292→   292→   292→
+   293→   293→   293→#### Rule 8: Date Format Normalization
+   294→   294→   294→
+   295→   295→   295→Parses dates from various formats and outputs in standard format.
+   296→   296→   296→
+   297→   297→   297→**Configuration**: `date_formats` (map with input_formats, output_format, timezone)
+   298→   298→   298→
+   299→   299→   299→```
+   300→   300→   300→date_formats: {"order_date": {input_formats: ["MM/dd/yyyy"], output_format: "ISO8601"}}
+   301→   301→   301→```
+   302→   302→   302→
+   303→   303→   303→#### Rule 9: Timezone Conversion
+   304→   304→   304→
+   305→   305→   305→Converts datetime values between timezones.
+   306→   306→   306→
+   307→   307→   307→**Configuration**: `timezone_conversions` (map with source_timezone, target_timezone)
+   308→   308→   308→
+   309→   309→   309→```
+   310→   310→   310→timezone_conversions: {"event_time": {source: "America/New_York", target: "UTC"}}
+   311→   311→   311→```
+   312→   312→   312→
+   313→   313→   313→#### Rule 10: Lookup Table Substitution
+   314→   314→   314→
+   315→   315→   315→Replaces field values using lookup tables.
+   316→   316→   316→
+   317→   317→   317→**Configuration**: `lookups` (map with table, key_field, value_field, on_missing)
+   318→   318→   318→
+   319→   319→   319→```
+   320→   320→   320→lookups: {"status": {inline: {"P": "Pending", "A": "Approved"}, on_missing: "DEFAULT"}}
+   321→   321→   321→```
+   322→   322→   322→
+   323→   323→   323→#### Rule 11: Null Value Handling
+   324→   324→   324→
+   325→   325→   325→Applies configurable handling for null or missing values.
+   326→   326→   326→
+   327→   327→   327→**Configuration**: `null_handling` (map with action: PRESERVE, DEFAULT, FAIL)
+   328→   328→   328→
+   329→   329→   329→```
+   330→   330→   330→null_handling: {"phone": {action: "DEFAULT", default: "N/A"}}
+   331→   331→   331→```
+   332→   332→   332→
+   333→   333→   333→#### Rule 12: Array Aggregation
+   334→   334→   334→
+   335→   335→   335→Aggregates array values into scalar results.
+   336→   336→   336→
+   337→   337→   337→**Configuration**: `aggregations` (map with target, operation: COUNT, SUM, AVG)
+   338→   338→   338→
+   339→   339→   339→```
+   340→   340→   340→aggregations: {"line_items": {target: "item_count", operation: "COUNT"}}
+   341→   341→   341→```
+   342→   342→   342→
+   343→   343→   343→#### Rule 13: Conditional Transformation
+   344→   344→   344→
+   345→   345→   345→Applies different transformations based on conditions.
+   346→   346→   346→
+   347→   347→   347→**Configuration**: `conditionals` (list with condition, then, else)
+   348→   348→   348→
+   349→   349→   349→```
+   350→   350→   350→conditionals: [{condition: {field: "country", equals: "US"}, then: "format_us_phone"}]
+   351→   351→   351→```
+   352→   352→   352→
+   353→   353→   353→#### Rule 14: Field Validation Transform
+   354→   354→   354→
+   355→   355→   355→Validates field values and applies corrections or flags.
+   356→   356→   356→
+   357→   357→   357→**Configuration**: `validations` (list with field, pattern, on_invalid, flag_field)
+   358→   358→   358→
+   359→   359→   359→```
+   360→   360→   360→validations: [{field: "email", pattern: "^.+@.+$", on_invalid: "FLAG"}]
+   361→   361→   361→```
+   362→   362→   362→
+   363→   363→   363→#### Rule 15: Enrichment Mapping
+   364→   364→   364→
+   365→   365→   365→Maps enrichment source results to target fields.
+   366→   366→   366→
+   367→   367→   367→**Configuration**: `enrichment_mappings` (list with source, lookup_key, field_mappings)
+   368→   368→   368→
+   369→   369→   369→```
+   370→   370→   370→enrichment_mappings: [{source: "customer_db", field_mappings: {"name": "customer_name"}}]
+   371→   371→   371→```
+   372→   372→   372→
+   373→   373→   373→#### Rule 16: Hash Generation
+   374→   374→   374→
+   375→   375→   375→Generates hash values for deduplication or identification.
+   376→   376→   376→
+   377→   377→   377→**Configuration**: `hash_rules` (list with target, source_fields, algorithm)
+   378→   378→   378→
+   379→   379→   379→```
+   380→   380→   380→hash_rules: [{target: "record_hash", source_fields: ["id", "date"], algorithm: "SHA256"}]
+   381→   381→   381→```
+   382→   382→   382→
+   383→   383→   383→#### Rule 17: Sequence Generation
+   384→   384→   384→
+   385→   385→   385→Generates sequential identifiers for records.
+   386→   386→   386→
+   387→   387→   387→**Configuration**: `sequences` (map with prefix, start, padding, scope)
+   388→   388→   388→
+   389→   389→   389→```
+   390→   390→   390→sequences: {"batch_seq": {prefix: "ORD", padding: 8, scope: "BATCH"}}
+   391→   391→   391→```
+   392→   392→   392→
+   393→   393→   393→### Rule Evaluation Order
+   394→   394→   394→
+   395→   395→   395→1. Schema Rules (Field Mapping, Type Coercion)
+   396→   396→   396→2. String Rules (Case, Trimming, Extraction)
+   397→   397→   397→3. Numeric Rules (Rounding, Scaling)
+   398→   398→   398→4. Temporal Rules (Date Format, Timezone)
+   399→   399→   399→5. Composite Rules (Construction, Decomposition)
+   400→   400→   400→6. Lookup Rules (Table Substitution, Enrichment)
+   401→   401→   401→7. Validation Rules (Pattern Checking)
+   402→   402→   402→8. Conditional Rules (Logic-Based Selection)
+   403→   403→   403→9. Generation Rules (Hash, Sequence)
+   404→   404→   404→10. Quality Rules (Scoring)
+   405→   405→   405→
+   406→   406→   406→---
+   407→   407→   407→
+   408→   408→   408→## Error Handling
+   409→   409→   409→
+   410→   410→   410→Module Beta implements comprehensive error handling following the fail-forward principle: isolate failures, capture context, and continue processing valid records while routing failed records to appropriate error channels.
+   411→   411→   411→
+   412→   412→   412→### Error Categories
+   413→   413→   413→
+   414→   414→   414→#### Mapping Errors
+   415→   415→   415→
+   416→   416→   416→Occur when schema mapping operations fail due to incompatible structures or missing required fields.
+   417→   417→   417→
+   418→   418→   418→**Common Causes**: Missing required source fields, type incompatibility between source and target, invalid mapping configuration, circular field references
+   419→   419→   419→
+   420→   420→   420→**Handling**: Create MappingFailure record with source field state, target schema requirements, and specific mapping rule that failed. Route to mapping error queue. If mapping failure rate exceeds `MAPPING_ERROR_THRESHOLD`, suspend processing and alert operators.
+   421→   421→   421→
+   422→   422→   422→**MappingFailure Structure**:
+   423→   423→   423→```
+   424→   424→   424→MappingFailure:
+   425→   425→   425→  record_id: string
+   426→   426→   426→  source_fields: map<string, FieldValue>
+   427→   427→   427→  target_schema: string
+   428→   428→   428→  failed_mapping: string
+   429→   429→   429→  error_code: string            # e.g., "MAP_001_MISSING_REQUIRED"
+   430→   430→   430→  error_message: string
+   431→   431→   431→  failure_timestamp: datetime
+   432→   432→   432→```
+   433→   433→   433→
+   434→   434→   434→**Metrics**: `beta_mapping_errors_total`, `beta_mapping_error_rate`, `beta_mapping_errors_by_schema`
+   435→   435→   435→
+   436→   436→   436→#### Transformation Errors
+   437→   437→   437→
+   438→   438→   438→Occur when field transformation operations produce invalid results or encounter unexpected input.
+   439→   439→   439→
+   440→   440→   440→**Common Causes**: Regex pattern failures, numeric overflow/underflow, date parsing failures, lookup table misses with FAIL policy, invalid encoding sequences
+   441→   441→   441→
+   442→   442→   442→**Handling**: Log transformation context including input value, rule configuration, and intermediate state. Apply configured fallback:
+   443→   443→   443→- **FAIL**: Route entire record to error queue
+   444→   444→   444→- **SKIP**: Leave field unchanged and continue
+   445→   445→   445→- **DEFAULT**: Apply default value and continue
+   446→   446→   446→- **NULL**: Set field to null and continue
+   447→   447→   447→
+   448→   448→   448→**TransformationError Structure**:
+   449→   449→   449→```
+   450→   450→   450→TransformationError:
+   451→   451→   451→  record_id: string
+   452→   452→   452→  rule_id: string
+   453→   453→   453→  field_name: string
+   454→   454→   454→  input_value: string
+   455→   455→   455→  error_code: string            # e.g., "TRX_003_PATTERN_MISMATCH"
+   456→   456→   456→  error_message: string
+   457→   457→   457→  intermediate_state: map<string, FieldValue>
+   458→   458→   458→```
+   459→   459→   459→
+   460→   460→   460→**Configuration**: `TRANSFORM_ERROR_POLICY`, `TRANSFORM_MAX_RETRIES`, `TRANSFORM_TIMEOUT_MS`
+   461→   461→   461→
+   462→   462→   462→#### Enrichment Errors
+   463→   463→   463→
+   464→   464→   464→Occur when external data sources are unavailable or return unexpected results.
+   465→   465→   465→
+   466→   466→   466→**Common Causes**: Network connectivity issues, authentication failures, rate limiting, source timeout, malformed response data, lookup key not found
+   467→   467→   467→
+   468→   468→   468→**Transient Errors** (network, timeout): Retry with exponential backoff up to `ENRICHMENT_MAX_RETRIES`. If retries exhausted, apply configured fallback.
+   469→   469→   469→
+   470→   470→   470→**Permanent Errors** (not found, invalid key): Apply fallback immediately without retry.
+   471→   471→   471→
+   472→   472→   472→**Source Degradation**: Track error rates per enrichment source. When error rate exceeds `ENRICHMENT_CIRCUIT_THRESHOLD`, open circuit breaker for that source.
+   473→   473→   473→
+   474→   474→   474→**EnrichmentError Structure**:
+   475→   475→   475→```
+   476→   476→   476→EnrichmentError:
+   477→   477→   477→  record_id: string
+   478→   478→   478→  enrichment_source: string
+   479→   479→   479→  lookup_key: string
+   480→   480→   480→  error_category: enum          # TRANSIENT, PERMANENT
+   481→   481→   481→  error_code: string            # e.g., "ENR_002_SOURCE_TIMEOUT"
+   482→   482→   482→  retry_count: integer
+   483→   483→   483→  circuit_state: enum           # CLOSED, OPEN, HALF_OPEN
+   484→   484→   484→```
+   485→   485→   485→
+   486→   486→   486→**Circuit Breaker Configuration**: `ENRICHMENT_CIRCUIT_THRESHOLD`, `ENRICHMENT_CIRCUIT_TIMEOUT_MS`
+   487→   487→   487→
+   488→   488→   488→#### Quality Score Errors
+   489→   489→   489→
+   490→   490→   490→Occur when quality scoring cannot complete or produces invalid results.
+   491→   491→   491→
+   492→   492→   492→**Handling**: Quality scoring errors are generally non-fatal. Records receive a quality score of 0.0 with flags indicating scoring failure. Processing continues to Module Gamma.
+   493→   493→   493→
+   494→   494→   494→#### Resource Exhaustion Errors
+   495→   495→   495→
+   496→   496→   496→Occur when system resources are depleted during transformation processing.
+   497→   497→   497→
+   498→   498→   498→**Common Causes**: Memory pressure from large records, thread pool saturation, connection pool depletion
+   499→   499→   499→
+   500→   500→   500→**Handling**: Resource exhaustion triggers graceful degradation:
+   501→   501→   501→1. Pause acceptance of new batches from Module Alpha
+   502→   502→   502→2. Complete in-flight transformations
+   503→   503→   503→3. Clear transformation caches
+   504→   504→   504→4. Signal unhealthy status
+   505→   505→   505→5. Resume when resources recover
+   506→   506→   506→
+   507→   507→   507→### Error Queue Management
+   508→   508→   508→
+   509→   509→   509→Failed records route to categorized error queues:
+   510→   510→   510→- `beta_mapping_errors`: Schema mapping failures
+   511→   511→   511→- `beta_transform_errors`: Field transformation failures
+   512→   512→   512→- `beta_enrichment_errors`: Enrichment operation failures
+   513→   513→   513→- `beta_critical_errors`: Unrecoverable errors
+   514→   514→   514→
+   515→   515→   515→**Queue Operations**: Inspection (query failures), Correction (update and mark for reprocessing), Replay (reinject corrected records), Expiration (auto-purge after retention)
+   516→   516→   516→
+   517→   517→   517→**Configuration**: `ERROR_QUEUE_CAPACITY`, `ERROR_RETENTION_HOURS`, `MAX_REPLAY_ATTEMPTS`
+   518→   518→   518→
+   519→   519→   519→### Error Logging
+   520→   520→   520→
+   521→   521→   521→All errors generate structured log entries:
+   522→   522→   522→
+   523→   523→   523→```
+   524→   524→   524→TransformationErrorLog:
+   525→   525→   525→  timestamp: datetime
+   526→   526→   526→  level: enum                   # DEBUG, INFO, WARN, ERROR, CRITICAL
+   527→   527→   527→  error_category: string
+   528→   528→   528→  error_code: string
+   529→   529→   529→  message: string
+   530→   530→   530→  record_id: string
+   531→   531→   531→  batch_id: string
+   532→   532→   532→  correlation_id: string
+   533→   533→   533→  context: map<string, string>
+   534→   534→   534→```
+   535→   535→   535→
+   536→   536→   536→### Error Metrics
+   537→   537→   537→
+   538→   538→   538→**Counters**: `beta_errors_total`, `beta_retries_total`, `beta_circuit_breaker_trips`
+   539→   539→   539→
+   540→   540→   540→**Gauges**: `beta_error_queue_size`, `beta_circuit_breaker_state`, `beta_degradation_mode`
+   541→   541→   541→
+   542→   542→   542→**Histograms**: `beta_error_recovery_duration`, `beta_retry_delay_seconds`
+   543→   543→   543→
+   544→   544→   544→### Recovery Procedures
+   545→   545→   545→
+   546→   546→   546→**Mapping Recovery**: Log failure → route to queue → increment counters → continue → alert if threshold exceeded
+   547→   547→   547→
+   548→   548→   548→**Transformation Recovery**: Capture state → apply fallback → log outcome → continue or route
+   549→   549→   549→
+   550→   550→   550→**Enrichment Recovery**: Detect type → retry if transient → apply fallback → update circuit → continue
+   551→   551→   551→
+   552→   552→   552→**Resource Recovery**: Detect pressure → pause intake → drain queues → clear caches → wait → resume
+   553→   553→   553→
+   554→   554→   554→### Error Escalation
+   555→   555→   555→
+   556→   556→   556→When error rates exceed configured thresholds, the system escalates through multiple levels:
+   557→   557→   557→
+   558→   558→   558→**Level 1 - Warning**: Log elevated error rates, emit alert metrics
+   559→   559→   559→**Level 2 - Throttle**: Reduce intake rate from Module Alpha
+   560→   560→   560→**Level 3 - Circuit Break**: Open circuit breakers for failing enrichment sources
+   561→   561→   561→**Level 4 - Halt**: Suspend all processing pending operator intervention
+   562→   562→   562→
+   563→   563→   563→---
+   564→   564→   564→
+   565→   565→   565→## Configuration
+   566→   566→   566→
+   567→   567→   567→Module Beta behavior is controlled through configuration parameters.
+   568→   568→   568→
+   569→   569→   569→### Pipeline Configuration
+   570→   570→   570→
+   571→   571→   571→#### TRANSFORM_PARALLELISM
+   572→   572→   572→
+   573→   573→   573→**Type**: Integer | **Default**: 8 | **Range**: 1-64
+   574→   574→   574→
+   575→   575→   575→Number of concurrent transformation threads.
+   576→   576→   576→
+   577→   577→   577→#### TRANSFORM_BATCH_SIZE
+   578→   578→   578→
+   579→   579→   579→**Type**: Integer | **Default**: 500 | **Range**: 1-10000
+   580→   580→   580→
+   581→   581→   581→Records processed per transformation batch.
+   582→   582→   582→
+   583→   583→   583→#### TRANSFORM_TIMEOUT_MS
+   584→   584→   584→
+   585→   585→   585→**Type**: Integer | **Default**: 30000 | **Range**: 1000-300000
+   586→   586→   586→
+   587→   587→   587→Maximum time allowed for transforming a single record.
+   588→   588→   588→
+   589→   589→   589→#### TRANSFORM_QUEUE_CAPACITY
+   590→   590→   590→
+   591→   591→   591→**Type**: Integer | **Default**: 5000 | **Range**: 100-100000
+   592→   592→   592→
+   593→   593→   593→Maximum records queued for transformation.
+   594→   594→   594→
+   595→   595→   595→#### TRANSFORM_PROFILE_DEFAULT
+   596→   596→   596→
+   597→   597→   597→**Type**: String | **Default**: "standard"
+   598→   598→   598→
+   599→   599→   599→Named transformation profile applied when none specified.
+   600→   600→   600→
+   601→   601→   601→### Enrichment Configuration
+   602→   602→   602→
+   603→   603→   603→#### ENRICHMENT_CACHE_TTL
+   604→   604→   604→
+   605→   605→   605→**Type**: Integer | **Default**: 3600 | **Range**: 60-86400
+   606→   606→   606→
+   607→   607→   607→Time-to-live in seconds for cached enrichment results.
+   608→   608→   608→
+   609→   609→   609→#### ENRICHMENT_CACHE_MAX_SIZE
+   610→   610→   610→
+   611→   611→   611→**Type**: Integer | **Default**: 100000 | **Range**: 1000-10000000
+   612→   612→   612→
+   613→   613→   613→Maximum entries in the enrichment cache.
+   614→   614→   614→
+   615→   615→   615→#### ENRICHMENT_TIMEOUT_MS
+   616→   616→   616→
+   617→   617→   617→**Type**: Integer | **Default**: 5000 | **Range**: 100-60000
+   618→   618→   618→
+   619→   619→   619→Timeout for individual enrichment operations.
+   620→   620→   620→
+   621→   621→   621→#### ENRICHMENT_MAX_RETRIES
+   622→   622→   622→
+   623→   623→   623→**Type**: Integer | **Default**: 3 | **Range**: 0-10
+   624→   624→   624→
+   625→   625→   625→Maximum retry attempts for transient enrichment failures.
+   626→   626→   626→
+   627→   627→   627→### Quality Configuration
+   628→   628→   628→
+   629→   629→   629→#### QUALITY_THRESHOLD_WARN
+   630→   630→   630→
+   631→   631→   631→**Type**: Float | **Default**: 0.7 | **Range**: 0.0-1.0
+   632→   632→   632→
+   633→   633→   633→Quality score below which a warning is logged.
+   634→   634→   634→
+   635→   635→   635→#### QUALITY_THRESHOLD_ERROR
+   636→   636→   636→
+   637→   637→   637→**Type**: Float | **Default**: 0.3 | **Range**: 0.0-1.0
+   638→   638→   638→
+   639→   639→   639→Quality score below which the record is flagged as low quality.
+   640→   640→   640→
+   641→   641→   641→---
+   642→   642→   642→
+   643→   643→   643→## Integration Points
+   644→   644→   644→
+   645→   645→   645→Module Beta integrates with other Data Pipeline System components through well-defined interfaces.
+   646→   646→   646→
+   647→   647→   647→### Module Alpha Integration
+   648→   648→   648→
+   649→   649→   649→Module Beta receives validated records from Module Alpha through the standardized handoff protocol.
+   650→   650→   650→
+   651→   651→   651→**Handoff Reception**: Beta exposes an endpoint for receiving `TransformationRequest` batches. Upon receipt, Beta validates batch integrity, acknowledges receipt, and queues records for transformation.
+   652→   652→   652→
+   653→   653→   653→**Request Validation**: Verify batch checksum, confirm metadata, validate record count, check transformation profile exists.
+   654→   654→   654→
+   655→   655→   655→**Back-Pressure**: When queues approach capacity, Beta signals back-pressure through the integration layer, causing Alpha to pause delivery. See `integration-layer.md` for protocol details.
+   656→   656→   656→
+   657→   657→   657→### Module Gamma Integration
+   658→   658→   658→
+   659→   659→   659→Module Beta delivers transformed records to Module Gamma for output processing.
+   660→   660→   660→
+   661→   661→   661→**Handoff Payload**:
+   662→   662→   662→```
+   663→   663→   663→TransformationResponse:
+   664→   664→   664→  batch_id: string
+   665→   665→   665→  records: list<TransformedRecord>
+   666→   666→   666→  transformation_summary: TransformationSummary
+   667→   667→   667→  quality_summary: QualitySummary
+   668→   668→   668→  checksum: string
+   669→   669→   669→```
+   670→   670→   670→
+   671→   671→   671→For complete handoff specifications, see `integration-layer.md`.
+   672→   672→   672→
+   673→   673→   673→### Enrichment Source Integration
+   674→   674→   674→
+   675→   675→   675→Module Beta connects to external enrichment sources:
+   676→   676→   676→
+   677→   677→   677→**Database Sources**: JDBC connections with pooling, health checking.
+   678→   678→   678→
+   679→   679→   679→**API Sources**: HTTP/HTTPS with authentication, rate limiting.
+   680→   680→   680→
+   681→   681→   681→**Cache Integration**: Distributed cache systems for enrichment caching.
+   682→   682→   682→
+   683→   683→   683→### Health Check Integration
+   684→   684→   684→
+   685→   685→   685→Beta exposes health status including component states, queue depths, error rates, and resource utilization.
+   686→   686→   686→
+   687→   687→   687→**Health Levels**: HEALTHY (normal), DEGRADED (reduced capacity), UNHEALTHY (processing halted)
+   688→   688→   688→
+   689→   689→   689→### Monitoring Integration
+   690→   690→   690→
+   691→   691→   691→Beta emits metrics for throughput, latency, quality, errors, and resources. Structured logs follow pipeline format.
+   692→   692→   692→
+   693→   693→   693→---
+   694→   694→   694→
+   695→   695→   695→## Compliance Requirements
+   696→   696→   696→
+   697→   697→   697→Module Beta implements compliance controls for audit, regulatory, and security requirements.
+   698→   698→   698→
+   699→   699→   699→### Audit Logging
+   700→   700→   700→
+   701→   701→   701→All transformation operations are logged:
+   702→   702→   702→
+   703→   703→   703→**Record-Level Audit**: Original state, all transformations with before/after values, quality scores, final state.
+   704→   704→   704→
+   705→   705→   705→**Rule-Level Audit**: Rule identifier, input/output values, execution timing.
+   706→   706→   706→
+   707→   707→   707→Audit requirements specified in `compliance-requirements.md` Section 3.
+   708→   708→   708→
+   709→   709→   709→### Data Lineage
+   710→   710→   710→
+   711→   711→   711→Module Beta maintains transformation lineage:
+   712→   712→   712→
+   713→   713→   713→**Lineage Capture**: Source record ID, transformation session, rule sequence, enrichment references, output record ID.
+   714→   714→   714→
+   715→   715→   715→**Lineage Query**: Forward tracing (input to outputs) and backward tracing (output to inputs).
+   716→   716→   716→
+   717→   717→   717→Lineage requirements in `compliance-requirements.md` Section 4.
+   718→   718→   718→
+   719→   719→   719→### Data Protection
+   720→   720→   720→
+   721→   721→   721→**Field-Level Encryption**: Sensitive fields can be encrypted during transformation.
+   722→   722→   722→
+   723→   723→   723→**Tokenization**: PII fields can be replaced with tokens.
+   724→   724→   724→
+   725→   725→   725→**Masking**: Fields can be partially masked for logging.
+   726→   726→   726→
+   727→   727→   727→Requirements in `compliance-requirements.md` Section 7.
+   728→   728→   728→
+   729→   729→   729→### Security Controls
+   730→   730→   730→
+   731→   731→   731→**Enrichment Source Authentication**: All external connections use appropriate authentication.
+   732→   732→   732→
+   733→   733→   733→**Transport Encryption**: Inter-module communication uses TLS.
+   734→   734→   734→
+   735→   735→   735→**Input Sanitization**: Transformation inputs are sanitized.
+   736→   736→   736→
+   737→   737→   737→Requirements in `compliance-requirements.md` Section 6.
+   738→   738→   738→
+   739→   739→   739→---
+   740→   740→   740→
+   741→   741→   741→*This document is the authoritative specification for Module Beta. For system architecture, see `data-pipeline-overview.md`. For upstream integration, see `module-alpha.md`. For downstream integration, see `module-gamma.md`. For cross-module protocols, see `integration-layer.md`. For compliance requirements, see `compliance-requirements.md`.*
+   742→   742→   742→
+   743→   743→
+   744→   744→<system-reminder>
+   745→   745→Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+   746→   746→</system-reminder>
+   747→   747→
+   748→
+   749→<system-reminder>
+   750→Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+   751→</system-reminder>
+   752→
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>

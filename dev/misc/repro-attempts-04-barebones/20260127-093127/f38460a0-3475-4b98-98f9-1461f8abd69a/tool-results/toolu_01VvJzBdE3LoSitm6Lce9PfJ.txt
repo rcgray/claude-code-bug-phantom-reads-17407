@@ -1,0 +1,479 @@
+     1→     1→     1→     1→# Data Pipeline System Overview
+     2→     2→     2→     2→
+     3→     3→     3→     3→**Version:** 1.0.0
+     4→     4→     4→     4→**Status:** Active
+     5→     5→     5→     5→
+     6→     6→     6→     6→## Table of Contents
+     7→     7→     7→     7→
+     8→     8→     8→     8→1. [System Purpose](#system-purpose)
+     9→     9→     9→     9→2. [Architecture Overview](#architecture-overview)
+    10→    10→    10→    10→3. [Module Summary](#module-summary)
+    11→    11→    11→    11→4. [Data Flow](#data-flow)
+    12→    12→    12→    12→5. [Cross-Cutting Concerns](#cross-cutting-concerns)
+    13→    13→    13→    13→6. [Configuration Management](#configuration-management)
+    14→    14→    14→    14→7. [Deployment Considerations](#deployment-considerations)
+    15→    15→    15→    15→
+    16→    16→    16→    16→---
+    17→    17→    17→    17→
+    18→    18→    18→    18→## System Purpose
+    19→    19→    19→    19→
+    20→    20→    20→    20→The Data Pipeline System provides a robust, scalable platform for processing large volumes of structured and semi-structured data from multiple external sources through a series of transformation stages, ultimately delivering formatted output to various downstream consumers. The system is designed to handle batch and near-real-time processing workloads with configurable throughput characteristics.
+    21→    21→    21→    21→
+    22→    22→    22→    22→### Business Context
+    23→    23→    23→    23→
+    24→    24→    24→    24→Modern enterprises generate and consume vast quantities of data from disparate sources including transactional databases, event streams, third-party APIs, and file-based exports. The Data Pipeline System addresses the fundamental challenge of consolidating, normalizing, and distributing this data in a consistent, reliable manner.
+    25→    25→    25→    25→
+    26→    26→    26→    26→The system serves several critical business functions:
+    27→    27→    27→    27→
+    28→    28→    28→    28→**Data Consolidation**: Multiple upstream data sources are ingested through a unified interface, eliminating the need for point-to-point integrations between source systems and downstream consumers. This consolidation reduces integration complexity and provides a single point of data governance.
+    29→    29→    29→    29→
+    30→    30→    30→    30→**Data Quality Assurance**: Raw data from external sources frequently contains inconsistencies, missing values, and format variations. The pipeline applies comprehensive validation and transformation rules to ensure output data meets established quality standards before delivery to consumers.
+    31→    31→    31→    31→
+    32→    32→    32→    32→**Operational Efficiency**: By centralizing data processing logic in a purpose-built pipeline system, organizations avoid duplicating transformation code across multiple applications. Changes to data formats or business rules can be implemented once in the pipeline rather than propagated across numerous downstream systems.
+    33→    33→    33→    33→
+    34→    34→    34→    34→**Audit and Compliance**: Financial, healthcare, and other regulated industries require comprehensive audit trails for data movement and transformation. The Data Pipeline System provides built-in logging and traceability capabilities to support compliance requirements. For detailed compliance specifications, see `compliance-requirements.md`.
+    35→    35→    35→    35→
+    36→    36→    36→    36→### Technical Objectives
+    37→    37→    37→    37→
+    38→    38→    38→    38→The Data Pipeline System achieves its business objectives through the following technical capabilities:
+    39→    39→    39→    39→
+    40→    40→    40→    40→**High Throughput Processing**: The system is designed to process millions of records per hour through parallel processing and efficient memory utilization. Configurable batch sizes and worker pool settings allow operators to tune performance characteristics for specific deployment environments.
+    41→    41→    41→    41→
+    42→    42→    42→    42→**Fault Tolerance**: Individual record failures do not halt pipeline execution. The system isolates failures, routes problematic records to dead letter queues for later analysis, and continues processing valid data. Comprehensive error classification enables targeted remediation.
+    43→    43→    43→    43→
+    44→    44→    44→    44→**Extensibility**: New data sources, transformation rules, and output destinations can be added through well-defined interfaces without modifying core pipeline logic. The modular architecture supports incremental capability expansion.
+    45→    45→    45→    45→
+    46→    46→    46→    46→**Observability**: Built-in metrics, structured logging, and health check endpoints provide operators with real-time visibility into pipeline status, throughput, and error rates. Integration with standard monitoring platforms enables proactive alerting and capacity planning.
+    47→    47→    47→    47→
+    48→    48→    48→    48→---
+    49→    49→    49→    49→
+    50→    50→    50→    50→## Architecture Overview
+    51→    51→    51→    51→
+    52→    52→    52→    52→The Data Pipeline System follows a three-stage processing model where data flows sequentially through ingestion, transformation, and output modules. Each module is independently deployable and communicates with adjacent modules through well-defined message protocols.
+    53→    53→    53→    53→
+    54→    54→    54→    54→### System Architecture Diagram
+    55→    55→    55→    55→
+    56→    56→    56→    56→```
+    57→    57→    57→    57→┌─────────────────────────────────────────────────────────────────────────────┐
+    58→    58→    58→    58→│                        DATA PIPELINE SYSTEM                                  │
+    59→    59→    59→    59→├─────────────────────────────────────────────────────────────────────────────┤
+    60→    60→    60→    60→│                                                                              │
+    61→    61→    61→    61→│  ┌──────────────────┐                                                        │
+    62→    62→    62→    62→│  │  External Data   │                                                        │
+    63→    63→    63→    63→│  │     Sources      │                                                        │
+    64→    64→    64→    64→│  │  ┌───┐ ┌───┐    │                                                        │
+    65→    65→    65→    65→│  │  │API│ │DB │    │                                                        │
+    66→    66→    66→    66→│  │  └─┬─┘ └─┬─┘    │                                                        │
+    67→    67→    67→    67→│  │    │     │      │                                                        │
+    68→    68→    68→    68→│  │  ┌─┴─┐ ┌─┴─┐    │                                                        │
+    69→    69→    69→    69→│  │  │CSV│ │MQ │    │                                                        │
+    70→    70→    70→    70→│  │  └─┬─┘ └─┬─┘    │                                                        │
+    71→    71→    71→    71→│  └────┼─────┼──────┘                                                        │
+    72→    72→    72→    72→│       │     │                                                                │
+    73→    73→    73→    73→│       ▼     ▼                                                                │
+    74→    74→    74→    74→│  ┌─────────────────────────────────────────────────────────────────────┐    │
+    75→    75→    75→    75→│  │                     MODULE ALPHA (INGESTION)                         │    │
+    76→    76→    76→    76→│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌───────────┐  │    │
+    77→    77→    77→    77→│  │  │   Source    │  │    Input    │  │  Validation │  │  Buffering │  │    │
+    78→    78→    78→    78→│  │  │  Adapters   │──│   Parsing   │──│    Engine   │──│   Queue    │  │    │
+    79→    79→    79→    79→│  │  └─────────────┘  └─────────────┘  └─────────────┘  └─────┬─────┘  │    │
+    80→    80→    80→    80→│  │                                                            │        │    │
+    81→    81→    81→    81→│  │  See module-alpha.md for detailed specification            │        │    │
+    82→    82→    82→    82→│  └────────────────────────────────────────────────────────────┼────────┘    │
+    83→    83→    83→    83→│                                                                │             │
+    84→    84→    84→    84→│                           ┌────────────────────────────────────┘             │
+    85→    85→    85→    85→│                           │  ALPHA-BETA HANDOFF                              │
+    86→    86→    86→    86→│                           │  See integration-layer.md                        │
+    87→    87→    87→    87→│                           ▼                                                  │
+    88→    88→    88→    88→│  ┌─────────────────────────────────────────────────────────────────────┐    │
+    89→    89→    89→    89→│  │                   MODULE BETA (TRANSFORMATION)                       │    │
+    90→    90→    90→    90→│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌───────────┐  │    │
+    91→    91→    91→    91→│  │  │   Schema    │  │    Field    │  │    Data     │  │  Quality  │  │    │
+    92→    92→    92→    92→│  │  │  Mapping    │──│  Transform  │──│  Enrichment │──│  Scoring  │  │    │
+    93→    93→    93→    93→│  │  └─────────────┘  └─────────────┘  └─────────────┘  └─────┬─────┘  │    │
+    94→    94→    94→    94→│  │                                                            │        │    │
+    95→    95→    95→    95→│  │  See module-beta.md for detailed specification             │        │    │
+    96→    96→    96→    96→│  └────────────────────────────────────────────────────────────┼────────┘    │
+    97→    97→    97→    97→│                                                                │             │
+    98→    98→    98→    98→│                           ┌────────────────────────────────────┘             │
+    99→    99→    99→    99→│                           │  BETA-GAMMA HANDOFF                              │
+   100→   100→   100→   100→│                           │  See integration-layer.md                        │
+   101→   101→   101→   101→│                           ▼                                                  │
+   102→   102→   102→   102→│  ┌─────────────────────────────────────────────────────────────────────┐    │
+   103→   103→   103→   103→│  │                     MODULE GAMMA (OUTPUT)                            │    │
+   104→   104→   104→   104→│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌───────────┐  │    │
+   105→   105→   105→   105→│  │  │   Format    │  │  Delivery   │  │    Ack      │  │   Dead    │  │    │
+   106→   106→   106→   106→│  │  │  Renderer   │──│   Router    │──│   Handler   │──│  Letter   │  │    │
+   107→   107→   107→   107→│  │  └─────────────┘  └─────────────┘  └─────────────┘  └─────┬─────┘  │    │
+   108→   108→   108→   108→│  │                                                            │        │    │
+   109→   109→   109→   109→│  │  See module-gamma.md for detailed specification            │        │    │
+   110→   110→   110→   110→│  └────────────────────────────────────────────────────────────┼────────┘    │
+   111→   111→   111→   111→│                                                                │             │
+   112→   112→   112→   112→│       ┌────────────────────────────────────────────────────────┘             │
+   113→   113→   113→   113→│       │                                                                      │
+   114→   114→   114→   114→│       ▼                                                                      │
+   115→   115→   115→   115→│  ┌──────────────────┐                                                        │
+   116→   116→   116→   116→│  │  Output          │                                                        │
+   117→   117→   117→   117→│  │  Destinations    │                                                        │
+   118→   118→   118→   118→│  │  ┌───┐ ┌────┐   │                                                        │
+   119→   119→   119→   119→│  │  │DB │ │File│   │                                                        │
+   120→   120→   120→   120→│  │  └───┘ └────┘   │                                                        │
+   121→   121→   121→   121→│  │  ┌───┐ ┌────┐   │                                                        │
+   122→   122→   122→   122→│  │  │API│ │Queue│  │                                                        │
+   123→   123→   123→   123→│  │  └───┘ └────┘   │                                                        │
+   124→   124→   124→   124→│  └──────────────────┘                                                        │
+   125→   125→   125→   125→│                                                                              │
+   126→   126→   126→   126→└─────────────────────────────────────────────────────────────────────────────┘
+   127→   127→   127→   127→```
+   128→   128→   128→   128→
+   129→   129→   129→   129→### Module Boundaries
+   130→   130→   130→   130→
+   131→   131→   131→   131→Each module in the Data Pipeline System operates as a distinct processing unit with clearly defined responsibilities:
+   132→   132→   132→   132→
+   133→   133→   133→   133→**Module Alpha** handles all data ingestion concerns including source connectivity, input parsing, initial validation, and buffering. Alpha's primary responsibility is accepting raw data from external sources and converting it into the pipeline's internal record format. See `module-alpha.md` for the complete ingestion specification.
+   134→   134→   134→   134→
+   135→   135→   135→   135→**Module Beta** performs all data transformation operations including schema mapping, field-level transformations, data enrichment from reference sources, and quality scoring. Beta receives validated records from Alpha and produces enriched, normalized records ready for output. See `module-beta.md` for the complete transformation specification.
+   136→   136→   136→   136→
+   137→   137→   137→   137→**Module Gamma** manages all output concerns including format rendering, delivery routing, acknowledgment handling, and dead letter queue management. Gamma receives transformed records from Beta and ensures reliable delivery to downstream consumers. See `module-gamma.md` for the complete output specification.
+   138→   138→   138→   138→
+   139→   139→   139→   139→**Module Epsilon** provides caching services across all pipeline modules, accelerating enrichment lookups, storing transformation results for replay, and buffering inter-module data transfers. Epsilon implements a multi-tier cache hierarchy optimizing for both latency and capacity. See `module-epsilon.md` for the complete caching specification.
+   140→   140→   140→   140→
+   141→   141→   141→   141→**Module Phi** orchestrates pipeline execution, managing job scheduling, dependency resolution, failure recovery, and execution coordination across all modules. Phi ensures reliable end-to-end pipeline operation through DAG-based workflow management. See `module-phi.md` for the complete orchestration specification.
+   142→   142→   142→   142→
+   143→   143→   143→   143→### Inter-Module Communication
+   144→   144→   144→   144→
+   145→   145→   145→   145→Modules communicate through a standardized message protocol that ensures loose coupling while maintaining data integrity and traceability. The integration layer defines message formats, handoff procedures, and error propagation patterns. See `integration-layer.md` for the complete protocol specification.
+   146→   146→   146→   146→
+   147→   147→   147→   147→---
+   148→   148→   148→   148→
+   149→   149→   149→   149→## Module Summary
+   150→   150→   150→   150→
+   151→   151→   151→   151→This section provides a high-level overview of each module's responsibilities and key capabilities. For detailed specifications, consult the individual module documentation.
+   152→   152→   152→   152→
+   153→   153→   153→   153→### Module Alpha: Data Ingestion
+   154→   154→   154→   154→
+   155→   155→   155→   155→Module Alpha serves as the entry point for all data entering the pipeline. Its responsibilities include:
+   156→   156→   156→   156→
+   157→   157→   157→   157→**Source Connectivity**: Alpha supports multiple input source types including REST APIs, relational databases via JDBC, message queues (Kafka, RabbitMQ), and file-based inputs (CSV, JSON, XML, Parquet). Source adapters implement a common interface that abstracts connection management, authentication, and data retrieval.
+   158→   158→   158→   158→
+   159→   159→   159→   159→**Input Parsing**: Raw data from external sources is parsed into the pipeline's internal record format. The parsing engine handles various encodings, escape sequences, and format variations. Malformed inputs are captured with contextual error information for later analysis.
+   160→   160→   160→   160→
+   161→   161→   161→   161→**Validation Engine**: Alpha applies configurable validation rules to incoming records. Validations include type checking, format verification, range constraints, referential integrity checks, and custom business rules. Records failing validation are routed to error handling with detailed failure descriptions.
+   162→   162→   162→   162→
+   163→   163→   163→   163→**Buffering and Flow Control**: To manage throughput variations between sources and downstream processing, Alpha maintains internal buffers with configurable size limits. Back-pressure mechanisms prevent memory exhaustion when downstream modules cannot keep pace with ingestion rates.
+   164→   164→   164→   164→
+   165→   165→   165→   165→Key configuration parameters include `DEFAULT_BATCH_SIZE`, `MAX_RETRY_COUNT`, `CONNECTION_TIMEOUT_MS`, `VALIDATION_STRICT_MODE`, and `BUFFER_HIGH_WATERMARK`. See `module-alpha.md` for complete configuration documentation.
+   166→   166→   166→   166→
+   167→   167→   167→   167→### Module Beta: Data Transformation
+   168→   168→   168→   168→
+   169→   169→   169→   169→Module Beta transforms ingested records into the format required by downstream consumers. Its responsibilities include:
+   170→   170→   170→   170→
+   171→   171→   171→   171→**Schema Mapping**: Beta maps fields from the internal record format to target schemas. Mapping rules support field renaming, type conversion, composite field construction, and conditional logic. Multiple output schemas can be active simultaneously.
+   172→   172→   172→   172→
+   173→   173→   173→   173→**Field Transformation**: Individual fields undergo transformation operations including string manipulation, numeric calculations, date/time reformatting, encoding conversion, and lookup table substitution. Transformation rules are evaluated in a defined sequence with intermediate results available to subsequent rules.
+   174→   174→   174→   174→
+   175→   175→   175→   175→**Data Enrichment**: Records can be enriched with data from external reference sources including lookup databases, caching layers, and external APIs. Enrichment operations support caching to minimize repeated lookups for frequently referenced values.
+   176→   176→   176→   176→
+   177→   177→   177→   177→**Quality Scoring**: Each record receives a quality score based on completeness, consistency, and conformance to expected patterns. Scores enable downstream consumers to make informed decisions about data reliability. Configurable thresholds trigger warnings or errors for low-quality records.
+   178→   178→   178→   178→
+   179→   179→   179→   179→Key configuration parameters include `TRANSFORM_PARALLELISM`, `ENRICHMENT_CACHE_TTL`, `QUALITY_THRESHOLD_WARN`, `QUALITY_THRESHOLD_ERROR`, and `MAX_TRANSFORM_TIME_MS`. See `module-beta.md` for complete configuration documentation.
+   180→   180→   180→   180→
+   181→   181→   181→   181→### Module Gamma: Data Output
+   182→   182→   182→   182→
+   183→   183→   183→   183→Module Gamma delivers transformed records to downstream consumers. Its responsibilities include:
+   184→   184→   184→   184→
+   185→   185→   185→   185→**Format Rendering**: Records are rendered into output formats appropriate for each destination. Supported formats include JSON, XML, CSV, Avro, Parquet, and custom formats defined via templates. Rendering handles character encoding, escaping, and structural requirements.
+   186→   186→   186→   186→
+   187→   187→   187→   187→**Delivery Routing**: Records are routed to appropriate destinations based on content, quality scores, or configuration rules. Routing supports fan-out patterns where a single record is delivered to multiple destinations, as well as conditional routing based on record attributes.
+   188→   188→   188→   188→
+   189→   189→   189→   189→**Acknowledgment Handling**: Gamma tracks delivery status and processes acknowledgments from destinations. Successful deliveries update tracking records; failures trigger retry logic according to configured policies. Persistent failures route records to the dead letter queue.
+   190→   190→   190→   190→
+   191→   191→   191→   191→**Dead Letter Queue**: Records that cannot be delivered after exhausting retry attempts are written to a dead letter queue with comprehensive diagnostic information. Operators can inspect, correct, and replay failed records through administrative interfaces.
+   192→   192→   192→   192→
+   193→   193→   193→   193→Key configuration parameters include `DELIVERY_TIMEOUT_MS`, `MAX_DELIVERY_RETRIES`, `RETRY_BACKOFF_MULTIPLIER`, `DLQ_RETENTION_DAYS`, and `ACK_WAIT_TIMEOUT_MS`. See `module-gamma.md` for complete configuration documentation.
+   194→   194→   194→   194→
+   195→   195→   195→   195→### Module Epsilon: Data Caching
+   196→   196→   196→   196→
+   197→   197→   197→   197→Module Epsilon provides high-performance caching services to all pipeline modules. Its responsibilities include:
+   198→   198→   198→   198→
+   199→   199→   199→   199→**Enrichment Caching**: Caching lookup results from external data sources to minimize redundant API calls and database queries. The enrichment cache stores reference data retrieved by Module Beta during transformation, with configurable TTL policies based on data volatility.
+   200→   200→   200→   200→
+   201→   201→   201→   201→**Transformation Result Caching**: Maintaining cached copies of transformation outputs for records that may require reprocessing. This enables efficient replay without re-executing expensive transformation chains.
+   202→   202→   202→   202→
+   203→   203→   203→   203→**Inter-Module Buffer Caching**: Providing temporary storage buffers between pipeline stages to smooth throughput variations and handle backpressure scenarios.
+   204→   204→   204→   204→
+   205→   205→   205→   205→**Multi-Tier Architecture**: Epsilon implements L1 (in-memory), L2 (distributed), and L3 (persistent) cache tiers with intelligent routing based on data characteristics and access patterns.
+   206→   206→   206→   206→
+   207→   207→   207→   207→Key configuration parameters include `CACHE_L1_MAX_SIZE_MB`, `CACHE_L2_CLUSTER_NODES`, `CACHE_DEFAULT_TTL_SECONDS`, `CACHE_COMPRESSION_ENABLED`, and `CACHE_OPERATION_TIMEOUT_MS`. See `module-epsilon.md` for complete configuration documentation.
+   208→   208→   208→   208→
+   209→   209→   209→   209→### Module Phi: Pipeline Orchestration
+   210→   210→   210→   210→
+   211→   211→   211→   211→Module Phi coordinates the execution of data processing workflows across all pipeline modules. Its responsibilities include:
+   212→   212→   212→   212→
+   213→   213→   213→   213→**Job Scheduling**: Managing the timing and triggering of pipeline jobs based on schedules, events, or manual invocation. The scheduler supports cron-based scheduling, event-driven triggers, and dependency-based execution chains.
+   214→   214→   214→   214→
+   215→   215→   215→   215→**Execution Coordination**: Orchestrating the flow of data through pipeline stages, ensuring proper sequencing of Module Alpha ingestion, Module Beta transformation, and Module Gamma output operations.
+   216→   216→   216→   216→
+   217→   217→   217→   217→**Dependency Management**: Resolving and enforcing dependencies between pipeline jobs, ensuring prerequisite jobs complete successfully before dependent jobs execute.
+   218→   218→   218→   218→
+   219→   219→   219→   219→**Failure Recovery**: Detecting execution failures, implementing retry policies, managing dead-letter handling, and coordinating recovery procedures to maintain pipeline resilience.
+   220→   220→   220→   220→
+   221→   221→   221→   221→Key configuration parameters include `SCHEDULER_ENABLED`, `EXECUTOR_PARALLELISM`, `RETRY_DEFAULT_MAX_ATTEMPTS`, `DEPENDENCY_RESOLUTION_TIMEOUT_SECONDS`, and `EXECUTOR_HEARTBEAT_INTERVAL_SECONDS`. See `module-phi.md` for complete configuration documentation.
+   222→   222→   222→   222→
+   223→   223→   223→   223→---
+   224→   224→   224→   224→
+   225→   225→   225→   225→## Data Flow
+   226→   226→   226→   226→
+   227→   227→   227→   227→Data moves through the pipeline in a sequential, stage-gated process. This section describes the end-to-end flow from source ingestion through final delivery.
+   228→   228→   228→   228→
+   229→   229→   229→   229→### Stage 1: Source Acquisition
+   230→   230→   230→   230→
+   231→   231→   231→   231→The pipeline execution begins when Module Alpha initiates data retrieval from configured sources. Source adapters establish connections, authenticate as necessary, and begin extracting data according to their specific protocols.
+   232→   232→   232→   232→
+   233→   233→   233→   233→For pull-based sources (databases, APIs), Alpha issues queries or requests according to configured schedules or triggers. For push-based sources (message queues, file drops), Alpha monitors inbound channels and processes data as it arrives.
+   234→   234→   234→   234→
+   235→   235→   235→   235→Raw data is captured in its native format and passed to the parsing engine. Source metadata including origin identifier, extraction timestamp, and batch sequence number is attached to each data unit.
+   236→   236→   236→   236→
+   237→   237→   237→   237→### Stage 2: Parsing and Initial Validation
+   238→   238→   238→   238→
+   239→   239→   239→   239→The parsing engine converts raw data into the pipeline's internal record format. Each source type has an associated parser that understands the source's data structure and extracts individual records.
+   240→   240→   240→   240→
+   241→   241→   241→   241→Parsing failures generate detailed error records capturing the malformed input, error location, and failure reason. Failed parses are logged and routed to error handling; they do not halt processing of valid records.
+   242→   242→   242→   242→
+   243→   243→   243→   243→Successfully parsed records undergo initial validation in Module Alpha. Validation rules check basic data integrity including required field presence, type conformance, and format validity. Records passing validation proceed to the buffering queue.
+   244→   244→   244→   244→
+   245→   245→   245→   245→### Stage 3: Module Handoff (Alpha to Beta)
+   246→   246→   246→   246→
+   247→   247→   247→   247→When the Alpha output buffer reaches the configured batch threshold or a flush timeout expires, accumulated records are packaged into a transfer batch. The batch includes metadata identifying the source batch, record count, and checksum.
+   248→   248→   248→   248→
+   249→   249→   249→   249→The integration layer mediates the handoff between Alpha and Beta. It validates batch integrity, manages flow control when Beta is processing slowly, and handles retry logic if the initial handoff fails. See `integration-layer.md` for handoff protocol details.
+   250→   250→   250→   250→
+   251→   251→   251→   251→Beta acknowledges batch receipt, at which point Alpha can release buffer space and proceed with additional ingestion. If acknowledgment is not received within the configured timeout, Alpha initiates retry procedures.
+   252→   252→   252→   252→
+   253→   253→   253→   253→### Stage 4: Transformation Processing
+   254→   254→   254→   254→
+   255→   255→   255→   255→Module Beta processes each record through its transformation pipeline. The transformation stages execute in sequence:
+   256→   256→   256→   256→
+   257→   257→   257→   257→**Schema Mapping** applies field mapping rules to convert records from the internal format to target schemas. Records may be mapped to multiple output schemas simultaneously.
+   258→   258→   258→   258→
+   259→   259→   259→   259→**Field Transformation** applies transformation rules to individual fields. Transformations execute in priority order, with each transformation potentially depending on results from earlier transformations.
+   260→   260→   260→   260→
+   261→   261→   261→   261→**Data Enrichment** augments records with data from external reference sources. The enrichment engine manages cache lookups, external service calls, and timeout handling.
+   262→   262→   262→   262→
+   263→   263→   263→   263→**Quality Scoring** evaluates each record against quality criteria and assigns a numeric score. Records below configured thresholds may be flagged, logged, or rejected depending on configuration.
+   264→   264→   264→   264→
+   265→   265→   265→   265→### Stage 5: Module Handoff (Beta to Gamma)
+   266→   266→   266→   266→
+   267→   267→   267→   267→Transformed records are batched for handoff to Module Gamma following the same batch protocol used between Alpha and Beta. The integration layer ensures reliable transfer with acknowledgment and retry support.
+   268→   268→   268→   268→
+   269→   269→   269→   269→Batch metadata is extended to include transformation summary statistics: record count, average quality score, error count, and enrichment hit rate. This metadata supports operational monitoring.
+   270→   270→   270→   270→
+   271→   271→   271→   271→### Stage 6: Output Rendering and Delivery
+   272→   272→   272→   272→
+   273→   273→   273→   273→Module Gamma receives transformed batches and routes individual records to their designated destinations. For each record:
+   274→   274→   274→   274→
+   275→   275→   275→   275→**Destination Determination** evaluates routing rules to identify target destinations. A record may have one or multiple destinations.
+   276→   276→   276→   276→
+   277→   277→   277→   277→**Format Rendering** converts the record to the format required by each destination. Rendering is performed independently for each destination, allowing different formats for the same record.
+   278→   278→   278→   278→
+   279→   279→   279→   279→**Delivery Execution** transmits the rendered record to the destination. The delivery engine manages connection pooling, authentication, and transmission protocols specific to each destination type.
+   280→   280→   280→   280→
+   281→   281→   281→   281→**Acknowledgment Processing** waits for confirmation of successful delivery. Confirmed records update completion tracking; failed records enter retry queues.
+   282→   282→   282→   282→
+   283→   283→   283→   283→### Stage 7: Completion and Reconciliation
+   284→   284→   284→   284→
+   285→   285→   285→   285→When all records in a batch have been delivered (or routed to dead letter queue after retry exhaustion), Gamma reports batch completion to upstream modules. Completion reports include delivery statistics: success count, retry count, DLQ count, and timing metrics.
+   286→   286→   286→   286→
+   287→   287→   287→   287→The pipeline maintains end-to-end tracking that enables reconciliation between ingested and delivered records. Discrepancies trigger alerts for operator investigation.
+   288→   288→   288→   288→
+   289→   289→   289→   289→---
+   290→   290→   290→   290→
+   291→   291→   291→   291→## Cross-Cutting Concerns
+   292→   292→   292→   292→
+   293→   293→   293→   293→Several concerns span multiple modules and require coordinated implementation. This section describes these cross-cutting aspects and references their detailed specifications.
+   294→   294→   294→   294→
+   295→   295→   295→   295→### Error Handling Philosophy
+   296→   296→   296→   296→
+   297→   297→   297→   297→The Data Pipeline System follows a "fail forward" error handling philosophy. Individual record failures do not halt pipeline execution. Instead, failed records are isolated, logged with diagnostic information, and routed to appropriate error handling channels while processing continues for valid records.
+   298→   298→   298→   298→
+   299→   299→   299→   299→Error handling operates at multiple levels:
+   300→   300→   300→   300→
+   301→   301→   301→   301→**Record-Level Errors** affect individual records and are handled within the module where they occur. The record is marked as failed, diagnostic information is captured, and the record is routed to the module's error queue.
+   302→   302→   302→   302→
+   303→   303→   303→   303→**Batch-Level Errors** affect entire batches (e.g., network failures during handoff) and are handled by the integration layer's retry mechanisms.
+   304→   304→   304→   304→
+   305→   305→   305→   305→**Module-Level Errors** affect module operation (e.g., resource exhaustion) and may require operator intervention.
+   306→   306→   306→   306→
+   307→   307→   307→   307→Each module documents its specific error handling behaviors. For cross-module error propagation patterns, see `integration-layer.md`.
+   308→   308→   308→   308→
+   309→   309→   309→   309→### Logging and Observability
+   310→   310→   310→   310→
+   311→   311→   311→   311→All modules emit structured log entries following a common format that enables log aggregation and analysis. Log entries include:
+   312→   312→   312→   312→
+   313→   313→   313→   313→- Timestamp in ISO 8601 format
+   314→   314→   314→   314→- Module identifier
+   315→   315→   315→   315→- Log level (DEBUG, INFO, WARN, ERROR)
+   316→   316→   316→   316→- Correlation ID linking related entries
+   317→   317→   317→   317→- Structured payload with context-specific fields
+   318→   318→   318→   318→
+   319→   319→   319→   319→Metrics are emitted via a standard metrics interface supporting integration with Prometheus, StatsD, and similar platforms. Standard metrics include throughput rates, latency percentiles, error rates, and resource utilization.
+   320→   320→   320→   320→
+   321→   321→   321→   321→Health check endpoints expose module status for load balancer and orchestration platform integration. See `integration-layer.md` for health check specifications.
+   322→   322→   322→   322→
+   323→   323→   323→   323→### Compliance and Audit Requirements
+   324→   324→   324→   324→
+   325→   325→   325→   325→The pipeline supports compliance requirements through comprehensive audit logging and data lineage tracking. Audit events capture:
+   326→   326→   326→   326→
+   327→   327→   327→   327→- Data origin and ingestion timestamp
+   328→   328→   328→   328→- All transformation operations applied
+   329→   329→   329→   329→- Delivery confirmation with destination and timestamp
+   330→   330→   330→   330→- User or system actions affecting pipeline configuration
+   331→   331→   331→   331→
+   332→   332→   332→   332→Audit logs are retained according to configurable policies and can be exported to external audit systems. Compliance requirements are detailed in `compliance-requirements.md`.
+   333→   333→   333→   333→
+   334→   334→   334→   334→### Security Considerations
+   335→   335→   335→   335→
+   336→   336→   336→   336→Security is implemented through multiple mechanisms:
+   337→   337→   337→   337→
+   338→   338→   338→   338→**Transport Security**: All inter-module communication uses TLS encryption. External connections support TLS with certificate validation.
+   339→   339→   339→   339→
+   340→   340→   340→   340→**Authentication**: Source and destination connections use appropriate authentication mechanisms (API keys, OAuth, certificates, database credentials).
+   341→   341→   341→   341→
+   342→   342→   342→   342→**Authorization**: Pipeline operations are governed by role-based access control. Configuration changes require elevated privileges.
+   343→   343→   343→   343→
+   344→   344→   344→   344→**Data Protection**: Sensitive fields can be encrypted at rest and in transit. Field-level encryption supports scenarios where certain fields must remain protected through the pipeline.
+   345→   345→   345→   345→
+   346→   346→   346→   346→Detailed security requirements are specified in `compliance-requirements.md`.
+   347→   347→   347→   347→
+   348→   348→   348→   348→---
+   349→   349→   349→   349→
+   350→   350→   350→   350→## Configuration Management
+   351→   351→   351→   351→
+   352→   352→   352→   352→Pipeline configuration follows a hierarchical model where default values can be overridden at increasingly specific levels.
+   353→   353→   353→   353→
+   354→   354→   354→   354→### Configuration Hierarchy
+   355→   355→   355→   355→
+   356→   356→   356→   356→1. **System Defaults**: Built-in defaults for all configuration parameters
+   357→   357→   357→   357→2. **Environment Configuration**: Environment-specific settings (dev, staging, production)
+   358→   358→   358→   358→3. **Module Configuration**: Module-specific parameter overrides
+   359→   359→   359→   359→4. **Source/Destination Configuration**: Settings for specific sources or destinations
+   360→   360→   360→   360→
+   361→   361→   361→   361→Lower levels in the hierarchy override higher levels, allowing targeted configuration while maintaining sensible defaults.
+   362→   362→   362→   362→
+   363→   363→   363→   363→### Configuration Parameters
+   364→   364→   364→   364→
+   365→   365→   365→   365→Each module defines its configuration parameters in its detailed specification. Cross-module parameters defined in this overview include:
+   366→   366→   366→   366→
+   367→   367→   367→   367→| Parameter | Default | Description |
+   368→   368→   368→   368→|-----------|---------|-------------|
+   369→   369→   369→   369→| `PIPELINE_NAME` | `default` | Identifier for this pipeline instance |
+   370→   370→   370→   370→| `LOG_LEVEL` | `INFO` | Minimum log level to emit |
+   371→   371→   371→   371→| `METRICS_ENABLED` | `true` | Whether to emit metrics |
+   372→   372→   372→   372→| `METRICS_PREFIX` | `datapipeline` | Prefix for metric names |
+   373→   373→   373→   373→| `HEALTH_CHECK_PORT` | `8080` | Port for health check endpoint |
+   374→   374→   374→   374→
+   375→   375→   375→   375→### Configuration Updates
+   376→   376→   376→   376→
+   377→   377→   377→   377→Configuration changes can be applied without pipeline restart through the configuration reload mechanism. Modules detect configuration changes and apply them at safe points in processing.
+   378→   378→   378→   378→
+   379→   379→   379→   379→Some parameters require restart due to their nature (e.g., network ports, resource pool sizes). These are documented in module specifications.
+   380→   380→   380→   380→
+   381→   381→   381→   381→---
+   382→   382→   382→   382→
+   383→   383→   383→   383→## Deployment Considerations
+   384→   384→   384→   384→
+   385→   385→   385→   385→The Data Pipeline System supports various deployment models from single-node development environments to distributed production clusters.
+   386→   386→   386→   386→
+   387→   387→   387→   387→### Deployment Modes
+   388→   388→   388→   388→
+   389→   389→   389→   389→**Standalone Mode**: All modules run within a single process, suitable for development, testing, and small-scale deployments. Inter-module communication uses in-memory queues.
+   390→   390→   390→   390→
+   391→   391→   391→   391→**Distributed Mode**: Each module runs as an independent service, communicating via network protocols. This mode supports horizontal scaling and fault isolation.
+   392→   392→   392→   392→
+   393→   393→   393→   393→**Hybrid Mode**: Selected modules are co-located while others run independently, balancing deployment complexity against scaling requirements.
+   394→   394→   394→   394→
+   395→   395→   395→   395→### Scaling Considerations
+   396→   396→   396→   396→
+   397→   397→   397→   397→**Module Alpha** scales based on source volume and variety. Multiple Alpha instances can partition source responsibility, or a single instance can handle multiple sources with connection pooling.
+   398→   398→   398→   398→
+   399→   399→   399→   399→**Module Beta** scales based on transformation complexity. Transformation is inherently parallelizable; adding Beta instances provides near-linear throughput improvement.
+   400→   400→   400→   400→
+   401→   401→   401→   401→**Module Gamma** scales based on destination count and delivery latency. Destinations with high latency may require dedicated Gamma instances to prevent bottlenecks.
+   402→   402→   402→   402→
+   403→   403→   403→   403→### High Availability
+   404→   404→   404→   404→
+   405→   405→   405→   405→Production deployments should include:
+   406→   406→   406→   406→
+   407→   407→   407→   407→- Multiple instances of each module for failover
+   408→   408→   408→   408→- Health monitoring with automatic instance replacement
+   409→   409→   409→   409→- Persistent queues between modules to prevent data loss during failures
+   410→   410→   410→   410→- Geographic distribution for disaster recovery scenarios
+   411→   411→   411→   411→
+   412→   412→   412→   412→---
+   413→   413→   413→   413→
+   414→   414→   414→   414→## Document References
+   415→   415→   415→   415→
+   416→   416→   416→   416→This overview document provides architectural context for the Data Pipeline System. The following specification documents contain detailed requirements for each component:
+   417→   417→   417→   417→
+   418→   418→   418→   418→| Document | Description |
+   419→   419→   419→   419→|----------|-------------|
+   420→   420→   420→   420→| `data-pipeline-overview.md` | This document - system architecture and overview |
+   421→   421→   421→   421→| `module-alpha.md` | Data ingestion module specification |
+   422→   422→   422→   422→| `module-beta.md` | Data transformation module specification |
+   423→   423→   423→   423→| `module-gamma.md` | Data output module specification |
+   424→   424→   424→   424→| `module-epsilon.md` | Data caching layer specification |
+   425→   425→   425→   425→| `module-phi.md` | Pipeline orchestration specification |
+   426→   426→   426→   426→| `integration-layer.md` | Inter-module communication protocols |
+   427→   427→   427→   427→| `compliance-requirements.md` | Audit, security, and regulatory requirements |
+   428→   428→   428→   428→
+   429→   429→   429→   429→All specifications are maintained in the `docs/specs/` directory and should be consulted for detailed implementation requirements.
+   430→   430→   430→   430→
+   431→   431→   431→   431→---
+   432→   432→   432→   432→
+   433→   433→   433→   433→## Appendix A: Glossary
+   434→   434→   434→   434→
+   435→   435→   435→   435→**Batch**: A collection of records transferred between modules as a unit.
+   436→   436→   436→   436→
+   437→   437→   437→   437→**Dead Letter Queue (DLQ)**: Storage for records that could not be successfully processed or delivered.
+   438→   438→   438→   438→
+   439→   439→   439→   439→**Enrichment**: The process of augmenting records with data from external reference sources.
+   440→   440→   440→   440→
+   441→   441→   441→   441→**Handoff**: The transfer of data between modules following the integration protocol.
+   442→   442→   442→   442→
+   443→   443→   443→   443→**Quality Score**: A numeric measure of record completeness, consistency, and conformance.
+   444→   444→   444→   444→
+   445→   445→   445→   445→**Record**: The fundamental unit of data processed by the pipeline.
+   446→   446→   446→   446→
+   447→   447→   447→   447→**Source Adapter**: A component that interfaces with a specific external data source type.
+   448→   448→   448→   448→
+   449→   449→   449→   449→---
+   450→   450→   450→   450→
+   451→   451→   451→   451→## Appendix B: Version History
+   452→   452→   452→   452→
+   453→   453→   453→   453→| Version | Date | Changes |
+   454→   454→   454→   454→|---------|------|---------|
+   455→   455→   455→   455→| 1.0.0 | Current | Initial specification |
+   456→   456→   456→   456→
+   457→   457→   457→   457→---
+   458→   458→   458→   458→
+   459→   459→   459→   459→*This document is the authoritative overview for the Data Pipeline System architecture. For implementation details, consult the module-specific specifications referenced throughout this document.*
+   460→   460→   460→   460→
+   461→   461→   461→
+   462→   462→   462→<system-reminder>
+   463→   463→   463→Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+   464→   464→   464→</system-reminder>
+   465→   465→   465→
+   466→   466→
+   467→   467→<system-reminder>
+   468→   468→Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+   469→   469→</system-reminder>
+   470→   470→
+   471→
+   472→<system-reminder>
+   473→Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+   474→</system-reminder>
+   475→
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>

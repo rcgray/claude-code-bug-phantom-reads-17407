@@ -1,0 +1,786 @@
+     1→     1→     1→# Module Gamma: Data Output Specification
+     2→     2→     2→
+     3→     3→     3→**Version:** 1.0.0
+     4→     4→     4→**Status:** Active
+     5→     5→     5→
+     6→     6→     6→## Table of Contents
+     7→     7→     7→
+     8→     8→     8→1. [Overview](#overview)
+     9→     9→     9→2. [Output Destinations](#output-destinations)
+    10→    10→    10→3. [Data Structures](#data-structures)
+    11→    11→    11→4. [Formatting Rules](#formatting-rules)
+    12→    12→    12→5. [Acknowledgment Flow](#acknowledgment-flow)
+    13→    13→    13→6. [Error Handling](#error-handling)
+    14→    14→    14→7. [Configuration](#configuration)
+    15→    15→    15→8. [Integration Points](#integration-points)
+    16→    16→    16→9. [Compliance Requirements](#compliance-requirements)
+    17→    17→    17→
+    18→    18→    18→---
+    19→    19→    19→
+    20→    20→    20→## Overview
+    21→    21→    21→
+    22→    22→    22→Module Gamma serves as the data output layer of the Data Pipeline System, responsible for delivering transformed records from Module Beta to diverse downstream consumers. As the final stage in the pipeline, Module Gamma implements comprehensive format rendering, delivery routing, acknowledgment handling, and dead letter queue management capabilities.
+    23→    23→    23→
+    24→    24→    24→### Core Responsibilities
+    25→    25→    25→
+    26→    26→    26→**Format Rendering**: Converting transformed records into output formats appropriate for each destination. The rendering engine supports JSON, XML, CSV, Avro, Parquet, and custom template-based formats. Rendering handles character encoding, field escaping, structural requirements, and format-specific validation.
+    27→    27→    27→
+    28→    28→    28→**Delivery Routing**: Directing records to appropriate destinations based on content attributes, quality scores, or explicit routing rules. The routing engine supports fan-out delivery where a single record is sent to multiple destinations, conditional routing based on record attributes, and priority-based queue management.
+    29→    29→    29→
+    30→    30→    30→**Acknowledgment Handling**: Tracking delivery status and processing confirmations from downstream consumers. The acknowledgment engine manages synchronous and asynchronous acknowledgment patterns, timeout detection, and delivery state persistence for recovery scenarios.
+    31→    31→    31→
+    32→    32→    32→**Dead Letter Queue Management**: Capturing records that cannot be delivered after exhausting retry attempts. The DLQ subsystem provides inspection, correction, replay, and expiration capabilities with comprehensive diagnostic information.
+    33→    33→    33→
+    34→    34→    34→### Processing Model
+    35→    35→    35→
+    36→    36→    36→Module Gamma processes records through a staged delivery pipeline:
+    37→    37→    37→
+    38→    38→    38→```
+    39→    39→    39→┌─────────────────────────────────────────────────────────────────────────────┐
+    40→    40→    40→│                      MODULE GAMMA OUTPUT PIPELINE                            │
+    41→    41→    41→├─────────────────────────────────────────────────────────────────────────────┤
+    42→    42→    42→│  From Beta ──▶ ┌──────────────┐    ┌──────────────┐    ┌──────────────┐    │
+    43→    43→    43→│                │    Format    │    │   Delivery   │    │     Ack      │    │
+    44→    44→    44→│                │   Renderer   │───▶│    Router    │───▶│   Handler    │    │
+    45→    45→    45→│                └──────────────┘    └──────────────┘    └──────────────┘    │
+    46→    46→    46→│                       │                   │                   │             │
+    47→    47→    47→│                       ▼                   ▼                   ▼             │
+    48→    48→    48→│                ┌──────────────┐    ┌──────────────┐    ┌──────────────┐    │
+    49→    49→    49→│                │   Render     │    │   Delivery   │    │     Ack      │    │
+    50→    50→    50→│                │   Errors     │    │   Failures   │    │   Timeouts   │    │
+    51→    51→    51→│                └──────────────┘    └──────────────┘    └──────────────┘    │
+    52→    52→    52→│                                           │                                 │
+    53→    53→    53→│                                    ┌──────▼──────┐                         │
+    54→    54→    54→│                                    │  Dead Letter │                         │
+    55→    55→    55→│                                    │    Queue     │───▶ Inspection/Replay   │
+    56→    56→    56→│                                    └─────────────┘                         │
+    57→    57→    57→└─────────────────────────────────────────────────────────────────────────────┘
+    58→    58→    58→```
+    59→    59→    59→
+    60→    60→    60→### Design Principles
+    61→    61→    61→
+    62→    62→    62→**Reliable Delivery**: Every record is either successfully delivered with acknowledgment, or captured in the dead letter queue with diagnostic context. No records are silently dropped.
+    63→    63→    63→
+    64→    64→    64→**Destination Agnosticism**: The core delivery logic remains independent of destination-specific protocols. Destination adapters encapsulate protocol-specific concerns, presenting a uniform interface.
+    65→    65→    65→
+    66→    66→    66→**Ordered Delivery**: Within a single destination stream, records are delivered in the order received from Module Beta. Cross-destination ordering is not guaranteed.
+    67→    67→    67→
+    68→    68→    68→**Observable Operations**: All delivery stages emit metrics and structured log entries enabling real-time monitoring, alerting, and post-hoc analysis of delivery success rates and latencies.
+    69→    69→    69→
+    70→    70→    70→---
+    71→    71→    71→
+    72→    72→    72→## Output Destinations
+    73→    73→    73→
+    74→    74→    74→Module Gamma supports data delivery to multiple destination types through dedicated destination adapters.
+    75→    75→    75→
+    76→    76→    76→### Database Destinations
+    77→    77→    77→
+    78→    78→    78→Database destinations write records to relational and NoSQL databases:
+    79→    79→    79→- **Relational Databases**: PostgreSQL, MySQL, Oracle, SQL Server via JDBC with batch insert optimization and upsert support
+    80→    80→    80→- **NoSQL Databases**: MongoDB, Cassandra, DynamoDB with native driver integration and partition-aware routing
+    81→    81→    81→- **Connection Management**: Pooling with health checking, automatic reconnection, and graceful degradation
+    82→    82→    82→- **Write Modes**: Insert-only, upsert with configurable conflict resolution, append-only for time-series data
+    83→    83→    83→
+    84→    84→    84→### File System Destinations
+    85→    85→    85→
+    86→    86→    86→File system destinations write records to local or networked file systems:
+    87→    87→    87→- **Formats**: JSON (line-delimited or array), CSV, XML, Parquet with compression, Avro with schema evolution
+    88→    88→    88→- **File Management**: Rotation by size, record count, or time interval with atomic staging and rename-on-complete
+    89→    89→    89→- **Directory Structures**: Static paths, date-partitioned directories, content-based partitioning
+    90→    90→    90→
+    91→    91→    91→### API Destinations
+    92→    92→    92→
+    93→    93→    93→API destinations deliver records to external services via HTTP/HTTPS:
+    94→    94→    94→- **Authentication**: API keys, OAuth 2.0 with automatic token refresh, HTTP Basic, mutual TLS
+    95→    95→    95→- **Request Configuration**: Configurable HTTP methods, custom headers, request body templates
+    96→    96→    96→- **Rate Limiting**: Throttling, exponential backoff, and circuit breaker patterns
+    97→    97→    97→
+    98→    98→    98→### Message Queue Destinations
+    99→    99→    99→
+   100→   100→   100→Message queue destinations publish records to messaging systems:
+   101→   101→   101→- **Platforms**: Apache Kafka, RabbitMQ, Amazon SQS, Azure Service Bus, Google Cloud Pub/Sub
+   102→   102→   102→- **Delivery Semantics**: At-least-once with acknowledgment, exactly-once where supported
+   103→   103→   103→- **Partitioning**: Key-based partition selection, round-robin distribution, custom strategies
+   104→   104→   104→
+   105→   105→   105→### Destination Adapter Interface
+   106→   106→   106→
+   107→   107→   107→All destination adapters implement a common interface:
+   108→   108→   108→
+   109→   109→   109→```
+   110→   110→   110→DestinationAdapter Interface:
+   111→   111→   111→  - connect(): Establish connection to destination
+   112→   112→   112→  - disconnect(): Release connection resources
+   113→   113→   113→  - deliver(batch): Transmit batch of rendered records
+   114→   114→   114→  - get_delivery_status(batch_id): Query delivery confirmation status
+   115→   115→   115→  - get_metrics(): Return adapter-specific metrics
+   116→   116→   116→  - health_check(): Verify destination availability
+   117→   117→   117→```
+   118→   118→   118→
+   119→   119→   119→---
+   120→   120→   120→
+   121→   121→   121→## Data Structures
+   122→   122→   122→
+   123→   123→   123→Module Gamma defines structures representing records at various pipeline stages.
+   124→   124→   124→
+   125→   125→   125→### DeliveryRequest
+   126→   126→   126→
+   127→   127→   127→Represents a batch received from Module Beta for output processing:
+   128→   128→   128→
+   129→   129→   129→```
+   130→   130→   130→DeliveryRequest:
+   131→   131→   131→  request_id: string            # UUID v4 generated by Module Beta
+   132→   132→   132→  batch_id: string              # Links to transformation batch
+   133→   133→   133→  records: list<TransformedRecord>
+   134→   134→   134→  priority: enum                # NORMAL, HIGH, CRITICAL
+   135→   135→   135→  delivery_profile: string      # Named delivery configuration
+   136→   136→   136→  source_timestamp: datetime    # When batch left Module Beta
+   137→   137→   137→  expiration: datetime          # Deadline for delivery attempts
+   138→   138→   138→```
+   139→   139→   139→
+   140→   140→   140→### RenderedRecord
+   141→   141→   141→
+   142→   142→   142→Represents a record after format rendering:
+   143→   143→   143→
+   144→   144→   144→```
+   145→   145→   145→RenderedRecord:
+   146→   146→   146→  record_id: string             # From TransformedRecord
+   147→   147→   147→  destination_id: string        # Target destination identifier
+   148→   148→   148→  format: string                # Output format applied
+   149→   149→   149→  rendered_content: bytes       # Serialized output data
+   150→   150→   150→  content_type: string          # MIME type of rendered_content
+   151→   151→   151→  encoding: string              # Character encoding (default: UTF-8)
+   152→   152→   152→  render_timestamp: datetime    # When rendering completed
+   153→   153→   153→  render_duration_ms: integer   # Rendering time in milliseconds
+   154→   154→   154→  content_checksum: string      # SHA-256 of rendered_content
+   155→   155→   155→```
+   156→   156→   156→
+   157→   157→   157→### DeliveryAttempt
+   158→   158→   158→
+   159→   159→   159→Captures information about a single delivery attempt:
+   160→   160→   160→
+   161→   161→   161→```
+   162→   162→   162→DeliveryAttempt:
+   163→   163→   163→  attempt_id: string            # UUID v4 for this attempt
+   164→   164→   164→  record_id: string             # Record being delivered
+   165→   165→   165→  destination_id: string        # Target destination
+   166→   166→   166→  attempt_number: integer       # 1-based attempt counter
+   167→   167→   167→  attempt_timestamp: datetime   # When attempt initiated
+   168→   168→   168→  completion_timestamp: datetime # When attempt completed
+   169→   169→   169→  status: enum                  # PENDING, SUCCESS, FAILED, TIMEOUT
+   170→   170→   170→  response_code: string         # Destination-specific response code
+   171→   171→   171→  response_message: string      # Destination-specific response text
+   172→   172→   172→  latency_ms: integer           # Round-trip time in milliseconds
+   173→   173→   173→```
+   174→   174→   174→
+   175→   175→   175→### DeliveryResult
+   176→   176→   176→
+   177→   177→   177→Final delivery status for a record:
+   178→   178→   178→
+   179→   179→   179→```
+   180→   180→   180→DeliveryResult:
+   181→   181→   181→  record_id: string
+   182→   182→   182→  destination_id: string
+   183→   183→   183→  final_status: enum            # DELIVERED, FAILED, EXPIRED, DLQ
+   184→   184→   184→  total_attempts: integer       # Number of delivery attempts
+   185→   185→   185→  first_attempt: datetime       # Timestamp of first attempt
+   186→   186→   186→  final_attempt: datetime       # Timestamp of last attempt
+   187→   187→   187→  acknowledgment_id: string     # Destination-provided confirmation ID
+   188→   188→   188→  acknowledgment_timestamp: datetime
+   189→   189→   189→  delivery_latency_ms: integer  # Total time from receipt to ack
+   190→   190→   190→```
+   191→   191→   191→
+   192→   192→   192→### AcknowledgmentRecord
+   193→   193→   193→
+   194→   194→   194→Tracks acknowledgment state for delivered records:
+   195→   195→   195→
+   196→   196→   196→```
+   197→   197→   197→AcknowledgmentRecord:
+   198→   198→   198→  record_id: string
+   199→   199→   199→  destination_id: string
+   200→   200→   200→  ack_type: enum                # SYNC, ASYNC, BATCH
+   201→   201→   201→  ack_status: enum              # PENDING, RECEIVED, TIMEOUT, ERROR
+   202→   202→   202→  expected_by: datetime         # Deadline for acknowledgment
+   203→   203→   203→  received_at: datetime         # When acknowledgment arrived
+   204→   204→   204→  ack_payload: string           # Destination-provided confirmation data
+   205→   205→   205→  correlation_id: string        # Links async ack to delivery
+   206→   206→   206→```
+   207→   207→   207→
+   208→   208→   208→### DeadLetterEntry
+   209→   209→   209→
+   210→   210→   210→Captures records that failed delivery:
+   211→   211→   211→
+   212→   212→   212→```
+   213→   213→   213→DeadLetterEntry:
+   214→   214→   214→  entry_id: string              # UUID v4 for DLQ entry
+   215→   215→   215→  record_id: string             # Original record identifier
+   216→   216→   216→  original_record: TransformedRecord
+   217→   217→   217→  rendered_content: bytes       # Last rendered form
+   218→   218→   218→  destination_id: string        # Intended destination
+   219→   219→   219→  failure_reason: string        # Final failure classification
+   220→   220→   220→  failure_details: string       # Detailed error information
+   221→   221→   221→  attempt_history: list<DeliveryAttempt>
+   222→   222→   222→  created_at: datetime          # When added to DLQ
+   223→   223→   223→  expires_at: datetime          # Auto-purge deadline
+   224→   224→   224→  replay_count: integer         # Times replayed from DLQ
+   225→   225→   225→```
+   226→   226→   226→
+   227→   227→   227→### RoutingDecision
+   228→   228→   228→
+   229→   229→   229→Documents routing logic application:
+   230→   230→   230→
+   231→   231→   231→```
+   232→   232→   232→RoutingDecision:
+   233→   233→   233→  record_id: string
+   234→   234→   234→  evaluated_rules: list<string> # Rule IDs evaluated
+   235→   235→   235→  matched_rule: string          # Rule ID that matched
+   236→   236→   236→  destinations: list<string>    # Selected destination IDs
+   237→   237→   237→  routing_timestamp: datetime
+   238→   238→   238→  routing_context: map<string, string>
+   239→   239→   239→```
+   240→   240→   240→
+   241→   241→   241→---
+   242→   242→   242→
+   243→   243→   243→## Formatting Rules
+   244→   244→   244→
+   245→   245→   245→Module Gamma implements a comprehensive formatting framework for output rendering.
+   246→   246→   246→
+   247→   247→   247→### Rule Categories
+   248→   248→   248→
+   249→   249→   249→- **Structural Rules**: Output structure and element ordering
+   250→   250→   250→- **Encoding Rules**: Character encoding and escaping
+   251→   251→   251→- **Type Rules**: Data type representation in output formats
+   252→   252→   252→- **Null Rules**: Null and missing value handling
+   253→   253→   253→- **Precision Rules**: Numeric precision and rounding
+   254→   254→   254→
+   255→   255→   255→### Standard Formatting Rules
+   256→   256→   256→
+   257→   257→   257→#### Rule 1: Field Inclusion Control
+   258→   258→   258→
+   259→   259→   259→Determines which fields appear in rendered output.
+   260→   260→   260→
+   261→   261→   261→**Configuration**: `included_fields` (list), `excluded_fields` (list), `mode` (INCLUDE_ONLY, EXCLUDE_ONLY)
+   262→   262→   262→
+   263→   263→   263→**Behavior**: When `mode` is INCLUDE_ONLY, only fields in `included_fields` appear in output. When `mode` is EXCLUDE_ONLY, all fields except those in `excluded_fields` appear.
+   264→   264→   264→
+   265→   265→   265→#### Rule 2: Field Ordering
+   266→   266→   266→
+   267→   267→   267→Controls the sequence of fields in rendered output.
+   268→   268→   268→
+   269→   269→   269→**Configuration**: `field_order` (list), `unspecified_position` (START, END, ALPHABETICAL)
+   270→   270→   270→
+   271→   271→   271→**Behavior**: Fields appear in the specified order. Fields not in the list are placed according to `unspecified_position`.
+   272→   272→   272→
+   273→   273→   273→#### Rule 3: Null Value Representation
+   274→   274→   274→
+   275→   275→   275→Defines how null values are rendered in output formats.
+   276→   276→   276→
+   277→   277→   277→**Configuration**: `null_representation` (map by format), `omit_null_fields` (boolean)
+   278→   278→   278→
+   279→   279→   279→**Behavior**: Null values are rendered according to format-specific rules. If `omit_null_fields` is true, fields with null values are excluded from output.
+   280→   280→   280→
+   281→   281→   281→#### Rule 4: Numeric Precision Control
+   282→   282→   282→
+   283→   283→   283→Specifies decimal precision for numeric fields in output.
+   284→   284→   284→
+   285→   285→   285→**Configuration**: `precision_rules` (map), `default_precision` (integer), `rounding_mode`
+   286→   286→   286→
+   287→   287→   287→**Behavior**: Numeric fields are rounded to specified precision before rendering. Unspecified fields use `default_precision`.
+   288→   288→   288→
+   289→   289→   289→#### Rule 5: Date/Time Format Standardization
+   290→   290→   290→
+   291→   291→   291→Controls datetime formatting in rendered output.
+   292→   292→   292→
+   293→   293→   293→**Configuration**: `datetime_format` (string), `timezone` (string), `include_timezone` (boolean)
+   294→   294→   294→
+   295→   295→   295→**Behavior**: All datetime fields are formatted according to the pattern and normalized to the specified timezone.
+   296→   296→   296→
+   297→   297→   297→#### Rule 6: String Escaping Policy
+   298→   298→   298→
+   299→   299→   299→Defines character escaping rules for string values.
+   300→   300→   300→
+   301→   301→   301→**Configuration**: `escape_rules` (map by format), `escape_unicode` (boolean)
+   302→   302→   302→
+   303→   303→   303→**Behavior**: Special characters are escaped according to format-specific rules. Unicode characters above U+007F are escaped if `escape_unicode` is enabled.
+   304→   304→   304→
+   305→   305→   305→#### Rule 7: Array Serialization Format
+   306→   306→   306→
+   307→   307→   307→Controls how array fields are rendered.
+   308→   308→   308→
+   309→   309→   309→**Configuration**: `array_format` (NATIVE, DELIMITED, REPEATED), `delimiter` (string)
+   310→   310→   310→
+   311→   311→   311→**Behavior**: Arrays are serialized according to the specified format. NATIVE uses format-native arrays, DELIMITED joins elements with the delimiter, REPEATED creates multiple fields.
+   312→   312→   312→
+   313→   313→   313→### Rule Evaluation Order
+   314→   314→   314→
+   315→   315→   315→1. Field Inclusion Control (determine visible fields)
+   316→   316→   316→2. Field Ordering (arrange field sequence)
+   317→   317→   317→3. Null Value Representation (handle null values)
+   318→   318→   318→4. Type-Specific Rules (numeric precision, datetime format)
+   319→   319→   319→5. String Escaping (apply escaping rules)
+   320→   320→   320→6. Array Serialization (format arrays)
+   321→   321→   321→7. Final Validation (verify output conformance)
+   322→   322→   322→
+   323→   323→   323→---
+   324→   324→   324→
+   325→   325→   325→## Acknowledgment Flow
+   326→   326→   326→
+   327→   327→   327→Module Gamma implements a comprehensive acknowledgment system to confirm successful delivery.
+   328→   328→   328→
+   329→   329→   329→### Acknowledgment Patterns
+   330→   330→   330→
+   331→   331→   331→#### Synchronous Acknowledgment
+   332→   332→   332→
+   333→   333→   333→The delivery call returns confirmation before completing. Gamma sends record to destination, destination processes and responds in same connection, response indicates success or failure, Gamma updates delivery status immediately.
+   334→   334→   334→
+   335→   335→   335→**Applicable To**: Database writes with commit confirmation, synchronous HTTP APIs, file writes with fsync.
+   336→   336→   336→
+   337→   337→   337→#### Asynchronous Acknowledgment
+   338→   338→   338→
+   339→   339→   339→Confirmation arrives separately from delivery. Gamma sends record with correlation ID, destination returns immediate acceptance, destination processes record asynchronously, destination sends acknowledgment via callback or polling, Gamma matches acknowledgment to original delivery.
+   340→   340→   340→
+   341→   341→   341→**Applicable To**: Message queues with consumer acknowledgment, webhook-based integrations, batch processing systems.
+   342→   342→   342→
+   343→   343→   343→#### Batch Acknowledgment
+   344→   344→   344→
+   345→   345→   345→Multiple records acknowledged together. Gamma sends batch of records, destination processes entire batch, single acknowledgment covers all records in batch, Gamma updates status for all batch members.
+   346→   346→   346→
+   347→   347→   347→**Applicable To**: Bulk database inserts, batch file uploads, streaming platforms with batch commit.
+   348→   348→   348→
+   349→   349→   349→### Acknowledgment Timeout Handling
+   350→   350→   350→
+   351→   351→   351→When acknowledgments do not arrive within expected timeframes, Gamma maintains acknowledgment deadlines for all pending deliveries. A background process monitors for expired deadlines.
+   352→   352→   352→
+   353→   353→   353→**Response Options**:
+   354→   354→   354→- **RETRY**: Redeliver and await new acknowledgment
+   355→   355→   355→- **POLL**: Query destination for delivery status
+   356→   356→   356→- **ESCALATE**: Route to error handling for manual review
+   357→   357→   357→- **DLQ**: Move to dead letter queue
+   358→   358→   358→
+   359→   359→   359→### Acknowledgment Persistence
+   360→   360→   360→
+   361→   361→   361→Acknowledgment state is persisted to survive restarts. Stored state includes pending acknowledgment records, correlation mappings, timeout deadlines, and retry counts. On startup, Gamma loads pending acknowledgments and resumes timeout monitoring. Records with expired timeouts are processed according to `timeout_action`.
+   362→   362→   362→
+   363→   363→   363→---
+   364→   364→   364→
+   365→   365→   365→## Error Handling
+   366→   366→   366→
+   367→   367→   367→Module Gamma implements comprehensive error handling following the reliable delivery principle: every record is either confirmed delivered or captured with diagnostic context for recovery.
+   368→   368→   368→
+   369→   369→   369→### Error Categories
+   370→   370→   370→
+   371→   371→   371→#### Rendering Errors
+   372→   372→   372→
+   373→   373→   373→Occur when format rendering operations fail to produce valid output.
+   374→   374→   374→
+   375→   375→   375→**Common Causes**: Unsupported data types for target format, encoding incompatibilities, schema violations, template syntax errors, buffer overflow for oversized records.
+   376→   376→   376→
+   377→   377→   377→**Handling**: Create RenderingFailure record with input data, target format, and specific error. Route to rendering error queue. If rendering failure rate exceeds `RENDER_ERROR_THRESHOLD`, suspend processing and alert operators.
+   378→   378→   378→
+   379→   379→   379→**RenderingFailure Structure**:
+   380→   380→   380→```
+   381→   381→   381→RenderingFailure:
+   382→   382→   382→  record_id: string
+   383→   383→   383→  destination_id: string
+   384→   384→   384→  target_format: string
+   385→   385→   385→  input_fields: map<string, FieldValue>
+   386→   386→   386→  error_code: string            # e.g., "RENDER_001_UNSUPPORTED_TYPE"
+   387→   387→   387→  error_message: string
+   388→   388→   388→  field_name: string            # Field that caused failure
+   389→   389→   389→  failure_timestamp: datetime
+   390→   390→   390→```
+   391→   391→   391→
+   392→   392→   392→**Metrics**: `gamma_render_errors_total`, `gamma_render_error_rate`, `gamma_render_errors_by_format`
+   393→   393→   393→
+   394→   394→   394→#### Routing Errors
+   395→   395→   395→
+   396→   396→   396→Occur when delivery routing cannot determine appropriate destinations.
+   397→   397→   397→
+   398→   398→   398→**Common Causes**: No matching routing rules, circular routing dependencies, disabled destinations, invalid destination configuration.
+   399→   399→   399→
+   400→   400→   400→**Handling**: Log routing context and route record to routing error queue. Records without valid destinations cannot proceed to delivery.
+   401→   401→   401→
+   402→   402→   402→**RoutingError Structure**:
+   403→   403→   403→```
+   404→   404→   404→RoutingError:
+   405→   405→   405→  record_id: string
+   406→   406→   406→  evaluated_rules: list<string>
+   407→   407→   407→  routing_context: map<string, string>
+   408→   408→   408→  error_code: string            # e.g., "ROUTE_002_NO_MATCHING_RULE"
+   409→   409→   409→  error_message: string
+   410→   410→   410→  failure_timestamp: datetime
+   411→   411→   411→```
+   412→   412→   412→
+   413→   413→   413→**Metrics**: `gamma_routing_errors_total`, `gamma_routing_errors_by_rule`
+   414→   414→   414→
+   415→   415→   415→#### Connection Errors
+   416→   416→   416→
+   417→   417→   417→Occur when destination adapters cannot establish or maintain connectivity.
+   418→   418→   418→
+   419→   419→   419→**Common Causes**: Network unavailability, DNS resolution failure, TLS handshake errors, authentication failures, connection pool exhaustion, destination service outage.
+   420→   420→   420→
+   421→   421→   421→**Handling**: Retry with exponential backoff up to `MAX_CONNECTION_RETRIES`. When retry limit exceeded, open circuit breaker for destination. Records targeting circuit-broken destinations enter a holding queue until circuit closes.
+   422→   422→   422→
+   423→   423→   423→**ConnectionError Structure**:
+   424→   424→   424→```
+   425→   425→   425→ConnectionError:
+   426→   426→   426→  destination_id: string
+   427→   427→   427→  error_type: enum              # NETWORK, DNS, TLS, AUTH, POOL, SERVICE
+   428→   428→   428→  error_code: string            # e.g., "CONN_003_TLS_HANDSHAKE"
+   429→   429→   429→  error_message: string
+   430→   430→   430→  retry_count: integer
+   431→   431→   431→  circuit_state: enum           # CLOSED, OPEN, HALF_OPEN
+   432→   432→   432→  failure_timestamp: datetime
+   433→   433→   433→```
+   434→   434→   434→
+   435→   435→   435→**Circuit Breaker Configuration**: `CIRCUIT_FAILURE_THRESHOLD` (failures before opening), `CIRCUIT_RESET_TIMEOUT_MS` (time before half-open), `CIRCUIT_SUCCESS_THRESHOLD` (successes to close).
+   436→   436→   436→
+   437→   437→   437→#### Delivery Errors
+   438→   438→   438→
+   439→   439→   439→Occur when transmission to destination fails despite successful connection.
+   440→   440→   440→
+   441→   441→   441→**Common Causes**: Destination rejection (validation failure, duplicate key), timeout during transmission, partial delivery failure, rate limiting, quota exhaustion.
+   442→   442→   442→
+   443→   443→   443→**Transient Errors** (timeout, rate limit): Retry with backoff. Track rate limit headers and respect retry-after directives.
+   444→   444→   444→
+   445→   445→   445→**Permanent Errors** (validation failure, duplicate): Route to DLQ without retry. Capture destination response for diagnosis.
+   446→   446→   446→
+   447→   447→   447→**DeliveryError Structure**:
+   448→   448→   448→```
+   449→   449→   449→DeliveryError:
+   450→   450→   450→  record_id: string
+   451→   451→   451→  destination_id: string
+   452→   452→   452→  attempt_number: integer
+   453→   453→   453→  error_type: enum              # TRANSIENT, PERMANENT
+   454→   454→   454→  error_code: string            # e.g., "DELIV_004_RATE_LIMITED"
+   455→   455→   455→  destination_response: string
+   456→   456→   456→  retry_eligible: boolean
+   457→   457→   457→  failure_timestamp: datetime
+   458→   458→   458→```
+   459→   459→   459→
+   460→   460→   460→#### Acknowledgment Errors
+   461→   461→   461→
+   462→   462→   462→Occur when delivery completes but acknowledgment processing fails.
+   463→   463→   463→
+   464→   464→   464→**Common Causes**: Acknowledgment timeout, malformed acknowledgment payload, correlation ID mismatch, acknowledgment callback failure.
+   465→   465→   465→
+   466→   466→   466→**Handling**: Acknowledgment errors are ambiguous—delivery may have succeeded. Apply `ACK_TIMEOUT_ACTION` configuration: RETRY_DELIVERY (risk: duplicates), ASSUME_SUCCESS (risk: lost records), QUERY_DESTINATION, or MANUAL_REVIEW.
+   467→   467→   467→
+   468→   468→   468→**AcknowledgmentError Structure**:
+   469→   469→   469→```
+   470→   470→   470→AcknowledgmentError:
+   471→   471→   471→  record_id: string
+   472→   472→   472→  destination_id: string
+   473→   473→   473→  ack_type: enum                # SYNC, ASYNC, BATCH
+   474→   474→   474→  error_code: string            # e.g., "ACK_002_TIMEOUT"
+   475→   475→   475→  error_message: string
+   476→   476→   476→  correlation_id: string
+   477→   477→   477→  expected_by: datetime
+   478→   478→   478→  failure_timestamp: datetime
+   479→   479→   479→```
+   480→   480→   480→
+   481→   481→   481→#### Resource Exhaustion Errors
+   482→   482→   482→
+   483→   483→   483→Occur when system resources are depleted during output processing.
+   484→   484→   484→
+   485→   485→   485→**Common Causes**: Memory pressure from large batches, thread pool saturation, file handle exhaustion, disk space depletion, network buffer overflow.
+   486→   486→   486→
+   487→   487→   487→**Handling**: Graceful degradation: signal back-pressure to Module Beta, complete in-flight deliveries, pause new batch acceptance, release non-essential resources, resume when resources recover.
+   488→   488→   488→
+   489→   489→   489→**Degradation Levels**: LEVEL_1 (reduce batch sizes), LEVEL_2 (pause low-priority destinations), LEVEL_3 (pause all batches, drain queues), LEVEL_4 (controlled shutdown with state persistence).
+   490→   490→   490→
+   491→   491→   491→### Error Queue Management
+   492→   492→   492→
+   493→   493→   493→Failed records route to categorized error queues: `gamma_render_errors`, `gamma_routing_errors`, `gamma_delivery_errors`, `gamma_ack_errors`, `gamma_dlq`.
+   494→   494→   494→
+   495→   495→   495→**Queue Operations**:
+   496→   496→   496→- **Inspection**: Query failed records with filters by error type, destination, time range
+   497→   497→   497→- **Correction**: Update record content or routing to resolve identified issues
+   498→   498→   498→- **Replay**: Reinject records into delivery pipeline respecting current routing rules
+   499→   499→   499→- **Expiration**: Records exceeding retention period are purged
+   500→   500→   500→- **Bulk Operations**: Export, bulk replay with rate limiting, bulk expiration
+   501→   501→   501→
+   502→   502→   502→**Configuration**: `ERROR_QUEUE_CAPACITY`, `RENDER_ERROR_RETENTION_HOURS`, `DELIVERY_ERROR_RETENTION_HOURS`, `DLQ_RETENTION_DAYS`, `MAX_REPLAY_ATTEMPTS`
+   503→   503→   503→
+   504→   504→   504→### Error Logging
+   505→   505→   505→
+   506→   506→   506→All errors generate structured log entries:
+   507→   507→   507→
+   508→   508→   508→```
+   509→   509→   509→OutputErrorLog:
+   510→   510→   510→  timestamp: datetime
+   511→   511→   511→  level: enum                   # DEBUG, INFO, WARN, ERROR, CRITICAL
+   512→   512→   512→  error_category: string
+   513→   513→   513→  error_code: string
+   514→   514→   514→  message: string
+   515→   515→   515→  record_id: string
+   516→   516→   516→  destination_id: string
+   517→   517→   517→  batch_id: string
+   518→   518→   518→  correlation_id: string
+   519→   519→   519→  attempt_number: integer
+   520→   520→   520→  context: map<string, string>
+   521→   521→   521→```
+   522→   522→   522→
+   523→   523→   523→**Log Levels**: DEBUG (detailed diagnostics), INFO (normal events), WARN (recoverable issues), ERROR (failed operations), CRITICAL (system-level failures).
+   524→   524→   524→
+   525→   525→   525→### Error Metrics
+   526→   526→   526→
+   527→   527→   527→**Counters**: `gamma_errors_total` (by category), `gamma_retries_total` (by destination), `gamma_dlq_entries_total`, `gamma_circuit_breaker_trips`
+   528→   528→   528→
+   529→   529→   529→**Gauges**: `gamma_error_queue_size`, `gamma_circuit_breaker_state`, `gamma_pending_acks`
+   530→   530→   530→
+   531→   531→   531→**Histograms**: `gamma_error_recovery_duration`, `gamma_retry_delay_seconds`, `gamma_dlq_age_seconds`
+   532→   532→   532→
+   533→   533→   533→### Recovery Procedures
+   534→   534→   534→
+   535→   535→   535→**Rendering Recovery**: Log failure → capture input state → route to queue → continue processing → alert if threshold exceeded.
+   536→   536→   536→
+   537→   537→   537→**Routing Recovery**: Log context → route to queue → apply default routing if configured → continue or hold.
+   538→   538→   538→
+   539→   539→   539→**Connection Recovery**: Detect failure → close resources → exponential backoff → reconnect → verify health → resume or escalate.
+   540→   540→   540→
+   541→   541→   541→**Delivery Recovery**: Capture response → classify error → retry if transient → DLQ if permanent → update metrics.
+   542→   542→   542→
+   543→   543→   543→**Acknowledgment Recovery**: Detect timeout → apply configured action → log ambiguity → update tracking.
+   544→   544→   544→
+   545→   545→   545→**Resource Recovery**: Detect pressure → signal back-pressure → drain queues → release resources → wait → resume gradually.
+   546→   546→   546→
+   547→   547→   547→### Error Escalation
+   548→   548→   548→
+   549→   549→   549→When error rates exceed configured thresholds, the system escalates:
+   550→   550→   550→
+   551→   551→   551→**Level 1 - Warning**: Elevated error rates logged, alert metrics emitted.
+   552→   552→   552→
+   553→   553→   553→**Level 2 - Throttle**: Reduce intake from Module Beta, prioritize critical deliveries.
+   554→   554→   554→
+   555→   555→   555→**Level 3 - Circuit Break**: Open circuit breakers for failing destinations.
+   556→   556→   556→
+   557→   557→   557→**Level 4 - Halt**: Suspend all processing pending operator intervention, persist state for recovery.
+   558→   558→   558→
+   559→   559→   559→---
+   560→   560→   560→
+   561→   561→   561→## Configuration
+   562→   562→   562→
+   563→   563→   563→Module Gamma behavior is controlled through configuration parameters.
+   564→   564→   564→
+   565→   565→   565→### Delivery Configuration
+   566→   566→   566→
+   567→   567→   567→#### OUTPUT_BATCH_SIZE
+   568→   568→   568→
+   569→   569→   569→**Type**: Integer | **Default**: 500 | **Range**: 1-10000
+   570→   570→   570→
+   571→   571→   571→Records processed per delivery batch. Larger sizes improve throughput but increase memory usage and latency.
+   572→   572→   572→
+   573→   573→   573→#### MAX_DELIVERY_RETRIES
+   574→   574→   574→
+   575→   575→   575→**Type**: Integer | **Default**: 5 | **Range**: 0-50
+   576→   576→   576→
+   577→   577→   577→Maximum retry attempts before routing to dead letter queue. Set to 0 for fail-fast behavior.
+   578→   578→   578→
+   579→   579→   579→#### DELIVERY_TIMEOUT_MS
+   580→   580→   580→
+   581→   581→   581→**Type**: Integer | **Default**: 30000 | **Range**: 1000-300000
+   582→   582→   582→
+   583→   583→   583→Maximum time for a single delivery attempt including network round-trip.
+   584→   584→   584→
+   585→   585→   585→#### RETRY_INITIAL_DELAY_MS
+   586→   586→   586→
+   587→   587→   587→**Type**: Integer | **Default**: 1000 | **Range**: 100-60000
+   588→   588→   588→
+   589→   589→   589→Initial delay before first retry attempt. Subsequent retries apply backoff multiplier.
+   590→   590→   590→
+   591→   591→   591→#### RETRY_BACKOFF_MULTIPLIER
+   592→   592→   592→
+   593→   593→   593→**Type**: Float | **Default**: 2.0 | **Range**: 1.0-10.0
+   594→   594→   594→
+   595→   595→   595→Multiplier applied to retry delay after each attempt.
+   596→   596→   596→
+   597→   597→   597→### Acknowledgment Configuration
+   598→   598→   598→
+   599→   599→   599→#### ACK_WAIT_TIMEOUT_MS
+   600→   600→   600→
+   601→   601→   601→**Type**: Integer | **Default**: 60000 | **Range**: 1000-600000
+   602→   602→   602→
+   603→   603→   603→Maximum time to wait for asynchronous acknowledgments.
+   604→   604→   604→
+   605→   605→   605→#### ACK_TIMEOUT_ACTION
+   606→   606→   606→
+   607→   607→   607→**Type**: Enum | **Default**: RETRY_DELIVERY | **Values**: RETRY_DELIVERY, ASSUME_SUCCESS, QUERY_DESTINATION, MANUAL_REVIEW
+   608→   608→   608→
+   609→   609→   609→Action taken when acknowledgment timeout occurs.
+   610→   610→   610→
+   611→   611→   611→### Rendering Configuration
+   612→   612→   612→
+   613→   613→   613→#### DEFAULT_OUTPUT_FORMAT
+   614→   614→   614→
+   615→   615→   615→**Type**: String | **Default**: "JSON" | **Values**: JSON, XML, CSV, AVRO, PARQUET
+   616→   616→   616→
+   617→   617→   617→Default format when destination does not specify format preference.
+   618→   618→   618→
+   619→   619→   619→#### MAX_RECORD_SIZE_BYTES
+   620→   620→   620→
+   621→   621→   621→**Type**: Integer | **Default**: 10485760 | **Range**: 1024-1073741824
+   622→   622→   622→
+   623→   623→   623→Maximum size of rendered record. Records exceeding limit are routed to error handling.
+   624→   624→   624→
+   625→   625→   625→### Dead Letter Queue Configuration
+   626→   626→   626→
+   627→   627→   627→#### DLQ_RETENTION_DAYS
+   628→   628→   628→
+   629→   629→   629→**Type**: Integer | **Default**: 30 | **Range**: 1-365
+   630→   630→   630→
+   631→   631→   631→Days to retain records in dead letter queue before automatic purge.
+   632→   632→   632→
+   633→   633→   633→#### DLQ_MAX_ENTRIES
+   634→   634→   634→
+   635→   635→   635→**Type**: Integer | **Default**: 100000 | **Range**: 1000-10000000
+   636→   636→   636→
+   637→   637→   637→Maximum entries in dead letter queue. Oldest entries evicted when limit reached.
+   638→   638→   638→
+   639→   639→   639→### Circuit Breaker Configuration
+   640→   640→   640→
+   641→   641→   641→#### CIRCUIT_FAILURE_THRESHOLD
+   642→   642→   642→
+   643→   643→   643→**Type**: Integer | **Default**: 10 | **Range**: 1-100
+   644→   644→   644→
+   645→   645→   645→Consecutive failures before opening circuit breaker for a destination.
+   646→   646→   646→
+   647→   647→   647→#### CIRCUIT_RESET_TIMEOUT_MS
+   648→   648→   648→
+   649→   649→   649→**Type**: Integer | **Default**: 60000 | **Range**: 5000-600000
+   650→   650→   650→
+   651→   651→   651→Time before circuit breaker transitions from OPEN to HALF_OPEN for testing.
+   652→   652→   652→
+   653→   653→   653→---
+   654→   654→   654→
+   655→   655→   655→## Integration Points
+   656→   656→   656→
+   657→   657→   657→Module Gamma integrates with other Data Pipeline System components through well-defined interfaces.
+   658→   658→   658→
+   659→   659→   659→### Module Beta Integration
+   660→   660→   660→
+   661→   661→   661→Module Gamma receives transformed records from Module Beta through the standardized handoff protocol.
+   662→   662→   662→
+   663→   663→   663→**Handoff Reception**: Gamma exposes an endpoint for receiving `DeliveryRequest` batches. Upon receipt, Gamma validates batch integrity, acknowledges receipt, and queues records for output processing.
+   664→   664→   664→
+   665→   665→   665→**Request Validation**: Verify batch checksum, confirm metadata completeness, validate record count matches header, check delivery profile exists.
+   666→   666→   666→
+   667→   667→   667→**Back-Pressure Signaling**: When delivery queues approach capacity, Gamma signals back-pressure through the integration layer, causing Beta to pause delivery.
+   668→   668→   668→
+   669→   669→   669→**Handoff Protocol**: See `integration-layer.md` for complete Beta-Gamma handoff specification.
+   670→   670→   670→
+   671→   671→   671→### Health Check Integration
+   672→   672→   672→
+   673→   673→   673→Gamma exposes health status for orchestration systems and load balancers.
+   674→   674→   674→
+   675→   675→   675→**Health Status Levels**:
+   676→   676→   676→- **HEALTHY**: All components operating normally, all destinations reachable
+   677→   677→   677→- **DEGRADED**: Some destinations unavailable, elevated error rates, or reduced capacity
+   678→   678→   678→- **UNHEALTHY**: Critical failures preventing delivery, multiple circuit breakers open
+   679→   679→   679→
+   680→   680→   680→**Component Health Checks**: Destination connectivity, delivery queue depth, error queue sizes, acknowledgment backlog, DLQ growth rate, resource utilization.
+   681→   681→   681→
+   682→   682→   682→### Monitoring Integration
+   683→   683→   683→
+   684→   684→   684→Gamma emits metrics compatible with Prometheus, StatsD, and similar platforms.
+   685→   685→   685→
+   686→   686→   686→**Throughput Metrics**: `gamma_records_delivered_total`, `gamma_records_failed_total`, `gamma_batches_processed_total`, `gamma_bytes_delivered_total`
+   687→   687→   687→
+   688→   688→   688→**Latency Metrics**: `gamma_delivery_latency_seconds`, `gamma_render_duration_seconds`, `gamma_ack_wait_duration_seconds`
+   689→   689→   689→
+   690→   690→   690→**Error Metrics**: `gamma_errors_by_type`, `gamma_retries_by_destination`, `gamma_dlq_entries`
+   691→   691→   691→
+   692→   692→   692→**Resource Metrics**: `gamma_queue_depth`, `gamma_connection_pool_usage`, `gamma_memory_usage_bytes`
+   693→   693→   693→
+   694→   694→   694→### Structured Logging
+   695→   695→   695→
+   696→   696→   696→Gamma emits structured logs following pipeline format, compatible with ELK Stack, Splunk, and CloudWatch Logs.
+   697→   697→   697→
+   698→   698→   698→**Log Categories**: DELIVERY (success, failure, retry), ACK (received, timeout, error), ROUTING (decisions and errors), HEALTH (status changes), CONFIG (changes and reloads).
+   699→   699→   699→
+   700→   700→   700→---
+   701→   701→   701→
+   702→   702→   702→## Compliance Requirements
+   703→   703→   703→
+   704→   704→   704→Module Gamma implements compliance controls for audit, regulatory, and security requirements.
+   705→   705→   705→
+   706→   706→   706→### Audit Logging
+   707→   707→   707→
+   708→   708→   708→All delivery operations are logged for audit purposes:
+   709→   709→   709→
+   710→   710→   710→**Record-Level Audit**: Receipt timestamp, routing decision, rendering applied, delivery attempts with timestamps and outcomes, final delivery status with acknowledgment details.
+   711→   711→   711→
+   712→   712→   712→**Batch-Level Audit**: Batch receipt, processing duration, success/failure counts, DLQ routing counts.
+   713→   713→   713→
+   714→   714→   714→**Administrative Audit**: DLQ inspection and replay operations, configuration changes, manual interventions.
+   715→   715→   715→
+   716→   716→   716→Audit log retention and format requirements specified in `compliance-requirements.md` Section 3.
+   717→   717→   717→
+   718→   718→   718→### Data Lineage
+   719→   719→   719→
+   720→   720→   720→Module Gamma completes the pipeline lineage chain:
+   721→   721→   721→
+   722→   722→   722→**Lineage Capture**: Source record ID from Alpha, transformation session from Beta, delivery timestamp, destination identifier, acknowledgment confirmation.
+   723→   723→   723→
+   724→   724→   724→**Lineage Query Support**: Forward tracing (source to delivery confirmation), backward tracing (delivery to source), destination-specific delivery history.
+   725→   725→   725→
+   726→   726→   726→**Lineage Propagation**: Lineage identifiers are included in delivered records where destination format supports metadata fields.
+   727→   727→   727→
+   728→   728→   728→Lineage requirements specified in `compliance-requirements.md` Section 4.
+   729→   729→   729→
+   730→   730→   730→### Data Protection
+   731→   731→   731→
+   732→   732→   732→Module Gamma implements data protection measures:
+   733→   733→   733→
+   734→   734→   734→**Field-Level Encryption**: Sensitive fields can remain encrypted through rendering, decrypting only at destination.
+   735→   735→   735→
+   736→   736→   736→**Tokenization**: PII fields can be tokenized before delivery to non-authorized destinations.
+   737→   737→   737→
+   738→   738→   738→**Masking**: Fields can be masked based on destination authorization level.
+   739→   739→   739→
+   740→   740→   740→**Secure Transmission**: All network delivery uses TLS encryption with certificate validation.
+   741→   741→   741→
+   742→   742→   742→Protection requirements specified in `compliance-requirements.md` Section 7.
+   743→   743→   743→
+   744→   744→   744→### Security Controls
+   745→   745→   745→
+   746→   746→   746→Module Gamma implements security controls:
+   747→   747→   747→
+   748→   748→   748→**Credential Management**: Destination credentials stored securely, rotated according to policy, never logged in plaintext.
+   749→   749→   749→
+   750→   750→   750→**Transport Security**: TLS 1.2+ required for network destinations, certificate chain validation, mutual TLS where supported.
+   751→   751→   751→
+   752→   752→   752→**Input Sanitization**: Rendered content validated against injection patterns for applicable formats.
+   753→   753→   753→
+   754→   754→   754→**Access Control**: Administrative operations require authentication and authorization.
+   755→   755→   755→
+   756→   756→   756→Security requirements specified in `compliance-requirements.md` Section 6.
+   757→   757→   757→
+   758→   758→   758→### Retention Compliance
+   759→   759→   759→
+   760→   760→   760→Module Gamma supports retention requirements:
+   761→   761→   761→
+   762→   762→   762→**Delivery Records**: Delivery attempts and confirmations retained per `DELIVERY_RECORD_RETENTION_DAYS`.
+   763→   763→   763→
+   764→   764→   764→**DLQ Retention**: Dead letter entries retained per `DLQ_RETENTION_DAYS` with secure deletion.
+   765→   765→   765→
+   766→   766→   766→**Audit Logs**: Audit entries retained per compliance policy, exportable for long-term archival.
+   767→   767→   767→
+   768→   768→   768→---
+   769→   769→   769→
+   770→   770→   770→*This document is the authoritative specification for Module Gamma. For system architecture, see `data-pipeline-overview.md`. For upstream integration, see `module-beta.md`. For cross-module protocols, see `integration-layer.md`. For compliance requirements, see `compliance-requirements.md`.*
+   771→   771→   771→
+   772→   772→   772→
+   773→   773→
+   774→   774→<system-reminder>
+   775→   775→Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+   776→   776→</system-reminder>
+   777→   777→
+   778→
+   779→<system-reminder>
+   780→Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+   781→</system-reminder>
+   782→
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>

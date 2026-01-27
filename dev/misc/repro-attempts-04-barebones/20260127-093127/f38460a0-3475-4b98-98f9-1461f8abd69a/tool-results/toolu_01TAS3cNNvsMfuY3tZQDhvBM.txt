@@ -1,0 +1,905 @@
+     1→# Module Phi: Pipeline Orchestration Specification
+     2→
+     3→**Version:** 1.0.0
+     4→**Status:** Active
+     5→
+     6→## Table of Contents
+     7→
+     8→1. [Overview](#overview)
+     9→2. [Execution Architecture](#execution-architecture)
+    10→3. [Data Structures](#data-structures)
+    11→4. [Execution Rules](#execution-rules)
+    12→5. [Error Handling](#error-handling)
+    13→6. [Configuration](#configuration)
+    14→7. [Integration Points](#integration-points)
+    15→8. [Compliance Requirements](#compliance-requirements)
+    16→
+    17→---
+    18→
+    19→## Overview
+    20→
+    21→Module Phi serves as the pipeline orchestration layer of the Data Pipeline System, responsible for coordinating the execution of data processing workflows across all pipeline modules. As the central control plane, Module Phi manages job scheduling, execution sequencing, dependency resolution, and failure recovery to ensure reliable end-to-end pipeline operation.
+    22→
+    23→### Core Responsibilities
+    24→
+    25→**Job Scheduling**: Managing the timing and triggering of pipeline jobs based on schedules, events, or manual invocation. The scheduler supports cron-based scheduling, event-driven triggers, and dependency-based execution chains.
+    26→
+    27→**Execution Coordination**: Orchestrating the flow of data through pipeline stages, ensuring proper sequencing of Module Alpha ingestion, Module Beta transformation, and Module Gamma output operations. Coordination includes managing parallelism, handling backpressure, and maintaining processing order guarantees.
+    28→
+    29→**Dependency Management**: Resolving and enforcing dependencies between pipeline jobs, ensuring prerequisite jobs complete successfully before dependent jobs execute. The dependency engine supports both explicit dependencies and inferred data dependencies.
+    30→
+    31→**Failure Recovery**: Detecting execution failures, implementing retry policies, managing dead-letter handling, and coordinating recovery procedures to maintain pipeline resilience.
+    32→
+    33→### Execution Model
+    34→
+    35→Module Phi implements a directed acyclic graph (DAG) execution model:
+    36→
+    37→```
+    38→+-------------------------------------------------------------------------+
+    39→|                     MODULE PHI ORCHESTRATION ENGINE                      |
+    40→+-------------------------------------------------------------------------+
+    41→|                                                                          |
+    42→|  +----------------+     +------------------+     +-------------------+   |
+    43→|  |   SCHEDULER    |     |    EXECUTOR      |     |   DEPENDENCY      |   |
+    44→|  |   (Triggers)   |---->|   (Runner)       |<--->|   RESOLVER        |   |
+    45→|  +----------------+     +------------------+     +-------------------+   |
+    46→|         |                       |                        |               |
+    47→|         v                       v                        v               |
+    48→|  +----------------+     +------------------+     +-------------------+   |
+    49→|  |  CRON ENGINE   |     | PARALLELISM      |     | DAG BUILDER       |   |
+    50→|  |  EVENT QUEUE   |     | CONTROLLER       |     | CYCLE DETECTOR    |   |
+    51→|  |  MANUAL QUEUE  |     | STATE MACHINE    |     | ORDER RESOLVER    |   |
+    52→|  +----------------+     +------------------+     +-------------------+   |
+    53→|                                 |                                        |
+    54→|                                 v                                        |
+    55→|                      +------------------+                                |
+    56→|                      |  RECOVERY        |                                |
+    57→|                      |  MANAGER         |                                |
+    58→|                      +------------------+                                |
+    59→|                                                                          |
+    60→+-------------------------------------------------------------------------+
+    61→```
+    62→
+    63→### Design Principles
+    64→
+    65→**Declarative Workflows**: Pipeline workflows are expressed through declarative job definitions rather than imperative scripts, enabling clear visualization, validation, and versioning of orchestration logic.
+    66→
+    67→**Idempotent Execution**: All orchestration operations are designed to be idempotent, enabling safe retry of any operation without risk of duplicate processing or inconsistent state.
+    68→
+    69→**Observability First**: Every execution step emits comprehensive telemetry including state transitions, timing metrics, and dependency resolutions, enabling full visibility into pipeline behavior.
+    70→
+    71→**Graceful Degradation**: Orchestration failures are isolated to affected jobs when possible, allowing unaffected pipeline branches to continue processing while failures are addressed.
+    72→
+    73→---
+    74→
+    75→## Execution Architecture
+    76→
+    77→The execution architecture consists of four primary subsystems that coordinate pipeline operation.
+    78→
+    79→### Scheduler Subsystem
+    80→
+    81→The scheduler determines when pipeline jobs should execute based on configured triggers.
+    82→
+    83→**Cron Scheduling**: Traditional time-based scheduling using cron expressions. Supports standard cron syntax with second-level precision and timezone awareness.
+    84→
+    85→**Event-Based Triggers**: Jobs triggered by external events including data arrival notifications, API calls, and message queue events. Event triggers support filtering and batching.
+    86→
+    87→**Dependency Triggers**: Jobs triggered automatically when upstream dependencies complete successfully. Enables dynamic pipeline chains that respond to data availability.
+    88→
+    89→**Manual Triggers**: On-demand job execution through API or UI, with optional parameter overrides for ad-hoc processing runs.
+    90→
+    91→### Executor Subsystem
+    92→
+    93→The executor manages the actual running of pipeline jobs.
+    94→
+    95→**Job Lifecycle**:
+    96→```
+    97→PENDING --> QUEUED --> RUNNING --> COMPLETING --> COMPLETED
+    98→    |          |          |             |             |
+    99→    v          v          v             v             v
+   100→ CANCELLED  TIMEOUT   FAILED      FAILED       (terminal)
+   101→```
+   102→
+   103→**Parallelism Control**: Configurable limits on concurrent job executions at global, job-type, and resource-pool levels. Prevents resource exhaustion while maximizing throughput.
+   104→
+   105→**Resource Allocation**: Jobs request resources (CPU, memory, network) and the executor schedules execution when resources are available. Supports priority-based resource allocation.
+   106→
+   107→**Execution Isolation**: Each job execution runs in an isolated context with its own configuration, logging context, and error handling scope.
+   108→
+   109→### Dependency Resolver
+   110→
+   111→The dependency resolver determines execution order based on job relationships.
+   112→
+   113→**Explicit Dependencies**: Direct dependencies declared in job definitions specifying that job B depends on job A.
+   114→
+   115→**Data Dependencies**: Inferred dependencies based on data flow where job B consumes output produced by job A.
+   116→
+   117→**Temporal Dependencies**: Dependencies based on time windows where job B must execute after job A within a specified window.
+   118→
+   119→**Dependency Graph**: All dependencies compiled into a DAG that the resolver validates for cycles and computes execution order.
+   120→
+   121→### Recovery Manager
+   122→
+   123→The recovery manager handles failure detection and automated recovery.
+   124→
+   125→**Failure Detection**: Monitors job health through heartbeats, timeout detection, and exit status validation. Categorizes failures as transient or permanent.
+   126→
+   127→**Retry Orchestration**: Implements configurable retry policies with exponential backoff, jitter, and maximum attempt limits. Different policies for different failure types.
+   128→
+   129→**Dead Letter Handling**: Routes permanently failed jobs to dead letter queues for manual inspection and potential reprocessing after root cause resolution.
+   130→
+   131→**Checkpoint Recovery**: For long-running jobs, manages checkpoint state to enable resumption from last successful checkpoint rather than full restart.
+   132→
+   133→---
+   134→
+   135→## Data Structures
+   136→
+   137→Module Phi defines data structures for jobs, executions, schedules, and orchestration state.
+   138→
+   139→### JobDefinition
+   140→
+   141→Defines a pipeline job configuration:
+   142→
+   143→```
+   144→JobDefinition:
+   145→  job_id: string                  # Unique job identifier
+   146→  name: string                    # Human-readable name
+   147→  description: string             # Job purpose description
+   148→  job_type: enum                  # INGESTION, TRANSFORMATION, OUTPUT, COMPOSITE
+   149→  pipeline_modules: list<string>  # Modules involved [ALPHA, BETA, GAMMA]
+   150→  schedule: Schedule              # When to run (null for event-triggered)
+   151→  triggers: list<Trigger>         # Event-based triggers
+   152→  dependencies: list<Dependency>  # Upstream job dependencies
+   153→  parameters: map<string, any>    # Default job parameters
+   154→  resources: ResourceRequest      # Required resources
+   155→  retry_policy: RetryPolicy       # Failure retry configuration
+   156→  timeout_seconds: integer        # Maximum execution time
+   157→  enabled: boolean                # Whether job is active
+   158→  version: string                 # Job definition version
+   159→```
+   160→
+   161→### Schedule
+   162→
+   163→Defines job scheduling configuration:
+   164→
+   165→```
+   166→Schedule:
+   167→  schedule_id: string             # Unique schedule identifier
+   168→  schedule_type: enum             # CRON, INTERVAL, ONCE
+   169→  cron_expression: string         # Cron syntax (for CRON type)
+   170→  interval_seconds: integer       # Interval (for INTERVAL type)
+   171→  run_at: datetime                # Specific time (for ONCE type)
+   172→  timezone: string                # Schedule timezone
+   173→  start_date: date                # Schedule activation date
+   174→  end_date: date                  # Schedule expiration date (optional)
+   175→  skip_if_running: boolean        # Skip if previous still running
+   176→  catchup_enabled: boolean        # Execute missed runs on startup
+   177→```
+   178→
+   179→### Trigger
+   180→
+   181→Defines event-based job triggering:
+   182→
+   183→```
+   184→Trigger:
+   185→  trigger_id: string              # Unique trigger identifier
+   186→  trigger_type: enum              # DATA_ARRIVAL, API_CALL, MESSAGE, WEBHOOK
+   187→  source: string                  # Event source identifier
+   188→  filter: string                  # Event filter expression
+   189→  batch_window_seconds: integer   # Window to batch events (0 = immediate)
+   190→  debounce_seconds: integer       # Minimum time between triggers
+   191→  enabled: boolean                # Whether trigger is active
+   192→```
+   193→
+   194→### Dependency
+   195→
+   196→Defines job dependency relationship:
+   197→
+   198→```
+   199→Dependency:
+   200→  dependency_id: string           # Unique dependency identifier
+   201→  upstream_job_id: string         # Job that must complete first
+   202→  dependency_type: enum           # SUCCESS, COMPLETION, DATA_READY
+   203→  condition: string               # Optional condition expression
+   204→  skip_on_upstream_skip: boolean  # Skip if upstream skipped
+   205→  timeout_seconds: integer        # Max wait for upstream
+   206→```
+   207→
+   208→### Execution
+   209→
+   210→Represents a single job execution instance:
+   211→
+   212→```
+   213→Execution:
+   214→  execution_id: string            # Unique execution identifier
+   215→  job_id: string                  # Reference to job definition
+   216→  status: enum                    # PENDING, QUEUED, RUNNING, etc.
+   217→  trigger_type: enum              # SCHEDULED, MANUAL, DEPENDENCY, EVENT
+   218→  trigger_id: string              # Specific trigger that initiated
+   219→  parameters: map<string, any>    # Execution parameters (merged defaults + overrides)
+   220→  scheduled_time: datetime        # When execution was scheduled
+   221→  queued_time: datetime           # When added to execution queue
+   222→  started_time: datetime          # When execution began
+   223→  completed_time: datetime        # When execution finished
+   224→  attempt_number: integer         # Current attempt (1-based)
+   225→  parent_execution_id: string     # For retries, reference to original
+   226→  checkpoint_state: bytes         # Serialized checkpoint data
+   227→  result: ExecutionResult         # Execution outcome
+   228→```
+   229→
+   230→### ExecutionResult
+   231→
+   232→Captures execution outcome details:
+   233→
+   234→```
+   235→ExecutionResult:
+   236→  status: enum                    # SUCCESS, FAILED, TIMEOUT, CANCELLED
+   237→  exit_code: integer              # Numeric exit code
+   238→  error_code: string              # Structured error code
+   239→  error_message: string           # Human-readable error message
+   240→  records_processed: integer      # Records handled
+   241→  records_failed: integer         # Records that failed
+   242→  duration_seconds: float         # Execution duration
+   243→  metrics: map<string, float>     # Custom execution metrics
+   244→  outputs: map<string, string>    # Output references for downstream
+   245→```
+   246→
+   247→### ResourceRequest
+   248→
+   249→Defines resource requirements for execution:
+   250→
+   251→```
+   252→ResourceRequest:
+   253→  cpu_cores: float                # CPU cores requested
+   254→  memory_mb: integer              # Memory in megabytes
+   255→  disk_mb: integer                # Disk space in megabytes
+   256→  network_bandwidth_mbps: integer # Network bandwidth
+   257→  resource_pool: string           # Named resource pool
+   258→  priority: integer               # Scheduling priority (higher = sooner)
+   259→```
+   260→
+   261→### RetryPolicy
+   262→
+   263→Configures failure retry behavior:
+   264→
+   265→```
+   266→RetryPolicy:
+   267→  max_attempts: integer           # Maximum retry attempts
+   268→  initial_delay_seconds: integer  # Delay before first retry
+   269→  max_delay_seconds: integer      # Maximum delay between retries
+   270→  backoff_multiplier: float       # Exponential backoff factor
+   271→  jitter_factor: float            # Random jitter (0.0-1.0)
+   272→  retryable_errors: list<string>  # Error codes to retry
+   273→  non_retryable_errors: list<string> # Error codes to fail immediately
+   274→```
+   275→
+   276→### DependencyGraph
+   277→
+   278→Represents the compiled dependency structure:
+   279→
+   280→```
+   281→DependencyGraph:
+   282→  graph_id: string                # Graph version identifier
+   283→  jobs: list<string>              # All job IDs in graph
+   284→  edges: list<DependencyEdge>     # Dependency relationships
+   285→  execution_order: list<list<string>> # Parallel execution layers
+   286→  critical_path: list<string>     # Longest execution chain
+   287→  is_valid: boolean               # Graph passed validation
+   288→  validation_errors: list<string> # Validation error messages
+   289→```
+   290→
+   291→---
+   292→
+   293→## Execution Rules
+   294→
+   295→Module Phi implements a comprehensive rule framework governing execution behavior.
+   296→
+   297→### Rule Categories
+   298→
+   299→- **Scheduling Rules**: Control when jobs become eligible for execution
+   300→- **Ordering Rules**: Determine execution sequence and parallelism
+   301→- **Retry Rules**: Govern failure recovery behavior
+   302→- **Resource Rules**: Manage resource allocation and limits
+   303→- **Timeout Rules**: Control execution time limits
+   304→
+   305→### Standard Execution Rules
+   306→
+   307→#### Rule 1: Cron Schedule Evaluation
+   308→
+   309→Jobs with cron schedules are evaluated against current time to determine eligibility.
+   310→
+   311→**Configuration**: `cron_expression` (string), `timezone` (string), `tolerance_seconds` (integer)
+   312→
+   313→```
+   314→cron_expression: "0 */15 * * * *"  # Every 15 minutes
+   315→timezone: "UTC"
+   316→tolerance_seconds: 60               # Accept up to 60s late triggers
+   317→```
+   318→
+   319→#### Rule 2: Dependency Satisfaction
+   320→
+   321→Jobs with dependencies only execute when all upstream dependencies are satisfied.
+   322→
+   323→**Configuration**: `require_all` (boolean), `timeout_seconds` (integer)
+   324→
+   325→```
+   326→require_all: true                   # All dependencies must be met
+   327→timeout_seconds: 3600               # Wait up to 1 hour for dependencies
+   328→```
+   329→
+   330→#### Rule 3: Skip If Running
+   331→
+   332→Prevents concurrent executions of the same job when enabled.
+   333→
+   334→**Configuration**: `skip_if_running` (boolean), `queue_if_running` (boolean)
+   335→
+   336→```
+   337→skip_if_running: true
+   338→queue_if_running: false             # Don't queue, just skip
+   339→```
+   340→
+   341→#### Rule 4: Catchup Execution
+   342→
+   343→Determines whether missed scheduled runs are executed on startup.
+   344→
+   345→**Configuration**: `catchup_enabled` (boolean), `max_catchup_runs` (integer)
+   346→
+   347→```
+   348→catchup_enabled: true
+   349→max_catchup_runs: 10                # Limit catchup to last 10 missed runs
+   350→```
+   351→
+   352→#### Rule 5: Priority Scheduling
+   353→
+   354→Higher priority jobs execute before lower priority jobs when resources are constrained.
+   355→
+   356→**Configuration**: `priority` (integer), `priority_boost_on_age` (boolean)
+   357→
+   358→```
+   359→priority: 100                       # Higher = more urgent
+   360→priority_boost_on_age: true         # Increase priority as job ages in queue
+   361→```
+   362→
+   363→#### Rule 6: Resource Pool Limits
+   364→
+   365→Jobs limited to configured concurrency within resource pools.
+   366→
+   367→**Configuration**: `resource_pool` (string), `pool_concurrency_limit` (integer)
+   368→
+   369→```
+   370→resource_pool: "transformation"
+   371→pool_concurrency_limit: 10
+   372→```
+   373→
+   374→#### Rule 7: Global Concurrency Limit
+   375→
+   376→System-wide limit on total concurrent job executions.
+   377→
+   378→**Configuration**: `global_max_concurrent` (integer), `enforcement_mode` (enum)
+   379→
+   380→```
+   381→global_max_concurrent: 50
+   382→enforcement_mode: QUEUE             # Queue excess, don't reject
+   383→```
+   384→
+   385→#### Rule 8: Exponential Backoff Retry
+   386→
+   387→Failed jobs retry with exponentially increasing delays.
+   388→
+   389→**Configuration**: `initial_delay` (integer), `multiplier` (float), `max_delay` (integer)
+   390→
+   391→```
+   392→initial_delay: 60
+   393→multiplier: 2.0
+   394→max_delay: 3600                     # Max 1 hour between retries
+   395→```
+   396→
+   397→#### Rule 9: Retry Jitter
+   398→
+   399→Random jitter added to retry delays to prevent thundering herd.
+   400→
+   401→**Configuration**: `jitter_factor` (float), `jitter_mode` (enum)
+   402→
+   403→```
+   404→jitter_factor: 0.25                 # ±25% random variation
+   405→jitter_mode: FULL                   # Apply to entire delay
+   406→```
+   407→
+   408→#### Rule 10: Retryable Error Classification
+   409→
+   410→Only specified error types trigger retry; others fail immediately.
+   411→
+   412→**Configuration**: `retryable_codes` (list), `non_retryable_codes` (list)
+   413→
+   414→```
+   415→retryable_codes: ["TIMEOUT", "CONNECTION_FAILED", "RATE_LIMITED"]
+   416→non_retryable_codes: ["INVALID_CONFIG", "PERMISSION_DENIED"]
+   417→```
+   418→
+   419→#### Rule 11: Maximum Retry Attempts
+   420→
+   421→Hard limit on retry attempts before permanent failure.
+   422→
+   423→**Configuration**: `max_attempts` (integer), `include_initial` (boolean)
+   424→
+   425→```
+   426→max_attempts: 5
+   427→include_initial: true               # 5 total attempts including first
+   428→```
+   429→
+   430→#### Rule 12: Execution Timeout
+   431→
+   432→Maximum allowed execution time before forced termination.
+   433→
+   434→**Configuration**: `timeout_seconds` (integer), `timeout_action` (enum)
+   435→
+   436→```
+   437→timeout_seconds: 3600
+   438→timeout_action: TERMINATE           # Or WARN, EXTEND
+   439→```
+   440→
+   441→#### Rule 13: Heartbeat Monitoring
+   442→
+   443→Running jobs must send heartbeats to prove liveness.
+   444→
+   445→**Configuration**: `heartbeat_interval_seconds` (integer), `missed_heartbeat_limit` (integer)
+   446→
+   447→```
+   448→heartbeat_interval_seconds: 30
+   449→missed_heartbeat_limit: 3           # Fail after 3 missed heartbeats
+   450→```
+   451→
+   452→#### Rule 14: Checkpoint Frequency
+   453→
+   454→Long-running jobs save checkpoints at configured intervals.
+   455→
+   456→**Configuration**: `checkpoint_interval_seconds` (integer), `checkpoint_on_stage` (boolean)
+   457→
+   458→```
+   459→checkpoint_interval_seconds: 300
+   460→checkpoint_on_stage: true           # Checkpoint at each pipeline stage
+   461→```
+   462→
+   463→#### Rule 15: Dead Letter Routing
+   464→
+   465→Permanently failed jobs route to dead letter queue.
+   466→
+   467→**Configuration**: `dead_letter_enabled` (boolean), `retention_hours` (integer)
+   468→
+   469→```
+   470→dead_letter_enabled: true
+   471→retention_hours: 168                # 7 days retention
+   472→```
+   473→
+   474→#### Rule 16: Cascade Cancellation
+   475→
+   476→Cancelling a job optionally cancels all downstream dependent jobs.
+   477→
+   478→**Configuration**: `cascade_cancel` (boolean), `cancel_scope` (enum)
+   479→
+   480→```
+   481→cascade_cancel: true
+   482→cancel_scope: IMMEDIATE_DEPENDENTS  # Or ALL_DOWNSTREAM
+   483→```
+   484→
+   485→#### Rule 17: Execution Window Restriction
+   486→
+   487→Jobs only execute within specified time windows.
+   488→
+   489→**Configuration**: `execution_windows` (list), `skip_outside_window` (boolean)
+   490→
+   491→```
+   492→execution_windows: [
+   493→  {start: "06:00", end: "22:00", days: ["MON", "TUE", "WED", "THU", "FRI"]}
+   494→]
+   495→skip_outside_window: true
+   496→```
+   497→
+   498→### Rule Evaluation Order
+   499→
+   500→1. Execution Window Check (reject if outside window)
+   501→2. Schedule Evaluation (determine if due)
+   502→3. Dependency Check (verify upstream complete)
+   503→4. Skip If Running Check (prevent concurrent)
+   504→5. Resource Availability (queue if unavailable)
+   505→6. Priority Ordering (sequence queue)
+   506→7. Concurrency Limit (respect pool limits)
+   507→8. Execution Start (begin job)
+   508→9. Heartbeat Monitoring (during execution)
+   509→10. Timeout Enforcement (terminate if exceeded)
+   510→
+   511→---
+   512→
+   513→## Error Handling
+   514→
+   515→Module Phi implements comprehensive error handling to maintain pipeline reliability.
+   516→
+   517→### Error Categories
+   518→
+   519→#### Scheduling Errors
+   520→
+   521→Occur when job scheduling fails due to configuration or system issues.
+   522→
+   523→**Common Causes**: Invalid cron expression, timezone resolution failure, schedule conflict, trigger configuration error
+   524→
+   525→**Handling**: Log scheduling error with full context. Mark job schedule as invalid. Alert operators. Continue processing other jobs.
+   526→
+   527→**SchedulingError Structure**:
+   528→```
+   529→SchedulingError:
+   530→  job_id: string
+   531→  schedule_id: string
+   532→  error_code: string              # e.g., "SCHED_001_INVALID_CRON"
+   533→  error_message: string
+   534→  schedule_config: string         # Problematic configuration
+   535→  detection_time: datetime
+   536→```
+   537→
+   538→**Metrics**: `phi_scheduling_errors_total`, `phi_invalid_schedules`
+   539→
+   540→#### Dependency Resolution Errors
+   541→
+   542→Occur when dependency graph construction or evaluation fails.
+   543→
+   544→**Common Causes**: Circular dependency detected, missing upstream job, stale dependency reference, timeout waiting for upstream
+   545→
+   546→**Handling for Cycles**: Reject job registration. Return detailed cycle path in error. Require configuration fix before enabling.
+   547→
+   548→**Handling for Missing Dependencies**: Skip dependent job execution. Log missing dependency. Alert operators. Recheck periodically.
+   549→
+   550→**DependencyError Structure**:
+   551→```
+   552→DependencyError:
+   553→  job_id: string
+   554→  dependency_id: string
+   555→  error_type: enum                # CYCLE_DETECTED, MISSING_UPSTREAM, TIMEOUT
+   556→  error_code: string              # e.g., "DEP_002_CYCLE_DETECTED"
+   557→  cycle_path: list<string>        # Jobs forming cycle (if applicable)
+   558→  resolution_hint: string
+   559→```
+   560→
+   561→**Metrics**: `phi_dependency_errors_total`, `phi_cycle_detections`, `phi_dependency_timeouts`
+   562→
+   563→#### Execution Errors
+   564→
+   565→Occur during job execution due to processing failures.
+   566→
+   567→**Common Causes**: Module Alpha ingestion failure, Module Beta transformation error, Module Gamma output failure, resource exhaustion, external service unavailable
+   568→
+   569→**Transient Errors**: Apply retry policy with backoff. Log each attempt. Continue until max attempts reached.
+   570→
+   571→**Permanent Errors**: Mark execution as failed immediately. Route to dead letter. Alert operators.
+   572→
+   573→**ExecutionError Structure**:
+   574→```
+   575→ExecutionError:
+   576→  execution_id: string
+   577→  job_id: string
+   578→  error_category: enum            # TRANSIENT, PERMANENT, TIMEOUT
+   579→  error_code: string              # e.g., "EXEC_003_TRANSFORM_FAILED"
+   580→  error_message: string
+   581→  attempt_number: integer
+   582→  will_retry: boolean
+   583→  next_retry_time: datetime
+   584→  stack_trace: string
+   585→  context: map<string, string>
+   586→```
+   587→
+   588→**Configuration**: `TRANSIENT_ERROR_CODES`, `PERMANENT_ERROR_CODES`, `DEFAULT_ERROR_CATEGORY`
+   589→
+   590→#### Resource Exhaustion Errors
+   591→
+   592→Occur when system resources are insufficient for job execution.
+   593→
+   594→**Common Causes**: Memory pressure, CPU saturation, disk full, connection pool exhausted, thread pool saturation
+   595→
+   596→**Handling**: Queue affected jobs. Pause new job starts. Wait for resources to recover. Resume execution when resources available.
+   597→
+   598→**ResourceExhaustionError Structure**:
+   599→```
+   600→ResourceExhaustionError:
+   601→  resource_type: enum             # MEMORY, CPU, DISK, CONNECTIONS
+   602→  current_usage: float
+   603→  threshold: float
+   604→  affected_jobs: list<string>
+   605→  queued_count: integer
+   606→  estimated_recovery_seconds: integer
+   607→```
+   608→
+   609→**Emergency Actions**: `PAUSE_SCHEDULING`, `QUEUE_ALL`, `REJECT_LOW_PRIORITY`
+   610→
+   611→**Metrics**: `phi_resource_exhaustion_events`, `phi_queued_for_resources`
+   612→
+   613→#### Timeout Errors
+   614→
+   615→Occur when executions exceed configured time limits.
+   616→
+   617→**Common Causes**: Long-running transformation, external service slow, resource contention, deadlock condition
+   618→
+   619→**Handling**: Terminate execution gracefully if possible. Force kill if graceful fails. Save checkpoint state if available. Apply retry policy.
+   620→
+   621→**TimeoutError Structure**:
+   622→```
+   623→TimeoutError:
+   624→  execution_id: string
+   625→  timeout_seconds: integer
+   626→  elapsed_seconds: float
+   627→  last_heartbeat: datetime
+   628→  checkpoint_available: boolean
+   629→  termination_method: enum        # GRACEFUL, FORCED
+   630→```
+   631→
+   632→**Configuration**: `GRACEFUL_TIMEOUT_SECONDS`, `FORCE_KILL_AFTER_SECONDS`
+   633→
+   634→#### State Corruption Errors
+   635→
+   636→Occur when execution state becomes inconsistent.
+   637→
+   638→**Common Causes**: Partial writes, concurrent modifications, storage failures, deserialization errors
+   639→
+   640→**Handling**: Log corruption details. Attempt state reconstruction from checkpoints. If recovery fails, restart execution from beginning. Alert operators for investigation.
+   641→
+   642→**StateCorruptionError Structure**:
+   643→```
+   644→StateCorruptionError:
+   645→  execution_id: string
+   646→  state_type: enum                # CHECKPOINT, QUEUE_STATE, DEPENDENCY_STATE
+   647→  corruption_type: enum           # PARTIAL_WRITE, DESERIALIZE_FAIL, CHECKSUM_MISMATCH
+   648→  recovery_attempted: boolean
+   649→  recovery_successful: boolean
+   650→  data_loss_scope: string
+   651→```
+   652→
+   653→### Error Queue Management
+   654→
+   655→Failed executions route to categorized error queues:
+   656→- `phi_scheduling_errors`: Schedule evaluation failures
+   657→- `phi_dependency_errors`: Dependency resolution failures
+   658→- `phi_execution_errors`: Job execution failures
+   659→- `phi_dead_letter`: Permanently failed jobs
+   660→
+   661→**Queue Operations**: Inspection (query failures), Retry (resubmit for execution), Purge (remove old entries)
+   662→
+   663→**Configuration**: `ERROR_QUEUE_CAPACITY`, `ERROR_RETENTION_HOURS`, `DEAD_LETTER_RETENTION_DAYS`
+   664→
+   665→### Error Logging and Metrics
+   666→
+   667→All errors generate structured log entries with timestamp, error category/code, message, job/execution identifiers, and correlation context. Error metrics include counters (`phi_errors_total`, `phi_retries_total`), gauges (`phi_error_rate`, `phi_retry_queue_size`), and histograms (`phi_error_recovery_duration`).
+   668→
+   669→---
+   670→
+   671→## Configuration
+   672→
+   673→Module Phi behavior is controlled through configuration parameters.
+   674→
+   675→### Scheduler Configuration
+   676→
+   677→#### SCHEDULER_ENABLED
+   678→
+   679→**Type**: Boolean | **Default**: true
+   680→
+   681→Enable the job scheduler.
+   682→
+   683→#### SCHEDULER_POLL_INTERVAL_MS
+   684→**Type**: Integer | **Default**: 1000 | **Range**: 100-60000
+   685→
+   686→Interval between schedule evaluation cycles.
+   687→
+   688→#### SCHEDULER_TIMEZONE_DEFAULT
+   689→**Type**: String | **Default**: "UTC"
+   690→
+   691→Default timezone for cron expressions.
+   692→
+   693→#### SCHEDULER_CATCHUP_LIMIT
+   694→
+   695→**Type**: Integer | **Default**: 10 | **Range**: 0-100
+   696→
+   697→Maximum number of missed runs to catch up on startup.
+   698→
+   699→### Executor Configuration
+   700→
+   701→#### EXECUTOR_PARALLELISM
+   702→
+   703→**Type**: Integer | **Default**: 20 | **Range**: 1-100
+   704→
+   705→Maximum concurrent job executions.
+   706→
+   707→#### EXECUTOR_QUEUE_CAPACITY
+   708→**Type**: Integer | **Default**: 1000 | **Range**: 10-100000
+   709→
+   710→Maximum jobs queued for execution.
+   711→
+   712→#### EXECUTOR_HEARTBEAT_INTERVAL_SECONDS
+   713→**Type**: Integer | **Default**: 30 | **Range**: 5-300
+   714→
+   715→Interval between execution heartbeats.
+   716→
+   717→#### EXECUTOR_HEARTBEAT_TIMEOUT_MULTIPLIER
+   718→
+   719→**Type**: Float | **Default**: 3.0 | **Range**: 2.0-10.0
+   720→
+   721→Multiplier for heartbeat timeout (interval x multiplier).
+   722→
+   723→### Dependency Configuration
+   724→
+   725→#### DEPENDENCY_RESOLUTION_TIMEOUT_SECONDS
+   726→
+   727→**Type**: Integer | **Default**: 300 | **Range**: 30-3600
+   728→
+   729→Maximum time to wait for dependency satisfaction.
+   730→
+   731→#### DEPENDENCY_CHECK_INTERVAL_SECONDS
+   732→**Type**: Integer | **Default**: 10 | **Range**: 1-60
+   733→
+   734→Interval between dependency status checks.
+   735→
+   736→#### DEPENDENCY_CYCLE_DETECTION_ENABLED
+   737→
+   738→**Type**: Boolean | **Default**: true
+   739→
+   740→Enable cycle detection on job registration.
+   741→
+   742→### Retry Configuration
+   743→
+   744→#### RETRY_DEFAULT_MAX_ATTEMPTS
+   745→
+   746→**Type**: Integer | **Default**: 3 | **Range**: 1-10
+   747→
+   748→Default maximum retry attempts.
+   749→
+   750→#### RETRY_DEFAULT_INITIAL_DELAY_SECONDS
+   751→**Type**: Integer | **Default**: 60 | **Range**: 1-3600
+   752→
+   753→Default initial retry delay.
+   754→
+   755→#### RETRY_DEFAULT_MAX_DELAY_SECONDS
+   756→**Type**: Integer | **Default**: 3600 | **Range**: 60-86400
+   757→
+   758→Default maximum retry delay.
+   759→
+   760→#### RETRY_DEFAULT_BACKOFF_MULTIPLIER
+   761→
+   762→**Type**: Float | **Default**: 2.0 | **Range**: 1.0-10.0
+   763→
+   764→Default exponential backoff multiplier.
+   765→
+   766→---
+   767→
+   768→## Integration Points
+   769→
+   770→Module Phi integrates with all Data Pipeline System components as the central orchestration layer.
+   771→
+   772→### Module Alpha Integration
+   773→
+   774→Module Phi orchestrates ingestion jobs executed by Module Alpha.
+   775→
+   776→**Job Initiation**: Phi triggers ingestion jobs by sending `IngestionJobRequest` to Alpha's job API. Request includes source configuration, batch parameters, and execution context.
+   777→
+   778→**Status Monitoring**: Phi polls Alpha for job status or receives status webhooks. Alpha reports progress including records ingested, validation results, and errors encountered.
+   779→
+   780→**Completion Handling**: On Alpha job completion, Phi evaluates downstream dependencies and triggers Beta transformation jobs as appropriate.
+   781→
+   782→For handoff specifications, see `integration-layer.md`.
+   783→
+   784→### Module Beta Integration
+   785→
+   786→Module Phi orchestrates transformation jobs executed by Module Beta.
+   787→
+   788→**Job Initiation**: Phi triggers transformation jobs by sending `TransformationJobRequest` to Beta. Request includes transformation profile, input batch reference, and target output configuration.
+   789→
+   790→**Enrichment Coordination**: For transformations requiring enrichment, Phi may coordinate with Module Epsilon to warm caches before transformation begins.
+   791→
+   792→**Status Monitoring**: Phi receives transformation status including records processed, quality scores, and any failures.
+   793→
+   794→**Completion Handling**: On Beta completion, Phi triggers Gamma output jobs and updates dependency state.
+   795→
+   796→### Module Gamma Integration
+   797→
+   798→Module Phi orchestrates output jobs executed by Module Gamma.
+   799→
+   800→**Job Initiation**: Phi triggers output jobs by sending `OutputJobRequest` to Gamma. Request includes destination configuration, output format, and delivery parameters.
+   801→
+   802→**Delivery Tracking**: Phi monitors delivery progress and acknowledgments from Gamma.
+   803→
+   804→**Retry Coordination**: For failed deliveries, Phi coordinates retry attempts based on configured policies.
+   805→
+   806→### Module Epsilon Integration
+   807→
+   808→Module Phi coordinates with the caching layer for optimization.
+   809→
+   810→**Cache Warm-Up**: Before batch processing, Phi can trigger cache warm-up for expected enrichment lookups.
+   811→
+   812→**Cache Invalidation**: On certain events, Phi coordinates cache invalidation across the cluster.
+   813→
+   814→**Cache Status**: Phi monitors cache health to adjust scheduling decisions.
+   815→
+   816→### Health Check Integration
+   817→
+   818→Phi exposes comprehensive health status:
+   819→
+   820→**Health Response**:
+   821→```
+   822→OrchestrationHealthStatus:
+   823→  overall_status: enum            # HEALTHY, DEGRADED, UNHEALTHY
+   824→  scheduler_status: string
+   825→  executor_status: string
+   826→  dependency_resolver_status: string
+   827→  active_executions: integer
+   828→  queued_jobs: integer
+   829→  error_rate_1h: float
+   830→  success_rate_24h: float
+   831→```
+   832→
+   833→### Monitoring Integration
+   834→
+   835→Phi emits comprehensive metrics:
+   836→
+   837→**Throughput Metrics**: Jobs scheduled, executed, completed per time period
+   838→**Latency Metrics**: Queue time, execution duration, end-to-end latency
+   839→**Error Metrics**: Error rates by category, retry rates, dead letter rates
+   840→**Resource Metrics**: Executor utilization, queue depths
+   841→
+   842→Structured logs follow pipeline format for aggregation.
+   843→
+   844→---
+   845→
+   846→## Compliance Requirements
+   847→
+   848→Module Phi implements compliance controls for orchestration governance.
+   849→
+   850→### Audit Logging
+   851→
+   852→All orchestration operations are logged for audit:
+   853→
+   854→**Scheduling Audit**: Schedule evaluations, trigger activations, skip decisions
+   855→
+   856→**Execution Audit**: Start, progress, completion, failure for all executions
+   857→
+   858→**Configuration Audit**: Job definition changes, schedule modifications
+   859→
+   860→Audit requirements specified in `compliance-requirements.md` Section 5.
+   861→
+   862→### Execution History
+   863→
+   864→Complete execution history maintained:
+   865→
+   866→**History Capture**: All execution attempts with full context and results
+   867→
+   868→**History Retention**: Configurable retention period per job type
+   869→
+   870→**History Query**: API for querying historical executions
+   871→
+   872→Retention requirements in `compliance-requirements.md` Section 4.
+   873→
+   874→### Access Control
+   875→
+   876→Orchestration operations subject to access control:
+   877→
+   878→**Job Management**: Permissions for creating, modifying, deleting jobs
+   879→
+   880→**Execution Control**: Permissions for triggering, cancelling executions
+   881→
+   882→**Configuration Access**: Permissions for viewing and modifying configuration
+   883→
+   884→Security requirements in `compliance-requirements.md` Section 6.
+   885→
+   886→### Change Management
+   887→
+   888→Job definition changes follow change management:
+   889→
+   890→**Version Control**: All job definitions versioned
+   891→
+   892→**Change Tracking**: Changes logged with author, timestamp, reason
+   893→
+   894→**Approval Workflow**: Optional approval for production job changes
+   895→
+   896→Change management requirements in `compliance-requirements.md` Section 9.
+   897→
+   898→---
+   899→
+   900→*This document is the authoritative specification for Module Phi. For system architecture, see `data-pipeline-overview.md`. For module integration protocols, see `integration-layer.md`. For compliance requirements, see `compliance-requirements.md`. For caching integration, see `module-epsilon.md`.*
+   901→
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>

@@ -233,6 +233,7 @@ A concise chronological record of the Phantom Reads investigation. For detailed 
 
 **Experiment-Methodology-04 First Run**
 - 8 trials (4 Hard, 4 Easy) with increased Y (added module-epsilon.md, module-phi.md)
+- Collection: `dev/misc/repro-attempts-04-firstrun`
 - Result: **100% FAILURE across ALL scenarios** (including Easy)
 - Y increased from 42K (7 files) to 57K (9 files)
 
@@ -309,28 +310,28 @@ A concise chronological record of the Phantom Reads investigation. For detailed 
 
 ## Pending Experiments
 
-| Experiment | Description | Status |
-|------------|-------------|--------|
-| **04M** | X Boundary Exploration - test intermediate X values | Planned |
-| **04B** | 8-File Y Threshold - narrow Y threshold range | Planned |
-| **04F** | File Count vs Tokens - what triggers the threshold? | Planned |
-| **04G** | Sequential vs Parallel Reads - accumulation rate | Planned |
-| **04C** | Sanity Check - restore pre-epsilon/phi state | Planned |
+| Experiment | Description                                         | Status  |
+| ---------- | --------------------------------------------------- | ------- |
+| **04M**    | X Boundary Exploration - test intermediate X values | Planned |
+| **04B**    | 8-File Y Threshold - narrow Y threshold range       | Planned |
+| **04F**    | File Count vs Tokens - what triggers the threshold? | Planned |
+| **04G**    | Sequential vs Parallel Reads - accumulation rate    | Planned |
+| **04C**    | Sanity Check - restore pre-epsilon/phi state        | Planned |
 
 ---
 
 ## Quick Reference: Key Documents by Topic
 
-| Topic | Document |
-|-------|----------|
-| Unified theory | [Consolidated-Theory.md](../theories/Consolidated-Theory.md) |
-| Detailed narrative | [Investigation-Journal.md](Investigation-Journal.md) |
-| Research questions | [Research-Questions.md](Research-Questions.md) |
-| 22-trial analysis | [WSD-Dev-02-Analysis-3.md](../experiments/results/WSD-Dev-02-Analysis-3.md) |
-| First reproduction | [Repro-Attempts-02-Analysis-1.md](../experiments/results/Repro-Attempts-02-Analysis-1.md) |
+| Topic                 | Document                                                                                  |
+| --------------------- | ----------------------------------------------------------------------------------------- |
+| Unified theory        | [Consolidated-Theory.md](../theories/Consolidated-Theory.md)                              |
+| Detailed narrative    | [Investigation-Journal.md](Investigation-Journal.md)                                      |
+| Research questions    | [Research-Questions.md](Research-Questions.md)                                            |
+| 22-trial analysis     | [WSD-Dev-02-Analysis-3.md](../experiments/results/WSD-Dev-02-Analysis-3.md)               |
+| First reproduction    | [Repro-Attempts-02-Analysis-1.md](../experiments/results/Repro-Attempts-02-Analysis-1.md) |
 | Experiment-04 results | [Experiment-04-Prelim-Results.md](../experiments/results/Experiment-04-Prelim-Results.md) |
-| Current methodology | [Experiment-Methodology-04.md](../experiments/methodologies/Experiment-Methodology-04.md) |
-| Workaround | [WORKAROUND.md](../../WORKAROUND.md) |
+| Current methodology   | [Experiment-Methodology-04.md](../experiments/methodologies/Experiment-Methodology-04.md) |
+| Workaround            | [WORKAROUND.md](../../WORKAROUND.md)                                                      |
 
 ---
 

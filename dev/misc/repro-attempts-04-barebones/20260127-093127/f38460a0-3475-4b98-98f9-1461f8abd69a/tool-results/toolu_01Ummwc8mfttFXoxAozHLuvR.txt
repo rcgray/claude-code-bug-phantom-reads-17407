@@ -1,0 +1,900 @@
+     1→     1→     1→     1→     1→# Module Epsilon: Data Caching Layer Specification
+     2→     2→     2→     2→     2→
+     3→     3→     3→     3→     3→**Version:** 1.0.0
+     4→     4→     4→     4→     4→**Status:** Active
+     5→     5→     5→     5→     5→
+     6→     6→     6→     6→     6→## Table of Contents
+     7→     7→     7→     7→     7→
+     8→     8→     8→     8→     8→1. [Overview](#overview)
+     9→     9→     9→     9→     9→2. [Cache Architecture](#cache-architecture)
+    10→    10→    10→    10→    10→3. [Data Structures](#data-structures)
+    11→    11→    11→    11→    11→4. [Cache Policies](#cache-policies)
+    12→    12→    12→    12→    12→5. [Error Handling](#error-handling)
+    13→    13→    13→    13→    13→6. [Configuration](#configuration)
+    14→    14→    14→    14→    14→7. [Integration Points](#integration-points)
+    15→    15→    15→    15→    15→8. [Compliance Requirements](#compliance-requirements)
+    16→    16→    16→    16→    16→
+    17→    17→    17→    17→    17→---
+    18→    18→    18→    18→    18→
+    19→    19→    19→    19→    19→## Overview
+    20→    20→    20→    20→    20→
+    21→    21→    21→    21→    21→Module Epsilon serves as the data caching layer of the Data Pipeline System, providing high-performance caching services to all pipeline modules. As a cross-cutting infrastructure component, Module Epsilon accelerates data access patterns, reduces load on external enrichment sources, and enables efficient replay of transformation operations through intelligent result caching.
+    22→    22→    22→    22→    22→
+    23→    23→    23→    23→    23→### Core Responsibilities
+    24→    24→    24→    24→    24→
+    25→    25→    25→    25→    25→**Enrichment Caching**: Caching lookup results from external data sources to minimize redundant API calls and database queries. The enrichment cache stores reference data retrieved by Module Beta during transformation, with configurable TTL policies based on data volatility.
+    26→    26→    26→    26→    26→
+    27→    27→    27→    27→    27→**Transformation Result Caching**: Maintaining cached copies of transformation outputs for records that may require reprocessing. This enables efficient replay without re-executing expensive transformation chains and supports idempotent operation patterns.
+    28→    28→    28→    28→    28→
+    29→    29→    29→    29→    29→**Inter-Module Buffer Caching**: Providing temporary storage buffers between pipeline stages to smooth throughput variations and handle backpressure scenarios. Buffer caches absorb burst loads from Module Alpha and regulate delivery rates to Module Gamma.
+    30→    30→    30→    30→    30→
+    31→    31→    31→    31→    31→**Reference Data Caching**: Storing static and semi-static reference datasets including lookup tables, validation rules, and configuration data that modules access repeatedly during processing.
+    32→    32→    32→    32→    32→
+    33→    33→    33→    33→    33→### Cache Hierarchy
+    34→    34→    34→    34→    34→
+    35→    35→    35→    35→    35→Module Epsilon implements a multi-tier cache hierarchy optimizing for both latency and capacity:
+    36→    36→    36→    36→    36→
+    37→    37→    37→    37→    37→```
+    38→    38→    38→    38→    38→+-------------------------------------------------------------------------+
+    39→    39→    39→    39→    39→|                      MODULE EPSILON CACHE HIERARCHY                      |
+    40→    40→    40→    40→    40→+-------------------------------------------------------------------------+
+    41→    41→    41→    41→    41→|                                                                          |
+    42→    42→    42→    42→    42→|  +------------------+     +------------------+     +------------------+  |
+    43→    43→    43→    43→    43→|  |    L1 CACHE      |     |    L2 CACHE      |     |    L3 CACHE      |  |
+    44→    44→    44→    44→    44→|  |   (In-Memory)    |     |  (Distributed)   |     |   (Persistent)   |  |
+    45→    45→    45→    45→    45→|  +------------------+     +------------------+     +------------------+  |
+    46→    46→    46→    46→    46→|  | Latency: <1ms    |     | Latency: 1-10ms  |     | Latency: 10-50ms |  |
+    47→    47→    47→    47→    47→|  | Capacity: 1GB    |     | Capacity: 50GB   |     | Capacity: 500GB  |  |
+    48→    48→    48→    48→    48→|  | Scope: Local     |     | Scope: Cluster   |     | Scope: Durable   |  |
+    49→    49→    49→    49→    49→|  +--------+---------+     +--------+---------+     +--------+---------+  |
+    50→    50→    50→    50→    50→|           |                        |                        |            |
+    51→    51→    51→    51→    51→|           +------------------------+------------------------+            |
+    52→    52→    52→    52→    52→|                                    |                                     |
+    53→    53→    53→    53→    53→|                           +--------v---------+                           |
+    54→    54→    54→    54→    54→|                           |  CACHE ROUTER    |                           |
+    55→    55→    55→    55→    55→|                           |  (Policy Engine) |                           |
+    56→    56→    56→    56→    56→|                           +------------------+                           |
+    57→    57→    57→    57→    57→|                                                                          |
+    58→    58→    58→    58→    58→+-------------------------------------------------------------------------+
+    59→    59→    59→    59→    59→```
+    60→    60→    60→    60→    60→
+    61→    61→    61→    61→    61→### Design Principles
+    62→    62→    62→    62→    62→
+    63→    63→    63→    63→    63→**Tiered Access Pattern**: Cache lookups proceed through tiers in order of latency, with L1 checked first, then L2, then L3. Cache writes may target specific tiers based on data characteristics and access patterns.
+    64→    64→    64→    64→    64→
+    65→    65→    65→    65→    65→**Write-Through Consistency**: For critical data, writes propagate through all cache tiers synchronously to maintain consistency. For performance-critical paths, write-behind patterns defer lower-tier updates.
+    66→    66→    66→    66→    66→
+    67→    67→    67→    67→    67→**Intelligent Eviction**: Each cache tier implements eviction policies appropriate to its characteristics. L1 uses LRU for hot data, L2 uses LFU for frequently accessed data, and L3 uses TTL-based expiration for durable storage.
+    68→    68→    68→    68→    68→
+    69→    69→    69→    69→    69→**Graceful Degradation**: Cache failures do not halt pipeline processing. When cache operations fail, modules fall back to source data access with appropriate performance implications logged and monitored.
+    70→    70→    70→    70→    70→
+    71→    71→    71→    71→    71→---
+    72→    72→    72→    72→    72→
+    73→    73→    73→    73→    73→## Cache Architecture
+    74→    74→    74→    74→    74→
+    75→    75→    75→    75→    75→The caching architecture consists of three tiers with distinct characteristics and purposes.
+    76→    76→    76→    76→    76→
+    77→    77→    77→    77→    77→### Tier 1: In-Memory Cache (L1)
+    78→    78→    78→    78→    78→
+    79→    79→    79→    79→    79→L1 provides ultra-low-latency access for the hottest data, storing cached entries in process memory with sub-millisecond access times.
+    80→    80→    80→    80→    80→
+    81→    81→    81→    81→    81→**Characteristics**:
+    82→    82→    82→    82→    82→- Access latency: <1ms
+    83→    83→    83→    83→    83→- Capacity: Configurable, default 1GB per process
+    84→    84→    84→    84→    84→- Scope: Single process, not shared across instances
+    85→    85→    85→    85→    85→- Persistence: None, volatile on restart
+    86→    86→    86→    86→    86→- Eviction: LRU with configurable max entries
+    87→    87→    87→    87→    87→
+    88→    88→    88→    88→    88→**Use Cases**:
+    89→    89→    89→    89→    89→- Frequently accessed enrichment lookups
+    90→    90→    90→    90→    90→- Hot transformation rule configurations
+    91→    91→    91→    91→    91→- Active session state
+    92→    92→    92→    92→    92→- Recently transformed record results
+    93→    93→    93→    93→    93→
+    94→    94→    94→    94→    94→**Implementation**: Lock-free concurrent hash map with segmented locks for write operations. Read operations are wait-free for maximum throughput.
+    95→    95→    95→    95→    95→
+    96→    96→    96→    96→    96→### Tier 2: Distributed Cache (L2)
+    97→    97→    97→    97→    97→
+    98→    98→    98→    98→    98→L2 provides cluster-wide shared caching with moderate latency, enabling cache sharing across pipeline instances.
+    99→    99→    99→    99→    99→
+   100→   100→   100→   100→   100→**Characteristics**:
+   101→   101→   101→   101→   101→- Access latency: 1-10ms
+   102→   102→   102→   102→   102→- Capacity: Configurable, default 50GB cluster-wide
+   103→   103→   103→   103→   103→- Scope: Shared across all pipeline instances
+   104→   104→   104→   104→   104→- Persistence: Optional write-ahead logging
+   105→   105→   105→   105→   105→- Eviction: LFU with TTL-based expiration
+   106→   106→   106→   106→   106→
+   107→   107→   107→   107→   107→**Use Cases**:
+   108→   108→   108→   108→   108→- Enrichment results shared across instances
+   109→   109→   109→   109→   109→- Lookup table caching
+   110→   110→   110→   110→   110→- Transformation profile configurations
+   111→   111→   111→   111→   111→- Cross-instance deduplication state
+   112→   112→   112→   112→   112→
+   113→   113→   113→   113→   113→**Partitioning**: Data partitioned by consistent hashing on cache keys. Partition count configurable, default 256 partitions. Rebalancing occurs automatically on node join/leave.
+   114→   114→   114→   114→   114→
+   115→   115→   115→   115→   115→**Replication**: Configurable replication factor (default 2) ensures data availability during node failures. Synchronous replication for critical data, asynchronous for performance-critical paths.
+   116→   116→   116→   116→   116→
+   117→   117→   117→   117→   117→### Tier 3: Persistent Cache (L3)
+   118→   118→   118→   118→   118→
+   119→   119→   119→   119→   119→L3 provides durable storage for cache entries that must survive restarts, storing data on disk with optional compression.
+   120→   120→   120→   120→   120→
+   121→   121→   121→   121→   121→**Characteristics**:
+   122→   122→   122→   122→   122→- Access latency: 10-50ms
+   123→   123→   123→   123→   123→- Capacity: Configurable, default 500GB per node
+   124→   124→   124→   124→   124→- Scope: Local to node with cluster coordination
+   125→   125→   125→   125→   125→- Persistence: Full durability with write-ahead logging
+   126→   126→   126→   126→   126→- Eviction: TTL-based with configurable retention
+   127→   127→   127→   127→   127→
+   128→   128→   128→   128→   128→**Use Cases**:
+   129→   129→   129→   129→   129→- Historical transformation results for replay
+   130→   130→   130→   130→   130→- Audit trail of enrichment lookups
+   131→   131→   131→   131→   131→- Long-lived reference data snapshots
+   132→   132→   132→   132→   132→- Recovery checkpoints
+   133→   133→   133→   133→   133→
+   134→   134→   134→   134→   134→**Storage Format**: LSM-tree based storage with block-level compression. Supports range queries for batch cache operations.
+   135→   135→   135→   135→   135→
+   136→   136→   136→   136→   136→### Cache Router
+   137→   137→   137→   137→   137→
+   138→   138→   138→   138→   138→The cache router determines which tier(s) to access for each operation based on cache policies, data characteristics, and current system state.
+   139→   139→   139→   139→   139→
+   140→   140→   140→   140→   140→**Routing Decisions**:
+   141→   141→   141→   141→   141→- Read operations: Check tiers in order L1 -> L2 -> L3 until hit
+   142→   142→   142→   142→   142→- Write operations: Write to tiers specified by cache policy
+   143→   143→   143→   143→   143→- Invalidation: Propagate to all tiers containing the entry
+   144→   144→   144→   144→   144→- Warm-up: Preload entries from L3 to L2/L1 on startup
+   145→   145→   145→   145→   145→
+   146→   146→   146→   146→   146→**Policy Engine**: Evaluates cache policies to determine tier routing, TTL assignment, and eviction priority for each cache operation.
+   147→   147→   147→   147→   147→
+   148→   148→   148→   148→   148→---
+   149→   149→   149→   149→   149→
+   150→   150→   150→   150→   150→## Data Structures
+   151→   151→   151→   151→   151→
+   152→   152→   152→   152→   152→Module Epsilon defines data structures for cache entries, policies, and operational metadata.
+   153→   153→   153→   153→   153→
+   154→   154→   154→   154→   154→### CacheEntry
+   155→   155→   155→   155→   155→
+   156→   156→   156→   156→   156→Represents a single cached item:
+   157→   157→   157→   157→   157→
+   158→   158→   158→   158→   158→```
+   159→   159→   159→   159→   159→CacheEntry:
+   160→   160→   160→   160→   160→  key: string                     # Unique cache key
+   161→   161→   161→   161→   161→  value: bytes                    # Serialized cached data
+   162→   162→   162→   162→   162→  value_type: string              # Type identifier for deserialization
+   163→   163→   163→   163→   163→  created_at: datetime            # Entry creation timestamp
+   164→   164→   164→   164→   164→  expires_at: datetime            # Expiration timestamp (null = no expiration)
+   165→   165→   165→   165→   165→  last_accessed: datetime         # Most recent access timestamp
+   166→   166→   166→   166→   166→  access_count: integer           # Total access count
+   167→   167→   167→   167→   167→  size_bytes: integer             # Serialized size
+   168→   168→   168→   168→   168→  tier_hint: enum                 # L1_ONLY, L2_ONLY, L3_ONLY, ALL_TIERS
+   169→   169→   169→   169→   169→  compression: enum               # NONE, LZ4, ZSTD, GZIP
+   170→   170→   170→   170→   170→  checksum: string                # Value integrity checksum
+   171→   171→   171→   171→   171→```
+   172→   172→   172→   172→   172→
+   173→   173→   173→   173→   173→### CachePolicy
+   174→   174→   174→   174→   174→
+   175→   175→   175→   175→   175→Defines caching behavior for a category of data:
+   176→   176→   176→   176→   176→
+   177→   177→   177→   177→   177→```
+   178→   178→   178→   178→   178→CachePolicy:
+   179→   179→   179→   179→   179→  policy_id: string               # Unique policy identifier
+   180→   180→   180→   180→   180→  name: string                    # Human-readable name
+   181→   181→   181→   181→   181→  ttl_seconds: integer            # Time-to-live (0 = no expiration)
+   182→   182→   182→   182→   182→  max_entries: integer            # Maximum entries under this policy
+   183→   183→   183→   183→   183→  tiers: list<enum>               # Applicable tiers [L1, L2, L3]
+   184→   184→   184→   184→   184→  write_mode: enum                # WRITE_THROUGH, WRITE_BEHIND, WRITE_AROUND
+   185→   185→   185→   185→   185→  eviction_priority: integer      # Priority for eviction (lower = evict first)
+   186→   186→   186→   186→   186→  compression_policy: enum        # NEVER, ABOVE_THRESHOLD, ALWAYS
+   187→   187→   187→   187→   187→  compression_threshold: integer  # Size threshold for compression
+   188→   188→   188→   188→   188→  refresh_ahead: boolean          # Proactively refresh before expiration
+   189→   189→   189→   189→   189→  refresh_threshold: float        # Refresh when TTL remaining < threshold
+   190→   190→   190→   190→   190→```
+   191→   191→   191→   191→   191→
+   192→   192→   192→   192→   192→### CacheStats
+   193→   193→   193→   193→   193→
+   194→   194→   194→   194→   194→Captures cache performance metrics:
+   195→   195→   195→   195→   195→
+   196→   196→   196→   196→   196→```
+   197→   197→   197→   197→   197→CacheStats:
+   198→   198→   198→   198→   198→  tier: enum                      # L1, L2, L3, or ALL
+   199→   199→   199→   199→   199→  hits: integer                   # Successful lookups
+   200→   200→   200→   200→   200→  misses: integer                 # Failed lookups
+   201→   201→   201→   201→   201→  hit_ratio: float                # hits / (hits + misses)
+   202→   202→   202→   202→   202→  evictions: integer              # Entries evicted
+   203→   203→   203→   203→   203→  expirations: integer            # Entries expired
+   204→   204→   204→   204→   204→  writes: integer                 # Write operations
+   205→   205→   205→   205→   205→  deletes: integer                # Delete operations
+   206→   206→   206→   206→   206→  bytes_read: integer             # Total bytes read
+   207→   207→   207→   207→   207→  bytes_written: integer          # Total bytes written
+   208→   208→   208→   208→   208→  avg_latency_ms: float           # Average operation latency
+   209→   209→   209→   209→   209→  p99_latency_ms: float           # 99th percentile latency
+   210→   210→   210→   210→   210→  current_entries: integer        # Current entry count
+   211→   211→   211→   211→   211→  current_size_bytes: integer     # Current storage usage
+   212→   212→   212→   212→   212→```
+   213→   213→   213→   213→   213→
+   214→   214→   214→   214→   214→### CacheKey
+   215→   215→   215→   215→   215→
+   216→   216→   216→   216→   216→Structured cache key with namespace support:
+   217→   217→   217→   217→   217→
+   218→   218→   218→   218→   218→```
+   219→   219→   219→   219→   219→CacheKey:
+   220→   220→   220→   220→   220→  namespace: string               # Logical grouping (e.g., "enrichment")
+   221→   221→   221→   221→   221→  category: string                # Data category (e.g., "customer_lookup")
+   222→   222→   222→   222→   222→  identifier: string              # Unique identifier within category
+   223→   223→   223→   223→   223→  version: string                 # Optional version qualifier
+   224→   224→   224→   224→   224→```
+   225→   225→   225→   225→   225→
+   226→   226→   226→   226→   226→### CacheOperation
+   227→   227→   227→   227→   227→
+   228→   228→   228→   228→   228→Represents a cache operation request:
+   229→   229→   229→   229→   229→
+   230→   230→   230→   230→   230→```
+   231→   231→   231→   231→   231→CacheOperation:
+   232→   232→   232→   232→   232→  operation_id: string            # UUID for tracking
+   233→   233→   233→   233→   233→  operation_type: enum            # GET, PUT, DELETE, INVALIDATE
+   234→   234→   234→   234→   234→  key: CacheKey
+   235→   235→   235→   235→   235→  value: bytes                    # For PUT operations
+   236→   236→   236→   236→   236→  policy_id: string               # Cache policy to apply
+   237→   237→   237→   237→   237→  ttl_override: integer           # Optional TTL override
+   238→   238→   238→   238→   238→  tier_override: list<enum>       # Optional tier override
+   239→   239→   239→   239→   239→  timeout_ms: integer             # Operation timeout
+   240→   240→   240→   240→   240→  correlation_id: string          # Link to source request
+   241→   241→   241→   241→   241→```
+   242→   242→   242→   242→   242→
+   243→   243→   243→   243→   243→### CacheResult
+   244→   244→   244→   244→   244→
+   245→   245→   245→   245→   245→Result of a cache operation:
+   246→   246→   246→   246→   246→
+   247→   247→   247→   247→   247→```
+   248→   248→   248→   248→   248→CacheResult:
+   249→   249→   249→   249→   249→  operation_id: string
+   250→   250→   250→   250→   250→  status: enum                    # HIT, MISS, ERROR, TIMEOUT
+   251→   251→   251→   251→   251→  value: bytes                    # Retrieved value (for GET)
+   252→   252→   252→   252→   252→  source_tier: enum               # Tier that served the request
+   253→   253→   253→   253→   253→  latency_ms: float               # Operation latency
+   254→   254→   254→   254→   254→  error_code: string              # Error code if status = ERROR
+   255→   255→   255→   255→   255→  error_message: string           # Error details
+   256→   256→   256→   256→   256→```
+   257→   257→   257→   257→   257→
+   258→   258→   258→   258→   258→### InvalidationEvent
+   259→   259→   259→   259→   259→
+   260→   260→   260→   260→   260→Represents a cache invalidation request:
+   261→   261→   261→   261→   261→
+   262→   262→   262→   262→   262→```
+   263→   263→   263→   263→   263→InvalidationEvent:
+   264→   264→   264→   264→   264→  event_id: string
+   265→   265→   265→   265→   265→  invalidation_type: enum         # KEY, PATTERN, NAMESPACE, ALL
+   266→   266→   266→   266→   266→  key: CacheKey                   # For KEY type
+   267→   267→   267→   267→   267→  pattern: string                 # For PATTERN type
+   268→   268→   268→   268→   268→  namespace: string               # For NAMESPACE type
+   269→   269→   269→   269→   269→  tiers: list<enum>               # Tiers to invalidate
+   270→   270→   270→   270→   270→  reason: string                  # Invalidation reason for audit
+   271→   271→   271→   271→   271→  source: string                  # System that triggered invalidation
+   272→   272→   272→   272→   272→```
+   273→   273→   273→   273→   273→
+   274→   274→   274→   274→   274→---
+   275→   275→   275→   275→   275→
+   276→   276→   276→   276→   276→## Cache Policies
+   277→   277→   277→   277→   277→
+   278→   278→   278→   278→   278→Module Epsilon implements a comprehensive policy framework governing cache behavior.
+   279→   279→   279→   279→   279→
+   280→   280→   280→   280→   280→### Policy Categories
+   281→   281→   281→   281→   281→
+   282→   282→   282→   282→   282→- **Lifecycle Policies**: Control entry creation, expiration, and removal
+   283→   283→   283→   283→   283→- **Tier Policies**: Determine which cache tiers store entries
+   284→   284→   284→   284→   284→- **Eviction Policies**: Select entries for removal under memory pressure
+   285→   285→   285→   285→   285→- **Consistency Policies**: Manage data consistency across tiers
+   286→   286→   286→   286→   286→- **Access Policies**: Control cache access patterns and rate limits
+   287→   287→   287→   287→   287→
+   288→   288→   288→   288→   288→### Standard Cache Policies
+   289→   289→   289→   289→   289→
+   290→   290→   290→   290→   290→#### Policy 1: TTL-Based Expiration
+   291→   291→   291→   291→   291→
+   292→   292→   292→   292→   292→Entries expire after a configurable time-to-live period.
+   293→   293→   293→   293→   293→
+   294→   294→   294→   294→   294→**Configuration**: `ttl_seconds` (integer), `ttl_jitter_percent` (float)
+   295→   295→   295→   295→   295→
+   296→   296→   296→   296→   296→```
+   297→   297→   297→   297→   297→ttl_seconds: 3600
+   298→   298→   298→   298→   298→ttl_jitter_percent: 10  # Add ±10% random jitter to prevent thundering herd
+   299→   299→   299→   299→   299→```
+   300→   300→   300→   300→   300→
+   301→   301→   301→   301→   301→#### Policy 2: LRU Eviction
+   302→   302→   302→   302→   302→
+   303→   303→   303→   303→   303→Least Recently Used entries evicted first when capacity reached.
+   304→   304→   304→   304→   304→
+   305→   305→   305→   305→   305→**Configuration**: `max_entries` (integer), `eviction_batch_size` (integer)
+   306→   306→   306→   306→   306→
+   307→   307→   307→   307→   307→```
+   308→   308→   308→   308→   308→max_entries: 100000
+   309→   309→   309→   309→   309→eviction_batch_size: 1000  # Evict in batches for efficiency
+   310→   310→   310→   310→   310→```
+   311→   311→   311→   311→   311→
+   312→   312→   312→   312→   312→#### Policy 3: LFU Eviction
+   313→   313→   313→   313→   313→
+   314→   314→   314→   314→   314→Least Frequently Used entries evicted first, favoring frequently accessed data.
+   315→   315→   315→   315→   315→
+   316→   316→   316→   316→   316→**Configuration**: `frequency_window_seconds` (integer), `min_frequency_threshold` (integer)
+   317→   317→   317→   317→   317→
+   318→   318→   318→   318→   318→```
+   319→   319→   319→   319→   319→frequency_window_seconds: 3600  # Track frequency over 1 hour
+   320→   320→   320→   320→   320→min_frequency_threshold: 5      # Entries with <5 accesses eligible for eviction
+   321→   321→   321→   321→   321→```
+   322→   322→   322→   322→   322→
+   323→   323→   323→   323→   323→#### Policy 4: Size-Based Eviction
+   324→   324→   324→   324→   324→
+   325→   325→   325→   325→   325→Large entries prioritized for eviction to maximize entry count.
+   326→   326→   326→   326→   326→
+   327→   327→   327→   327→   327→**Configuration**: `max_entry_size_bytes` (integer), `size_eviction_threshold` (float)
+   328→   328→   328→   328→   328→
+   329→   329→   329→   329→   329→```
+   330→   330→   330→   330→   330→max_entry_size_bytes: 1048576   # 1MB max per entry
+   331→   331→   331→   331→   331→size_eviction_threshold: 0.8    # Trigger eviction at 80% capacity
+   332→   332→   332→   332→   332→```
+   333→   333→   333→   333→   333→
+   334→   334→   334→   334→   334→#### Policy 5: Write-Through Consistency
+   335→   335→   335→   335→   335→
+   336→   336→   336→   336→   336→Writes propagate synchronously to all specified tiers before acknowledging.
+   337→   337→   337→   337→   337→
+   338→   338→   338→   338→   338→**Configuration**: `write_tiers` (list), `write_timeout_ms` (integer)
+   339→   339→   339→   339→   339→
+   340→   340→   340→   340→   340→```
+   341→   341→   341→   341→   341→write_tiers: [L1, L2]
+   342→   342→   342→   342→   342→write_timeout_ms: 5000
+   343→   343→   343→   343→   343→```
+   344→   344→   344→   344→   344→
+   345→   345→   345→   345→   345→#### Policy 6: Write-Behind Batching
+   346→   346→   346→   346→   346→
+   347→   347→   347→   347→   347→Writes acknowledged immediately, batched to lower tiers asynchronously.
+   348→   348→   348→   348→   348→
+   349→   349→   349→   349→   349→**Configuration**: `batch_size` (integer), `batch_interval_ms` (integer), `max_pending_writes` (integer)
+   350→   350→   350→   350→   350→
+   351→   351→   351→   351→   351→```
+   352→   352→   352→   352→   352→batch_size: 100
+   353→   353→   353→   353→   353→batch_interval_ms: 1000
+   354→   354→   354→   354→   354→max_pending_writes: 10000
+   355→   355→   355→   355→   355→```
+   356→   356→   356→   356→   356→
+   357→   357→   357→   357→   357→#### Policy 7: Read-Through Population
+   358→   358→   358→   358→   358→
+   359→   359→   359→   359→   359→Cache misses trigger automatic population from source data.
+   360→   360→   360→   360→   360→
+   361→   361→   361→   361→   361→**Configuration**: `source_timeout_ms` (integer), `populate_on_miss` (boolean)
+   362→   362→   362→   362→   362→
+   363→   363→   363→   363→   363→```
+   364→   364→   364→   364→   364→source_timeout_ms: 5000
+   365→   365→   365→   365→   365→populate_on_miss: true
+   366→   366→   366→   366→   366→```
+   367→   367→   367→   367→   367→
+   368→   368→   368→   368→   368→#### Policy 8: Refresh-Ahead
+   369→   369→   369→   369→   369→
+   370→   370→   370→   370→   370→Proactively refresh entries before expiration to prevent cache misses.
+   371→   371→   371→   371→   371→
+   372→   372→   372→   372→   372→**Configuration**: `refresh_threshold_percent` (float), `refresh_batch_size` (integer)
+   373→   373→   373→   373→   373→
+   374→   374→   374→   374→   374→```
+   375→   375→   375→   375→   375→refresh_threshold_percent: 20   # Refresh when 20% TTL remaining
+   376→   376→   376→   376→   376→refresh_batch_size: 50
+   377→   377→   377→   377→   377→```
+   378→   378→   378→   378→   378→
+   379→   379→   379→   379→   379→#### Policy 9: Tier Promotion
+   380→   380→   380→   380→   380→
+   381→   381→   381→   381→   381→Frequently accessed L2/L3 entries promoted to higher tiers.
+   382→   382→   382→   382→   382→
+   383→   383→   383→   383→   383→**Configuration**: `promotion_threshold` (integer), `promotion_check_interval_seconds` (integer)
+   384→   384→   384→   384→   384→
+   385→   385→   385→   385→   385→```
+   386→   386→   386→   386→   386→promotion_threshold: 10         # Promote after 10 accesses
+   387→   387→   387→   387→   387→promotion_check_interval_seconds: 60
+   388→   388→   388→   388→   388→```
+   389→   389→   389→   389→   389→
+   390→   390→   390→   390→   390→#### Policy 10: Tier Demotion
+   391→   391→   391→   391→   391→
+   392→   392→   392→   392→   392→Infrequently accessed L1 entries demoted to lower tiers.
+   393→   393→   393→   393→   393→
+   394→   394→   394→   394→   394→**Configuration**: `demotion_idle_seconds` (integer), `demotion_batch_size` (integer)
+   395→   395→   395→   395→   395→
+   396→   396→   396→   396→   396→```
+   397→   397→   397→   397→   397→demotion_idle_seconds: 300      # Demote after 5 minutes idle
+   398→   398→   398→   398→   398→demotion_batch_size: 100
+   399→   399→   399→   399→   399→```
+   400→   400→   400→   400→   400→
+   401→   401→   401→   401→   401→#### Policy 11: Namespace Isolation
+   402→   402→   402→   402→   402→
+   403→   403→   403→   403→   403→Entries partitioned by namespace with independent capacity limits.
+   404→   404→   404→   404→   404→
+   405→   405→   405→   405→   405→**Configuration**: `namespace_quotas` (map), `default_namespace_quota_percent` (float)
+   406→   406→   406→   406→   406→
+   407→   407→   407→   407→   407→```
+   408→   408→   408→   408→   408→namespace_quotas: {"enrichment": 40, "transformation": 30, "reference": 30}
+   409→   409→   409→   409→   409→```
+   410→   410→   410→   410→   410→
+   411→   411→   411→   411→   411→#### Policy 12: Priority-Based Eviction
+   412→   412→   412→   412→   412→
+   413→   413→   413→   413→   413→Entries with lower priority evicted before higher priority entries.
+   414→   414→   414→   414→   414→
+   415→   415→   415→   415→   415→**Configuration**: `priority_levels` (integer), `default_priority` (integer)
+   416→   416→   416→   416→   416→
+   417→   417→   417→   417→   417→```
+   418→   418→   418→   418→   418→priority_levels: 10
+   419→   419→   419→   419→   419→default_priority: 5
+   420→   420→   420→   420→   420→```
+   421→   421→   421→   421→   421→
+   422→   422→   422→   422→   422→#### Policy 13: Compression Policy
+   423→   423→   423→   423→   423→
+   424→   424→   424→   424→   424→Automatic compression for entries exceeding size threshold.
+   425→   425→   425→   425→   425→
+   426→   426→   426→   426→   426→**Configuration**: `compression_algorithm` (enum), `compression_threshold_bytes` (integer)
+   427→   427→   427→   427→   427→
+   428→   428→   428→   428→   428→```
+   429→   429→   429→   429→   429→compression_algorithm: LZ4
+   430→   430→   430→   430→   430→compression_threshold_bytes: 1024
+   431→   431→   431→   431→   431→```
+   432→   432→   432→   432→   432→
+   433→   433→   433→   433→   433→#### Policy 14: Cluster Replication
+   434→   434→   434→   434→   434→
+   435→   435→   435→   435→   435→Entries replicated across cluster nodes for fault tolerance.
+   436→   436→   436→   436→   436→
+   437→   437→   437→   437→   437→**Configuration**: `replication_factor` (integer), `sync_replication` (boolean)
+   438→   438→   438→   438→   438→
+   439→   439→   439→   439→   439→```
+   440→   440→   440→   440→   440→replication_factor: 2
+   441→   441→   441→   441→   441→sync_replication: false  # Async replication for performance
+   442→   442→   442→   442→   442→```
+   443→   443→   443→   443→   443→
+   444→   444→   444→   444→   444→#### Policy 15: Access Rate Limiting
+   445→   445→   445→   445→   445→
+   446→   446→   446→   446→   446→Limit cache access rates to prevent thundering herd and abuse.
+   447→   447→   447→   447→   447→
+   448→   448→   448→   448→   448→**Configuration**: `max_requests_per_second` (integer), `rate_limit_window_seconds` (integer)
+   449→   449→   449→   449→   449→
+   450→   450→   450→   450→   450→```
+   451→   451→   451→   451→   451→max_requests_per_second: 10000
+   452→   452→   452→   452→   452→rate_limit_window_seconds: 1
+   453→   453→   453→   453→   453→```
+   454→   454→   454→   454→   454→
+   455→   455→   455→   455→   455→#### Policy 16: Invalidation Propagation
+   456→   456→   456→   456→   456→
+   457→   457→   457→   457→   457→Control how invalidations propagate across tiers and cluster nodes.
+   458→   458→   458→   458→   458→
+   459→   459→   459→   459→   459→**Configuration**: `propagation_mode` (enum), `propagation_timeout_ms` (integer)
+   460→   460→   460→   460→   460→
+   461→   461→   461→   461→   461→```
+   462→   462→   462→   462→   462→propagation_mode: ASYNC_BEST_EFFORT  # or SYNC_GUARANTEED
+   463→   463→   463→   463→   463→propagation_timeout_ms: 1000
+   464→   464→   464→   464→   464→```
+   465→   465→   465→   465→   465→
+   466→   466→   466→   466→   466→#### Policy 17: Warm-Up Loading
+   467→   467→   467→   467→   467→
+   468→   468→   468→   468→   468→Preload cache entries on startup from persistent storage or source.
+   469→   469→   469→   469→   469→
+   470→   470→   470→   470→   470→**Configuration**: `warmup_source` (enum), `warmup_batch_size` (integer), `warmup_timeout_seconds` (integer)
+   471→   471→   471→   471→   471→
+   472→   472→   472→   472→   472→```
+   473→   473→   473→   473→   473→warmup_source: L3              # Load from persistent cache
+   474→   474→   474→   474→   474→warmup_batch_size: 1000
+   475→   475→   475→   475→   475→warmup_timeout_seconds: 300
+   476→   476→   476→   476→   476→```
+   477→   477→   477→   477→   477→
+   478→   478→   478→   478→   478→### Policy Evaluation Order
+   479→   479→   479→   479→   479→
+   480→   480→   480→   480→   480→1. Access Rate Limiting (reject if exceeded)
+   481→   481→   481→   481→   481→2. Namespace Isolation (determine quota context)
+   482→   482→   482→   482→   482→3. Size-Based validation (reject oversized entries)
+   483→   483→   483→   483→   483→4. Tier routing (determine target tiers)
+   484→   484→   484→   484→   484→5. Compression (apply if threshold met)
+   485→   485→   485→   485→   485→6. Write mode (through/behind/around)
+   486→   486→   486→   486→   486→7. TTL assignment (with jitter)
+   487→   487→   487→   487→   487→8. Replication (if enabled)
+   488→   488→   488→   488→   488→9. Eviction check (if capacity reached)
+   489→   489→   489→   489→   489→
+   490→   490→   490→   490→   490→---
+   491→   491→   491→   491→   491→
+   492→   492→   492→   492→   492→## Error Handling
+   493→   493→   493→   493→   493→
+   494→   494→   494→   494→   494→Module Epsilon implements comprehensive error handling following the principle of graceful degradation: cache failures should never halt pipeline processing.
+   495→   495→   495→   495→   495→
+   496→   496→   496→   496→   496→### Error Categories
+   497→   497→   497→   497→   497→
+   498→   498→   498→   498→   498→#### Cache Miss Errors
+   499→   499→   499→   499→   499→
+   500→   500→   500→   500→   500→Occur when requested entries are not found in any cache tier.
+   501→   501→   501→   501→   501→
+   502→   502→   502→   502→   502→**Common Causes**: Entry never cached, entry expired, entry evicted, key mismatch
+   503→   503→   503→   503→   503→
+   504→   504→   504→   504→   504→**Handling**: Return MISS status with null value. Caller responsible for fetching from source. Log miss for metrics. If `populate_on_miss` enabled, trigger async population.
+   505→   505→   505→   505→   505→
+   506→   506→   506→   506→   506→**CacheMissResult Structure**:
+   507→   507→   507→   507→   507→```
+   508→   508→   508→   508→   508→CacheMissResult:
+   509→   509→   509→   509→   509→  key: CacheKey
+   510→   510→   510→   510→   510→  tiers_checked: list<enum>       # Which tiers were checked
+   511→   511→   511→   511→   511→  miss_reason: enum               # NEVER_CACHED, EXPIRED, EVICTED
+   512→   512→   512→   512→   512→  lookup_latency_ms: float
+   513→   513→   513→   513→   513→  recommendation: enum            # FETCH_FROM_SOURCE, RETRY, USE_STALE
+   514→   514→   514→   514→   514→```
+   515→   515→   515→   515→   515→
+   516→   516→   516→   516→   516→**Metrics**: `epsilon_cache_misses_total`, `epsilon_miss_rate_by_namespace`
+   517→   517→   517→   517→   517→
+   518→   518→   518→   518→   518→#### Stale Data Errors
+   519→   519→   519→   519→   519→
+   520→   520→   520→   520→   520→Occur when cached data may be outdated but still accessible.
+   521→   521→   521→   521→   521→
+   522→   522→   522→   522→   522→**Common Causes**: Source data changed, invalidation delayed, refresh failed
+   523→   523→   523→   523→   523→
+   524→   524→   524→   524→   524→**Handling**: If `stale_while_revalidate` enabled, return stale value with staleness flag. Trigger async refresh. If stale data unacceptable, return MISS. Log staleness for monitoring.
+   525→   525→   525→   525→   525→
+   526→   526→   526→   526→   526→**StaleDataWarning Structure**:
+   527→   527→   527→   527→   527→```
+   528→   528→   528→   528→   528→StaleDataWarning:
+   529→   529→   529→   529→   529→  key: CacheKey
+   530→   530→   530→   530→   530→  cached_at: datetime
+   531→   531→   531→   531→   531→  expected_ttl: integer
+   532→   532→   532→   532→   532→  actual_age_seconds: integer
+   533→   533→   533→   533→   533→  staleness_reason: enum          # REFRESH_FAILED, INVALIDATION_PENDING
+   534→   534→   534→   534→   534→  stale_value: bytes              # The stale cached value
+   535→   535→   535→   535→   535→```
+   536→   536→   536→   536→   536→
+   537→   537→   537→   537→   537→**Configuration**: `STALE_WHILE_REVALIDATE_ENABLED`, `MAX_STALE_AGE_SECONDS`
+   538→   538→   538→   538→   538→
+   539→   539→   539→   539→   539→#### Cache Corruption Errors
+   540→   540→   540→   540→   540→
+   541→   541→   541→   541→   541→Occur when cached data fails integrity validation.
+   542→   542→   542→   542→   542→
+   543→   543→   543→   543→   543→**Common Causes**: Checksum mismatch, deserialization failure, storage corruption, version incompatibility
+   544→   544→   544→   544→   544→
+   545→   545→   545→   545→   545→**Handling**: Immediately invalidate corrupted entry across all tiers. Log corruption event with full context. Increment corruption counter. If corruption rate exceeds threshold, trigger cache health alert.
+   546→   546→   546→   546→   546→
+   547→   547→   547→   547→   547→**CacheCorruptionError Structure**:
+   548→   548→   548→   548→   548→```
+   549→   549→   549→   549→   549→CacheCorruptionError:
+   550→   550→   550→   550→   550→  key: CacheKey
+   551→   551→   551→   551→   551→  tier: enum
+   552→   552→   552→   552→   552→  corruption_type: enum           # CHECKSUM_MISMATCH, DESERIALIZE_FAIL, TRUNCATED
+   553→   553→   553→   553→   553→  expected_checksum: string
+   554→   554→   554→   554→   554→  actual_checksum: string
+   555→   555→   555→   555→   555→  entry_size: integer
+   556→   556→   556→   556→   556→  detection_timestamp: datetime
+   557→   557→   557→   557→   557→```
+   558→   558→   558→   558→   558→
+   559→   559→   559→   559→   559→**Recovery**: `INVALIDATE_AND_REFETCH`, automatic corruption recovery enabled by default
+   560→   560→   560→   560→   560→
+   561→   561→   561→   561→   561→**Metrics**: `epsilon_corruption_events_total`, `epsilon_corruption_by_tier`
+   562→   562→   562→   562→   562→
+   563→   563→   563→   563→   563→#### Distributed Sync Errors
+   564→   564→   564→   564→   564→
+   565→   565→   565→   565→   565→Occur when cache operations fail to propagate across cluster nodes.
+   566→   566→   566→   566→   566→
+   567→   567→   567→   567→   567→**Common Causes**: Network partition, node failure, replication timeout, consistency conflict
+   568→   568→   568→   568→   568→
+   569→   569→   569→   569→   569→**Handling**: For write operations, apply configured consistency policy:
+   570→   570→   570→   570→   570→- **SYNC_GUARANTEED**: Retry until success or timeout, then fail operation
+   571→   571→   571→   571→   571→- **ASYNC_BEST_EFFORT**: Log failure, continue operation, schedule retry
+   572→   572→   572→   572→   572→- **EVENTUAL**: Queue for background reconciliation
+   573→   573→   573→   573→   573→
+   574→   574→   574→   574→   574→**DistributedSyncError Structure**:
+   575→   575→   575→   575→   575→```
+   576→   576→   576→   576→   576→DistributedSyncError:
+   577→   577→   577→   577→   577→  operation_id: string
+   578→   578→   578→   578→   578→  operation_type: enum
+   579→   579→   579→   579→   579→  source_node: string
+   580→   580→   580→   580→   580→  target_nodes: list<string>
+   581→   581→   581→   581→   581→  failed_nodes: list<string>
+   582→   582→   582→   582→   582→  error_code: string              # e.g., "SYNC_001_PARTITION"
+   583→   583→   583→   583→   583→  retry_count: integer
+   584→   584→   584→   584→   584→  is_recoverable: boolean
+   585→   585→   585→   585→   585→```
+   586→   586→   586→   586→   586→
+   587→   587→   587→   587→   587→**Conflict Resolution**: Last-write-wins with vector clock tiebreaker
+   588→   588→   588→   588→   588→
+   589→   589→   589→   589→   589→**Metrics**: `epsilon_sync_failures_total`, `epsilon_partition_events`, `epsilon_conflict_resolutions`
+   590→   590→   590→   590→   590→
+   591→   591→   591→   591→   591→#### Capacity Exhaustion Errors
+   592→   592→   592→   592→   592→
+   593→   593→   593→   593→   593→Occur when cache tiers reach capacity limits.
+   594→   594→   594→   594→   594→
+   595→   595→   595→   595→   595→**Common Causes**: Eviction not keeping pace with writes, unusually large entries, configuration undersized
+   596→   596→   596→   596→   596→
+   597→   597→   597→   597→   597→**Handling**: Trigger emergency eviction of lowest priority entries. If still at capacity, reject new writes with CAPACITY_EXCEEDED. Log capacity event. If sustained, alert operators.
+   598→   598→   598→   598→   598→
+   599→   599→   599→   599→   599→**CapacityExhaustedError Structure**:
+   600→   600→   600→   600→   600→```
+   601→   601→   601→   601→   601→CapacityExhaustedError:
+   602→   602→   602→   602→   602→  tier: enum
+   603→   603→   603→   603→   603→  current_capacity_bytes: integer
+   604→   604→   604→   604→   604→  max_capacity_bytes: integer
+   605→   605→   605→   605→   605→  current_entries: integer
+   606→   606→   606→   606→   606→  max_entries: integer
+   607→   607→   607→   607→   607→  eviction_candidates: integer
+   608→   608→   608→   608→   608→  pressure_level: enum            # WARNING, CRITICAL, EXHAUSTED
+   609→   609→   609→   609→   609→```
+   610→   610→   610→   610→   610→
+   611→   611→   611→   611→   611→**Emergency Actions**: `AGGRESSIVE_EVICTION`, `REJECT_LOW_PRIORITY`, `DISABLE_TIER`
+   612→   612→   612→   612→   612→
+   613→   613→   613→   613→   613→**Configuration**: `CAPACITY_WARNING_THRESHOLD`, `CAPACITY_CRITICAL_THRESHOLD`
+   614→   614→   614→   614→   614→
+   615→   615→   615→   615→   615→#### Connection Pool Exhaustion
+   616→   616→   616→   616→   616→
+   617→   617→   617→   617→   617→Occur when connections to distributed cache nodes are exhausted.
+   618→   618→   618→   618→   618→
+   619→   619→   619→   619→   619→**Common Causes**: Connection leak, high request rate, slow network, node unresponsive
+   620→   620→   620→   620→   620→
+   621→   621→   621→   621→   621→**Handling**: Queue requests up to `MAX_QUEUED_REQUESTS`. Timeout queued requests after `QUEUE_TIMEOUT_MS`. Circuit break to failing nodes. Fall back to local cache if distributed unavailable.
+   622→   622→   622→   622→   622→
+   623→   623→   623→   623→   623→**Recovery**: Automatic connection recycling, exponential backoff on reconnect
+   624→   624→   624→   624→   624→
+   625→   625→   625→   625→   625→### Error Queue Management
+   626→   626→   626→   626→   626→
+   627→   627→   627→   627→   627→Failed cache operations route to error tracking: `epsilon_operation_errors`, `epsilon_sync_errors`, `epsilon_corruption_errors`.
+   628→   628→   628→   628→   628→
+   629→   629→   629→   629→   629→**Configuration**: `ERROR_RETENTION_HOURS`, `MAX_ERROR_QUEUE_SIZE`
+   630→   630→   630→   630→   630→
+   631→   631→   631→   631→   631→### Error Logging
+   632→   632→   632→   632→   632→
+   633→   633→   633→   633→   633→All errors generate structured log entries:
+   634→   634→   634→   634→   634→
+   635→   635→   635→   635→   635→```
+   636→   636→   636→   636→   636→CacheErrorLog:
+   637→   637→   637→   637→   637→  timestamp: datetime
+   638→   638→   638→   638→   638→  level: enum                     # DEBUG, INFO, WARN, ERROR, CRITICAL
+   639→   639→   639→   639→   639→  error_category: string
+   640→   640→   640→   640→   640→  error_code: string
+   641→   641→   641→   641→   641→  message: string
+   642→   642→   642→   642→   642→  cache_key: string
+   643→   643→   643→   643→   643→  tier: enum
+   644→   644→   644→   644→   644→  operation_type: enum
+   645→   645→   645→   645→   645→  latency_ms: float
+   646→   646→   646→   646→   646→  correlation_id: string
+   647→   647→   647→   647→   647→  context: map<string, string>
+   648→   648→   648→   648→   648→```
+   649→   649→   649→   649→   649→
+   650→   650→   650→   650→   650→### Error Metrics
+   651→   651→   651→   651→   651→
+   652→   652→   652→   652→   652→**Counters**: `epsilon_errors_total`, `epsilon_retries_total`, `epsilon_circuit_breaker_trips`
+   653→   653→   653→   653→   653→
+   654→   654→   654→   654→   654→**Gauges**: `epsilon_error_rate`, `epsilon_capacity_pressure`, `epsilon_sync_lag_seconds`
+   655→   655→   655→   655→   655→
+   656→   656→   656→   656→   656→**Histograms**: `epsilon_error_recovery_duration`, `epsilon_retry_delay_seconds`
+   657→   657→   657→   657→   657→
+   658→   658→   658→   658→   658→### Error Escalation
+   659→   659→   659→   659→   659→
+   660→   660→   660→   660→   660→When error rates exceed thresholds: Level 1 (warning logs and alerts), Level 2 (disable non-essential features), Level 3 (failover to backup nodes), Level 4 (bypass caching entirely).
+   661→   661→   661→   661→   661→
+   662→   662→   662→   662→   662→---
+   663→   663→   663→   663→   663→
+   664→   664→   664→   664→   664→## Configuration
+   665→   665→   665→   665→   665→
+   666→   666→   666→   666→   666→Module Epsilon behavior is controlled through configuration parameters.
+   667→   667→   667→   667→   667→
+   668→   668→   668→   668→   668→### Cache Tier Configuration
+   669→   669→   669→   669→   669→
+   670→   670→   670→   670→   670→#### CACHE_L1_ENABLED
+   671→   671→   671→   671→   671→
+   672→   672→   672→   672→   672→**Type**: Boolean | **Default**: true
+   673→   673→   673→   673→   673→
+   674→   674→   674→   674→   674→Enable L1 in-memory cache tier.
+   675→   675→   675→   675→   675→
+   676→   676→   676→   676→   676→#### CACHE_L1_MAX_SIZE_MB
+   677→   677→   677→   677→   677→
+   678→   678→   678→   678→   678→**Type**: Integer | **Default**: 1024 | **Range**: 64-16384
+   679→   679→   679→   679→   679→
+   680→   680→   680→   680→   680→Maximum memory for L1 cache in megabytes.
+   681→   681→   681→   681→   681→
+   682→   682→   682→   682→   682→#### CACHE_L1_MAX_ENTRIES
+   683→   683→   683→   683→   683→
+   684→   684→   684→   684→   684→**Type**: Integer | **Default**: 100000 | **Range**: 1000-10000000
+   685→   685→   685→   685→   685→
+   686→   686→   686→   686→   686→Maximum entries in L1 cache.
+   687→   687→   687→   687→   687→
+   688→   688→   688→   688→   688→#### CACHE_L2_ENABLED
+   689→   689→   689→   689→   689→
+   690→   690→   690→   690→   690→**Type**: Boolean | **Default**: true
+   691→   691→   691→   691→   691→
+   692→   692→   692→   692→   692→Enable L2 distributed cache tier.
+   693→   693→   693→   693→   693→
+   694→   694→   694→   694→   694→#### CACHE_L2_CLUSTER_NODES
+   695→   695→   695→   695→   695→
+   696→   696→   696→   696→   696→**Type**: String | **Default**: "localhost:6379"
+   697→   697→   697→   697→   697→
+   698→   698→   698→   698→   698→Comma-separated list of L2 cache cluster nodes.
+   699→   699→   699→   699→   699→
+   700→   700→   700→   700→   700→#### CACHE_L2_REPLICATION_FACTOR
+   701→   701→   701→   701→   701→
+   702→   702→   702→   702→   702→**Type**: Integer | **Default**: 2 | **Range**: 1-5
+   703→   703→   703→   703→   703→
+   704→   704→   704→   704→   704→Number of replicas for L2 cached entries.
+   705→   705→   705→   705→   705→
+   706→   706→   706→   706→   706→#### CACHE_L3_ENABLED
+   707→   707→   707→   707→   707→
+   708→   708→   708→   708→   708→**Type**: Boolean | **Default**: true
+   709→   709→   709→   709→   709→
+   710→   710→   710→   710→   710→Enable L3 persistent cache tier.
+   711→   711→   711→   711→   711→
+   712→   712→   712→   712→   712→#### CACHE_L3_STORAGE_PATH
+   713→   713→   713→   713→   713→
+   714→   714→   714→   714→   714→**Type**: String | **Default**: "/var/cache/pipeline/l3"
+   715→   715→   715→   715→   715→
+   716→   716→   716→   716→   716→File system path for L3 cache storage.
+   717→   717→   717→   717→   717→
+   718→   718→   718→   718→   718→#### CACHE_L3_MAX_SIZE_GB
+   719→   719→   719→   719→   719→
+   720→   720→   720→   720→   720→**Type**: Integer | **Default**: 500 | **Range**: 10-10000
+   721→   721→   721→   721→   721→
+   722→   722→   722→   722→   722→Maximum disk space for L3 cache in gigabytes.
+   723→   723→   723→   723→   723→
+   724→   724→   724→   724→   724→### TTL Configuration
+   725→   725→   725→   725→   725→
+   726→   726→   726→   726→   726→#### CACHE_DEFAULT_TTL_SECONDS
+   727→   727→   727→   727→   727→
+   728→   728→   728→   728→   728→**Type**: Integer | **Default**: 3600 | **Range**: 60-86400
+   729→   729→   729→   729→   729→
+   730→   730→   730→   730→   730→Default time-to-live for cache entries.
+   731→   731→   731→   731→   731→
+   732→   732→   732→   732→   732→#### CACHE_ENRICHMENT_TTL_SECONDS
+   733→   733→   733→   733→   733→
+   734→   734→   734→   734→   734→**Type**: Integer | **Default**: 1800 | **Range**: 60-86400
+   735→   735→   735→   735→   735→
+   736→   736→   736→   736→   736→TTL for enrichment lookup results.
+   737→   737→   737→   737→   737→
+   738→   738→   738→   738→   738→#### CACHE_REFERENCE_TTL_SECONDS
+   739→   739→   739→   739→   739→
+   740→   740→   740→   740→   740→**Type**: Integer | **Default**: 86400 | **Range**: 3600-604800
+   741→   741→   741→   741→   741→
+   742→   742→   742→   742→   742→TTL for reference data cache entries.
+   743→   743→   743→   743→   743→
+   744→   744→   744→   744→   744→### Performance Configuration
+   745→   745→   745→   745→   745→
+   746→   746→   746→   746→   746→#### CACHE_OPERATION_TIMEOUT_MS
+   747→   747→   747→   747→   747→
+   748→   748→   748→   748→   748→**Type**: Integer | **Default**: 100 | **Range**: 10-5000
+   749→   749→   749→   749→   749→
+   750→   750→   750→   750→   750→Timeout for individual cache operations.
+   751→   751→   751→   751→   751→
+   752→   752→   752→   752→   752→#### CACHE_CONNECTION_POOL_SIZE
+   753→   753→   753→   753→   753→
+   754→   754→   754→   754→   754→**Type**: Integer | **Default**: 50 | **Range**: 10-500
+   755→   755→   755→   755→   755→
+   756→   756→   756→   756→   756→Size of connection pool for distributed cache.
+   757→   757→   757→   757→   757→
+   758→   758→   758→   758→   758→#### CACHE_COMPRESSION_ENABLED
+   759→   759→   759→   759→   759→
+   760→   760→   760→   760→   760→**Type**: Boolean | **Default**: true
+   761→   761→   761→   761→   761→
+   762→   762→   762→   762→   762→Enable automatic compression for large entries.
+   763→   763→   763→   763→   763→
+   764→   764→   764→   764→   764→#### CACHE_COMPRESSION_THRESHOLD
+   765→   765→   765→   765→   765→
+   766→   766→   766→   766→   766→**Type**: Integer | **Default**: 1024 | **Range**: 256-1048576
+   767→   767→   767→   767→   767→
+   768→   768→   768→   768→   768→Minimum entry size in bytes to trigger compression.
+   769→   769→   769→   769→   769→
+   770→   770→   770→   770→   770→---
+   771→   771→   771→   771→   771→
+   772→   772→   772→   772→   772→## Integration Points
+   773→   773→   773→   773→   773→
+   774→   774→   774→   774→   774→Module Epsilon integrates with all Data Pipeline System components as a shared infrastructure service.
+   775→   775→   775→   775→   775→
+   776→   776→   776→   776→   776→### Module Alpha Integration
+   777→   777→   777→   777→   777→
+   778→   778→   778→   778→   778→Module Alpha uses caching for ingestion optimization including validation rule caching (`validation:{rule_set_id}`), source metadata caching (`source:{source_id}:metadata`), and deduplication caching (`dedup:{hash}`). See `integration-layer.md` for handoff specifications.
+   779→   779→   779→   779→   779→
+   780→   780→   780→   780→   780→### Module Beta Integration
+   781→   781→   781→   781→   781→
+   782→   782→   782→   782→   782→Module Beta is the primary consumer of caching services including enrichment result caching (`enrichment:{source}:{lookup_key}`), transformation rule caching (`transform:{profile}:{rule_id}`), and lookup table caching (`lookup:{table_name}`). Back-pressure signals inform Beta's enrichment throttling. See `integration-layer.md` for protocol details.
+   783→   783→   783→   783→   783→
+   784→   784→   784→   784→   784→### Module Gamma Integration
+   785→   785→   785→   785→   785→
+   786→   786→   786→   786→   786→Module Gamma uses caching for output optimization including destination configuration caching (`output:{destination_id}:config`), delivery status caching (`delivery:{batch_id}`), and template caching (`template:{format_id}`).
+   787→   787→   787→   787→   787→
+   788→   788→   788→   788→   788→### Module Phi Integration
+   789→   789→   789→   789→   789→
+   790→   790→   790→   790→   790→Module Epsilon provides caching services for orchestration data including schedule definition caching (`schedule:{job_id}`), execution state caching (`execution:{execution_id}:state`), and dependency graph caching (`deps:{job_id}`).
+   791→   791→   791→   791→   791→
+   792→   792→   792→   792→   792→### Health Check Integration
+   793→   793→   793→   793→   793→
+   794→   794→   794→   794→   794→Epsilon exposes health status for monitoring:
+   795→   795→   795→   795→   795→
+   796→   796→   796→   796→   796→**Health Response**:
+   797→   797→   797→   797→   797→```
+   798→   798→   798→   798→   798→CacheHealthStatus:
+   799→   799→   799→   799→   799→  overall_status: enum            # HEALTHY, DEGRADED, UNHEALTHY
+   800→   800→   800→   800→   800→  l1_status: TierStatus
+   801→   801→   801→   801→   801→  l2_status: TierStatus
+   802→   802→   802→   802→   802→  l3_status: TierStatus
+   803→   803→   803→   803→   803→  hit_ratio_1h: float
+   804→   804→   804→   804→   804→  error_rate_1h: float
+   805→   805→   805→   805→   805→  capacity_l1_percent: float
+   806→   806→   806→   806→   806→  capacity_l2_percent: float
+   807→   807→   807→   807→   807→  capacity_l3_percent: float
+   808→   808→   808→   808→   808→```
+   809→   809→   809→   809→   809→
+   810→   810→   810→   810→   810→### Monitoring Integration
+   811→   811→   811→   811→   811→
+   812→   812→   812→   812→   812→Epsilon emits comprehensive metrics:
+   813→   813→   813→   813→   813→
+   814→   814→   814→   814→   814→**Throughput Metrics**: Operations per second by tier and operation type
+   815→   815→   815→   815→   815→**Latency Metrics**: Operation latency histograms by tier
+   816→   816→   816→   816→   816→**Capacity Metrics**: Current usage and headroom by tier
+   817→   817→   817→   817→   817→**Error Metrics**: Error rates by category and tier
+   818→   818→   818→   818→   818→
+   819→   819→   819→   819→   819→Structured logs follow pipeline format for aggregation.
+   820→   820→   820→   820→   820→
+   821→   821→   821→   821→   821→---
+   822→   822→   822→   822→   822→
+   823→   823→   823→   823→   823→## Compliance Requirements
+   824→   824→   824→   824→   824→
+   825→   825→   825→   825→   825→Module Epsilon implements compliance controls for cached data handling.
+   826→   826→   826→   826→   826→
+   827→   827→   827→   827→   827→### Audit Logging
+   828→   828→   828→   828→   828→
+   829→   829→   829→   829→   829→All cache operations are logged for audit:
+   830→   830→   830→   830→   830→
+   831→   831→   831→   831→   831→**Entry-Level Audit**: Key, operation type, timestamp, source module, result status
+   832→   832→   832→   832→   832→
+   833→   833→   833→   833→   833→**Access Audit**: Who accessed what data and when
+   834→   834→   834→   834→   834→
+   835→   835→   835→   835→   835→**Invalidation Audit**: Reason, source, affected entries
+   836→   836→   836→   836→   836→
+   837→   837→   837→   837→   837→Audit requirements specified in `compliance-requirements.md` Section 5.
+   838→   838→   838→   838→   838→
+   839→   839→   839→   839→   839→### Data Retention
+   840→   840→   840→   840→   840→
+   841→   841→   841→   841→   841→Cache entries subject to retention policies:
+   842→   842→   842→   842→   842→
+   843→   843→   843→   843→   843→**Minimum Retention**: Certain data must remain cached for minimum period
+   844→   844→   844→   844→   844→**Maximum Retention**: Certain data must be purged after maximum period
+   845→   845→   845→   845→   845→**Retention Override**: Compliance can override standard TTL policies
+   846→   846→   846→   846→   846→
+   847→   847→   847→   847→   847→Retention requirements in `compliance-requirements.md` Section 4.
+   848→   848→   848→   848→   848→
+   849→   849→   849→   849→   849→### Data Protection
+   850→   850→   850→   850→   850→
+   851→   851→   851→   851→   851→**Encryption at Rest**: L3 persistent cache supports AES-256 encryption
+   852→   852→   852→   852→   852→**Encryption in Transit**: L2 cluster communication uses TLS
+   853→   853→   853→   853→   853→**Key Management**: Cache encryption keys managed through secure key store
+   854→   854→   854→   854→   854→
+   855→   855→   855→   855→   855→Protection requirements in `compliance-requirements.md` Section 7.
+   856→   856→   856→   856→   856→
+   857→   857→   857→   857→   857→### Cache Isolation
+   858→   858→   858→   858→   858→
+   859→   859→   859→   859→   859→**Namespace Separation**: Sensitive data isolated in dedicated namespaces
+   860→   860→   860→   860→   860→**Access Control**: Cache access limited to authorized modules
+   861→   861→   861→   861→   861→**Multi-Tenancy**: Tenant data strictly isolated in cache tiers
+   862→   862→   862→   862→   862→
+   863→   863→   863→   863→   863→Isolation requirements in `compliance-requirements.md` Section 8.
+   864→   864→   864→   864→   864→
+   865→   865→   865→   865→   865→### Security Controls
+   866→   866→   866→   866→   866→
+   867→   867→   867→   867→   867→**Input Validation**: Cache keys and values validated before storage
+   868→   868→   868→   868→   868→**Size Limits**: Maximum entry size enforced to prevent abuse
+   869→   869→   869→   869→   869→**Rate Limiting**: Per-client rate limits prevent cache abuse
+   870→   870→   870→   870→   870→
+   871→   871→   871→   871→   871→Security requirements in `compliance-requirements.md` Section 6.
+   872→   872→   872→   872→   872→
+   873→   873→   873→   873→   873→---
+   874→   874→   874→   874→   874→
+   875→   875→   875→   875→   875→*This document is the authoritative specification for Module Epsilon. For system architecture, see `data-pipeline-overview.md`. For module integration protocols, see `integration-layer.md`. For compliance requirements, see `compliance-requirements.md`. For orchestration integration, see `module-phi.md`.*
+   876→   876→   876→   876→   876→
+   877→   877→   877→   877→
+   878→   878→   878→   878→<system-reminder>
+   879→   879→   879→   879→Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+   880→   880→   880→   880→</system-reminder>
+   881→   881→   881→   881→
+   882→   882→   882→
+   883→   883→   883→<system-reminder>
+   884→   884→   884→Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+   885→   885→   885→</system-reminder>
+   886→   886→   886→
+   887→   887→
+   888→   888→<system-reminder>
+   889→   889→Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+   890→   890→</system-reminder>
+   891→   891→
+   892→
+   893→<system-reminder>
+   894→Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+   895→</system-reminder>
+   896→
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>

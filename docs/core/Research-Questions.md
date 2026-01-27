@@ -85,7 +85,7 @@ Questions about the fundamental mechanism that causes phantom reads.
 
 ### RQ-A5: Why does the phantom read mechanism only affect agent-initiated reads and not hoisted content?
 
-**Status**: NEW - OPEN
+**Status**: ~~NEW - OPEN~~ → MECHANISM IDENTIFIED
 
 **Background**: Experiments 04D and 04L demonstrated that hoisted content (`@`-notation) never triggers phantom reads, even under extreme context pressure (~172K tokens). Agent-initiated reads via the Read tool are vulnerable.
 
@@ -94,12 +94,18 @@ Questions about the fundamental mechanism that causes phantom reads.
 - 04L: 150K hoisted tokens + 6K agent-read = SUCCESS
 - Method-04: 73K hoisted + 57K agent-read = FAILURE
 
-**Hypotheses**:
-- Hoisting injects content before the agent runs, making it "baked in" to the initial context
-- Hoisting uses a different code path that bypasses context management
-- Agent-initiated reads go through a layer that applies context pressure rules
+**Key Evidence (2026-01-27)**: An agent's self-reflection during Barebones trials revealed that hoisted files appear as full content in `<system-reminder>` blocks:
+
+> "The four files loaded via the /setup-hard skill's @ references appeared as full content in `<system-reminder>` blocks, so those were actually available to me."
+
+**Answer**: The difference is the **injection mechanism**:
+- **Hoisted content**: Injected as `<system-reminder>` blocks (part of system message structure)
+- **Agent-initiated reads**: Returned as tool results (subject to context management)
+
+Context management can clear/persist tool results but cannot modify system message content. This explains why hoisting is immune regardless of context pressure.
 
 **Related Experiments**: 04D (completed), 04I (Partial MCP Hybrid)
+**See Also**: RQ-C3 for more details on this mechanism
 
 ---
 
@@ -244,13 +250,13 @@ Questions about the thresholds and limits that govern phantom read occurrence.
 
 **Evidence Summary**:
 
-| Condition | X | Y | X+Y | Outcome |
-|-----------|---|---|-----|---------|
-| High X only | 150K | 6K | 156K | **SUCCESS** (04L) |
-| High Y only | ≈0 | 57K | ~57K | **SUCCESS** (04A) |
+| Condition          | X    | Y   | X+Y  | Outcome                      |
+| ------------------ | ---- | --- | ---- | ---------------------------- |
+| High X only        | 150K | 6K  | 156K | **SUCCESS** (04L)            |
+| High Y only        | ≈0   | 57K | ~57K | **SUCCESS** (04A)            |
 | Both moderate-high | 73K+ | 57K | 130K | **FAILURE** (Method-04 Easy) |
 | High X, moderate Y | 120K | 42K | 162K | **SUCCESS** (Method-03 Hard) |
-| Neither high | Low | Low | Low | **SUCCESS** (various) |
+| Neither high       | Low  | Low | Low  | **SUCCESS** (various)        |
 
 **Critical Observation**: Simple X+Y > T is **contradicted** by the evidence. Method-04 Easy fails at X+Y=130K while Method-03 Hard succeeds at X+Y=162K. The higher total succeeds; the lower total fails. This proves the interaction is more complex than additive.
 
@@ -314,7 +320,7 @@ Questions about how `@`-hoisted content differs from agent-initiated reads.
 
 ### RQ-C3: Why are hoisted files treated differently than agent-initiated reads?
 
-**Status**: PARTIALLY ANSWERED
+**Status**: PARTIALLY ANSWERED → MECHANISM IDENTIFIED
 
 **Background**: Hoisted content is immune to phantom reads; agent-initiated reads are vulnerable.
 
@@ -323,7 +329,16 @@ Questions about how `@`-hoisted content differs from agent-initiated reads.
 - This content is not subject to the same context pressure management
 - Agent-initiated reads go through a layer that CAN trigger phantom reads under pressure
 
-**Remaining Question**: What specifically in the harness architecture causes this difference?
+**Key Evidence (2026-01-27)**: An agent's self-reflection during Barebones trials revealed:
+
+> "The four files loaded via the /setup-hard skill's @ references (operations-manual-standard.md, operations-manual-exceptions.md, architecture-deep-dive.md, troubleshooting-compendium.md) appeared as full content in `<system-reminder>` blocks, so those were actually available to me."
+
+**Mechanism**: Hoisted files are injected into the context as `<system-reminder>` blocks containing the full file content. This means:
+1. The content becomes part of the **system message structure**, not a tool result
+2. Tool results can be cleared/persisted by context management; system messages cannot
+3. The hoisted content is present before any agent turn begins, making it immune to mid-session context pressure
+
+**Remaining Question**: Is the `<system-reminder>` injection mechanism used for ALL hoisted content (including direct user `@` references), or only for `@` references within slash commands?
 
 **Related Experiments**: 04D (completed), 04I (Partial MCP Hybrid)
 
@@ -559,11 +574,11 @@ Questions about how context is measured and reported.
 
 **Evidence** (from Experiment-Methodology-04 measurements, pre-`/analyze-wpd`):
 
-| Setup Command | Preload Tokens | Observed Message Context | Unaccounted | Overhead % |
-|---------------|----------------|--------------------------|-------------|------------|
-| `/setup-easy` | 35K | 49.6K | 14.6K | 41.8% |
-| `/setup-medium` | 50K | 68.9K | 18.9K | 38.1% |
-| `/setup-hard` | 68K | 96.9K | 28.9K | 42.4% |
+| Setup Command   | Preload Tokens | Observed Message Context | Unaccounted | Overhead % |
+| --------------- | -------------- | ------------------------ | ----------- | ---------- |
+| `/setup-easy`   | 35K            | 49.6K                    | 14.6K       | 41.8%      |
+| `/setup-medium` | 50K            | 68.9K                    | 18.9K       | 38.1%      |
+| `/setup-hard`   | 68K            | 96.9K                    | 28.9K       | 42.4%      |
 
 Total context follows the same pattern (adding ~23K baseline):
 - Easy: 73K observed = 23K baseline + 35K preload + 15K unaccounted
@@ -581,6 +596,34 @@ Total context follows the same pattern (adding ~23K baseline):
 **Priority**: Low - we can work around this by using empirical measurements rather than file token counts. Understanding the mechanism is not blocking.
 
 **Related Experiments**: None planned; observational finding
+
+---
+
+### RQ-F5: Is the transient "0% remaining" UI warning a visible indicator of context resets?
+
+**Status**: NEW - OPEN (OBSERVATIONAL)
+
+**Background**: During trial execution, the User has observed that the Claude Code status bar occasionally flashes "0% remaining" during the operation command (`/analyze-wpd`) when phantom reads are expected to occur. The warning appears briefly and then disappears, and is NOT present when the Session Agent finishes the task.
+
+**Hypothesis**: The transient "0% remaining" warning may be a visible signal that a context reset is occurring or about to occur. If validated, this could provide a real-time indicator for identifying reset events during trials.
+
+**Challenges**:
+- UI elements are not logged in session files
+- Observation is anecdotal and not systematically recorded
+- Would require video recording or manual notation during trials
+
+**Potential Value**:
+- Could provide real-time feedback during trials
+- May help correlate reset timing with specific operations
+- Could inform development of better trial protocols
+
+**Proposed Investigation**:
+1. Record UI state during several trials (video or manual notes)
+2. Note when "0% remaining" appears and correlate with operation phase
+3. Compare trials where warning was observed vs not observed
+4. Correlate with phantom read outcomes
+
+**Related Experiments**: None planned; would require methodology enhancement to capture UI state
 
 ---
 
@@ -810,39 +853,88 @@ Note: `.claude/settings.json` (without `.local`) is NOT a valid project config p
 
 ---
 
+### DB-I7: Transient "0% remaining" UI warning may signal context resets
+
+**Status**: OBSERVED (NOT YET CONFIRMED)
+
+**Discovery Date**: 2026-01-27
+
+**Description**: During trial execution, the Claude Code status bar occasionally displays "0% remaining" briefly during operation commands (`/analyze-wpd`) and then disappears. The warning is NOT present when the Session Agent finishes the task. This has been observed anecdotally during trials where phantom reads are expected to occur.
+
+**Evidence**: User observation during many runs throughout project, but noted it specifically in the Barebones-216 trial runs. Not systematically recorded.
+
+**Hypothesis**: This transient warning may be a visible indicator that a context reset is in progress or about to occur. The warning appearing and then disappearing could represent the harness:
+1. Detecting context pressure approaching threshold
+2. Initiating a reset
+3. Clearing the warning once reset completes and context drops
+
+**Limitation**: This is a UI element that is NOT captured in session logs or chat exports. It can only be observed in real-time during trials.
+
+**Implication**: If validated, this observation could:
+- Provide real-time feedback during trial execution
+- Help identify the exact moment resets occur relative to specific operations
+- Inform enhanced trial protocols that capture UI state (via video or manual notes)
+
+**Related RQ**: RQ-F5 (proposed investigation of this phenomenon)
+
+---
+
+### DB-I8: Hoisted files are injected as `<system-reminder>` blocks
+
+**Status**: CONFIRMED
+
+**Discovery Date**: 2026-01-27
+
+**Description**: Files loaded via `@` notation in slash commands are injected into the agent's context as `<system-reminder>` blocks containing the full file content. This is distinct from agent-initiated Read tool calls, which return content as tool results.
+
+**Evidence**: Agent self-reflection during Barebones-216 trial:
+
+> "The four files loaded via the /setup-hard skill's @ references (operations-manual-standard.md, operations-manual-exceptions.md, architecture-deep-dive.md, troubleshooting-compendium.md) appeared as full content in `<system-reminder>` blocks, so those were actually available to me."
+
+**Significance**: This explains why hoisted content is immune to phantom reads:
+1. `<system-reminder>` blocks are part of the system message structure
+2. System messages are not subject to the same context management as tool results
+3. Tool results can be cleared (`[Old tool result content cleared]`) or persisted (`<persisted-output>`), but system messages cannot
+
+**Implication**: The hoisting immunity is architectural—it's not about timing or code paths, but about the fundamental difference between system message content and tool result content in the Claude API/harness.
+
+**Related RQs**: RQ-A5, RQ-C3
+
+---
+
 ## Summary Statistics
 
-| Category | Total | Open | Answered | Hypothesis | Confirmed |
-|----------|-------|------|----------|------------|----------|
-| A: Core Mechanism | 5 | 3 | 0 | 2 | - |
-| B: Threshold Behavior | 8 | 3 | 4 | 1 | - |
-| C: Hoisting Behavior | 4 | 0 | 3 | 1 | - |
-| D: Reset Timing | 3 | 1 | 0 | 2 | - |
-| E: Read Patterns | 6 | 3 | 0 | 3 | - |
-| F: Measurement | 4 | 3 | 1 | 0 | - |
-| G: Cross-Version/Model | 5 | 3 | 1 | 1 | - |
-| H: Persisted Output | 3 | 3 | 0 | 0 | - |
-| I: Discovered Behaviors | 6 | - | - | - | 6 |
-| **TOTAL** | **44** | **19** | **9** | **10** | **6** |
+| Category                | Total  | Open   | Answered | Hypothesis | Confirmed |
+| ----------------------- | ------ | ------ | -------- | ---------- | --------- |
+| A: Core Mechanism       | 5      | 2      | 1        | 2          | -         |
+| B: Threshold Behavior   | 8      | 3      | 4        | 1          | -         |
+| C: Hoisting Behavior    | 4      | 0      | 3        | 1          | -         |
+| D: Reset Timing         | 3      | 1      | 0        | 2          | -         |
+| E: Read Patterns        | 6      | 3      | 0        | 3          | -         |
+| F: Measurement          | 5      | 4      | 1        | 0          | -         |
+| G: Cross-Version/Model  | 5      | 3      | 1        | 1          | -         |
+| H: Persisted Output     | 3      | 3      | 0        | 0          | -         |
+| I: Discovered Behaviors | 8      | -      | -        | -          | 7         |
+| **TOTAL**               | **47** | **19** | **10**   | **10**     | **7**     |
 
 ---
 
 ## Experiment Coverage
 
-| Experiment | Status | Primary RQs Addressed |
-|------------|--------|----------------------|
-| **04A** | ✅ COMPLETED | RQ-B1 ✓, RQ-B4 ✓, RQ-D3 |
-| 04B | Not run | RQ-B2, RQ-B3 |
-| 04C | Not run | RQ-B2 (sanity check) |
-| **04D** | ✅ COMPLETED | RQ-B1 ✓, RQ-C1 ✓, RQ-C4 ✓, RQ-D2 |
-| 04E | Not run | RQ-E3 |
-| 04F | Not run | RQ-B3 |
-| 04G | Not run | RQ-E2 |
-| 04H | Not run | RQ-D2 |
-| 04I | Not run | RQ-E4 |
-| 04J | Not run | RQ-A2, RQ-A3, RQ-H1 |
-| **04K** | ✅ COMPLETED | RQ-B5 ✓, RQ-D1, RQ-G4, RQ-G5 |
-| **04L** | ✅ COMPLETED | RQ-C2 ✓ |
+| Experiment | Status      | Primary RQs Addressed            |
+| ---------- | ----------- | -------------------------------- |
+| **04A**    | ✅ COMPLETED | RQ-B1 ✓, RQ-B4 ✓, RQ-D3          |
+| 04B        | Not run     | RQ-B2, RQ-B3                     |
+| 04C        | Not run     | RQ-B2 (sanity check)             |
+| **04D**    | ✅ COMPLETED | RQ-B1 ✓, RQ-C1 ✓, RQ-C4 ✓, RQ-D2 |
+| 04E        | Not run     | RQ-E3                            |
+| 04F        | Not run     | RQ-B3                            |
+| 04G        | Not run     | RQ-E2                            |
+| 04H        | Not run     | RQ-D2                            |
+| 04I        | Not run     | RQ-E4                            |
+| 04J        | Not run     | RQ-A2, RQ-A3, RQ-H1              |
+| **04K**    | ✅ COMPLETED | RQ-B5 ✓, RQ-D1, RQ-G4, RQ-G5     |
+| **04L**    | ✅ COMPLETED | RQ-C2 ✓                          |
 
 ---
 
@@ -889,6 +981,8 @@ SAFE CONDITIONS:
 - **2026-01-26**: Added DB-I4 (chat export location best practice) from prompt log analysis (`Prompts-2026-01-14_120425.txt`)
 - **2026-01-26**: Added DB-I5 (`/context` command limitation) from prompt log analysis (`Prompts-2026-01-23_100643.txt`)
 - **2026-01-26**: Added DB-I6 (agent cross-reference file discovery) from prompt log analysis (`Prompts-2026-01-25_185205.txt`)
+- **2026-01-27**: Added RQ-F5 (transient UI warning as reset indicator) and DB-I7 (observational data about "0% remaining" warning) from Barebones experiment observations
+- **2026-01-27**: Added DB-I8 (hoisted files as system-reminder blocks) from agent self-reflection; updated RQ-A5 and RQ-C3 status to MECHANISM IDENTIFIED
 - **Source Documents**:
   - `docs/core/Investigation-Journal.md`
   - `docs/experiments/planning/Post-Experiment-04-Ideas.md`
