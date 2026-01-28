@@ -13,18 +13,15 @@ This bug is particularly insidious because:
 - **Masked by Capability**: Claude's strong reasoning allows it to "gap fill" plausibly, producing outputs that appear reasonable but are based on assumptions rather than actual file content
 - **UI Shows Success**: The Claude Code interface displays successful reads even when phantom reads occur
 
-### Two Distinct Mechanisms
+## Purpose of This Repository
 
-The bug manifests differently depending on the Claude Code version:
+This repository serves three purposes:
 
-| Era   | Versions         | Error Mechanism                                                    |
-| ----- | ---------------- | ------------------------------------------------------------------ |
-| Era 1 | 2.0.54 - 2.0.59  | `[Old tool result content cleared]` - Content cleared from context |
-| Era 2 | 2.0.60 - present | `<persisted-output>` markers returned instead of content           |
+1. **Documentation**: Explain the Phantom Reads phenomenon for affected users
+2. **Reproduction**: Provide an environment to trigger and observe phantom reads
+3. **Analysis**: Build tools to programmatically detect phantom reads in session logs
 
-**Important**: There is no known "safe" version. All tested versions from 2.0.54 through 2.1.6 have exhibited phantom read behavior under certain conditions.
-
-## Workaround Available
+## Temporary Workaround Available
 
 A working mitigation exists using the official Anthropic Filesystem MCP server. This workaround bypasses Claude Code's native `Read` tool entirely, preventing phantom reads through an architecturally different code path.
 
@@ -37,67 +34,93 @@ The workaround:
 
 Note: Project-level configuration only protects the main session. Slash commands and sub-agents may still use the native Read tool. See the workaround documentation for details on scope limitations.
 
-## Purpose of This Repository
-
-This repository serves three purposes:
-
-1. **Documentation**: Explain the Phantom Reads phenomenon for affected users
-2. **Reproduction**: Provide an environment to trigger and observe phantom reads
-3. **Analysis**: Build tools to programmatically detect phantom reads in session logs
 
 
 ## Investigation Status
 
 The investigation is ongoing. For a unified explanation of our findings, see the **[Consolidated Theory](docs/theories/Consolidated-Theory.md)**, which introduces the **X + Y threshold overflow model**: phantom reads occur when pre-operation context (X) plus operation files (Y) exceeds the context threshold (T). This model explains how our various theories—reset timing, headroom, reset count—fit together as parts of a causal chain.
 
-Detailed experimental history is documented in [docs/core/Investigation-Journal.md](docs/core/Investigation-Journal.md), with as summary available in [docs/core/Timeline.md](docs/core/Timeline.md).
+Detailed experimental history is documented in the **[Investigation Journal](docs/core/Investigation-Journal.md)**, with a summary available in the **[Project Timeline](docs/core/Timeline.md)**.
 
-### Latest Progress: 31-Trial Analysis
+## The Journey of Discovery
 
-We conducted 31 controlled trials across two collections and confirmed that **reset timing pattern** is the dominant predictor of phantom reads—achieving **100% prediction accuracy** across all trials.
+The investigation has evolved through several phases:
 
-**Recent milestone**: First successful phantom read reproduction in a controlled scenario, demonstrating the bug can be reliably triggered under specific conditions.
+1. **Initial Discovery (Jan 9)**: Bug first noticed when an agent gave nonsensical WPD reviews
+2. **Version Boundary Testing (Jan 9-10)**: Incorrectly concluded pre-2.0.59 was safe
+3. **Revised Understanding (Jan 12-13)**: Discovered both eras have phantom reads, just different mechanisms
+4. **MCP Workaround (Jan 13)**: Validated that MCP Filesystem bypasses the bug entirely (100% success)
+5. **Theory Development (Jan 14-21)**: Developed Reset Timing Theory, Headroom Theory, then the X+Y Model
+6. **Methodology Refinement (Jan 22-24)**: Built controlled experiments, discovered hoisting limits and
+methodology issues
+7. **Current State (Jan 26-27)**: Refined understanding with completed experiments 04A, 04D, 04K, 04L
 
-| Pattern      | Description                                 | Outcome          |
-| ------------ | ------------------------------------------- | ---------------- |
-| EARLY + LATE | First reset <50%, last >95%, no mid-session | **100% SUCCESS** |
-| SINGLE_LATE  | Single reset >95%                           | **100% SUCCESS** |
-| MID-SESSION  | Any reset between 50-90% of session         | **100% FAILURE** |
+### Current Theoretical Understanding: The "Danger Zone" Model
 
-The critical finding: **mid-session resets (50-90% through the session) predict phantom reads with near-perfect accuracy**, regardless of reset count or starting headroom.
+The investigation has converged on an X + Y interaction model:
 
-### Key Findings
+- X = Pre-operation context consumption (baseline + hoisted content)
+- Y = Operation context requirement (files read by agent during task)
+- T = Context window threshold
 
-- **Reset timing is the dominant factor**: When resets occur matters more than how many occur or how much context is consumed
-- **The "Clean Gap" pattern**: Successful sessions have early resets (before main work) and late resets (after work completes), with no resets during active file reading
-- **Reset count strongly correlates**: 2 resets = 100% success, 4+ resets = 100% failure in current data
-- **Multiple mid-session resets guarantee failure**: 3+ consecutive resets in the 50-90% range have never survived
-- **No fixed token threshold**: Resets occur at widely varying cumulative token counts (82K-383K), ruling out a simple threshold model
-- **Accumulation rate matters**: Rapid batch reads without processing pauses appear to trigger mid-session resets more readily
-- **Session files don't capture the bug**: The `.jsonl` log records actual content, but phantom read markers appear after logging
-- **MCP bypass works**: The Filesystem MCP server provides 100% success rate in testing
+Key Finding: Simple X + Y > T is NOT the trigger. The interaction is more complex:
 
-### Current Working Theory
+| Condition          | X    | Y   | X+Y  | Outcome             |
+| ------------------ | ---- | --- | ---- | ------------------- |
+| High X only        | 150K | 6K  | 156K | SUCCESS (04L)       |
+| High Y only        | ≈0   | 57K | ~57K | SUCCESS (04A)       |
+| Both moderate-high | 73K+ | 57K | 130K | FAILURE (Method-04) |
+| High X, moderate Y | 120K | 42K | 162K | SUCCESS (Method-03) |
 
-The Read tool records actual content to the session file, but a separate context management system decides what actually reaches the model. **The critical factor is WHEN context resets occur during a session**:
+Critical Insight: The lower total (130K) fails while the higher total (162K) succeeds. This proves the
+interaction is NOT additive—both X and Y must exceed some threshold simultaneously to trigger phantom
+reads.
 
-- **Resets during active file processing (50-90% of session)** → Content cleared before the model processes it → **Phantom reads**
-- **Resets at natural breakpoints (early setup, late completion)** → Content already processed → **Success**
+### What's Been Confirmed
 
-The "Clean Gap" pattern describes successful sessions: an early reset clears initialization overhead, then main file reading proceeds uninterrupted, with any final reset occurring only after operations complete.
+1. **Hoisting is safe** - Content loaded via @ notation becomes <system-reminder> blocks (part of system
+message, immune to context management)
+2. **MCP Filesystem works** - 100% success rate, bypasses the bug entirely
+3. **1M model avoids the issue** - Same protocols that fail on 200K model succeed on 1M model (but this is
+out of scope)
+4. **Reset timing correlates but isn't causal** - The same reset patterns produce opposite outcomes depending
+on model capacity
+5. **T (context window) matters** - The 200K model has limitations the 1M model doesn't share
 
-### Theories Summary
+### Confirmed Mitigations
 
-| Theory                       | Status         | Notes                                   |
-| ---------------------------- | -------------- | --------------------------------------- |
-| **Reset Timing Theory**      | ✅ CONFIRMED    | 100% prediction accuracy on 31 trials   |
-| **Reset Count Theory**       | ✅ STRENGTHENED | 2 resets = safe, 4+ resets = failure    |
-| **Mid-Session Accumulation** | 🆕 NEW          | 2+ mid-session resets = likely failure  |
-| **Sustained Processing Gap** | 🆕 NEW          | ~25-30% uninterrupted window required   |
-| **Headroom Theory**          | ⚠️ SUPPORTED    | Correlates but insufficient alone       |
-| **Dynamic Context Pressure** | 🔬 HYPOTHESIS   | Rate of accumulation may trigger resets |
+1. MCP Filesystem - Replace native Read with MCP tools (current workaround in this project)
+2. Hoisting - Pre-load files via @ notation to move them from Y to X
+3. 1M Model - Use larger context window (confirmed to work but out of scope)
 
-See [docs/experiments/results/Repro-Attempts-02-Analysis-1.md](docs/experiments/results/Repro-Attempts-02-Analysis-1.md) for the latest analysis, or [docs/experiments/results/WSD-Dev-02-Analysis-3.md](docs/experiments/results/WSD-Dev-02-Analysis-3.md) for the detailed token-based analysis.
+### Open Questions and Next Steps
+
+Key Remaining Questions:
+- What is the exact X threshold above which Y=57K becomes dangerous? (somewhere between 0 and 73K)
+- Is the trigger file count, token count, or both? (04F planned)
+- What internally triggers a context reset? (still unknown)
+
+Next Experiments:
+- 04M: X Boundary Exploration - test intermediate X values (e.g., ~50K) with Y=57K
+- 04B/04C/04F: File count vs token count testing (requires surgical edits to remove cross-references)
+- 04G: Sequential vs parallel read patterns
+
+### Research Questions Catalog Status
+
+See **[Research Questions](docs/core/Research-Questions.md)** document for details.
+
+| Category                | Total | Open | Answered | Hypothesis    |
+| ----------------------- | ----- | ---- | -------- | ------------- |
+| A: Core Mechanism       | 5     | 2    | 1        | 2             |
+| B: Threshold Behavior   | 8     | 3    | 4        | 1             |
+| C: Hoisting Behavior    | 4     | 0    | 3        | 1             |
+| D: Reset Timing         | 3     | 1    | 0        | 2             |
+| E: Read Patterns        | 6     | 3    | 0        | 3             |
+| F: Measurement          | 5     | 4    | 1        | 0             |
+| G: Cross-Version/Model  | 5     | 3    | 1        | 1             |
+| H: Persisted Output     | 3     | 3    | 0        | 0             |
+| I: Discovered Behaviors | 8     | -    | -        | 7 (confirmed) |
+| TOTAL                   | 47    | 19   | 10       | 10            |
 
 ## Original Experiment
 
@@ -131,7 +154,7 @@ We have achieved the first successful phantom read reproduction in a controlled 
 - **Multiple file reads during onboarding** (inflates baseline context)
 - **Aggressive multi-file read operations** (triggers mid-session resets)
 
-A reliable, user-friendly reproduction protocol is in development. Current methodology documented in [docs/experiments/methodologies/Experiment-Methodology-02.md](docs/experiments/methodologies/Experiment-Methodology-02.md).
+A reliable, user-friendly reproduction protocol is in development. Current methodology documented in [docs/experiments/methodologies/Experiment-Methodology-04.md](docs/experiments/methodologies/Experiment-Methodology-04.md).
 
 ## Contributing
 
@@ -148,8 +171,10 @@ If you've experienced phantom reads:
 - **Consolidated Theory**: [docs/theories/Consolidated-Theory.md](docs/theories/Consolidated-Theory.md) — Unified theoretical framework (X + Y model)
 - **Timeline**: [docs/core/Timeline.md](docs/core/Timeline.md) — Concise chronological record of experiments and findings
 - **Investigation Journal**: [docs/core/Investigation-Journal.md](docs/core/Investigation-Journal.md) — Detailed narrative discovery log
-- **Experiment Methodology**: [docs/experiments/methodologies/Experiment-Methodology-01.md](docs/experiments/methodologies/Experiment-Methodology-01.md)
+- **Research Questions**: [docs/core/Research-Questions.md](docs/core/Research-Questions.md) — Catalog of known and unknown information
+- **Experiment Methodology**: [docs/experiments/methodologies/Experiment-Methodology-04.md](docs/experiments/methodologies/Experiment-Methodology-04.md)
 - **Workaround Guide**: [WORKAROUND.md](WORKAROUND.md)
+- **Prompt Logs**: [dev/prompts/archive](dev/prompts/archive/) - A record of every prompt used in this project
 
 ## License
 

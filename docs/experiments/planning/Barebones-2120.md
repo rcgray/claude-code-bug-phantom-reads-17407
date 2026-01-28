@@ -14,7 +14,7 @@ This experiment tests whether the Phantom Reads bug manifests in Claude Code ver
 
 **High-Level Results**: 0 failures, 5 successes (0% failure rate)
 
-This dramatic reversal from the 80% failure rate observed in 2.1.6 suggests Anthropic may have changed something significant in the harness between versions 2.1.6 and 2.1.20. Whether this represents a deliberate fix, an incidental optimization, or a threshold shift requires careful analysis.
+This dramatic reversal from the 100% failure rate observed in 2.1.6 (among valid trials) suggests Anthropic may have changed something significant in the harness between versions 2.1.6 and 2.1.20. Whether this represents a deliberate fix, an incidental optimization, or a threshold shift requires careful analysis.
 
 ---
 
@@ -138,15 +138,17 @@ Identical to Barebones-216 (Experiment-Methodology-04 7-step protocol):
 
 ### Comparison to Barebones-216
 
-| Metric       | Barebones-216 (v2.1.6) | Barebones-2120 (v2.1.20) |
-| ------------ | ---------------------- | ------------------------ |
-| Failure Rate | 80% (4/5)              | **0% (0/5)**             |
-| Success Rate | 20% (1/5)              | **100% (5/5)**           |
-| Protocol     | Identical              | Identical                |
-| Environment  | Identical              | Identical                |
-| Version      | 2.1.6                  | 2.1.20                   |
+| Metric       | Barebones-216 (v2.1.6)     | Barebones-2120 (v2.1.20) |
+| ------------ | -------------------------- | ------------------------ |
+| Failure Rate | 100% (4/4 valid trials)    | **0% (0/5)**             |
+| Success Rate | 0% (0/4 valid trials)      | **100% (5/5)**           |
+| Protocol     | Identical                  | Identical                |
+| Environment  | Identical                  | Identical                |
+| Version      | 2.1.6                      | 2.1.20                   |
 
-The dramatic reversal (80% → 0% failure) with only the version changing strongly suggests a harness-level change between versions.
+**Note on Barebones-216**: One trial (092331) was excluded as a protocol violation—the agent failed to read 3 of 8 specified files. Among valid trials that followed the protocol, Barebones-216 showed 100% failure rate.
+
+The dramatic reversal (100% → 0% failure) with only the version changing strongly suggests a harness-level change between versions.
 
 ---
 
@@ -310,9 +312,9 @@ Create side-by-side comparison table:
 | Post-analysis total | TBD                   | TBD                     | TBD   |
 | Reset count (avg)   | TBD                   | TBD                     | TBD   |
 | Reset count (range) | TBD                   | TBD                     | TBD   |
-| Failure rate        | 80%                   | 0%                      | -80%  |
+| Failure rate        | 100% (4/4 valid)      | 0%                      | -100% |
 
-**Statistical significance**: With 5 trials each, the difference (4/5 vs 0/5) has p < 0.05 by Fisher's exact test, though more trials would strengthen confidence.
+**Statistical significance**: With 4 valid trials in 2.1.6 and 5 trials in 2.1.20, the difference (4/4 vs 0/5) has p < 0.01 by Fisher's exact test, representing a highly significant result.
 
 ### Phase 3: Pattern Analysis
 
@@ -408,3 +410,4 @@ If context patterns differ between versions:
 ## Document History
 
 - **2026-01-27**: Initial creation
+- **2026-01-27**: Updated Barebones-216 comparison to reflect corrected 100% (4/4 valid trials) failure rate; one trial was excluded as a protocol violation

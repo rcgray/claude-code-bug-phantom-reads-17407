@@ -1,0 +1,163 @@
+## Models:
+## `opus` : claude-opus-4-5-20251101
+## `sonnet` : claude-sonnet-4-5-20250929
+## `sonnet[1m]` : claude-sonnet-4-5-20250929[1m]
+## `haiku` : claude-haiku-4-5-20251001
+
+## New Session: Claude Code v2.1.6: `opus` (locked, 2.1.20 is current)
+
+---
+
+/wsd:init --custom
+
+---
+
+Please read `docs/core/Investigation-Journal.md` ( @docs/core/Investigation-Journal.md ) and `docs/core/Research-Questions.md` ( @docs/core/Research-Questions.md ) to catch up on our investigation journey. Explain to me your understanding of the state of our investigation.
+
+---
+
+We're going to be performing analysis on a recent collection of Trials for the `Barebones-216 experiment`.  The primary document guiding your investigation is `docs/experiments/planning/Barebones-216.md` ( @docs/experiments/planning/Barebones-216.md ).  You will be writing all of your findings and results to a new file at `docs/experiments/results/Barebones-216-Analysis.md`.
+
+For general Trial analysis, please read `docs/experiments/guides/Trial-Analysis-Guide.md` ( @docs/experiments/guides/Trial-Analysis-Guide.md ).
+
+Before you begin, explain to me what you intend to investigate?  I think a good approach would be to address each of the RQs one-by-one, with a discussion between the two of us before moving on to the next RQ.
+
+---
+
+Go ahead and read the 5 `trial_data.json` files. Then, let's start with RQ-BB216-1.
+
+---
+
+We need to record these results to the file I specified: `docs/experiments/results/Barebones-216-Analysis.md`.
+
+---
+
+## New Session: Claude Code v2.1.6: `opus` (locked, 2.1.20 is current)
+## Repeated, updating from RQ-BB216-2 through RQ-BB216-4
+
+---
+
+/wsd:init --custom
+
+---
+
+Please read `docs/core/Investigation-Journal.md` ( @docs/core/Investigation-Journal.md ) and `docs/core/Research-Questions.md` ( @docs/core/Research-Questions.md ) to catch up on our investigation journey.
+
+We're going to be performing analysis on a recent collection of Trials for the `Barebones-216 experiment`.  The primary document guiding your investigation is `docs/experiments/planning/Barebones-216.md` ( @docs/experiments/planning/Barebones-216.md ), and you will be writing all of your findings and results to `docs/experiments/results/Barebones-216-Analysis.md` ( @docs/experiments/results/Barebones-216-Analysis.md ).
+
+For general Trial analysis, please read `docs/experiments/guides/Trial-Analysis-Guide.md` ( @docs/experiments/guides/Trial-Analysis-Guide.md ).
+
+The way we are conducting our analysis is by addressing each of the RQs one-at-a-time, updating the Analysis document with our findings, and then discussing. We are currently on `RQ-BB216-4`. If you have any questions, let me know. Otherwise, give it a look and tell me what you find.
+
+---
+
+## Special follow-up for RQ-BB216-3
+
+---
+
+Please read `docs/core/Investigation-Journal.md` ( @docs/core/Investigation-Journal.md ) and `docs/core/Research-Questions.md` ( @docs/core/Research-Questions.md ) to catch up on our investigation journey.
+
+We're going to be performing analysis on a recent collection of Trials for the `Barebones-216 experiment`.  The primary document guiding your investigation is `docs/experiments/planning/Barebones-216.md` ( @docs/experiments/planning/Barebones-216.md ), and you will be writing all of your findings and results to `docs/experiments/results/Barebones-216-Analysis.md` ( @docs/experiments/results/Barebones-216-Analysis.md ).
+
+We just completed `RQ-BB216-3`, but we ran out of context, and I would like to revisit it to sum it up. Can you give me an overview of our current understanding of why the -092331 session succeeded?
+
+---
+
+It would seem to me that this isn't as much evidence of the experiment _succeeding_ in the barebones repository as it is a demonstration of a Session Agent mistake.  I would propose that this isn't a case of "the first success in our 100% failure repro case" as much as it is a simple misfire - an experiment that malfunctioned due to the (rare) non-deterministic reality of working with models instead of deterministic code.
+
+So the conclusion that "`Y` is not deterministic"?  Well, no operation involving a Session Agent will _ever_ be deterministic, but I don't know that this case means `Y` has a different rate of non-determinism greater than this baseline non-determinism to which all aspects of a trial are subject. The counter argument wouild be that, for all intents and purposes, `Y` is deterministic (within a margin of error), but that _if the entire process malfunctions_, `Y` may show a different value.  It's a little like saying the number of eyes that dogs have is a non-deterministic or uncertain value, because a problem may occur in the womb.
+
+What do you think of this counter-argument?
+
+That said, we do (to the greatest extent that we know how to) explicitly force the agents to read specific file sets. Please review `.claude/commands/analyze-wpd.md` ( @.claude/commands/analyze-wpd.md ) for details.
+
+---
+
+Yes, let's update the analysis document to reflect this reframing.  Though I did not save the data, I ran the Barebones-216 again 4 times to find failure in every case. The only Trial that differed was one that _should_ have been rejected before it was processed (in the same way as if I had failed to run part of the protocol).  This is a protocol failure and invalid test, and our official record should be 4/4 failures.
+
+We should also update the `docs/experiments/planning/Barebones-216.md` document with this understanding.
+
+---
+
+Finally, we have another experiment coming up after this that we are going to analyzie, using Barebones-216 as a baseline: `docs/experiments/planning/Barebones-2120.md`.  We have misreported the success rate in this other file as well - can we update it properly?
+
+---
+
+## New Session: Claude Code v2.1.6: `opus` (locked, 2.1.20 is current)
+## Original 2120 failed to create a competent analysis file, so we separated that out
+
+---
+
+/wsd:init --custom
+
+---
+
+We recently ran a study descrbied by `docs/experiments/planning/Barebones-216.md` ( @docs/experiments/planning/Barebones-216.md ) for which we created an alysis report file: `docs/experiments/results/Barebones-216-Analysis.md` ( @docs/experiments/results/Barebones-216-Analysis.md ). This file was well structured, where each RQ could be addressed one-at-a-time. After each RQ was addressed individually and in isolation, the appropriate sections of the analysis document could be updated.
+
+We are now preparing for another study analysis: `docs/experiments/planning/Barebones-2120.md` ( @docs/experiments/planning/Barebones-2120.md ), and you will be writing all of your findings and results to `docs/experiments/results/Barebones-2120-Analysis.md`. Unfortunately, whenever I ask an agent to investigate RQ-BB2120-1 and start this file off, they end up trying to write a full report in whatever style suits them.
+
+Therefore, before we investigate any RQs, I wanted to ask you if you could start us off with a proper starter version of this analysis file, so that subsequent agents who process the RQs individually will understand what we're going for regarding our reporting.
+
+---
+
+## New Session: Claude Code v2.1.6: `opus` (locked, 2.1.20 is current)
+## Repeated, updating from RQ-BB2120-1 through RQ-BB2120-5
+
+---
+
+/wsd:init --custom
+
+---
+
+Please read `docs/core/Investigation-Journal.md` ( @docs/core/Investigation-Journal.md ) and `docs/core/Research-Questions.md` ( @docs/core/Research-Questions.md ) to catch up on our investigation journey.
+
+We're going to be performing analysis on a recent collection of Trials for the `Barebones-21620` experiment.  The primary document guiding your investigation is `docs/experiments/planning/Barebones-2120.md` ( @docs/experiments/planning/Barebones-2120.md ), and you will be writing all of your findings and results to `docs/experiments/results/Barebones-2120-Analysis.md` ( @docs/experiments/results/Barebones-2120-Analysis.md ).
+
+For general Trial analysis, please read `docs/experiments/guides/Trial-Analysis-Guide.md` ( @docs/experiments/guides/Trial-Analysis-Guide.md ).
+
+The way we are conducting our analysis is by addressing each of the RQs one-at-a-time, updating the Analysis document with our findings, and then discussing. We are currently on `RQ-BB2120-5`. If you have any questions, let me know. Otherwise, give it a look and tell me what you find.
+
+---
+
+## New Session: Claude Code v2.1.6: `opus` (locked, 2.1.20 is current)
+## Prep work for remaining RQs (6-8)
+
+---
+
+/wsd:init --custom
+
+---
+
+I would like to prepare a comprehensive record of the changes to Claude Code between the 2.1.6 and 2.1.20 (current) releases. Can you search the web to find patch notes (or something with even greater detail)?  We should create a report as a new artifact in the workbench.
+
+---
+
+We're going to be performing analysis on a recent collection of Trials for the `Barebones-21620` experiment.  The primary document guiding the investigation is `docs/experiments/planning/Barebones-2120.md` ( @docs/experiments/planning/Barebones-2120.md ).
+
+We've recently completed `RQ-BB2120-1` through `RQ-BB2120-5`. However, for the remaining RQs, I think we need to plan our next steps.
+
+Looking at `RQ-BB2120-6` through `RQ-BB2120-8`, what would be your plan for addressing these?
+
+---
+
+Could you please update the `docs/experiments/results/Barebones-2120-Analysis.md` ( @docs/experiments/results/Barebones-2120-Analysis.md ) file with:
+
+- Your analysis (now completed) regarding `RQ-BB2120-7`. This can be completed now.
+- Your plan for efficient investigation toward answering `RQ-BB2120-6`. This will be performed next.
+- A brief note on what needs to be done to pursue `RQ-BB2120-8`. This will be investigated following the `RQ-BB2120-6` investigation.
+
+---
+
+## New Session: Claude Code v2.1.6: `opus` (locked, 2.1.20 is current)
+
+---
+
+/wsd:init --custom
+
+---
+
+Please read `docs/core/Investigation-Journal.md` ( @docs/core/Investigation-Journal.md ) and `docs/core/Research-Questions.md` ( @docs/core/Research-Questions.md ) to catch up on our investigation journey.
+
+We're going to be performing analysis on a recent collection of Trials for the `Barebones-21620` experiment.  The primary document guiding your investigation is `docs/experiments/planning/Barebones-2120.md` ( @docs/experiments/planning/Barebones-2120.md ), and you will be writing all of your findings and results to `docs/experiments/results/Barebones-2120-Analysis.md` ( @docs/experiments/results/Barebones-2120-Analysis.md ).
+
+The way we are conducting our analysis is by addressing each of the RQs one-at-a-time, updating the Analysis document with our findings, and then discussing. We are currently on `RQ-BB2120-7`. To assist this investigation, we've compiled a list of the changelogs available for versions 2.1.6 through 2.1.20 in a workbench artifact: `docs/workbench/claude-code-changelog-2.1.6-to-2.1.22.md` ( @docs/workbench/claude-code-changelog-2.1.6-to-2.1.22.md ). If you have any questions, let me know. Otherwise, give it a look and tell me what you find.

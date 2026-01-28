@@ -4,7 +4,7 @@
 **Collection**: `dev/misc/repro-attempts-04-barebones/`
 **Date Conducted**: 2026-01-27
 **Claude Code Version**: 2.1.6 (locked)
-**Status**: Trials complete, analysis pending
+**Status**: ✅ COMPLETE - Analysis finalized
 
 ---
 
@@ -12,7 +12,7 @@
 
 This experiment tests whether the Phantom Reads bug manifests in a minimal "barebones" environment stripped of all non-essential project infrastructure. By removing the Workscope-Dev (WSD) framework and all auxiliary files, we isolate the reproduction scenario to only the files necessary for triggering and observing phantom reads.
 
-**High-Level Results**: 4 failures, 1 success (80% failure rate)
+**High-Level Results**: 4 valid failures, 1 invalid trial (protocol violation) → **100% failure rate among valid trials**
 
 This confirms phantom reads are a Claude Code harness issue, not an artifact of the WSD framework or our investigation repository's complexity.
 
@@ -137,28 +137,29 @@ The standard Experiment-Methodology-04 7-step protocol was followed:
 
 ## Results Summary
 
-| Trial ID        | Outcome     | Notes                                |
-| --------------- | ----------- | ------------------------------------ |
-| 20260127-092331 | **SUCCESS** | Unexpected - first ever Hard success |
-| 20260127-092743 | FAILURE     | Expected                             |
-| 20260127-093127 | FAILURE     | Expected                             |
-| 20260127-093818 | FAILURE     | Expected                             |
-| 20260127-094145 | FAILURE     | Expected                             |
+| Trial ID        | Outcome     | Notes                                         |
+| --------------- | ----------- | --------------------------------------------- |
+| 20260127-092331 | **INVALID** | Protocol violation - agent skipped 3 files    |
+| 20260127-092743 | FAILURE     | Expected                                      |
+| 20260127-093127 | FAILURE     | Expected                                      |
+| 20260127-093818 | FAILURE     | Expected                                      |
+| 20260127-094145 | FAILURE     | Expected                                      |
 
-**Failure Rate**: 80% (4/5)
-**Success Rate**: 20% (1/5)
+**Valid Trial Failure Rate**: 100% (4/4)
 
-**Additional Validation**: The User ran additional informal trials beyond these 5 to confirm the pattern. All showed unanimous failure.
+**Note on Trial 092331**: This trial was initially recorded as a "success," but analysis revealed it was a **protocol violation**—the agent failed to read 3 of the 8 files explicitly listed in the `/analyze-wpd` command's "Suggested Documentation." This is analogous to a human researcher failing to follow the experimental protocol; the trial is invalid and excluded from the failure rate calculation.
+
+**Additional Validation**: The User ran 4 additional informal trials beyond these 5 to confirm the pattern. All showed unanimous failure.
 
 ### Comparison to Prior Data
 
-| Environment                          | Protocol                              | Failure Rate  |
-| ------------------------------------ | ------------------------------------- | ------------- |
-| Full investigation repo (Method-04)  | setup-hard + setup-easy + analyze-wpd | 100% (8/8)    |
-| **Barebones repo (this experiment)** | setup-hard + analyze-wpd              | **80% (4/5)** |
-| WSD Development project              | /refine-plan                          | 77% (17/22)   |
+| Environment                          | Protocol                              | Failure Rate      |
+| ------------------------------------ | ------------------------------------- | ----------------- |
+| Full investigation repo (Method-04)  | setup-hard + setup-easy + analyze-wpd | 100% (8/8)        |
+| **Barebones repo (this experiment)** | setup-hard + analyze-wpd              | **100% (4/4)**    |
+| WSD Development project              | /refine-plan                          | 77% (17/22)       |
 
-The barebones environment shows a failure rate consistent with, though slightly lower than, the full repo. The single success is notable (possibly a fluke) and warrants investigation.
+The barebones environment shows a failure rate identical to the full repo when the protocol is followed correctly. The 77% rate in WSD Development represents "natural" occurrence without controlled setup.
 
 ---
 
@@ -166,128 +167,52 @@ The barebones environment shows a failure rate consistent with, though slightly 
 
 ### RQ-BB216-1: Does removing WSD framework eliminate phantom reads?
 
-**Status**: ANSWERED - NO
+**Status**: ✅ ANSWERED - **NO**
 
-**Finding**: Phantom reads occur at 80% rate even without WSD framework. This confirms the bug is a Claude Code harness issue, not a WSD interaction.
+**Finding**: Phantom reads occur at 100% rate in the barebones environment (among valid trials). This confirms the bug is a Claude Code harness issue, not a WSD interaction.
 
 **Significance**: High. This validates our entire investigation approach and confirms the bug affects all Claude Code users, not just WSD users.
 
 ### RQ-BB216-2: How does barebones context consumption compare to the full repo?
 
-**Status**: OPEN - Requires analysis
+**Status**: ✅ ANSWERED
 
-**Hypothesis**: The barebones environment should have lower baseline context consumption since there's less project content for the harness to consider.
+**Finding**: Barebones has ~3-4k tokens lower baseline overhead (20k vs 23k) due to reduced project complexity. This difference is negligible (~2% of context window) and has no effect on phantom read occurrence—both environments show 100% failure rate.
 
-**Analysis approach**:
-1. Extract X values (post-setup context) from all 5 trials
-2. Compare to Method-04 trials from `dev/misc/repro-attempts-04-firstrun/`
-3. Calculate the "hidden overhead" difference
+### RQ-BB216-3: Why did trial 20260127-092331 "succeed"?
 
-**Expected metrics**:
-- Baseline (fresh session): Should be similar (~23K) as this is harness overhead
-- Post-setup X: May be lower if project complexity adds overhead
-- Y (operation): Should be identical (same files read)
+**Status**: ✅ ANSWERED - **Protocol Violation**
 
-**Why this matters**: If barebones has significantly lower overhead, it suggests our investigation repo adds context pressure. This could affect threshold calculations and scenario tuning.
+**Finding**: Trial 092331 did NOT succeed. The agent failed to follow the experimental protocol by skipping 3 of 8 explicitly listed files (`module-alpha.md`, `module-beta.md`, `module-gamma.md`). This is a protocol violation that invalidates the trial, not evidence of variability in Y or the experimental conditions.
 
-### RQ-BB216-3: Why did trial 20260127-092331 succeed?
+**Key Insight**: The original conclusion that "Y is non-deterministic" was incorrect. All operations involving LLMs have baseline non-determinism, but this rare protocol failure doesn't indicate Y has special variability. When the protocol is followed correctly, Y is effectively deterministic and phantom reads occur at 100% rate.
 
-**Status**: OPEN - Requires analysis
-
-**Significance**: This is the FIRST SUCCESS ever observed in Experiment-Methodology-04. All prior Hard and Easy trials (8/8 in Method-04 firstrun) failed.
-
-**Hypothesis options**:
-1. Different reset timing pattern (EARLY_PLUS_LATE vs SINGLE_LATE)
-2. Lower actual X or Y due to measurement variance
-3. Agent behavioral difference (sequential vs parallel reads)
-4. Statistical variance in a stochastic system
-
-**Analysis approach**:
-1. Extract full metrics from `trial_data.json`
-2. Compare reset patterns to the 4 failures
-3. Examine chat export for behavioral differences
-4. Look for any "near miss" indicators in failures
+**Analogy**: Concluding that Y is non-deterministic from this single malfunction would be like concluding humans have a non-deterministic number of eyes because birth defects exist—technically true but misleading.
 
 ### RQ-BB216-4: Does the `protect_files.py` hook contribute to phantom reads?
 
-**Status**: OPEN - Requires follow-up experiment
+**Status**: ✅ ANSWERED - **NO**
 
-**Background**: The WSD framework includes a PreToolUse hook (`protect_files.py`) that intercepts Read operations to block sensitive file access. While this hook doesn't modify successful reads, it does add a processing layer.
-
-**Current finding**: Barebones (no hook) still shows 80% failure rate, so the hook is NOT the cause of phantom reads.
-
-**Remaining question**: Could the hook be a *contributor* that increases failure rate? The full repo showed 100% failure vs barebones 80%.
-
-**Proposed follow-up**: Import `protect_files.py` into barebones repo and run additional trials to see if failure rate increases.
+**Finding**: Both environments show identical 100% failure rates (full repo with hook: 8/8, barebones without hook: 4/4). The hook neither causes nor contributes to phantom reads.
 
 ### RQ-BB216-5: Do standard theory predictions hold in the barebones environment?
 
-**Status**: OPEN - Requires analysis
+**Status**: ✅ ANSWERED - **YES**
 
-**Theories to validate**:
-1. **Reset Timing**: Do failures show mid-session resets (50-90%)?
-2. **X+Y Interaction**: Is X+Y > some threshold in failures?
-3. **Deferred Reads**: Are phantom reads associated with batch read operations?
-4. **Self-Report**: Do agents correctly identify phantom reads when they occur?
-
-**Analysis approach**: Apply standard analysis methodology from `docs/experiments/guides/Trial-Analysis-Guide.md` to all 5 trials.
+**Finding**: All standard theory predictions hold:
+- **Reset Timing Theory**: All failures show mid-session resets (50-90%)
+- **X+Y Interaction**: All failures occur at expected context levels
+- **Deferred Reads**: All failures have `has_tool_results: true`
+- **Self-Report Accuracy**: 100% accurate across all trials
 
 ---
 
-## Analysis Methodology
+## Deliverables
 
-### Phase 1: Pre-Processing (COMPLETED)
-
-The `/update-trial-data` command has been run on all trials, generating `trial_data.json` files with:
-- Context measurements (X, Y, totals)
-- Reset patterns and timing
-- File read sequences
-- Self-report outcomes
-
-### Phase 2: Quantitative Analysis
-
-For each trial, extract and tabulate:
-
-| Metric              | Source            | Purpose                       |
-| ------------------- | ----------------- | ----------------------------- |
-| Baseline context    | `/context` output | Harness overhead              |
-| Post-setup X        | `/context` output | Pre-operation consumption     |
-| Post-analysis total | `/context` output | X + Y verification            |
-| Reset count         | `trial_data.json` | Reset theory validation       |
-| Reset positions (%) | `trial_data.json` | Timing pattern classification |
-| Files read          | `trial_data.json` | Y composition                 |
-| Phantom read count  | Self-report       | Outcome verification          |
-
-**Cross-collection comparison**: Create side-by-side table comparing Barebones-216 trials to Method-04 firstrun trials.
-
-### Phase 3: Qualitative Analysis
-
-**For the success trial (092331)**:
-1. Read full chat export
-2. Identify any behavioral differences from failure trials
-3. Look for evidence of actual file content receipt
-4. Check for unusual patterns or agent decisions
-
-**For failure trials**:
-1. Verify `<persisted-output>` markers in agent experience
-2. Check self-report accuracy
-3. Note any partial successes or recovery attempts
-
-### Phase 4: Synthesis
-
-1. Confirm/refute each research question
-2. Document findings for Investigation Journal
-3. Update Research-Questions.md with new findings
-4. Identify any new questions raised by the data
-
----
-
-## Expected Deliverables
-
-1. **Analysis document**: `docs/experiments/results/Barebones-216-Analysis.md`
-2. **Investigation Journal update**: New entry documenting findings
-3. **Research Questions update**: Status changes for relevant RQs
-4. **Potential follow-up experiment design**: If hook contribution question warrants testing
+1. ✅ **Analysis document**: `docs/experiments/results/Barebones-216-Analysis.md`
+2. ⏳ **Investigation Journal update**: Pending
+3. ⏳ **Research Questions update**: Pending
+4. ❌ **Hook contribution follow-up**: Not needed (RQ-BB216-4 answered)
 
 ---
 
@@ -309,3 +234,4 @@ For each trial, extract and tabulate:
 ## Document History
 
 - **2026-01-27**: Initial creation
+- **2026-01-27**: Updated to reflect correct interpretation of trial 092331 as protocol violation; changed official failure rate to 100% (4/4); marked all RQs as answered
