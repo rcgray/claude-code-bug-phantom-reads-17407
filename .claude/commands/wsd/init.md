@@ -81,12 +81,9 @@ This script will create a new Work Journal directly in the archive location at `
 
 This file is now YOUR "Work Journal," and you will be continually adding to it over the course of YOUR session as you proceed through your workscope. Be sure to update your Work Journal after each step so this real time monitoring can take place.
 
-**CRITICAL**: `cat >> file << EOF` IS FORBIDDEN. It is an anti-pattern that will likely result in full rejection of your contributions. Do NOT use terminal commands (such as `cat` or `echo` with `>>`) to write to files. Use your standard tools (e.g., Read, Edit, etc.) to interact with files throughout your session. You will be reminded of this as **Rule 4.4** in the Agent Rules.
-
 ## Task-Master Assignment (Conditional)
 
 **IF `$1` is `--custom`:**
-- Run the `/wsd:onboard` command and return to this command
 - Skip the rest of this section and continue to "## Completion Behavior"
 - You will receive your workscope directly from the User after this command completes
 

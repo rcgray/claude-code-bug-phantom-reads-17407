@@ -4,7 +4,7 @@
 ## `sonnet[1m]` : claude-sonnet-4-5-20250929[1m]
 ## `haiku` : claude-haiku-4-5-20251001
 
-## New Session: Claude Code v2.1.22: `opus`
+## New Session: Claude Code v2.1.22: `opus` (locked, 2.1.23 current)
 ## Action Plan: ``
 ## Phases: all
 

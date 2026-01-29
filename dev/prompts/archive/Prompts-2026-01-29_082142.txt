@@ -5,11 +5,176 @@
 ## `haiku` : claude-haiku-4-5-20251001
 
 ## New Session: Claude Code v2.1.22: `opus`
-## Action Plan: ``
-## Phases: all
 
 ---
 
-/wsd:init, /wsd:prepare, /wsd:execute, /wsd:close
+/wsd:init --custom
+
+---
+
+After performing analysis on a recent collection of Trials for the `Barebones-2120` experiment, where the primary document guiding the investigation is `docs/experiments/planning/Barebones-216.md` ( @docs/experiments/planning/Barebones-216.md ), we wrote our analysis findings to a new file at `docs/experiments/results/Barebones-216-Analysis.md`.
+
+Following this, I recently ran a "build scan" set of experiments, testing the stock Experiment-Methdology-04 experiment on the barebones repo for all builds 2.1.6 (previous project target) - 2.1.22 (current). This was done for several reasons:
+
+1) To explore the `RQ-BB2120-8` research questions. If Anthropic had "fixed" phantom reads somewhere since our target build (2.1.6), we wanted to find out precisely where. Understanding this would not only give us more precision in our report, but it would help inform `RQ-BB2120-6`, where we would attempt to again trigger phantom reads in spite of the apparent fix mechanism.
+2) To gather additional data for post-2.1.6 builds to better understand the nature of phantom reads and to see if failures were fully fixed or still possible (i.e., more samples).
+3) To understand the journey Claude Code has taken in general over the past few weeks between 2.1.6 and the current build 2.1.22.
+
+Here were our findings:
+
+  - I Tested every build: 2.1.6 - 2.1.12...
+  - All of my 2.1.6 tests repeated what we've always seen (failure - phantom reads)
+  - Build 2.1.6 - which we happen to have performed all of our analysis on so far - was the LAST build in which our experiments work. It does experience phantom reads, but starting with 2.1.7 onward, the Experiment-Methodology-04 cannot even execute, hitting 0% memory and dying with a "context full" message during the `/analyze-wpd` command.
+  - Build 2.1.9 removed `/context` from showing up in the chat log - it now displays as an interstitial dialog that doesn't write to the chat. It's very buggy and causes display issues in general.
+  - There is no build 2.1.13
+  - I then tested every build: 2.1.14 - 2.1.20
+  - Build 2.1.14 restores the old `/context` functionality, properly printing it to the session chat
+  - Build 2.1.15 begins issuing a new warning showing light incompatibility with the `cc_version.py` script: "Claude Code has switched from npm to native installer. Run `claude install` or see https://docs.anthropic.com/en/docs/claude-code/getting-started for more options." This is likely due to our script installing via `npm`, but it does not seem consequential (yet) to CC's operation.
+  - Build 2.1.15 introduced a new bug to `/context` in which the context is printed _twice_ to the session chat. This remains through 2.1.19, where it is finally fixed in 2.1.20.
+  - Build 2.1.15 (Jan 21) is the FIRST build where we can successfully run our Experiment-Methdology-04 again SINCE 2.1.6 (Jan 13)! And yes, phantom reads are detected.
+  - Build 2.1.15 - 2.1.19 (inclusive) also reproduced phantom reads, appearing to return to the 2.1.6 functionality we are familiar with.
+  - Build 2.1.20 actually showed a mix of failure, success, and context overrload in our runs, contrary to our previous Barebones-2120 study (!)
+  - No run in 2.1.21 or later ever showed context overloads (18 runs total), indicating that this might have been limited to 2.1.20.
+  - 2.1.21 also showed a success.
+
+There are some key consequences to our study:
+
+- Two new collections came out of this that we should analyze:
+  - `dev/misc/barebones-2122`, Build 2.1.22 - the "current" build (6 failures). We should examine these results vs. our `barebones-2120` (now invalid?) results to see if we can explain why builds are suddenly showing phantom reads when they all succeeded hours prior.
+  - `dev/misc/barebones-2121`: the penultimate build (2 failures, 1 success). We should look at this mostly because of its proximity to 2.1.22, but it contains a success for us to evaluate vs. the failures (and we have not been able to trigger a success in 2.1.22).
+- We should consider moving forward with 2.1.22 as the official project target, just so we can stay relatively up-to-date in our investigation (2.1.6 was growing quite old).
+
+Please record these results in a new document: `docs/experiments/results/Experiment-04-BuildScan.md`. Be sure to include the "timeline" of builds, since this will be useful to our final reporting at some point in the future.
+
+After that, we should discuss next steps and what this means for our investigation.
+
+---
+
+My first note is that in a few places you announce that 2.1.6 was the last build where our protocol works and where phantom reads are detected - this isn't true.  There was a brief "dead zone" from 2.1.7 - 2.1.14, but we came out the other side to a similar situation as 2.1.6.  I was going to to edit this by hand in the intro, but then I noticed that you made this claim throughout, so I figured I should give it to you to fix.
+
+In the timeline for 2.1.21, you don't need to mention the `npm` warning again - this is consistent for every run of every build starting with 2.1.15.  There's nothing special about 2.1.21 in this regard such that it requires restating.
+
+I know you did some scanning of the directories to come up with your detailed reports. Please cross-check the following notes I took by hand during the build scan:
+
+2.1.9: `dev/misc/barebones-219`
+- 20260128-094434 - Context limit reached
+- 20260128-094447 - Context limit reached
+- 20260128-095954 - Context limit reached
+
+2.1.14: `dev/misc/barebones-2114`
+- 20260128-124952 - Context limit reached
+- 20260128-125336 - Context limit reached
+- 20260128-125621 - Context limit reached
+
+2.1.15: `dev/misc/barebones-2115`
+- 20260128-130258 - Failure (phantom reads self-reported)
+- 20260128-130530 - Failure (phantom reads self-reported)
+- 20260128-131052 - Failure (phantom reads self-reported)
+
+2.1.20: `dev/misc/barebones-2120-2`
+- 20260128-134716 - Context limit reached
+- 20260128-134724 - Failure (phantom reads self-reported)
+- 20260128-140143 - Success (no phantom reads self-reported)
+- 20260128-140149 - Failure (phantom reads self-reported)
+- 20260128-140157 - Failure (phantom reads self-reported)
+- 20260128-142506 - Context limit reached
+- 20260128-142515 - Context limit reached
+- 20260128-142526 - Failure (phantom reads self-reported)
+- 20260128-143045 - Context limit reached
+- 20260128-143056 - Failure (phantom reads self-reported)
+- 20260128-143105 - Failure (phantom reads self-reported)
+
+2.1.21: `dev/misc/barebones-2121`
+- 20260128-150640 - Failure (phantom reads self-reported)
+- 20260128-150657 - Success (no phantom reads self-reported)
+- 20260128-150706 - Failure (phantom reads self-reported)
+
+2.1.22: `dev/misc/barebones-2122`
+- 20260128-152044 - Failure (phantom reads self-reported)
+- 20260128-152157 - Failure (phantom reads self-reported)
+- 20260128-152056 - Failure (phantom reads self-reported)
+- 20260128-152658 - Failure (phantom reads self-reported)
+- 20260128-152707 - Failure (phantom reads self-reported)
+- 20260128-152715 - Failure (phantom reads self-reported)
+
+I did not run pre-processing, nor do I plan for us to perform analysis for all of these Trials. Instead, I intend for us only to focus on 2.1.21 and 2.1.22 results.
+
+Let's update our `docs/experiments/results/Experiment-04-BuildScan.md` doc.
+
+---
+
+Well done. Let's also update the `docs/experiments/results/Barebones-2120-Analysis.md` report with our new findings. Be sure that when we make updates, we note them as such, since I want the original resports (based on `dev/misc/repro-attempts-04-2120`) to be preserved for the time being.
+
+---
+
+## New Session: Claude Code v2.1.22: `opus` (locked, 2.1.23 current)
+
+---
+
+/wsd:init --custom
+
+---
+
+Please read `docs/experiments/results/Experiment-04-BuildScan.md` ( @docs/experiments/results/Experiment-04-BuildScan.md ) to catch up on our latest experiment. See also the results analysis of Experiment `Barebones-2120`, which will be relevant to this discussion: `docs/experiments/results/Barebones-2120-Analysis.md` ( @docs/experiments/results/Barebones-2120-Analysis.md ).
+
+---
+
+The biggest, burning question right now is why did our build-scan experiments with 2.1.20 yield different results than the `Barebones-2120` (collection: `dev/misc/repro-attempts-04-2120`) experiment just an hour prior?  Nothing in the test enfironment should have changed in that time, but I'm concerned that there may have been some change.  We could maybe try:
+
+- Compare `dev/misc/barebones-2122` to `dev/misc/repro-attempts-04-2120`: Both builds should be relatively similar, but examining them might help us identify something that changed in the test environment between the two.
+- Compare `dev/misc/barebones-2120-2` to `dev/misc/repro-attempts-04-2120`: This is an apples-to-apples comparison of 2.1.20 in the most recent test environment to the prior one. However, the results of `dev/misc/barebones-2120-2` are so messy (and 2.1.20 seems like a bad build in general to test on), so I'm not sure. However, since `dev/misc/barebones-2120-2` actually saw both success AND failures, comparing the successes might be useful.
+- Compare the success in `dev/misc/barebones-2121` to its failures. It's really the only reason that this build was kept, since we would otherwise presume that 2.1.22 is more relevant.
+
+I feel like this question has priority over any other particular question we were investigating regarding the actual phantom read phenomenon, and we should halt those investigations until we clear this one up. What do you think we should do?
+
+---
+
+I appreciate the investigation, but what I really wanted was to come up with a _plan_ for investigation, something that we would write up in a new document under `docs/experiments/planning/`. It should cover not only these preliminary thoughts you've compiled, but then also document where this leads us and what are steps are going forward. I want to figure out what we should dig into with the data we have and what other experiments I should be running to gather the data we need to go further. What kinds of questions arise from this, and how do we pursue them?
+
+- Run this test on another machine?  However, you don't believe that this is a test environmetn issue.
+- Why would Anthropic make server changes that make the tests _succeed_ and then later change them to make them fail? The `dev/misc/repro-attempts-04-2120` tests and the build-scan experiments were all conducted within the same 4-hour window, so they were executed very closely together?
+- Run the 'Easy' and 'Medium' variants?
+- Should we change our document payload? (i.e., add or remove files from the `Y` or `X` components of our `X` + `Y` > `T` model)?
+- Something else?
+
+It is _very_ good to note that the "success" seen in barebones-2121 was actually a violation of protocol (making the test invalid) than it was a deviation from the established pattern.  This prevents us from chasing red herrings.
+
+---
+
+## New Session: Claude Code v2.1.22: `opus`
+## Returning to the claude-code-bug-phantom-reads-17407 project
+## Pre-processing trials for 2120-2, per `docs/experiments/planning/Build-Scan-Discrepancy-Investigation.md`
+
+---
+
+/wsd:init --custom
+
+---
+
+/update-trial-data dev/misc/barebones-2120-2/20260128-134716
+/update-trial-data dev/misc/barebones-2120-2/20260128-134724
+/update-trial-data dev/misc/barebones-2120-2/20260128-140143
+/update-trial-data dev/misc/barebones-2120-2/20260128-140149
+/update-trial-data dev/misc/barebones-2120-2/20260128-140157
+/update-trial-data dev/misc/barebones-2120-2/20260128-142506
+/update-trial-data dev/misc/barebones-2120-2/20260128-142515
+/update-trial-data dev/misc/barebones-2120-2/20260128-142526
+/update-trial-data dev/misc/barebones-2120-2/20260128-143045
+/update-trial-data dev/misc/barebones-2120-2/20260128-143056
+/update-trial-data dev/misc/barebones-2120-2/20260128-143105
+
+---
+
+## New Session: Claude Code v2.1.22: `opus` (locked, 2.1.23 current)
+
+---
+
+/wsd:init --custom
+
+---
+
+We recently had an experiment that went very well, and I want to mimick our process with a new experiment. Consider as an example experiment `Barebones-216`, where we had our planning set up in `docs/experiments/planning/Barebones-216.md` ( @docs/experiments/planning/Barebones-216.md ), and our results/analysis written to a corresponding file `docs/experiments/results/Barebones-216-Analysis.md` ( @docs/experiments/results/Barebones-216-Analysis.md ). Since the analysis took several sessions with User Agents, we started by creating this analysis file with placeholders for results at first, and then as User Agents completed portions of the analysis for each RQ, they updated this file.  This proved to be a very good practice.
+
+We are now pursuing a new line of investigation based off our planning in `docs/experiments/planning/Build-Scan-Discrepancy-Investigation.md` ( @docs/experiments/planning/Build-Scan-Discrepancy-Investigation.md ). Working through all of the steps in this investigation may take multiple sessions, so I would like again to create an analysis file ahead of time, with placeholders for the results as we calculate them, so that a series of User Agents can progressively update the file.
 
 ---

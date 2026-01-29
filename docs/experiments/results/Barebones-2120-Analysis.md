@@ -6,27 +6,31 @@
 **Date Analyzed**: 2026-01-28 (RQ-BB2120-1 through RQ-BB2120-7 complete)
 **Claude Code Version**: 2.1.20
 
+> **UPDATE (2026-01-29)**: Subsequent testing during the Experiment-04 Build Scan (see `Experiment-04-BuildScan.md`) revealed that build 2.1.20 does NOT consistently avoid phantom reads. An additional 11 trials on the same build, conducted only hours after the original 5, showed 6 failures, 1 success, and 4 context overloads. The original 5-trial results below remain accurate as recorded, but the conclusions drawn from them — particularly the "fix" interpretation — are no longer supported. Affected research questions are annotated with `[UPDATE]` markers below. Builds 2.1.21 (2/3 failure) and 2.1.22 (6/6 failure) further confirm that phantom reads persist in current builds.
+
 ---
 
 ## Executive Summary
 
 The Barebones-2120 experiment tested whether the Phantom Reads bug manifests in Claude Code version 2.1.20, representing a 14-version jump from our locked testing version (2.1.6). Using the same barebones environment and protocol as Barebones-216, this experiment isolated the version variable.
 
-**Result**: 5 successes, 0 failures → **0% failure rate**
+**Result (original 5 trials)**: 5 successes, 0 failures → **0% failure rate**
 
-This dramatic reversal from the 100% failure rate observed in 2.1.6 (among valid trials) suggests a significant change in the harness between versions 2.1.6 and 2.1.20. The nature of this change (deliberate fix, incidental optimization, or threshold shift) is explored in the research questions below.
+**Result (subsequent 11 trials from build scan)**: 6 failures, 1 success, 4 context overloads → **86% failure rate** among valid trials
+
+The original 5 trials suggested a dramatic reversal from the 100% failure rate observed in 2.1.6. However, subsequent testing on the same build showed phantom reads returning at high rates. The discrepancy between the two test sessions (conducted mere hours apart on the same client version in the same test environment) suggests server-side factors influence phantom read occurrence, and that client version alone does not determine behavior.
 
 ---
 
 ## Trial Data Summary
 
-| Trial ID   | Outcome | Resets | Reset Positions | Pattern     | Files Affected | Total Reads | has_tool_results |
-| ---------- | ------- | ------ | --------------- | ----------- | -------------- | ----------- | ---------------- |
-| 095002     | SUCCESS | 1      | 84.8%           | SINGLE_LATE | 0              | 9           | false            |
-| 100209     | SUCCESS | 1      | 85.1%           | SINGLE_LATE | 0              | 9           | false            |
-| 100701     | SUCCESS | 1      | 85.1%           | SINGLE_LATE | 0              | 9           | false            |
-| 100944     | SUCCESS | 1      | 85.3%           | SINGLE_LATE | 0              | 9           | false            |
-| 101305     | SUCCESS | 1      | 86.6%           | SINGLE_LATE | 0              | 9           | false            |
+| Trial ID | Outcome | Resets | Reset Positions | Pattern     | Files Affected | Total Reads | has_tool_results |
+| -------- | ------- | ------ | --------------- | ----------- | -------------- | ----------- | ---------------- |
+| 095002   | SUCCESS | 1      | 84.8%           | SINGLE_LATE | 0              | 9           | false            |
+| 100209   | SUCCESS | 1      | 85.1%           | SINGLE_LATE | 0              | 9           | false            |
+| 100701   | SUCCESS | 1      | 85.1%           | SINGLE_LATE | 0              | 9           | false            |
+| 100944   | SUCCESS | 1      | 85.3%           | SINGLE_LATE | 0              | 9           | false            |
+| 101305   | SUCCESS | 1      | 86.6%           | SINGLE_LATE | 0              | 9           | false            |
 
 **Valid Trial Failure Rate**: 0% (0/5)
 
@@ -44,7 +48,11 @@ This dramatic reversal from the 100% failure rate observed in 2.1.6 (among valid
 
 ### RQ-BB2120-1: Did Anthropic fix or mitigate the Phantom Reads bug?
 
-**Status**: ANSWERED - Strong evidence of fix or fundamental optimization
+**Status**: ANSWERED - No. Phantom reads persist in 2.1.20 and later builds.
+
+> **[UPDATE 2026-01-29]**: The original answer ("strong evidence of fix") was based on 5/5 success in the initial collection. The Experiment-04 Build Scan subsequently tested 11 additional trials on the same build (2.1.20), yielding 6 failures, 1 success, and 4 context overloads. Builds 2.1.21 (2/3 failure) and 2.1.22 (6/6 failure) further confirm that the bug is not fixed. The original analysis below is preserved for reference but its conclusions are superseded.
+
+**Original analysis (based on `dev/misc/repro-attempts-04-2120/`, 5 trials):**
 
 #### Possible Interpretations
 
@@ -57,14 +65,14 @@ This dramatic reversal from the 100% failure rate observed in 2.1.6 (among valid
 
 **Cross-Version Comparison (Identical Protocol)**:
 
-| Metric | Barebones-2120 (v2.1.20) | Barebones-216 (v2.1.6) | Change |
-|--------|--------------------------|------------------------|--------|
-| **Failure Rate** | 0% (0/5 trials) | 100% (4/4 valid trials) | **-100%** |
-| **Reset Count** | 1 per trial (consistent) | 2-3 per trial (variable) | **50-67% reduction** |
-| **Reset Timing** | 84-87% (late only) | 27-90% (mid-session) | **Mid-session eliminated** |
-| **Tool Persistence** | **Never** (has_tool_results: false) | **Always** (has_tool_results: true) | **Mechanism disabled** |
-| **Peak Context** | 159K-173K tokens | 162K-165K tokens | Similar |
-| **Files Read** | 9 (all inline) | 9 (3-9 persisted) | **Persistence eliminated** |
+| Metric               | Barebones-2120 (v2.1.20)            | Barebones-216 (v2.1.6)              | Change                     |
+| -------------------- | ----------------------------------- | ----------------------------------- | -------------------------- |
+| **Failure Rate**     | 0% (0/5 trials)                     | 100% (4/4 valid trials)             | **-100%**                  |
+| **Reset Count**      | 1 per trial (consistent)            | 2-3 per trial (variable)            | **50-67% reduction**       |
+| **Reset Timing**     | 84-87% (late only)                  | 27-90% (mid-session)                | **Mid-session eliminated** |
+| **Tool Persistence** | **Never** (has_tool_results: false) | **Always** (has_tool_results: true) | **Mechanism disabled**     |
+| **Peak Context**     | 159K-173K tokens                    | 162K-165K tokens                    | Similar                    |
+| **Files Read**       | 9 (all inline)                      | 9 (3-9 persisted)                   | **Persistence eliminated** |
 
 **Statistical Significance**: The difference between 0/5 failures and 4/4 failures has p < 0.01 by Fisher's exact test, representing a highly significant result.
 
@@ -105,26 +113,20 @@ This indicates v2.1.20 either:
 
 #### Significance
 
-**This is the most important finding of the entire investigation**: The Phantom Reads bug appears to be **fixed or fundamentally mitigated** in Claude Code version 2.1.20.
+**Original conclusion**: "This is the most important finding of the entire investigation: The Phantom Reads bug appears to be fixed or fundamentally mitigated in Claude Code version 2.1.20."
 
-**Implications**:
+> **[UPDATE 2026-01-29]**: This conclusion is **no longer supported**. The build scan showed 6/7 valid failures on the same build. The original 5-trial run appears to have captured a transient window of success, likely reflecting server-side variability rather than a client-side fix. The MCP Filesystem workaround remains necessary. The interpretations below were made based on the original 5-trial data and are preserved for reference.
 
-1. **Users on v2.1.20+ may not need the MCP Filesystem workaround** for this specific scenario
-2. **The investigation's reproduction scenarios are version-dependent** - they reproduce the bug in v2.1.6 but not v2.1.20
-3. **Documentation must specify version constraints** - the bug exists in v2.0.54-v2.1.6 (confirmed), status unclear for v2.1.7-v2.1.19
-4. **The fix is substantial** - not a minor threshold adjustment but a fundamental change in how tool outputs are handled
+**Original Implications** (no longer current):
 
-**Interpretation**: The most likely explanation is **(1) Deliberate fix** or **(2) Incidental fix** from a major optimization. The complete elimination of tool persistence and the dramatic reset behavior improvement suggest intentional changes to the context management system, not just threshold tuning.
+1. ~~Users on v2.1.20+ may not need the MCP Filesystem workaround~~
+2. ~~The investigation's reproduction scenarios are version-dependent~~
+3. ~~Documentation must specify version constraints~~
+4. ~~The fix is substantial~~
 
-**Threshold shift (3) is unlikely** because:
-- Our scenario consumed similar peak context (159-173K vs 162-165K)
-- The change is categorical (0% vs 100%), not gradual
-- The tool persistence mechanism is fundamentally different
+**Original Interpretation**: The most likely explanation was considered to be **(1) Deliberate fix** or **(2) Incidental fix** from a major optimization. The complete elimination of tool persistence and the dramatic reset behavior improvement suggested intentional changes to the context management system.
 
-**Mechanism change (4) is ruled out** because:
-- Agents report receiving actual content, not new marker types
-- No `<persisted-output>` markers observed
-- No new error mechanisms detected
+**Revised Interpretation (2026-01-29)**: The 5-trial success likely reflects **(5) Transient server-side state** — a new interpretation not considered in the original analysis. Anthropic may have deployed a server-side change that temporarily altered context management behavior, which was subsequently reverted or overridden. Client version alone does not determine phantom read behavior.
 
 ---
 
@@ -134,13 +136,13 @@ This indicates v2.1.20 either:
 
 #### Barebones-2120 Context Measurements (from `/context` calls)
 
-| Trial ID | Baseline   | Post-Setup (X) | Post-Analysis  | Outcome |
-| -------- | ---------- | -------------- | -------------- | ------- |
-| 095002   | 20k (10%)  | 114k (57%)     | 195k (97%)     | SUCCESS |
-| 100209   | 20k (10%)  | 114k (57%)     | 195k (97%)     | SUCCESS |
-| 100701   | 20k (10%)  | 114k (57%)     | 195k (97%)     | SUCCESS |
-| 100944   | 20k (10%)  | 114k (57%)     | 195k (97%)     | SUCCESS |
-| 101305   | 20k (10%)  | 114k (57%)     | 195k (97%)     | SUCCESS |
+| Trial ID | Baseline  | Post-Setup (X) | Post-Analysis | Outcome |
+| -------- | --------- | -------------- | ------------- | ------- |
+| 095002   | 20k (10%) | 114k (57%)     | 195k (97%)    | SUCCESS |
+| 100209   | 20k (10%) | 114k (57%)     | 195k (97%)    | SUCCESS |
+| 100701   | 20k (10%) | 114k (57%)     | 195k (97%)    | SUCCESS |
+| 100944   | 20k (10%) | 114k (57%)     | 195k (97%)    | SUCCESS |
+| 101305   | 20k (10%) | 114k (57%)     | 195k (97%)    | SUCCESS |
 
 **Barebones-2120 averages**: Baseline 20k (10%), Post-Setup 114k (57%), Post-Analysis 195k (97%)
 
@@ -168,13 +170,13 @@ This indicates v2.1.20 either:
 
 #### Comparison Summary
 
-| Metric                | Barebones-2120 (v2.1.20) | Barebones-216 (v2.1.6) | Difference      |
-| --------------------- | ------------------------ | ---------------------- | --------------- |
-| **Baseline**          | 20k (10%)                | 20k (10%)              | **Identical**   |
-| **Post-Setup (X)**    | 114k (57%)               | 116k (58%)             | -2k (-1%)       |
-| **Post-Analysis**     | **195k (97%)**           | 175-177k (87-89%)      | **+20k (+9%)**  |
-| **Peak Before Reset** | 167K (avg)               | 162-165K               | +2-5K           |
-| **Outcome**           | 100% SUCCESS             | 100% FAILURE           | **Reversed**    |
+| Metric                | Barebones-2120 (v2.1.20) | Barebones-216 (v2.1.6) | Difference     |
+| --------------------- | ------------------------ | ---------------------- | -------------- |
+| **Baseline**          | 20k (10%)                | 20k (10%)              | **Identical**  |
+| **Post-Setup (X)**    | 114k (57%)               | 116k (58%)             | -2k (-1%)      |
+| **Post-Analysis**     | **195k (97%)**           | 175-177k (87-89%)      | **+20k (+9%)** |
+| **Peak Before Reset** | 167K (avg)               | 162-165K               | +2-5K          |
+| **Outcome**           | 100% SUCCESS             | 100% FAILURE           | **Reversed**   |
 
 #### Finding
 
@@ -224,12 +226,12 @@ The Reset Timing Theory established that mid-session resets (50-90%) correlate w
 
 #### Barebones-216 Reset Patterns (for comparison)
 
-| Trial ID | Reset Count | Reset Positions   | Pattern Classification  |
-| -------- | ----------- | ----------------- | ----------------------- |
-| 092743   | 2           | 63%, 86%          | OTHER (mid-session)     |
-| 093127   | 3           | 27%, 54%, 93%     | EARLY_PLUS_MID_LATE     |
-| 093818   | 2           | 75%, 90%          | OTHER (mid-session)     |
-| 094145   | 3           | 51%, 61%, 87%     | OTHER (mid-session)     |
+| Trial ID | Reset Count | Reset Positions | Pattern Classification |
+| -------- | ----------- | --------------- | ---------------------- |
+| 092743   | 2           | 63%, 86%        | OTHER (mid-session)    |
+| 093127   | 3           | 27%, 54%, 93%   | EARLY_PLUS_MID_LATE    |
+| 093818   | 2           | 75%, 90%        | OTHER (mid-session)    |
+| 094145   | 3           | 51%, 61%, 87%   | OTHER (mid-session)    |
 
 #### Pattern Comparison Summary
 
@@ -243,13 +245,13 @@ The Reset Timing Theory established that mid-session resets (50-90%) correlate w
 
 #### Quantitative Comparison
 
-| Metric | v2.1.20 | v2.1.6 | Change |
-|--------|---------|--------|--------|
-| **Avg Reset Count** | 1.0 | 2.5 | **-60%** |
-| **Reset Count Range** | 1 (all trials) | 2-3 | Reduced variance |
-| **Reset Position Range** | 84.8%-86.6% (1.8% span) | 27%-93% (66% span) | **97% narrower** |
-| **Mid-Session Resets (50-80%)** | **0** | **7 total** | **Eliminated** |
-| **Late Resets Only (>80%)** | 5/5 (100%) | 4/10 (40%) | Shifted late |
+| Metric                          | v2.1.20                 | v2.1.6             | Change           |
+| ------------------------------- | ----------------------- | ------------------ | ---------------- |
+| **Avg Reset Count**             | 1.0                     | 2.5                | **-60%**         |
+| **Reset Count Range**           | 1 (all trials)          | 2-3                | Reduced variance |
+| **Reset Position Range**        | 84.8%-86.6% (1.8% span) | 27%-93% (66% span) | **97% narrower** |
+| **Mid-Session Resets (50-80%)** | **0**                   | **7 total**        | **Eliminated**   |
+| **Late Resets Only (>80%)**     | 5/5 (100%)              | 4/10 (40%)         | Shifted late     |
 
 #### Finding
 
@@ -352,13 +354,13 @@ Read(~/.claude/projects/-Users-gray-Projects-barebones-phantom-reads/5e6d2a70-e1
 
 **Key Evidence**:
 
-| Aspect | v2.1.6 (Era 2) | v2.1.20 |
-|--------|----------------|----------|
-| **Marker Observed** | `<persisted-output>...Use Read to view</persisted-output>` | **None** |
-| **Content Delivery** | Persisted to disk → agent must follow up | **Inline in `<function_results>`** |
-| **tool-results/ Directory** | Created, populated with `.txt` files | **Never created** |
-| **Agent Self-Report** | Confirms phantom reads occurred | Confirms **no phantom reads** |
-| **Line Numbers in Results** | Not visible (content on disk) | Visible (e.g., `1→# Title`) |
+| Aspect                      | v2.1.6 (Era 2)                                             | v2.1.20                            |
+| --------------------------- | ---------------------------------------------------------- | ---------------------------------- |
+| **Marker Observed**         | `<persisted-output>...Use Read to view</persisted-output>` | **None**                           |
+| **Content Delivery**        | Persisted to disk → agent must follow up                   | **Inline in `<function_results>`** |
+| **tool-results/ Directory** | Created, populated with `.txt` files                       | **Never created**                  |
+| **Agent Self-Report**       | Confirms phantom reads occurred                            | Confirms **no phantom reads**      |
+| **Line Numbers in Results** | Not visible (content on disk)                              | Visible (e.g., `1→# Title`)        |
 
 **Mechanism Change**:
 
@@ -450,13 +452,13 @@ All 5 trials show:
 
 **Key Evidence Categories**:
 
-| Evidence Type | v2.1.20 (All 5 Trials) | v2.1.6 (Comparison) |
-|--------------|------------------------|---------------------|
-| **Self-Report** | 5/5 confirm NO phantom reads | 4/4 confirm phantom reads occurred |
-| **Line Number Citations** | Accurate (verified against files) | Sometimes fabricated |
-| **Section References** | Correctly match spec structure | Mix of correct and incorrect |
-| **Cross-References** | Genuine analysis with real content | Based on assumptions |
-| **Content Delivery** | Inline in `<function_results>` | `<persisted-output>` markers |
+| Evidence Type             | v2.1.20 (All 5 Trials)             | v2.1.6 (Comparison)                |
+| ------------------------- | ---------------------------------- | ---------------------------------- |
+| **Self-Report**           | 5/5 confirm NO phantom reads       | 4/4 confirm phantom reads occurred |
+| **Line Number Citations** | Accurate (verified against files)  | Sometimes fabricated               |
+| **Section References**    | Correctly match spec structure     | Mix of correct and incorrect       |
+| **Cross-References**      | Genuine analysis with real content | Based on assumptions               |
+| **Content Delivery**      | Inline in `<function_results>`     | `<persisted-output>` markers       |
 
 **This definitively confirms that v2.1.20 agents received and processed actual file content**, not phantom read markers. The analysis quality demonstrates genuine comprehension of document contents that would be impossible without actual access to the files.
 
@@ -491,11 +493,11 @@ Despite this evidence, direct testing remains valuable for completeness.
 
 **Approach**: Create `/setup-maxload` that hoists maximum viable content:
 
-| Parameter | Current (`/setup-hard`) | Proposed (`/setup-maxload`) | Increase |
-|-----------|------------------------|----------------------------|----------|
-| **Hoisted X** | ~114K tokens (57%) | ~150-160K tokens (75-80%) | +35-45K |
-| **Analysis Y** | ~57K tokens (9 files) | ~57K tokens (same) | Same |
-| **Total X+Y** | ~171K (85%) | ~207-217K (>100%) | Overflow |
+| Parameter      | Current (`/setup-hard`) | Proposed (`/setup-maxload`) | Increase |
+| -------------- | ----------------------- | --------------------------- | -------- |
+| **Hoisted X**  | ~114K tokens (57%)      | ~150-160K tokens (75-80%)   | +35-45K  |
+| **Analysis Y** | ~57K tokens (9 files)   | ~57K tokens (same)          | Same     |
+| **Total X+Y**  | ~171K (85%)             | ~207-217K (>100%)           | Overflow |
 
 **Method**:
 1. Identify or create additional spec files to hoist (targeting ~40K additional tokens)
@@ -542,10 +544,10 @@ A comprehensive review of Claude Code releases 2.1.6 through 2.1.22 was conducte
 
 **🔴 HIGH PRIORITY - Context Window Fixes**
 
-| Version | Change | Relevance to Phantom Reads |
-|---------|--------|---------------------------|
+| Version    | Change                                                                                                                                                          | Relevance to Phantom Reads                                     |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
 | **2.1.14** | "Fixed a regression where the context window blocking limit was calculated too aggressively, blocking users at ~65% context usage instead of the intended ~98%" | **CRITICAL** - Directly explains mid-session reset elimination |
-| **2.1.9** | "Context window blocking limit calculation corrected" | **HIGH** - First mention of context limit fixes |
+| **2.1.9**  | "Context window blocking limit calculation corrected"                                                                                                           | **HIGH** - First mention of context limit fixes                |
 
 **Analysis**: The 2.1.14 fix is the strongest candidate. Our Barebones-216 trials showed:
 - Post-setup context at 58% (116K/200K)
@@ -559,18 +561,18 @@ If the harness was incorrectly triggering context management actions at ~65% ins
 
 **🟡 MEDIUM PRIORITY - Memory and Performance**
 
-| Version | Change | Relevance |
-|---------|--------|----------|
+| Version    | Change                                                                                                                 | Relevance                      |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
 | **2.1.14** | "Fixed memory leak in long-running sessions where stream resources were not cleaned up after shell commands completed" | Could affect context stability |
-| **2.1.16** | "Fixed out-of-memory crashes when resuming sessions with heavy subagent usage" | Memory management improvements |
-| **2.1.9** | "MCP tool search auto mode enabled by default; context usage reduced significantly" | Reduced baseline overhead |
+| **2.1.16** | "Fixed out-of-memory crashes when resuming sessions with heavy subagent usage"                                         | Memory management improvements |
+| **2.1.9**  | "MCP tool search auto mode enabled by default; context usage reduced significantly"                                    | Reduced baseline overhead      |
 
 **🟢 LOW PRIORITY - Tool Handling**
 
-| Version | Change | Relevance |
-|---------|--------|----------|
+| Version    | Change                                                                                     | Relevance                                 |
+| ---------- | ------------------------------------------------------------------------------------------ | ----------------------------------------- |
 | **2.1.21** | "Improved Claude to prefer file operation tools (Read, Edit, Write) over bash equivalents" | Different tool selection, not persistence |
-| **2.1.20** | "Changed collapsed read/search groups to show present tense while in progress" | UI change, not mechanism |
+| **2.1.20** | "Changed collapsed read/search groups to show present tense while in progress"             | UI change, not mechanism                  |
 
 **⚠️ NOTABLE - Version 2.1.9 Issues**
 
@@ -663,15 +665,15 @@ Phase 1: Test v2.1.9
 
 ## Cross-Collection Comparison
 
-| Metric                 | Barebones-2120 (v2.1.20)      | Barebones-216 (v2.1.6)          |
-| ---------------------- | ----------------------------- | ------------------------------- |
-| **Valid Trials**       | 5                             | 4                               |
-| **Failure Rate**       | 0%                            | 100%                            |
-| **Avg Baseline**       | 20k (10%)                     | 20k (10%)                       |
-| **Avg Post-Setup (X)** | 114k (57%)                    | 116k (58%)                      |
-| **Avg Post-Analysis**  | **195k (97%)**                | 176k (88%)                      |
-| **Reset Patterns**     | SINGLE_LATE (all 5)           | Mixed (all include mid-session) |
-| **Theory Predictions** | N/A (no failures to predict)  | 100% accurate                   |
+| Metric                 | Barebones-2120 (v2.1.20)     | Barebones-216 (v2.1.6)          |
+| ---------------------- | ---------------------------- | ------------------------------- |
+| **Valid Trials**       | 5                            | 4                               |
+| **Failure Rate**       | 0%                           | 100%                            |
+| **Avg Baseline**       | 20k (10%)                    | 20k (10%)                       |
+| **Avg Post-Setup (X)** | 114k (57%)                   | 116k (58%)                      |
+| **Avg Post-Analysis**  | **195k (97%)**               | 176k (88%)                      |
+| **Reset Patterns**     | SINGLE_LATE (all 5)          | Mixed (all include mid-session) |
+| **Theory Predictions** | N/A (no failures to predict) | 100% accurate                   |
 
 ---
 
