@@ -1,14 +1,87 @@
-2.1.3 — January 10, 2026
-Merged slash commands and skills (simplifying the model without behavioral changes); added source path metadata for dragged images; fixed binary files in memory; improved disk-saving for large bash outputs; various CLI/prompt enhancements.
 
-2.1.2 — January 8, 2026
-Minor stability fixes and performance tweaks; no major feature additions noted in changelogs.
+## Version 2.1.22
+Release Date and Time (UTC): January 28, 2026 6:59 AM
+Changes Overview: Fixed structured outputs for non-interactive mode.
 
-2.1.1 — January 7, 2026
-Bug fixes for session handling; preparatory changes for upcoming merges.
+## Version 2.1.21
+Release Date and Time (UTC): January 28, 2026 2:25 AM
+Changes Overview: Added full-width number input support, automatic Python venv activation in VSCode; Fixed shell completion truncation, API errors on resume, auto-compact trigger, task ID reuse, file search on Windows, message buttons colors; Improved read/search indicators, tool preference.
 
-2.1.0 — January 7, 2026
-Major update with smoother workflows, smarter agents, orchestration features, skill development, session portability, and over 1,000 commits for infrastructure enhancements.
+## Version 2.1.20
+Release Date and Time (UTC): January 27, 2026 1:35 AM
+Changes Overview: Added arrow history in vim mode, external editor shortcut discoverability, PR review status indicator, CLAUDE.md from additional dirs, task delete via tool; Fixed compaction issues, ignoring messages, wide char artifacts, JSON parsing, arrow keys priority, draft loss, ghost text, marketplace removal, duplicate output, task list view, syntax highlighting in docstrings, tool cancel crashes; Improved /sandbox UI, thinking status, task list adjust, fork hint; Changed read/search tenses, teammate rendering, ToolSearch display, /commit-push-pr Slack post, /copy availability, background agents permissions, permission rules, config backups.
+
+## Version 2.1.19
+Release Date and Time (UTC): January 23, 2026 9:56 PM
+Changes Overview: Added CLAUDE_CODE_ENABLE_TASKS env var; Added shorthand $0,$1 for custom command args; Fixed AVX crashes, dangling processes on terminal close, /rename/tag in different dirs, resuming by title, pasted text loss with stash, agent list display, backgrounded hooks, file write preview lines; Changed skills approval, argument syntax; [SDK] Added replay events; [VSCode] Enabled forking/rewind for all.
+
+## Version 2.1.18
+Release Date and Time (UTC): January 23, 2026 (time not available, approximate)
+Changes Overview: Added customizable keyboard shortcuts for contexts, chord sequences; Run /keybindings to start.
+
+## Version 2.1.17
+Release Date and Time (UTC): January 22, 2026 9:46 PM
+Changes Overview: Fixed crashes on processors without AVX support.
+
+## Version 2.1.16
+Release Date and Time (UTC): January 22, 2026 8:09 PM
+Changes Overview: Added task management system with dependency tracking; [VSCode] Added plugin management, remote sessions browse/resume; Fixed OOM crashes, context warning hide, session titles language, Windows sidebar race.
+
+## Version 2.1.15
+Release Date and Time (UTC): January 21, 2026 10:01 PM
+Changes Overview: Added npm deprecation notification; Improved UI performance with React Compiler; Fixed auto-compact warning persistence, MCP timeout child process kill.
+
+## Version 2.1.14
+Release Date and Time (UTC): January 20, 2026 11:09 PM
+Changes Overview: Added history autocomplete in bash mode, search in installed plugins; Added pinning to git SHAs; Fixed context window blocking regression, memory crashes/leaks, @ trigger in bash, @-mention folder navigation, /feedback URL, /context token count, overlays closing, slash autocomplete, marketplace navigation, iTerm2 progress bar; Improved backspace for pasted text; [VSCode] Added /usage command.
+
+## Version 2.1.12
+Release Date and Time (UTC): January 17, 2026 4:18 PM
+Changes Overview: Fixed message rendering bug.
+
+## Version 2.1.11
+Release Date and Time (UTC): January 17, 2026 1:39 AM
+Changes Overview: Fixed excessive MCP connection requests for HTTP/SSE transports.
+
+## Version 2.1.10
+Release Date and Time (UTC): January 16, 2026 (time not available, approximate)
+Changes Overview: Added Setup hook event, 'c' shortcut for OAuth URL copy; Fixed bash heredocs crash with JS templates; Improved startup keystroke capture, file suggestions as attachments; [VSCode] Added install count display, trust warning for plugins.
+
+## Version 2.1.9
+Release Date and Time (UTC): January 16, 2026 2:19 AM
+Changes Overview: Added auto:N for MCP tool search threshold, plansDirectory setting, external editor in AskUserQuestion, session URL attribution, PreToolUse additionalContext, ${CLAUDE_SESSION_ID} substitution; Fixed parallel tool calls orphan errors, MCP reconnection hang, Ctrl+Z in Kitty terminals.
+
+## Version 2.1.7
+Release Date and Time (UTC): January 14, 2026 12:04 AM
+Changes Overview: Added showTurnDuration setting, feedback on permission prompts, inline agent response in tasks; Fixed wildcard permission vulnerability, false file mods on Windows, orphaned tool_results, context blocking limit, spinner flash, title animation jitter, git submodules init, bash on Windows temp paths; Improved typing responsiveness; Enabled MCP tool search auto mode; Changed OAuth/API URLs; [VSCode] Fixed process wrapper setting.
+
+## Version 2.1.6
+Release Date and Time (UTC): January 13, 2026 2:26 AM
+Changes Overview: Added search to /config, Updates to /doctor, date filtering to /stats, nested skills discovery, context window percentages, editor failure display; Fixed permission bypass, false file mods, text styling misalignment, feedback panel closing, rate limit warnings/menu, Kitty terminal keys, config backups, orphaned MCP processes, ink2 artifacts; Improved CLAUDE.md imports dialog, /tasks dialog, @ autocomplete; Updated "Help improve Claude" fetch; Changed task notifications cap, terminal title; Removed @-mention for MCP servers; [VSCode] Fixed usage indicator update.
+
+## Version 2.1.5
+Release Date and Time (UTC): January 12, 2026 6:48 PM
+Changes Overview: Added CLAUDE_CODE_TMPDIR env var to override temp directory.
+
+## Version 2.1.4
+Release Date and Time (UTC): January 11, 2026 12:28 AM
+Changes Overview: Added CLAUDE_CODE_DISABLE_BACKGROUND_TASKS env var; Fixed "Help improve Claude" setting fetch with OAuth refresh.
+
+## Version 2.1.3
+Release Date and Time (UTC): January 9, 2026 11:32 PM
+Changes Overview: Merged slash commands and skills; Added release channel toggle to /config, unreachable permission rules detection/warnings; Fixed plan files persisting after /clear, false skill duplicates on large inode filesystems, background task count mismatch, sub-agents model during compaction and web search, trust dialog enabling features; Improved terminal rendering and slash command suggestions; Changed tool hook timeout to 10 minutes; [VSCode] Added permission destination selector.
+
+## Version 2.1.2
+Release Date and Time (UTC): January 9, 2026 12:04 AM
+Changes Overview: Added source path metadata to dragged images, clickable hyperlinks for file paths, Winget support, Shift+Tab in plan mode, FORCE_AUTOUPDATE_PLUGINS var, agent_type in SessionStart hook; Fixed command injection vulnerability, memory leak with tree-sitter, binary file inclusion in @include, update claims, socket file crashes, remote session URL, MCP tool name exposure; Improved Option-as-Meta hint, image paste error message over SSH, permission explainer; Changed large outputs to disk persistence, /plugins tab to unify plugins/MCPs, deprecated Windows managed settings path; Updated SDK zod dependency; Fixed VSCode usage display.
+
+## Version 2.1.1
+Release Date and Time (UTC): January 7, 2026 9:31 PM
+Changes Overview: Chore: Update CHANGELOG.md.
+
+## Version 2.1.0
+Release Date and Time (UTC): January 7, 2026 (time not available)
+Changes Overview: Added automatic skill hot-reload, support for forked sub-agent context in skills and slash commands, agent field in skills, language setting for responses, respectGitignore support, IS_DEMO env var; Changed Shift+Enter behavior in terminals; Fixed security issues with sensitive data in logs, file and skill discovery on resume, pasted content loss, Esc key with queued prompts, permission prompts for complex bash commands, command search prioritization, PreToolUse hooks, plugin path resolution, LSP tool enabling, background tasks in repos with dots, Claude in Chrome for WSL, Windows installer; Improved CLI help; Added wildcard matching for Bash permissions, unified Ctrl+B backgrounding, MCP list_changed support, /teleport and /remote-env commands, disabling specific agents, hooks support for agents and skills, new Vim motions, /plan shortcut, slash command autocomplete, --tools flag, file read token limit env var, once: true for hooks, YAML lists in frontmatter, prompt and agent hook types from plugins, Cmd+V for image paste in iTerm2, arrow navigation for tabs, real-time thinking display, filepath in background bash output, Skills category in context visualization; Fixed OAuth token refresh, session persistence, resume failures, AWS Bedrock subagents race, API context overflow, FIFO file hang, terminal keyboard reset, Alt+B/F navigation, plugin root substitution, file permissions for Write tool, commands with $(), multi-line bash commands, bash command prefix extraction.
 
 2.0.77 — January 6, 2026
 Hotfix for compatibility issues introduced in 2.1.0 transition.

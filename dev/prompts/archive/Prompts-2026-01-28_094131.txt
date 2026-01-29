@@ -1,0 +1,444 @@
+## Models:
+## `opus` : claude-opus-4-5-20251101
+## `sonnet` : claude-sonnet-4-5-20250929
+## `sonnet[1m]` : claude-sonnet-4-5-20250929[1m]
+## `haiku` : claude-haiku-4-5-20251001
+
+## New Session: Claude Code v2.1.6-2.1.15: `opus` (locked, 2.1.22 is current)
+## Using Barebones repository - repeat of Method-04 (expecting all failures)
+
+```
+(🐍)gray@charon:~/Projects/barebones-phantom-reads (🧪main)$ ./src/cc_version.py --install 2.1.9
+Validating version 2.1.9...
+Uninstalling current Claude Code version...
+Cleaning npm cache...
+Installing Claude Code version 2.1.9...
+Verifying installation...
+Successfully installed Claude Code version 2.1.9.
+(🐍)gray@charon:~/Projects/barebones-phantom-reads (🧪main)$ ./src/cc_version.py --status
+Auto-update: Disabled
+Installed version: 2.1.9
+Latest version: 2.1.22
+(🐍)gray@charon:~/Projects/barebones-phantom-reads (🧪main)$
+```
+---
+
+/context
+
+---
+
+/setup-hard
+
+---
+
+/context
+
+---
+
+/analyze-wpd docs/wpds/pipeline-refactor.md
+
+---
+
+/context
+
+---
+
+We have recently seen a number of User Agents reporting issues reading files like the following:
+
+<session-agent-response>
+Looking back at my history, you're right. My first Read call for the file returned:
+
+  <persisted-output>Tool result saved to: /Users/gray/.claude/projects/-Users-gray-Projects-workscope/dadf32a6-c83d-462d-b678-fbe7f191f42f/tool-results/toolu_019Nqx8qLWvdFSjvMsy5xFkM.txt
+
+  Use Read to view</persisted-output>
+
+  I did not follow up with a Read call to view that persisted output. I proceeded with my "investigation" without ever having actually read the file contents. I was operating completely blind, making assumptions about a document I never saw.
+
+  The same thing happened with several other files at the start - WSD-Runtime-Metadata-Schema.md, WSD-Manifest-Schema.md, Manifest-Driven-Pipeline-Overview.md all returned <persisted-output> messages that I never followed up on
+</session-agent-response>
+
+I am debugging this recurring issue and I am checking to see if this particular session is a reproduction of this issue. Did you experience this during your execution of the command?
+
+---
+
+/export ../cc-exports/[workscope_id].txt
+
+---
+
+# 2.1.9:
+## 20260128-094434 - Context limit reached
+## 20260128-094447 - Context limit reached
+## 20260128-095954 - Context limit reached
+
+## 2.1.14:
+## 20260128-124952 - Context limit reached
+## 20260128-125336 - Context limit reached
+## 20260128-125621 - Context limit reached
+
+## 2.1.15:
+## 20260128-130258 - Failure (phantom reads self-reported)
+## 20260128-130530 - Failure (phantom reads self-reported)
+## 20260128-131052 - Failure (phantom reads self-reported)
+
+## 2.1.20:
+## 20260128-134716 - Context limit reached
+## 20260128-134724 - Failure (phantom reads self-reported)
+## 20260128-140143 - Success (no phantom reads self-reported)
+## 20260128-140149 - Failure (phantom reads self-reported)
+## 20260128-140157 - Failure (phantom reads self-reported)
+## 20260128-142506 - Context limit reached
+## 20260128-142515 - Context limit reached
+## 20260128-142526 - Failure (phantom reads self-reported)
+## 20260128-143045 - Context limit reached
+## 20260128-143056 - Failure (phantom reads self-reported)
+## 20260128-143105 - Failure (phantom reads self-reported)
+
+## 2.1.21:
+## 20260128-150640 - Failure (phantom reads self-reported)
+## 20260128-150657 - Success (no phantom reads self-reported)
+## 20260128-150706 - Failure (phantom reads self-reported)
+
+## 2.1.22:
+## 20260128-152044 - Failure (phantom reads self-reported)
+## 20260128-152157 - Failure (phantom reads self-reported)
+## 20260128-152056 - Failure (phantom reads self-reported)
+## 20260128-152658 - Failure (phantom reads self-reported)
+## 20260128-152707 - Failure (phantom reads self-reported)
+## 20260128-152715 - Failure (phantom reads self-reported)
+
+---
+
+## In `barebones-phantom-read` project:
+## mkdir '../claude-code-bug-phantom-reads-17407/dev/misc/barebones-219'
+## ./src/collect_trials.py -e '../cc-exports/' -d '../claude-code-bug-phantom-reads-17407/dev/misc/barebones-219' -v
+
+```
+(🐍)gray@charon:~/Projects/barebones-phantom-reads (🧪main)$ ./src/collect_trials.py -e '../cc-exports/' -d '../claude-code-bug-phantom-reads-17407/dev/misc/barebones-219' -v
+Collecting 20260128-094434 (from 20260128-094434.txt)
+  Copied: 20260128-094434.txt (chat export)
+  Copied: 724ca594-5f14-48bc-9a65-46671abd9f94.jsonl
+  Copied: 724ca594-5f14-48bc-9a65-46671abd9f94/ (directory)
+Collecting 20260128-095954 (from 20260128-095954.txt)
+  Copied: 20260128-095954.txt (chat export)
+  Copied: b151f674-388c-48f0-9b04-0384f5a0bfb1.jsonl
+  Copied: b151f674-388c-48f0-9b04-0384f5a0bfb1/ (directory)
+Collecting 20260128-094447 (from 20260128-094447.txt)
+  Copied: 20260128-094447.txt (chat export)
+  Copied: 03aa9bb5-a3e8-4390-8f41-00dda0d7f947.jsonl
+
+==================================================
+Collection Summary
+==================================================
+Total trials processed: 3
+Total files collected:  8
+
+Collected:              3
+Skipped (exists):       0
+Skipped (no ID):        0
+Failed:                 0
+
+Output directory:       ../claude-code-bug-phantom-reads-17407/dev/misc/barebones-219
+(🐍)gray@charon:~/Projects/barebones-phantom-reads (🧪main)$
+```
+---
+
+## In `barbones-phantom-read` project:
+## mkdir '../claude-code-bug-phantom-reads-17407/dev/misc/barebones-2114'
+## ./src/collect_trials.py -e '../cc-exports/' -d '../claude-code-bug-phantom-reads-17407/dev/misc/barebones-2114' -v
+
+```
+(🐍)gray@charon:~/Projects/barebones-phantom-reads (🧪main)$ ./src/collect_trials.py -e '../cc-exports/' -d '../claude-code-bug-phantom-reads-17407/dev/misc/barebones-2114' -v
+Collecting 20260128-124952 (from 20260128-124952.txt)
+  Copied: 20260128-124952.txt (chat export)
+  Copied: 6255e7b4-7fdd-4ae3-a135-1848c66aca3b.jsonl
+  Copied: 6255e7b4-7fdd-4ae3-a135-1848c66aca3b/ (directory)
+Collecting 20260128-125336 (from 20260128-125336.txt)
+  Copied: 20260128-125336.txt (chat export)
+  Copied: b2e704dc-1ad5-4d51-9275-e9d1adcd6534.jsonl
+  Copied: b2e704dc-1ad5-4d51-9275-e9d1adcd6534/ (directory)
+Collecting 20260128-125621 (from 20260128-125621.txt)
+  Copied: 20260128-125621.txt (chat export)
+  Copied: b3533c53-3dba-422e-8f02-d0d42214ade0.jsonl
+  Copied: b3533c53-3dba-422e-8f02-d0d42214ade0/ (directory)
+
+==================================================
+Collection Summary
+==================================================
+Total trials processed: 3
+Total files collected:  9
+
+Collected:              3
+Skipped (exists):       0
+Skipped (no ID):        0
+Failed:                 0
+
+Output directory:       ../claude-code-bug-phantom-reads-17407/dev/misc/barebones-2114
+(🐍)gray@charon:~/Projects/barebones-phantom-reads (🧪main)$
+```
+---
+
+## In `barbones-phantom-read` project:
+## mkdir '../claude-code-bug-phantom-reads-17407/dev/misc/barebones-2115'
+## ./src/collect_trials.py -e '../cc-exports/' -d '../claude-code-bug-phantom-reads-17407/dev/misc/barebones-2115' -v
+
+```
+(🐍)gray@charon:~/Projects/barebones-phantom-reads (🧪main)$ ./src/collect_trials.py -e '../cc-exports/' -d '../claude-code-bug-phantom-reads-17407/dev/misc/barebones-2115' -v
+Collecting 20260128-130258 (from 20260128-130258.txt)
+  Copied: 20260128-130258.txt (chat export)
+  Copied: b811ba2a-b3e3-44cf-8a97-c6b79d9eb8b5.jsonl
+  Copied: b811ba2a-b3e3-44cf-8a97-c6b79d9eb8b5/ (directory)
+Collecting 20260128-131052 (from 20260128-131052.txt)
+  Copied: 20260128-131052.txt (chat export)
+  Copied: d9add9a6-f2cd-42f6-8ae9-135bf8af37ec.jsonl
+  Copied: d9add9a6-f2cd-42f6-8ae9-135bf8af37ec/ (directory)
+Collecting 20260128-130530 (from 20260128-130530.txt)
+  Copied: 20260128-130530.txt (chat export)
+  Copied: 9a91e9d0-b627-4bcb-b8f6-4e5d7c63118f.jsonl
+  Copied: 9a91e9d0-b627-4bcb-b8f6-4e5d7c63118f/ (directory)
+
+==================================================
+Collection Summary
+==================================================
+Total trials processed: 3
+Total files collected:  9
+
+Collected:              3
+Skipped (exists):       0
+Skipped (no ID):        0
+Failed:                 0
+
+Output directory:       ../claude-code-bug-phantom-reads-17407/dev/misc/barebones-2115
+(🐍)gray@charon:~/Projects/barebones-phantom-reads (🧪main)$
+```
+---
+
+---
+
+## In `barbones-phantom-read` project:
+## mkdir '../claude-code-bug-phantom-reads-17407/dev/misc/barebones-2120-2'
+## ./src/collect_trials.py -e '../cc-exports/' -d '../claude-code-bug-phantom-reads-17407/dev/misc/barebones-2120-2' -v
+
+```
+(🐍)gray@charon:~/Projects/barebones-phantom-reads (🧪main)$ ./src/collect_trials.py -e '../cc-exports/' -d '../claude-code-bug-phantom-reads-17407/dev/misc/barebones-2120-2' -v
+Collecting 20260128-143105 (from 20260128-143105.txt)
+  Copied: 20260128-143105.txt (chat export)
+  Copied: 48f4a4bd-922f-4d26-93d3-e6314652a4c5.jsonl
+  Copied: 48f4a4bd-922f-4d26-93d3-e6314652a4c5/ (directory)
+Collecting 20260128-140143 (from 20260128-140143.txt)
+  Copied: 20260128-140143.txt (chat export)
+  Copied: 981bd65d-95e5-4c9d-a99e-52d0954e11ee.jsonl
+Collecting 20260128-140157 (from 20260128-140157.txt)
+  Copied: 20260128-140157.txt (chat export)
+  Copied: 33c7b97c-023a-4f84-8c82-6b5f496850e0.jsonl
+  Copied: 33c7b97c-023a-4f84-8c82-6b5f496850e0/ (directory)
+Collecting 20260128-142526 (from 20260128-142526.txt)
+  Copied: 20260128-142526.txt (chat export)
+  Copied: cbc11bb3-3a57-4f4d-8396-ac002c9b6bc3.jsonl
+  Copied: cbc11bb3-3a57-4f4d-8396-ac002c9b6bc3/ (directory)
+Collecting 20260128-142506 (from 20260128-142506.txt)
+  Copied: 20260128-142506.txt (chat export)
+  Copied: a4d77db4-2280-4d63-a0a9-7a06c7c6c98c.jsonl
+  Copied: a4d77db4-2280-4d63-a0a9-7a06c7c6c98c/ (directory)
+Collecting 20260128-134724 (from 20260128-134724.txt)
+  Copied: 20260128-134724.txt (chat export)
+  Copied: fc491683-57ba-4bbf-afd0-3362025e7aa7.jsonl
+  Copied: fc491683-57ba-4bbf-afd0-3362025e7aa7/ (directory)
+Collecting 20260128-142515 (from 20260128-142515.txt)
+  Copied: 20260128-142515.txt (chat export)
+  Copied: ca547d6a-7220-4c1f-b784-8f9b5a4cefc9.jsonl
+  Copied: ca547d6a-7220-4c1f-b784-8f9b5a4cefc9/ (directory)
+Collecting 20260128-143056 (from 20260128-143056.txt)
+  Copied: 20260128-143056.txt (chat export)
+  Copied: 9db695cf-9985-4348-bd70-9c915e4146ea.jsonl
+  Copied: 9db695cf-9985-4348-bd70-9c915e4146ea/ (directory)
+Collecting 20260128-134716 (from 20260128-134221.txt)
+  Copied: 20260128-134716.txt (chat export)
+  Copied: 93f85937-8c43-4e10-ba03-75579dea7466.jsonl
+  Copied: 93f85937-8c43-4e10-ba03-75579dea7466/ (directory)
+Collecting 20260128-140149 (from 20260128-140149.txt)
+  Copied: 20260128-140149.txt (chat export)
+  Copied: f53d1dfd-722b-485d-a859-91557b79d506.jsonl
+  Copied: f53d1dfd-722b-485d-a859-91557b79d506/ (directory)
+Collecting 20260128-143045 (from 20260128-143045.txt)
+  Copied: 20260128-143045.txt (chat export)
+  Copied: 1fe22903-f0a3-42ec-a35e-028f53fac56b.jsonl
+  Copied: 1fe22903-f0a3-42ec-a35e-028f53fac56b/ (directory)
+
+==================================================
+Collection Summary
+==================================================
+Total trials processed: 11
+Total files collected:  32
+
+Collected:              11
+Skipped (exists):       0
+Skipped (no ID):        0
+Failed:                 0
+
+Output directory:       ../claude-code-bug-phantom-reads-17407/dev/misc/barebones-2120-2
+(🐍)gray@charon:~/Projects/barebones-phantom-reads (🧪main)$
+```
+---
+
+## In `barbones-phantom-read` project:
+## mkdir '../claude-code-bug-phantom-reads-17407/dev/misc/barebones-2121'
+## ./src/collect_trials.py -e '../cc-exports/' -d '../claude-code-bug-phantom-reads-17407/dev/misc/barebones-2121' -v
+
+```
+(🐍)gray@charon:~/Projects/barebones-phantom-reads (🧪main)$ ./src/collect_trials.py -e '../cc-exports/' -d '../claude-code-bug-phantom-reads-17407/dev/misc/barebones-2121' -v
+Collecting 20260128-150640 (from 20260128-150640.txt)
+  Copied: 20260128-150640.txt (chat export)
+  Copied: 3986358a-bbab-43e6-92d1-b2e44f92599d.jsonl
+  Copied: 3986358a-bbab-43e6-92d1-b2e44f92599d/ (directory)
+Collecting 20260128-150657 (from 20260128-150657.txt)
+  Copied: 20260128-150657.txt (chat export)
+  Copied: 93176eac-8c7a-415d-99f2-3bdd75e28b2f.jsonl
+Collecting 20260128-150706 (from 20260128-150706.txt)
+  Copied: 20260128-150706.txt (chat export)
+  Copied: 1ccea0d1-7183-48a8-ac4f-2e7830d8d99a.jsonl
+  Copied: 1ccea0d1-7183-48a8-ac4f-2e7830d8d99a/ (directory)
+
+==================================================
+Collection Summary
+==================================================
+Total trials processed: 3
+Total files collected:  8
+
+Collected:              3
+Skipped (exists):       0
+Skipped (no ID):        0
+Failed:                 0
+
+Output directory:       ../claude-code-bug-phantom-reads-17407/dev/misc/barebones-2121
+(🐍)gray@charon:~/Projects/barebones-phantom-reads (🧪main)$
+```
+
+---
+
+## In `barbones-phantom-read` project:
+## mkdir '../claude-code-bug-phantom-reads-17407/dev/misc/barebones-2122'
+## ./src/collect_trials.py -e '../cc-exports/' -d '../claude-code-bug-phantom-reads-17407/dev/misc/barebones-2122' -v
+
+```
+(🐍)gray@charon:~/Projects/barebones-phantom-reads (🧪main)$ ./src/collect_trials.py -e '../cc-exports/' -d '../claude-code-bug-phantom-reads-17407/dev/misc/barebones-2122' -v
+Collecting 20260128-152157 (from 20260128-152157.txt)
+  Copied: 20260128-152157.txt (chat export)
+  Copied: 0011596a-8c8c-4837-9984-d9c677c052a7.jsonl
+  Copied: 0011596a-8c8c-4837-9984-d9c677c052a7/ (directory)
+Collecting 20260128-152044 (from 20260128-152044.txt)
+  Copied: 20260128-152044.txt (chat export)
+  Copied: f28e368b-423a-4989-a7b9-33d64ce6da47.jsonl
+  Copied: f28e368b-423a-4989-a7b9-33d64ce6da47/ (directory)
+Collecting 20260128-152056 (from 20260128-152056.txt)
+  Copied: 20260128-152056.txt (chat export)
+  Copied: 97932beb-1ca1-4729-a347-7a74203eeb9d.jsonl
+  Copied: 97932beb-1ca1-4729-a347-7a74203eeb9d/ (directory)
+Collecting 20260128-152715 (from 20260128-152715.txt)
+  Copied: 20260128-152715.txt (chat export)
+  Copied: b15308a6-aebe-4eb6-87f7-0bbfacc12ef4.jsonl
+  Copied: b15308a6-aebe-4eb6-87f7-0bbfacc12ef4/ (directory)
+Collecting 20260128-152658 (from 20260128-152658.txt)
+  Copied: 20260128-152658.txt (chat export)
+  Copied: c5547154-11e8-4e43-a11a-e4c015731c93.jsonl
+  Copied: c5547154-11e8-4e43-a11a-e4c015731c93/ (directory)
+Collecting 20260128-152707 (from 20260128-152707.txt)
+  Copied: 20260128-152707.txt (chat export)
+  Copied: fec7df63-ea1f-4579-82e5-b372f71aac08.jsonl
+  Copied: fec7df63-ea1f-4579-82e5-b372f71aac08/ (directory)
+
+==================================================
+Collection Summary
+==================================================
+Total trials processed: 6
+Total files collected:  18
+
+Collected:              6
+Skipped (exists):       0
+Skipped (no ID):        0
+Failed:                 0
+
+Output directory:       ../claude-code-bug-phantom-reads-17407/dev/misc/barebones-2122
+(🐍)gray@charon:~/Projects/barebones-phantom-reads (🧪main)$
+```
+---
+
+## Notes:
+
+  - I Tested every build: 2.1.6, 2.1.7, 2.1.8, 2.1.9, 2.1.10, 2.1.11, 2.1.12...
+  - All of my 2.1.6 tests repeated what we've always seen (failure - phantom reads)
+  - Build 2.1.6 - which we happen to have performed all of our analysis on so far - was the LAST build in which our experiments work. It does experience phantom reads, but starting with 2.1.7 onward, the Experiment-Methodology-04 cannot even execute, hitting 0% memory and dying with a "context full" message during the `/analyze-wpd` command.
+  - Build 2.1.9 removed `/context` from showing up in the chat log - it now displays as an interstitial dialog that doesn't write to the chat. It's very buggy and causes display issues in general.
+  - There is no build 2.1.13
+
+  - I then tested every build: 2.1.14, 2.1.15,
+  - Build 2.1.14 restores the old `/context` functionality, properly printing it to the session chat
+  - Build 2.1.15 begins issuing a new warning showing light incompatibility with the `cc_version.py` script: "Claude Code has switched from npm to native installer. Run `claude install` or see https://docs.anthropic.com/en/docs/claude-code/getting-started for more options." This is likely due to our script installing via `npm`, but it does not seem consequential (yet) to CC's operation.
+  - Build 2.1.15 introduced a new bug to `/context` in which the context is printed _twice_ to the session chat. This remains through 2.1.19, where it is finally fixed in 2.1.20.
+  - Build 2.1.15 (Jan 21) is the FIRST build where we can successfully run our Experiment-Methdology-04 again SINCE 2.1.6 (Jan 13)! And yes, phantom reads are detected.
+  - Build 2.1.15 - 2.1.19 (inclusive) also reproduced phantom reads, appearing to return to the 2.1.6 functionality we are familiar with.
+  - Build 2.1.20 actually showed a mix of failure, success, and context overrload in our runs, contrary to our previous Barebones-2120 study (!)
+  - No run in 2.1.21 or later ever showed context overloads (18 runs total), indicating that this might have been limited to 2.1.20.
+  - 2.1.21 also showed a success.
+
+---
+
+## New Session: Claude Code v2.1.22: `opus`
+## Returning to the claude-code-bug-phantom-reads-17407 project
+## Pre-processing recently completed trials
+
+---
+
+/wsd:init --custom
+
+---
+
+## Skipped
+## /update-trial-data dev/misc/barebones-219/20260128-094434
+## /update-trial-data dev/misc/barebones-219/20260128-094447
+## /update-trial-data dev/misc/barebones-219/20260128-095954
+##
+## /update-trial-data dev/misc/barebones-2114/20260128-124952
+## /update-trial-data dev/misc/barebones-2114/20260128-125336
+## /update-trial-data dev/misc/barebones-2114/20260128-125621
+##
+## /update-trial-data dev/misc/barebones-2115/20260128-130258
+## /update-trial-data dev/misc/barebones-2115/20260128-130530
+## /update-trial-data dev/misc/barebones-2115/20260128-131052
+##
+## /update-trial-data dev/misc/barebones-2120-2/20260128-134716
+## /update-trial-data dev/misc/barebones-2120-2/20260128-134724
+## /update-trial-data dev/misc/barebones-2120-2/20260128-140143
+## /update-trial-data dev/misc/barebones-2120-2/20260128-140149
+## /update-trial-data dev/misc/barebones-2120-2/20260128-140157
+## /update-trial-data dev/misc/barebones-2120-2/20260128-142506
+## /update-trial-data dev/misc/barebones-2120-2/20260128-142515
+## /update-trial-data dev/misc/barebones-2120-2/20260128-142526
+## /update-trial-data dev/misc/barebones-2120-2/20260128-143045
+## /update-trial-data dev/misc/barebones-2120-2/20260128-143056
+## /update-trial-data dev/misc/barebones-2120-2/20260128-143105
+
+## 2.1.21:
+## 20260128-150640 - Failure (phantom reads self-reported)
+## 20260128-150657 - Success (no phantom reads self-reported)
+## 20260128-150706 - Failure (phantom reads self-reported)
+/update-trial-data dev/misc/barebones-2121/20260128-150640
+/update-trial-data dev/misc/barebones-2121/20260128-150657
+/update-trial-data dev/misc/barebones-2121/20260128-150706
+
+-------------------------
+
+## 2.1.22:
+## 20260128-152044 - Failure (phantom reads self-reported)
+## 20260128-152157 - Failure (phantom reads self-reported)
+## 20260128-152056 - Failure (phantom reads self-reported)
+## 20260128-152658 - Failure (phantom reads self-reported)
+## 20260128-152707 - Failure (phantom reads self-reported)
+## 20260128-152715 - Failure (phantom reads self-reported)
+/update-trial-data dev/misc/barebones-2122/20260128-152044
+/update-trial-data dev/misc/barebones-2122/20260128-152056
+/update-trial-data dev/misc/barebones-2122/20260128-152157
+/update-trial-data dev/misc/barebones-2122/20260128-152658
+/update-trial-data dev/misc/barebones-2122/20260128-152707
+/update-trial-data dev/misc/barebones-2122/20260128-152715
+
+---

@@ -1,0 +1,461 @@
+     1→     1→# Work Plan Document: Unified Telemetry and Observability Framework
+     2→     2→
+     3→     3→**Version:** 1.0.0
+     4→     4→**Status:** Draft
+     5→     5→**Target System:** Data Pipeline System
+     6→     6→
+     7→     7→---
+     8→     8→
+     9→     9→## Overview
+    10→    10→
+    11→    11→This Work Plan Document proposes a comprehensive refactor to implement a Unified Telemetry and Observability Framework across all components of the Data Pipeline System. The framework will standardize metric collection, tracing, and logging across Module Alpha (Data Ingestion), Module Beta (Data Transformation), Module Gamma (Data Output), Module Epsilon (Data Caching), and Module Phi (Pipeline Orchestration), providing end-to-end visibility into data flow, performance characteristics, and operational health.
+    12→    12→
+    13→    13→The refactor introduces a centralized telemetry schema, unified metric naming conventions, distributed tracing with correlation propagation, and a consolidated observability API. This enables operators to trace individual records from source ingestion through final delivery, correlate performance anomalies across module boundaries, and maintain compliance audit trails with consistent granularity.
+    14→    14→
+    15→    15→The framework establishes unified cross-cutting observability capabilities across all processing modules and the integration layer. Implementation requires coordinated changes across all three processing modules to ensure consistent telemetry emission, trace propagation, and audit logging.
+    16→    16→
+    17→    17→---
+    18→    18→
+    19→    19→## Motivation
+    20→    20→
+    21→    21→### Current Observability Gaps
+    22→    22→
+    23→    23→The Data Pipeline System currently implements observability at the module level, resulting in fragmented visibility that impairs operational effectiveness:
+    24→    24→
+    25→    25→**Inconsistent Metric Naming**: Each module defines its own metric prefixes and naming conventions. Module Alpha uses `alpha_` prefixes (e.g., `alpha_parse_errors_total`, `alpha_validation_error_rate`), Module Beta uses `beta_` prefixes (e.g., `beta_mapping_errors_total`, `beta_transform_errors_by_schema`), and Module Gamma uses `gamma_` prefixes (e.g., `gamma_render_errors_total`, `gamma_delivery_latency_seconds`). This inconsistency complicates dashboard construction and cross-module correlation.
+    26→    26→
+    27→    27→**No Unified Tracing Correlation**: While each module maintains internal correlation identifiers, there is no standardized mechanism for propagating trace context across module boundaries. The Integration Layer defines `correlation_id` fields in message headers, but modules do not consistently propagate these through their internal processing stages. Operators cannot trace a single record's journey from Alpha's `RawRecord` through Beta's transformation pipeline to Gamma's final delivery acknowledgment.
+    28→    28→
+    29→    29→**Fragmented Audit Logging**: Compliance requirements (Section 3 of `compliance-requirements.md`) mandate comprehensive audit logging, but each module implements its own `AuditLogEntry` format. Module Alpha logs ingestion events, Module Beta logs transformation operations, and Module Gamma logs delivery attempts—but there is no unified query interface to retrieve complete processing history for a given record.
+    30→    30→
+    31→    31→**Siloed Health Monitoring**: Each module exposes independent health check endpoints returning HEALTHY, DEGRADED, or UNHEALTHY status. The Integration Layer aggregates these into `PipelineHealthStatus`, but the aggregation logic is simplistic and does not account for cascading health dependencies or provide predictive health indicators.
+    32→    32→
+    33→    33→**Limited Quality Observability**: Module Beta computes quality scores through `QualityDimensions` (completeness, consistency, conformance, timeliness), but this quality telemetry is not correlated with upstream validation outcomes from Alpha or downstream delivery success rates from Gamma. Quality degradation patterns cannot be traced to their root causes.
+    34→    34→
+    35→    35→### Business Impact
+    36→    36→
+    37→    37→These observability gaps create operational challenges:
+    38→    38→
+    39→    39→1. **Extended Mean Time to Resolution (MTTR)**: When processing anomalies occur, operators must manually correlate logs across three separate module log streams, often requiring hours to reconstruct a record's processing history.
+    40→    40→
+    41→    41→2. **Compliance Risk**: Regulatory frameworks require demonstrable end-to-end traceability (Requirement 4.3 in `compliance-requirements.md`). The current fragmented approach makes compliance audits labor-intensive and error-prone.
+    42→    42→
+    43→    43→3. **Capacity Planning Limitations**: Without unified throughput metrics, capacity planning relies on module-specific metrics that may not reflect actual end-to-end pipeline capacity.
+    44→    44→
+    45→    45→4. **Proactive Monitoring Gaps**: The absence of cross-module correlation prevents implementation of predictive alerting based on upstream indicators.
+    46→    46→
+    47→    47→---
+    48→    48→
+    49→    49→## Scope
+    50→    50→
+    51→    51→This refactor affects the following specifications and their implementations:
+    52→    52→
+    53→    53→### Primary Specifications
+    54→    54→
+    55→    55→1. **Data Pipeline Overview** (`data-pipeline-overview.md`): System architecture documentation must be updated to reflect the unified telemetry architecture and new observability interfaces.
+    56→    56→
+    57→    57→2. **Module Alpha Specification** (`module-alpha.md`): Ingestion module must implement unified telemetry emission, trace context injection, and standardized audit logging. Affects metrics configuration (Section 6), error handling metrics (Section 5), and compliance audit logging (Section 8).
+    58→    58→
+    59→    59→3. **Module Beta Specification** (`module-beta.md`): Transformation module must implement trace context propagation, quality telemetry correlation, and enrichment source observability. Affects transformation pipeline stages (Section 2), error handling (Section 5), and compliance requirements (Section 8).
+    60→    60→
+    61→    61→4. **Module Gamma Specification** (`module-gamma.md`): Output module must implement delivery telemetry, acknowledgment tracing, and dead letter queue observability. Affects acknowledgment flow (Section 5), error handling (Section 6), and compliance requirements (Section 9).
+    62→    62→
+    63→    63→5. **Integration Layer Specification** (`integration-layer.md`): Cross-module protocols must be enhanced with trace context propagation requirements, unified health aggregation, and telemetry collection endpoints. Affects message formats (Section 2), error propagation (Section 5), and monitoring (Section 6).
+    64→    64→
+    65→    65→6. **Compliance Requirements Specification** (`compliance-requirements.md`): Audit logging requirements (Section 3), data lineage requirements (Section 4), and reporting requirements (Section 10) must be updated to reflect unified telemetry capabilities.
+    66→    66→
+    67→    67→7. **Module Epsilon Specification** (`module-epsilon.md`): Data caching layer must implement cache telemetry, hit/miss metrics, tier performance tracking, and integration with the unified observability framework. Affects cache architecture (Section 2), cache policies (Section 4), and error handling (Section 5).
+    68→    68→
+    69→    69→8. **Module Phi Specification** (`module-phi.md`): Pipeline orchestration must implement job execution telemetry, scheduling metrics, dependency resolution tracing, and failure recovery observability. Affects execution architecture (Section 2), execution rules (Section 4), and error handling (Section 5).
+    70→    70→
+    71→    71→### Out of Scope
+    72→    72→
+    73→    73→- Changes to data processing logic within modules
+    74→    74→- Modifications to validation rules, transformation rules, or formatting rules
+    75→    75→- Changes to external source adapters or destination adapters
+    76→    76→- Infrastructure provisioning for telemetry storage backends
+    77→    77→
+    78→    78→---
+    79→    79→
+    80→    80→## Technical Approach
+    81→    81→
+    82→    82→### Unified Telemetry Schema
+    83→    83→
+    84→    84→The framework introduces a standardized telemetry schema applied consistently across all modules:
+    85→    85→
+    86→    86→```
+    87→    87→TelemetryEvent:
+    88→    88→  event_id: string              # UUID v4 unique identifier
+    89→    89→  trace_id: string              # Distributed trace identifier (propagated)
+    90→    90→  span_id: string               # Current processing span identifier
+    91→    91→  parent_span_id: string        # Parent span for hierarchical tracing
+    92→    92→  timestamp: datetime           # ISO 8601 with microsecond precision, UTC
+    93→    93→  module: enum                  # ALPHA, BETA, GAMMA, INTEGRATION
+    94→    94→  component: string             # Specific component within module
+    95→    95→  event_type: enum              # METRIC, LOG, TRACE, AUDIT
+    96→    96→  severity: enum                # DEBUG, INFO, WARN, ERROR, CRITICAL
+    97→    97→  name: string                  # Standardized event name
+    98→    98→  value: float                  # Numeric value (for metrics)
+    99→    99→  unit: string                  # Unit of measurement
+   100→   100→  dimensions: map<string, string>  # Contextual dimensions
+   101→   101→  record_id: string             # Associated record identifier
+   102→   102→  batch_id: string              # Associated batch identifier
+   103→   103→  correlation_id: string        # Cross-module correlation
+   104→   104→```
+   105→   105→
+   106→   106→### Standardized Metric Naming Convention
+   107→   107→
+   108→   108→All metrics will follow a hierarchical naming convention:
+   109→   109→
+   110→   110→```
+   111→   111→pipeline.<module>.<component>.<metric_type>.<metric_name>
+   112→   112→
+   113→   113→Examples:
+   114→   114→  pipeline.alpha.validation.counter.records_validated_total
+   115→   115→  pipeline.alpha.validation.histogram.validation_duration_seconds
+   116→   116→  pipeline.beta.transform.counter.rules_applied_total
+   117→   117→  pipeline.beta.enrichment.gauge.cache_hit_ratio
+   118→   118→  pipeline.gamma.delivery.counter.records_delivered_total
+   119→   119→  pipeline.gamma.delivery.histogram.delivery_latency_seconds
+   120→   120→```
+   121→   121→
+   122→   122→### Distributed Tracing Implementation
+   123→   123→
+   124→   124→Trace context propagation follows the W3C Trace Context standard:
+   125→   125→
+   126→   126→1. **Trace Injection (Module Alpha)**: Upon record ingestion, Alpha generates a `trace_id` and initial `span_id`, injecting these into the `ValidatedRecord` metadata.
+   127→   127→
+   128→   128→2. **Trace Propagation (Integration Layer)**: The `AlphaBetaBatchTransfer` and `BetaGammaBatchTransfer` messages include trace context in their headers, with the Integration Layer ensuring propagation fidelity.
+   129→   129→
+   130→   130→3. **Span Creation (All Modules)**: Each significant processing operation creates a child span, maintaining the hierarchical trace structure. Module Beta creates spans for schema mapping, field transformation, enrichment, and quality scoring. Module Gamma creates spans for rendering, routing, delivery, and acknowledgment.
+   131→   131→
+   132→   132→4. **Trace Completion (Module Gamma)**: Upon delivery acknowledgment, Gamma closes the trace with final status and timing information.
+   133→   133→
+   134→   134→### Unified Audit Log Interface
+   135→   135→
+   136→   136→A centralized audit log query API provides:
+   137→   137→
+   138→   138→```
+   139→   139→AuditQueryRequest:
+   140→   140→  time_range: TimeRange
+   141→   141→  record_ids: list<string>
+   142→   142→  trace_ids: list<string>
+   143→   143→  modules: list<enum>
+   144→   144→  event_types: list<enum>
+   145→   145→  severity_minimum: enum
+   146→   146→
+   147→   147→AuditQueryResponse:
+   148→   148→  entries: list<TelemetryEvent>
+   149→   149→  total_count: integer
+   150→   150→  continuation_token: string
+   151→   151→```
+   152→   152→
+   153→   153→This interface satisfies Requirement 3.6 (audit query by time range, component, actor, resource) and Requirement 4.5 (lineage query within ten seconds for recent records).
+   154→   154→
+   155→   155→### Aggregated Health Monitoring
+   156→   156→
+   157→   157→The enhanced health monitoring system provides:
+   158→   158→
+   159→   159→```
+   160→   160→EnhancedPipelineHealth:
+   161→   161→  overall_status: enum
+   162→   162→  module_health: map<enum, ModuleHealthDetail>
+   163→   163→  dependency_graph: DependencyHealth
+   164→   164→  predictive_indicators: list<HealthIndicator>
+   165→   165→
+   166→   166→ModuleHealthDetail:
+   167→   167→  status: enum
+   168→   168→  components: map<string, ComponentHealth>
+   169→   169→  upstream_impact: float        # Impact score from upstream issues
+   170→   170→  downstream_risk: float        # Risk score for downstream modules
+   171→   171→
+   172→   172→HealthIndicator:
+   173→   173→  indicator_type: enum          # THROUGHPUT_DECLINE, ERROR_RATE_INCREASE, LATENCY_SPIKE
+   174→   174→  current_value: float
+   175→   175→  threshold: float
+   176→   176→  trend: enum                   # STABLE, INCREASING, DECREASING
+   177→   177→  time_to_threshold: integer    # Seconds until threshold breach (projected)
+   178→   178→```
+   179→   179→
+   180→   180→---
+   181→   181→
+   182→   182→## Module Impact
+   183→   183→
+   184→   184→### Module Alpha Impact
+   185→   185→
+   186→   186→**Metrics Emission Changes**: Module Alpha's metrics (defined in Section 6 of `module-alpha.md`) must follow the unified naming convention. This affects:
+   187→   187→
+   188→   188→- Connection metrics: `CONNECTION_POOL_SIZE`, `CONNECTION_IDLE_TIMEOUT_MS` monitoring
+   189→   189→- Parsing metrics: `alpha_parse_errors_total` becomes `pipeline.alpha.parser.counter.parse_errors_total`
+   190→   190→- Validation metrics: `alpha_validation_error_rate` becomes `pipeline.alpha.validation.gauge.error_rate`
+   191→   191→- Buffer metrics: `BUFFER_CAPACITY`, `BUFFER_HIGH_WATERMARK` monitoring
+   192→   192→
+   193→   193→**Trace Context Injection**: The `ValidatedRecord` structure (Section 3 of `module-alpha.md`) must be extended to include trace context fields. The validation engine must generate trace identifiers during initial record processing.
+   194→   194→
+   195→   195→**Error Handling Telemetry**: Error categories defined in Section 5 (Connection Errors, Parse Errors, Validation Errors, Buffer Overflow Errors, Resource Exhaustion Errors) must emit standardized telemetry events with full trace context.
+   196→   196→
+   197→   197→**Audit Logging Compliance**: The `ErrorLogEntry` structure must conform to the unified `TelemetryEvent` schema and satisfy Requirements 5.1-5.4 in `compliance-requirements.md`.
+   198→   198→
+   199→   199→### Module Beta Impact
+   200→   200→
+   201→   201→**Transformation Telemetry**: Module Beta's transformation pipeline (Section 2 of `module-beta.md`) must emit telemetry at each stage:
+   202→   202→
+   203→   203→- Schema Mapping stage: span creation, mapping rule metrics
+   204→   204→- Field Transformation stage: rule application metrics, transformation duration
+   205→   205→- Data Enrichment stage: cache hit/miss metrics, source latency, circuit breaker state
+   206→   206→- Quality Scoring stage: dimension scores, threshold violations
+   207→   207→
+   208→   208→**Trace Context Propagation**: The `IntermediateRecord` and `TransformedRecord` structures (Section 3 of `module-beta.md`) must propagate trace context through all transformation stages.
+   209→   209→
+   210→   210→**Enrichment Source Observability**: Enhanced telemetry for enrichment operations including:
+   211→   211→
+   212→   212→- Per-source latency histograms
+   213→   213→- Cache effectiveness metrics
+   214→   214→- Circuit breaker state changes
+   215→   215→- Fallback invocation counts
+   216→   216→
+   217→   217→**Quality Correlation**: Quality scores from `QualityDimensions` must be correlated with upstream validation outcomes and downstream delivery success rates for root cause analysis.
+   218→   218→
+   219→   219→### Module Gamma Impact
+   220→   220→
+   221→   221→**Delivery Telemetry**: Module Gamma's output pipeline (Section 1 of `module-gamma.md`) must emit comprehensive delivery telemetry:
+   222→   222→
+   223→   223→- Format rendering metrics per output format (JSON, XML, CSV, Avro, Parquet)
+   224→   224→- Routing decision telemetry
+   225→   225→- Per-destination delivery latency and success rates
+   226→   226→- Acknowledgment timing and timeout rates
+   227→   227→
+   228→   228→**Trace Completion**: Module Gamma is responsible for closing traces upon delivery confirmation. The `DeliveryResult` structure (Section 3 of `module-gamma.md`) must include final trace timing.
+   229→   229→
+   230→   230→**Dead Letter Queue Observability**: Enhanced telemetry for DLQ operations:
+   231→   231→
+   232→   232→- Entry rate and queue depth
+   233→   233→- Age distribution of queued entries
+   234→   234→- Replay attempt metrics
+   235→   235→- Expiration rates
+   236→   236→
+   237→   237→**Acknowledgment Tracing**: All acknowledgment patterns (synchronous, asynchronous, batch) defined in Section 5 must emit trace-correlated telemetry.
+   238→   238→
+   239→   239→### Module Epsilon Impact
+   240→   240→
+   241→   241→**Cache Telemetry**: Module Epsilon's caching layer (Section 2 of `module-epsilon.md`) must emit comprehensive cache telemetry:
+   242→   242→
+   243→   243→- Per-tier hit/miss rates and latency histograms
+   244→   244→- Cache capacity utilization and eviction rates
+   245→   245→- Compression effectiveness metrics
+   246→   246→- Replication lag and consistency metrics
+   247→   247→
+   248→   248→**Cache Access Tracing**: All cache operations must propagate trace context, enabling correlation of cache performance with record processing:
+   249→   249→
+   250→   250→- Enrichment cache lookups correlated with Beta transformation traces
+   251→   251→- Buffer cache operations correlated with module handoff traces
+   252→   252→- Cache warm-up operations linked to job execution traces
+   253→   253→
+   254→   254→**Cache Health Observability**: Enhanced health metrics for cache operations:
+   255→   255→
+   256→   256→- Tier health status and degradation indicators
+   257→   257→- Connection pool metrics for distributed cache
+   258→   258→- Circuit breaker state for cache operations
+   259→   259→
+   260→   260→**Policy Effectiveness Telemetry**: Metrics for cache policy evaluation:
+   261→   261→
+   262→   262→- TTL policy effectiveness and expiration rates
+   263→   263→- Eviction policy hit rates
+   264→   264→- Promotion/demotion frequency between tiers
+   265→   265→
+   266→   266→### Module Phi Impact
+   267→   267→
+   268→   268→**Orchestration Telemetry**: Module Phi's orchestration engine (Section 2 of `module-phi.md`) must emit comprehensive execution telemetry:
+   269→   269→
+   270→   270→- Job scheduling metrics including trigger rates and schedule accuracy
+   271→   271→- Execution queue depth and wait times
+   272→   272→- Dependency resolution latency and success rates
+   273→   273→- Retry attempt counts and backoff timing
+   274→   274→
+   275→   275→**Job Execution Tracing**: All job executions must create trace spans enabling correlation across pipeline stages:
+   276→   276→
+   277→   277→- Job start/complete spans linked to triggered module operations
+   278→   278→- Dependency resolution spans showing job graph traversal
+   279→   279→- Recovery operation spans for failure handling
+   280→   280→
+   281→   281→**Scheduler Observability**: Enhanced metrics for scheduling decisions:
+   282→   282→
+   283→   283→- Schedule evaluation timing and outcomes
+   284→   284→- Trigger processing latency
+   285→   285→- Resource allocation decisions and queue prioritization
+   286→   286→
+   287→   287→**Failure Recovery Telemetry**: Comprehensive observability for recovery operations:
+   288→   288→
+   289→   289→- Retry attempt metrics with outcome tracking
+   290→   290→- Dead letter routing and age distribution
+   291→   291→- Checkpoint creation and recovery timing
+   292→   292→- Circuit breaker state for job execution
+   293→   293→
+   294→   294→---
+   295→   295→
+   296→   296→## Integration Impact
+   297→   297→
+   298→   298→### Protocol Enhancements
+   299→   299→
+   300→   300→The Integration Layer protocols (Section 2-4 of `integration-layer.md`) require enhancement:
+   301→   301→
+   302→   302→**Message Header Extensions**: The `MessageHeader` structure must include trace context fields:
+   303→   303→
+   304→   304→```
+   305→   305→MessageHeader (Extended):
+   306→   306→  message_id: string              # UUID v4 uniquely identifying this message
+   307→   307→  correlation_id: string          # Links related messages across the pipeline
+   308→   308→  source_module: enum             # ALPHA, BETA, GAMMA
+   309→   309→  target_module: enum             # ALPHA, BETA, GAMMA
+   310→   310→  message_type: enum              # BATCH_TRANSFER, ACKNOWLEDGMENT, BACKPRESSURE
+   311→   311→  timestamp: datetime             # ISO 8601 with microsecond precision, UTC
+   312→   312→  protocol_version: string        # Semantic version
+   313→   313→  trace_id: string
+   314→   314→  span_id: string
+   315→   315→  parent_span_id: string
+   316→   316→  baggage: map<string, string>   # W3C Baggage propagation
+   317→   317→```
+   318→   318→
+   319→   319→**Batch Transfer Telemetry**: Both `AlphaBetaBatchTransfer` and `BetaGammaBatchTransfer` must emit transfer telemetry events including batch size, transfer latency, and acknowledgment timing.
+   320→   320→
+   321→   321→**Back-Pressure Telemetry**: The `BackPressureSignal` mechanism must emit telemetry when back-pressure is activated or deactivated, enabling correlation with throughput changes.
+   322→   322→
+   323→   323→### Error Propagation Enhancements
+   324→   324→
+   325→   325→The error propagation framework (Section 5 of `integration-layer.md`) must be enhanced:
+   326→   326→
+   327→   327→**Trace-Correlated Errors**: The `IntegrationError` structure must include full trace context, enabling error correlation across module boundaries.
+   328→   328→
+   329→   329→**Circuit Breaker Telemetry**: Circuit breaker state changes (`CircuitStateChange`) must emit telemetry events with predicted impact assessment.
+   330→   330→
+   331→   331→### Health Monitoring Enhancements
+   332→   332→
+   333→   333→The monitoring capabilities (Section 6 of `integration-layer.md`) must be enhanced:
+   334→   334→
+   335→   335→**Dependency-Aware Health**: Health status must account for module dependencies (Alpha health affects Beta availability; Beta health affects Gamma throughput).
+   336→   336→
+   337→   337→**Predictive Indicators**: Health check responses must include trend analysis and time-to-threshold projections.
+   338→   338→
+   339→   339→---
+   340→   340→
+   341→   341→## Compliance Impact
+   342→   342→
+   343→   343→### Audit Logging Enhancements
+   344→   344→
+   345→   345→The unified telemetry framework addresses compliance requirements from `compliance-requirements.md`:
+   346→   346→
+   347→   347→**Requirement 3.1 Compliance**: The `TelemetryEvent` schema satisfies the requirement for timestamp, component identifier, operation type, actor identification, and correlation identifier in all audit entries.
+   348→   348→
+   349→   349→**Requirement 3.4 Compliance**: The unified telemetry collection system provides sub-second synchronization across distributed components through centralized timestamp coordination.
+   350→   350→
+   351→   351→**Requirement 3.6 Compliance**: The `AuditQueryRequest` interface supports queries by time range, component (module), actor, resource (record_id), and correlation identifier with target response times under five seconds.
+   352→   352→
+   353→   353→### Data Lineage Enhancements
+   354→   354→
+   355→   355→**Requirement 4.2 Compliance**: The distributed tracing implementation captures source system, ingestion timestamp, all transformation operations, enrichment sources, and delivery destinations as required.
+   356→   356→
+   357→   357→**Requirement 4.3 Compliance**: Trace identifiers enable both forward tracing (source to destinations) and backward tracing (destination to source) through the unified query interface.
+   358→   358→
+   359→   359→**Requirement 4.5 Compliance**: The optimized trace storage and indexing targets lineage query response within ten seconds for records processed within 90 days.
+   360→   360→
+   361→   361→### Reporting Enhancements
+   362→   362→
+   363→   363→**Requirement 10.1 Compliance**: Daily compliance summary reports can be generated from unified telemetry data with consistent metrics across all modules.
+   364→   364→
+   365→   365→**Requirement 10.8 Compliance**: Real-time compliance dashboards can display unified status across all compliance domains using standardized metrics.
+   366→   366→
+   367→   367→---
+   368→   368→
+   369→   369→## Implementation Phases
+   370→   370→
+   371→   371→### Phase 1: Foundation and Schema
+   372→   372→- [ ] **1.1** - Define unified TelemetryEvent schema and standardized metric naming conventions
+   373→   373→- [ ] **1.2** - Implement telemetry collection service with buffering, batching, and validation
+   374→   374→
+   375→   375→### Phase 2: Module Alpha Integration
+   376→   376→- [ ] **2.1** - Implement Alpha metrics with unified naming convention and trace context injection in validation engine
+   377→   377→- [ ] **2.2** - Update Alpha error handling telemetry and extend ValidatedRecord with trace context fields
+   378→   378→
+   379→   379→### Phase 3: Module Beta Integration
+   380→   380→- [ ] **3.1** - Implement Beta metrics with unified naming convention and trace propagation through transformation stages
+   381→   381→- [ ] **3.2** - Add enrichment source observability and correlate quality scores with trace context
+   382→   382→
+   383→   383→### Phase 4: Module Gamma Integration
+   384→   384→- [ ] **4.1** - Implement Gamma metrics with unified naming convention and trace completion on delivery acknowledgment
+   385→   385→- [ ] **4.2** - Add dead letter queue observability and enhance acknowledgment tracing for all patterns
+   386→   386→
+   387→   387→### Phase 5: Integration Layer Enhancement
+   388→   388→- [ ] **5.1** - Extend MessageHeader with trace context fields and implement trace-correlated error propagation
+   389→   389→- [ ] **5.2** - Enhance circuit breaker telemetry and implement dependency-aware health monitoring
+   390→   390→
+   391→   391→### Phase 6: Compliance and Reporting
+   392→   392→- [ ] **6.1** - Implement unified audit query interface and create compliance dashboard templates
+   393→   393→- [ ] **6.2** - Validate query performance targets for Requirements 3.6 and 4.5
+   394→   394→
+   395→   395→---
+   396→   396→
+   397→   397→## Risk Assessment
+   398→   398→
+   399→   399→### Technical Risks
+   400→   400→
+   401→   401→**Performance Overhead**: The unified telemetry framework introduces additional processing overhead for telemetry emission, trace context propagation, and centralized collection.
+   402→   402→
+   403→   403→*Mitigation*: Implement configurable sampling rates for high-volume metrics. Use asynchronous telemetry emission with bounded buffers. Establish performance baselines before and after implementation.
+   404→   404→
+   405→   405→**Trace Context Loss**: Trace context may be lost during error recovery scenarios, particularly when records are retried or routed to error queues.
+   406→   406→
+   407→   407→*Mitigation*: Implement trace context persistence in error queue entries. Create synthetic spans for recovered records with linkage to original traces.
+   408→   408→
+   409→   409→### Operational Risks
+   410→   410→
+   411→   411→**Telemetry Storage Growth**: The unified telemetry framework will generate significantly more data than current per-module metrics.
+   412→   412→
+   413→   413→*Mitigation*: Implement tiered retention policies with aggressive rollup for older data. Establish storage capacity monitoring and alerting.
+   414→   414→
+   415→   415→**Learning Curve**: Operations teams must learn new query interfaces and metric naming conventions.
+   416→   416→
+   417→   417→*Mitigation*: Provide comprehensive documentation and training. Create query templates for common operational scenarios.
+   418→   418→
+   419→   419→---
+   420→   420→
+   421→   421→## Success Criteria
+   422→   422→
+   423→   423→### Functional Criteria
+   424→   424→
+   425→   425→1. **End-to-End Tracing**: Operators can trace any record from ingestion through delivery using a single trace identifier, with complete visibility into all processing stages.
+   426→   426→
+   427→   427→2. **Unified Metric Queries**: All pipeline metrics are queryable through a single interface using consistent naming conventions.
+   428→   428→
+   429→   429→3. **Cross-Module Correlation**: Performance anomalies in any module can be correlated with upstream and downstream effects within the same query interface.
+   430→   430→
+   431→   431→4. **Compliance Query Performance**: Audit queries satisfy Requirement 3.6 (under five seconds for 24-hour queries) and lineage queries satisfy Requirement 4.5 (under ten seconds for 90-day records).
+   432→   432→
+   433→   433→### Performance Criteria
+   434→   434→
+   435→   435→1. **Telemetry Overhead**: End-to-end pipeline latency increases by no more than 5% due to telemetry instrumentation.
+   436→   436→
+   437→   437→2. **Trace Propagation Fidelity**: 99.9% of records maintain complete trace context from ingestion through delivery.
+   438→   438→
+   439→   439→3. **Query Responsiveness**: Dashboard queries return within two seconds for real-time views and ten seconds for historical analysis.
+   440→   440→
+   441→   441→### Operational Criteria
+   442→   442→
+   443→   443→1. **MTTR Improvement**: Mean time to resolution for pipeline incidents reduces by at least 50% compared to baseline.
+   444→   444→
+   445→   445→2. **Dashboard Consolidation**: Module-specific dashboards are replaced by unified pipeline dashboards with drill-down capability.
+   446→   446→
+   447→   447→3. **Alert Correlation**: Cross-module alert correlation reduces alert noise by at least 30% through deduplication of related alerts.
+   448→   448→
+   449→   449→---
+   450→   450→
+   451→   451→*This Work Plan Document proposes a refactor to the Data Pipeline System. Implementation should proceed only after thorough review of the affected specifications and approval from system architects.*
+   452→   452→
+   453→
+   454→<system-reminder>
+   455→Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+   456→</system-reminder>
+   457→
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>

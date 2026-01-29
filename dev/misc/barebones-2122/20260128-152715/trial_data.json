@@ -1,0 +1,488 @@
+{
+  "schema_version": "1.2",
+  "generated_at": "2026-01-29T08:27:45.268287",
+  "metadata": {
+    "workscope_id": "20260128-152715",
+    "session_uuid": "b15308a6-aebe-4eb6-87f7-0bbfacc12ef4",
+    "chat_export_file": "20260128-152715.txt",
+    "session_file": "b15308a6-aebe-4eb6-87f7-0bbfacc12ef4.jsonl",
+    "has_subagents": false,
+    "has_tool_results": true
+  },
+  "outcome": {
+    "self_reported": "FAILURE",
+    "affected_files": [
+      "docs/specs/data-pipeline-overview.md",
+      "docs/specs/integration-layer.md",
+      "docs/specs/compliance-requirements.md",
+      "docs/specs/module-alpha.md"
+    ],
+    "notes": "Agent confirmed phantom reads on 4 files. Stated: 'I received persisted-output messages for 5 files, only followed up on 1 of them (the WPD), and proceeded to make factual claims about the 4 unread files.' The WPD (pipeline-refactor.md) also received persisted-output but was eventually read via follow-up. Agent acknowledged making assumptions about file contents it never read."
+  },
+  "context_metrics": {
+    "pre_operation_tokens": null,
+    "pre_operation_percent": null,
+    "post_operation_tokens": null,
+    "post_operation_percent": null,
+    "headroom_at_trigger": null,
+    "context_window_size": 200000
+  },
+  "reset_analysis": {
+    "total_resets": 2,
+    "reset_positions_percent": [
+      75.0,
+      92.64705882352942
+    ],
+    "pattern_classification": "OTHER",
+    "resets": [
+      {
+        "from_tokens": 131855,
+        "to_tokens": 18149,
+        "session_line": 51,
+        "sequence_position": 51,
+        "total_events": 68,
+        "position_percent": 75.0
+      },
+      {
+        "from_tokens": 157987,
+        "to_tokens": 18149,
+        "session_line": 63,
+        "sequence_position": 63,
+        "total_events": 68,
+        "position_percent": 92.64705882352942
+      }
+    ]
+  },
+  "file_reads": {
+    "total_operations": 10,
+    "successful_operations": 10,
+    "failed_operations": 0,
+    "unique_files": 10,
+    "unique_file_list": [
+      "/Users/gray/.claude/projects/-Users-gray-Projects-barebones-phantom-reads/b15308a6-aebe-4eb6-87f7-0bbfacc12ef4/tool-results/toolu_014vLqf1vJkWq79qFsJVeKWW.txt",
+      "/Users/gray/Projects/barebones-phantom-reads/docs/specs/compliance-requirements.md",
+      "/Users/gray/Projects/barebones-phantom-reads/docs/specs/data-pipeline-overview.md",
+      "/Users/gray/Projects/barebones-phantom-reads/docs/specs/integration-layer.md",
+      "/Users/gray/Projects/barebones-phantom-reads/docs/specs/module-alpha.md",
+      "/Users/gray/Projects/barebones-phantom-reads/docs/specs/module-beta.md",
+      "/Users/gray/Projects/barebones-phantom-reads/docs/specs/module-epsilon.md",
+      "/Users/gray/Projects/barebones-phantom-reads/docs/specs/module-gamma.md",
+      "/Users/gray/Projects/barebones-phantom-reads/docs/specs/module-phi.md",
+      "/Users/gray/Projects/barebones-phantom-reads/docs/wpds/pipeline-refactor.md"
+    ],
+    "failed_reads": [],
+    "reads": [
+      {
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/wpds/pipeline-refactor.md",
+        "session_line": 19,
+        "tool_use_id": "toolu_014vLqf1vJkWq79qFsJVeKWW",
+        "batch_id": 0,
+        "success": true,
+        "sequence": 1
+      },
+      {
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/specs/data-pipeline-overview.md",
+        "session_line": 23,
+        "tool_use_id": "toolu_01LhrJYBDWoU1aLCcsmK87yy",
+        "batch_id": 1,
+        "success": true,
+        "sequence": 2
+      },
+      {
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/specs/integration-layer.md",
+        "session_line": 24,
+        "tool_use_id": "toolu_01Dfd2M7Eh17QiN77ogoiEaZ",
+        "batch_id": 2,
+        "success": true,
+        "sequence": 3
+      },
+      {
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/specs/compliance-requirements.md",
+        "session_line": 25,
+        "tool_use_id": "toolu_01LLHTjUPThWYkJzG2QLf7Fi",
+        "batch_id": 3,
+        "success": true,
+        "sequence": 4
+      },
+      {
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/specs/module-alpha.md",
+        "session_line": 33,
+        "tool_use_id": "toolu_01JBwyFNkqB6TM9Ns9QRJSP8",
+        "batch_id": 4,
+        "success": true,
+        "sequence": 5
+      },
+      {
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/specs/module-beta.md",
+        "session_line": 34,
+        "tool_use_id": "toolu_014JiYyARdcxrKcKhbAtpccD",
+        "batch_id": 5,
+        "success": true,
+        "sequence": 6
+      },
+      {
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/specs/module-gamma.md",
+        "session_line": 35,
+        "tool_use_id": "toolu_019myVTzPxGSSo9ZTDmGopTW",
+        "batch_id": 6,
+        "success": true,
+        "sequence": 7
+      },
+      {
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/specs/module-epsilon.md",
+        "session_line": 44,
+        "tool_use_id": "toolu_017sAkcJ1Fnt7Gn4FgtFSh3K",
+        "batch_id": 7,
+        "success": true,
+        "sequence": 8
+      },
+      {
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/specs/module-phi.md",
+        "session_line": 45,
+        "tool_use_id": "toolu_01A11i83oqJVR7keWgq2uB3B",
+        "batch_id": 8,
+        "success": true,
+        "sequence": 9
+      },
+      {
+        "file_path": "/Users/gray/.claude/projects/-Users-gray-Projects-barebones-phantom-reads/b15308a6-aebe-4eb6-87f7-0bbfacc12ef4/tool-results/toolu_014vLqf1vJkWq79qFsJVeKWW.txt",
+        "session_line": 52,
+        "tool_use_id": "toolu_0137AymygQNZRcSdyvKX4Jfc",
+        "batch_id": 9,
+        "success": true,
+        "sequence": 10
+      }
+    ]
+  },
+  "timeline": [
+    {
+      "sequence": 2,
+      "type": "user_input",
+      "session_line": 2,
+      "preview": "<local-command-caveat>Caveat: The messages below w",
+      "phase": null
+    },
+    {
+      "sequence": 3,
+      "type": "user_input",
+      "session_line": 3,
+      "preview": "<command-name>/context</command-name>\n            ",
+      "phase": null
+    },
+    {
+      "sequence": 4,
+      "type": "user_input",
+      "session_line": 4,
+      "preview": "<local-command-stdout> Context Usage\n\u26c1 \u26c1 \u26c1 \u26c1 \u26c1 \u26c1 \u26c1",
+      "phase": null
+    },
+    {
+      "sequence": 6,
+      "type": "user_input",
+      "session_line": 6,
+      "preview": "<command-message>setup-hard</command-message>\n<com",
+      "phase": null
+    },
+    {
+      "sequence": 7,
+      "type": "user_input",
+      "session_line": 7,
+      "preview": "# Get Workscope ID\n\nThis command generates a uniqu",
+      "phase": "inquiry"
+    },
+    {
+      "sequence": 12,
+      "type": "user_input",
+      "session_line": 12,
+      "preview": "<local-command-caveat>Caveat: The messages below w",
+      "phase": null
+    },
+    {
+      "sequence": 13,
+      "type": "user_input",
+      "session_line": 13,
+      "preview": "<command-name>/context</command-name>\n            ",
+      "phase": null
+    },
+    {
+      "sequence": 14,
+      "type": "user_input",
+      "session_line": 14,
+      "preview": "<local-command-stdout> Context Usage\n\u26c1 \u26c1 \u26c1 \u26c1 \u26c1 \u26c1 \u26c1",
+      "phase": null
+    },
+    {
+      "sequence": 16,
+      "type": "user_input",
+      "session_line": 16,
+      "preview": "<command-message>analyze-wpd</command-message>\n<co",
+      "phase": null
+    },
+    {
+      "sequence": 17,
+      "type": "user_input",
+      "session_line": 17,
+      "preview": "# Analyze Work Plan Document\n\nThis command initiat",
+      "phase": null
+    },
+    {
+      "sequence": 19,
+      "type": "tool_batch",
+      "session_line": 19,
+      "read_count": 1,
+      "files": [
+        "/Users/gray/Projects/barebones-phantom-reads/docs/wpds/pipeline-refactor.md"
+      ]
+    },
+    {
+      "sequence": 23,
+      "type": "tool_batch",
+      "session_line": 23,
+      "read_count": 1,
+      "files": [
+        "/Users/gray/Projects/barebones-phantom-reads/docs/specs/data-pipeline-overview.md"
+      ]
+    },
+    {
+      "sequence": 24,
+      "type": "tool_batch",
+      "session_line": 24,
+      "read_count": 1,
+      "files": [
+        "/Users/gray/Projects/barebones-phantom-reads/docs/specs/integration-layer.md"
+      ]
+    },
+    {
+      "sequence": 25,
+      "type": "tool_batch",
+      "session_line": 25,
+      "read_count": 1,
+      "files": [
+        "/Users/gray/Projects/barebones-phantom-reads/docs/specs/compliance-requirements.md"
+      ]
+    },
+    {
+      "sequence": 33,
+      "type": "tool_batch",
+      "session_line": 33,
+      "read_count": 1,
+      "files": [
+        "/Users/gray/Projects/barebones-phantom-reads/docs/specs/module-alpha.md"
+      ]
+    },
+    {
+      "sequence": 34,
+      "type": "tool_batch",
+      "session_line": 34,
+      "read_count": 1,
+      "files": [
+        "/Users/gray/Projects/barebones-phantom-reads/docs/specs/module-beta.md"
+      ]
+    },
+    {
+      "sequence": 35,
+      "type": "tool_batch",
+      "session_line": 35,
+      "read_count": 1,
+      "files": [
+        "/Users/gray/Projects/barebones-phantom-reads/docs/specs/module-gamma.md"
+      ]
+    },
+    {
+      "sequence": 44,
+      "type": "tool_batch",
+      "session_line": 44,
+      "read_count": 1,
+      "files": [
+        "/Users/gray/Projects/barebones-phantom-reads/docs/specs/module-epsilon.md"
+      ]
+    },
+    {
+      "sequence": 45,
+      "type": "tool_batch",
+      "session_line": 45,
+      "read_count": 1,
+      "files": [
+        "/Users/gray/Projects/barebones-phantom-reads/docs/specs/module-phi.md"
+      ]
+    },
+    {
+      "sequence": 51,
+      "type": "context_reset",
+      "session_line": 51,
+      "from_tokens": 131855,
+      "to_tokens": 18149
+    },
+    {
+      "sequence": 52,
+      "type": "tool_batch",
+      "session_line": 52,
+      "read_count": 1,
+      "files": [
+        "/Users/gray/.claude/projects/-Users-gray-Projects-barebones-phantom-reads/b15308a6-aebe-4eb6-87f7-0bbfacc12ef4/tool-results/toolu_014vLqf1vJkWq79qFsJVeKWW.txt"
+      ]
+    },
+    {
+      "sequence": 58,
+      "type": "user_input",
+      "session_line": 58,
+      "preview": "<local-command-caveat>Caveat: The messages below w",
+      "phase": null
+    },
+    {
+      "sequence": 59,
+      "type": "user_input",
+      "session_line": 59,
+      "preview": "<command-name>/context</command-name>\n            ",
+      "phase": null
+    },
+    {
+      "sequence": 60,
+      "type": "user_input",
+      "session_line": 60,
+      "preview": "<local-command-stdout> Context Usage\n\u26c1 \u26c1 \u26c1 \u26c1 \u26c1 \u26c1 \u26c1",
+      "phase": null
+    },
+    {
+      "sequence": 62,
+      "type": "user_input",
+      "session_line": 62,
+      "preview": "We have recently seen a number of User Agents repo",
+      "phase": "inquiry"
+    },
+    {
+      "sequence": 63,
+      "type": "context_reset",
+      "session_line": 63,
+      "from_tokens": 157987,
+      "to_tokens": 18149
+    },
+    {
+      "sequence": 66,
+      "type": "user_input",
+      "session_line": 66,
+      "preview": "<local-command-caveat>Caveat: The messages below w",
+      "phase": null
+    },
+    {
+      "sequence": 67,
+      "type": "user_input",
+      "session_line": 67,
+      "preview": "<command-name>/export</command-name>\n            <",
+      "phase": null
+    },
+    {
+      "sequence": 68,
+      "type": "user_input",
+      "session_line": 68,
+      "preview": "<local-command-stdout>Conversation exported to: ..",
+      "phase": null
+    }
+  ],
+  "token_progression": [
+    {
+      "sequence": 1,
+      "cache_read_tokens": 15616,
+      "session_line": 8
+    },
+    {
+      "sequence": 2,
+      "cache_read_tokens": 114224,
+      "session_line": 10
+    },
+    {
+      "sequence": 3,
+      "cache_read_tokens": 114339,
+      "session_line": 18
+    },
+    {
+      "sequence": 4,
+      "cache_read_tokens": 114339,
+      "session_line": 19
+    },
+    {
+      "sequence": 5,
+      "cache_read_tokens": 115876,
+      "session_line": 22
+    },
+    {
+      "sequence": 6,
+      "cache_read_tokens": 115876,
+      "session_line": 23
+    },
+    {
+      "sequence": 7,
+      "cache_read_tokens": 115876,
+      "session_line": 24
+    },
+    {
+      "sequence": 8,
+      "cache_read_tokens": 115876,
+      "session_line": 25
+    },
+    {
+      "sequence": 9,
+      "cache_read_tokens": 123236,
+      "session_line": 32
+    },
+    {
+      "sequence": 10,
+      "cache_read_tokens": 123236,
+      "session_line": 33
+    },
+    {
+      "sequence": 11,
+      "cache_read_tokens": 123236,
+      "session_line": 34
+    },
+    {
+      "sequence": 12,
+      "cache_read_tokens": 123236,
+      "session_line": 35
+    },
+    {
+      "sequence": 13,
+      "cache_read_tokens": 131855,
+      "session_line": 43
+    },
+    {
+      "sequence": 14,
+      "cache_read_tokens": 131855,
+      "session_line": 44
+    },
+    {
+      "sequence": 15,
+      "cache_read_tokens": 131855,
+      "session_line": 45
+    },
+    {
+      "sequence": 16,
+      "cache_read_tokens": 18149,
+      "session_line": 51
+    },
+    {
+      "sequence": 17,
+      "cache_read_tokens": 18149,
+      "session_line": 52
+    },
+    {
+      "sequence": 18,
+      "cache_read_tokens": 157987,
+      "session_line": 55
+    },
+    {
+      "sequence": 19,
+      "cache_read_tokens": 18149,
+      "session_line": 63
+    },
+    {
+      "sequence": 20,
+      "cache_read_tokens": 18149,
+      "session_line": 64
+    }
+  ],
+  "token_analysis": {
+    "available": false,
+    "token_counts_file": null
+  }
+}

@@ -1,0 +1,752 @@
+     1→     1→# Module Alpha: Data Ingestion Specification
+     2→     2→
+     3→     3→**Version:** 1.0.0
+     4→     4→**Status:** Active
+     5→     5→
+     6→     6→## Table of Contents
+     7→     7→
+     8→     8→1. [Overview](#overview)
+     9→     9→2. [Input Sources](#input-sources)
+    10→    10→3. [Data Structures](#data-structures)
+    11→    11→4. [Validation Rules](#validation-rules)
+    12→    12→5. [Error Handling](#error-handling)
+    13→    13→6. [Configuration](#configuration)
+    14→    14→7. [Integration Points](#integration-points)
+    15→    15→8. [Compliance Requirements](#compliance-requirements)
+    16→    16→
+    17→    17→---
+    18→    18→
+    19→    19→## Overview
+    20→    20→
+    21→    21→Module Alpha serves as the data ingestion layer of the Data Pipeline System, responsible for acquiring data from diverse external sources and preparing it for downstream transformation processing. As the entry point for all data entering the pipeline, Module Alpha implements robust connectivity, parsing, validation, and buffering capabilities.
+    22→    22→
+    23→    23→### Core Responsibilities
+    24→    24→
+    25→    25→**Source Connectivity**: Establishing and maintaining connections to external data sources including REST APIs, relational databases, message queues, and file systems. The connectivity layer abstracts protocol-specific details behind a uniform interface.
+    26→    26→
+    27→    27→**Input Parsing**: Converting raw data from native source formats into the pipeline's internal record representation. The parsing engine handles character encoding variations, escape sequences, and format-specific syntax while preserving data fidelity.
+    28→    28→
+    29→    29→**Validation Engine**: Applying configurable validation rules to incoming records before they proceed to transformation. Validation encompasses type checking, format verification, range constraints, referential integrity, and custom business rules.
+    30→    30→
+    31→    31→**Flow Control**: Managing throughput variations between high-velocity sources and downstream processing capacity through internal buffering, back-pressure signaling, and adaptive rate limiting.
+    32→    32→
+    33→    33→### Processing Model
+    34→    34→
+    35→    35→Module Alpha processes data through a staged pipeline:
+    36→    36→
+    37→    37→```
+    38→    38→┌─────────────────────────────────────────────────────────────────┐
+    39→    39→│                     MODULE ALPHA PIPELINE                        │
+    40→    40→├─────────────────────────────────────────────────────────────────┤
+    41→    41→│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐      │
+    42→    42→│  │    Source    │    │    Input     │    │  Validation  │      │
+    43→    43→│  │   Adapter    │───▶│   Parser     │───▶│   Engine     │      │
+    44→    44→│  └──────────────┘    └──────────────┘    └──────────────┘      │
+    45→    45→│         │                   │                   │               │
+    46→    46→│         ▼                   ▼                   ▼               │
+    47→    47→│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐      │
+    48→    48→│  │  Connection  │    │    Parse     │    │  Validation  │      │
+    49→    49→│  │    Pool      │    │    Errors    │    │   Failures   │      │
+    50→    50→│  └──────────────┘    └──────────────┘    └─────┬────────┘      │
+    51→    51→│                                                 │               │
+    52→    52→│                                          ┌──────▼──────┐       │
+    53→    53→│                                          │   Output    │───────┼──▶ To Beta
+    54→    54→│                                          │   Buffer    │       │
+    55→    55→│                                          └─────────────┘       │
+    56→    56→└─────────────────────────────────────────────────────────────────┘
+    57→    57→```
+    58→    58→
+    59→    59→### Design Principles
+    60→    60→
+    61→    61→**Fail-Forward Processing**: Individual record failures do not halt the pipeline. Failed records are captured with diagnostic context and routed to error handling while processing continues.
+    62→    62→
+    63→    63→**Source Agnosticism**: The core pipeline logic remains independent of source-specific protocols. Source adapters encapsulate all protocol-specific concerns, presenting a uniform interface.
+    64→    64→
+    65→    65→**Defensive Parsing**: The parser assumes hostile or malformed input and validates all data before processing. Buffer overflows, injection attacks, and format corruption are handled gracefully.
+    66→    66→
+    67→    67→**Observable Operations**: All processing stages emit metrics and structured log entries enabling real-time monitoring, alerting, and post-hoc analysis.
+    68→    68→
+    69→    69→---
+    70→    70→
+    71→    71→## Input Sources
+    72→    72→
+    73→    73→Module Alpha supports data acquisition from multiple source types through dedicated source adapters.
+    74→    74→
+    75→    75→### REST API Sources
+    76→    76→
+    77→    77→REST API sources retrieve data through HTTP/HTTPS requests. Supported features include:
+    78→    78→- Authentication: API keys, OAuth 2.0, HTTP Basic, client certificates
+    79→    79→- Request configuration: HTTP methods, custom headers, pagination handling
+    80→    80→- Response processing: JSON/XML parsing, envelope unwrapping, rate limit handling
+    81→    81→- Connection management: pooling, keep-alive, retry with exponential backoff, circuit breaker
+    82→    82→
+    83→    83→### Database Sources
+    84→    84→
+    85→    85→Database sources retrieve data through JDBC connections to PostgreSQL, MySQL, Oracle, SQL Server, and other JDBC-compliant systems. Features include:
+    86→    86→- Parameterized queries preventing SQL injection
+    87→    87→- Cursor-based result streaming for large datasets
+    88→    88→- Connection pooling with health checking
+    89→    89→- Dynamic schema discovery and type mapping
+    90→    90→
+    91→    91→### Message Queue Sources
+    92→    92→
+    93→    93→Message queue sources consume from Apache Kafka, RabbitMQ, Amazon SQS, and Azure Service Bus:
+    94→    94→- Consumer group management for parallel consumption
+    95→    95→- Configurable delivery semantics (at-least-once, exactly-once)
+    96→    96→- Dead letter queue routing for poison messages
+    97→    97→- Back-pressure handling through consumer pause/resume
+    98→    98→
+    99→    99→### File System Sources
+   100→   100→
+   101→   101→File system sources read from local or networked file systems:
+   102→   102→- Formats: CSV, TSV, JSON, XML, Parquet, Avro
+   103→   103→- Discovery: glob patterns, recursive traversal, modification time filtering
+   104→   104→- Processing modes: batch, tail mode, checkpoint-based resumption
+   105→   105→
+   106→   106→### Source Adapter Interface
+   107→   107→
+   108→   108→All source adapters implement a common interface:
+   109→   109→
+   110→   110→```
+   111→   111→SourceAdapter Interface:
+   112→   112→  - connect(): Establish connection to source
+   113→   113→  - disconnect(): Release connection resources
+   114→   114→  - fetch(batch_size): Retrieve next batch of raw records
+   115→   115→  - acknowledge(record_ids): Confirm successful processing
+   116→   116→  - get_metrics(): Return adapter-specific metrics
+   117→   117→  - health_check(): Verify source availability
+   118→   118→```
+   119→   119→
+   120→   120→---
+   121→   121→
+   122→   122→## Data Structures
+   123→   123→
+   124→   124→Module Alpha defines structures representing records at various pipeline stages.
+   125→   125→
+   126→   126→### RawRecord
+   127→   127→
+   128→   128→Represents data as received from a source adapter before parsing:
+   129→   129→
+   130→   130→```
+   131→   131→RawRecord:
+   132→   132→  source_id: string           # Format: "{source_type}:{source_name}"
+   133→   133→  raw_bytes: bytes            # Original content for debugging/replay
+   134→   134→  encoding: string            # Character encoding (default: UTF-8)
+   135→   135→  content_type: string        # MIME type of raw_bytes
+   136→   136→  source_timestamp: datetime  # When record was produced (may be None)
+   137→   137→  ingestion_timestamp: datetime  # When Module Alpha received the record
+   138→   138→  source_metadata: map<string, string>  # Source-specific metadata
+   139→   139→  batch_id: string            # Links record to its ingestion batch
+   140→   140→  sequence_number: integer    # Position within batch
+   141→   141→```
+   142→   142→
+   143→   143→### ParsedRecord
+   144→   144→
+   145→   145→Represents data after successful parsing:
+   146→   146→
+   147→   147→```
+   148→   148→ParsedRecord:
+   149→   149→  record_id: string           # UUID v4 generated during parsing
+   150→   150→  raw_record_ref: string      # Reference to originating RawRecord
+   151→   151→  fields: map<string, FieldValue>  # Extracted field values
+   152→   152→  schema_id: string           # Schema used for parsing
+   153→   153→  schema_version: integer     # Schema version number
+   154→   154→  parse_timestamp: datetime   # When parsing completed
+   155→   155→  parse_duration_ms: integer  # Parsing time in milliseconds
+   156→   156→  parse_warnings: list<string>  # Non-fatal issues encountered
+   157→   157→```
+   158→   158→
+   159→   159→### FieldValue
+   160→   160→
+   161→   161→Type-safe wrapper for field values:
+   162→   162→
+   163→   163→```
+   164→   164→FieldValue:
+   165→   165→  field_type: enum  # STRING, INTEGER, FLOAT, BOOLEAN, DATETIME, BINARY, ARRAY, MAP, NULL
+   166→   166→  string_value: string
+   167→   167→  integer_value: integer      # 64-bit signed
+   168→   168→  float_value: float          # IEEE 754 double-precision
+   169→   169→  boolean_value: boolean
+   170→   170→  datetime_value: datetime    # UTC, microsecond precision
+   171→   171→  binary_value: bytes
+   172→   172→  array_value: list<FieldValue>
+   173→   173→  map_value: map<string, FieldValue>
+   174→   174→  is_null: boolean            # Distinguishes NULL from missing
+   175→   175→```
+   176→   176→
+   177→   177→### ValidatedRecord
+   178→   178→
+   179→   179→Represents a record ready for handoff to Module Beta:
+   180→   180→
+   181→   181→```
+   182→   182→ValidatedRecord:
+   183→   183→  record_id: string
+   184→   184→  parsed_record_ref: string
+   185→   185→  fields: map<string, FieldValue>  # After validation transformations
+   186→   186→  validation_timestamp: datetime
+   187→   187→  validation_duration_ms: integer
+   188→   188→  rules_evaluated: integer
+   189→   189→  rules_passed: integer
+   190→   190→  quality_score: float        # 0.0 to 1.0
+   191→   191→  quality_flags: list<string> # e.g., "COMPLETE", "PARTIAL"
+   192→   192→```
+   193→   193→
+   194→   194→### ValidationFailure
+   195→   195→
+   196→   196→Captures information about records that fail validation:
+   197→   197→
+   198→   198→```
+   199→   199→ValidationFailure:
+   200→   200→  record_id: string
+   201→   201→  parsed_record_ref: string
+   202→   202→  failure_timestamp: datetime
+   203→   203→  failed_rules: list<RuleFailure>
+   204→   204→  failure_severity: enum      # WARNING, ERROR, CRITICAL
+   205→   205→  is_recoverable: boolean
+   206→   206→  suggested_action: string
+   207→   207→```
+   208→   208→
+   209→   209→### RuleFailure
+   210→   210→
+   211→   211→Details about a specific validation rule failure:
+   212→   212→
+   213→   213→```
+   214→   214→RuleFailure:
+   215→   215→  rule_id: string
+   216→   216→  rule_name: string
+   217→   217→  field_name: string          # None for record-level rules
+   218→   218→  expected_value: string
+   219→   219→  actual_value: string
+   220→   220→  error_code: string          # e.g., "VAL_001_TYPE_MISMATCH"
+   221→   221→  error_message: string
+   222→   222→```
+   223→   223→
+   224→   224→---
+   225→   225→
+   226→   226→## Validation Rules
+   227→   227→
+   228→   228→Module Alpha implements a comprehensive validation framework with configurable rules.
+   229→   229→
+   230→   230→### Rule Categories
+   231→   231→
+   232→   232→- **Type Validation**: Field values conform to declared data types
+   233→   233→- **Format Validation**: Field values match expected patterns
+   234→   234→- **Range Validation**: Numeric/temporal values within bounds
+   235→   235→- **Referential Validation**: Referenced entities exist
+   236→   236→- **Business Validation**: Domain-specific rules
+   237→   237→
+   238→   238→### Standard Validation Rules
+   239→   239→
+   240→   240→#### Rule 1: Required Field Presence
+   241→   241→
+   242→   242→Ensures mandatory fields are present and non-null.
+   243→   243→
+   244→   244→**Configuration**: `required_fields` (list), `allow_empty_string` (boolean)
+   245→   245→
+   246→   246→**Example**:
+   247→   247→```
+   248→   248→required_fields: ["customer_id", "order_date", "total_amount"]
+   249→   249→allow_empty_string: false
+   250→   250→```
+   251→   251→
+   252→   252→#### Rule 2: Type Conformance
+   253→   253→
+   254→   254→Validates field values match declared types.
+   255→   255→
+   256→   256→**Configuration**: `field_types` (map), `strict_mode` (boolean)
+   257→   257→
+   258→   258→**Example**:
+   259→   259→```
+   260→   260→field_types: {customer_id: INTEGER, order_date: DATETIME, total_amount: FLOAT}
+   261→   261→strict_mode: true
+   262→   262→```
+   263→   263→
+   264→   264→#### Rule 3: String Length Bounds
+   265→   265→
+   266→   266→Ensures string fields fall within length ranges.
+   267→   267→
+   268→   268→**Configuration**: `field_constraints` (map with min_length/max_length), `count_bytes` (boolean)
+   269→   269→
+   270→   270→**Example**:
+   271→   271→```
+   272→   272→field_constraints: {customer_name: {min_length: 1, max_length: 200}}
+   273→   273→```
+   274→   274→
+   275→   275→#### Rule 4: Numeric Range Bounds
+   276→   276→
+   277→   277→Validates numeric fields within specified ranges.
+   278→   278→
+   279→   279→**Configuration**: `field_constraints` (map with min_value/max_value), `inclusive_bounds` (boolean)
+   280→   280→
+   281→   281→**Example**:
+   282→   282→```
+   283→   283→field_constraints: {quantity: {min_value: 1, max_value: 10000}}
+   284→   284→```
+   285→   285→
+   286→   286→#### Rule 5: Regex Pattern Matching
+   287→   287→
+   288→   288→Validates string fields against regular expressions.
+   289→   289→
+   290→   290→**Configuration**: `field_patterns` (map), `case_sensitive` (boolean)
+   291→   291→
+   292→   292→**Example**:
+   293→   293→```
+   294→   294→field_patterns: {email: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"}
+   295→   295→```
+   296→   296→
+   297→   297→#### Rule 6: Enumeration Membership
+   298→   298→
+   299→   299→Ensures field values belong to defined sets.
+   300→   300→
+   301→   301→**Configuration**: `field_enums` (map), `case_sensitive` (boolean)
+   302→   302→
+   303→   303→**Example**:
+   304→   304→```
+   305→   305→field_enums: {status: ["PENDING", "APPROVED", "REJECTED", "CANCELLED"]}
+   306→   306→```
+   307→   307→
+   308→   308→#### Rule 7: Date/Time Range Validation
+   309→   309→
+   310→   310→Validates temporal fields against date ranges.
+   311→   311→
+   312→   312→**Configuration**: `field_constraints` (map), `reference_time` (NOW, START_OF_DAY, etc.)
+   313→   313→
+   314→   314→**Example**:
+   315→   315→```
+   316→   316→field_constraints: {order_date: {min_value: "2020-01-01", max_value: "NOW+1D"}}
+   317→   317→```
+   318→   318→
+   319→   319→#### Rule 8: Cross-Field Consistency
+   320→   320→
+   321→   321→Validates relationships between multiple fields.
+   322→   322→
+   323→   323→**Configuration**: `consistency_rules` (list with left_field, operator, right_field)
+   324→   324→
+   325→   325→**Example**:
+   326→   326→```
+   327→   327→consistency_rules: [{left_field: "start_date", operator: "LT", right_field: "end_date"}]
+   328→   328→```
+   329→   329→
+   330→   330→#### Rule 9: Uniqueness Constraint
+   331→   331→
+   332→   332→Ensures field values are unique within scope.
+   333→   333→
+   334→   334→**Configuration**: `unique_fields` (list), `scope` (BATCH, WINDOW, GLOBAL), `window_duration`
+   335→   335→
+   336→   336→**Example**:
+   337→   337→```
+   338→   338→unique_fields: [["order_id"], ["customer_id", "order_date", "sku"]]
+   339→   339→scope: WINDOW
+   340→   340→window_duration: "24h"
+   341→   341→```
+   342→   342→
+   343→   343→#### Rule 10: Referential Integrity
+   344→   344→
+   345→   345→Validates foreign key references exist.
+   346→   346→
+   347→   347→**Configuration**: `references` (map), `cache_ttl`, `on_missing` (REJECT, WARN)
+   348→   348→
+   349→   349→**Example**:
+   350→   350→```
+   351→   351→references: {customer_id: {lookup_source: "customer_database", on_missing: "REJECT"}}
+   352→   352→```
+   353→   353→
+   354→   354→#### Rule 11: Null Value Policy
+   355→   355→
+   356→   356→Enforces null/missing value handling policies.
+   357→   357→
+   358→   358→**Configuration**: `field_policies` (map), `default_policy`
+   359→   359→
+   360→   360→**Example**:
+   361→   361→```
+   362→   362→field_policies: {customer_id: "REJECT", middle_name: "ALLOW", country: "DEFAULT:US"}
+   363→   363→```
+   364→   364→
+   365→   365→#### Rule 12: Checksum Validation
+   366→   366→
+   367→   367→Validates data integrity through checksums.
+   368→   368→
+   369→   369→**Configuration**: `checksum_field`, `checksum_algorithm` (CRC32, MD5, SHA256), `checksum_scope`
+   370→   370→
+   371→   371→**Example**:
+   372→   372→```
+   373→   373→checksum_field: "record_checksum"
+   374→   374→checksum_algorithm: "SHA256"
+   375→   375→checksum_scope: ["customer_id", "order_id", "total_amount"]
+   376→   376→```
+   377→   377→
+   378→   378→### Rule Evaluation Order
+   379→   379→
+   380→   380→1. Structural Rules (Required Field Presence, Null Policy)
+   381→   381→2. Type Rules (Type Conformance)
+   382→   382→3. Format Rules (String Length, Regex Pattern, Enum Membership)
+   383→   383→4. Range Rules (Numeric Range, DateTime Range)
+   384→   384→5. Relationship Rules (Cross-Field Consistency, Referential Integrity)
+   385→   385→6. Integrity Rules (Uniqueness, Checksum)
+   386→   386→
+   387→   387→---
+   388→   388→
+   389→   389→## Error Handling
+   390→   390→
+   391→   391→Module Alpha implements comprehensive error handling following the fail-forward principle: isolate failures, capture context, and continue processing valid records.
+   392→   392→
+   393→   393→### Error Categories
+   394→   394→
+   395→   395→#### Connection Errors
+   396→   396→
+   397→   397→Occur when source adapters cannot establish or maintain connectivity.
+   398→   398→
+   399→   399→**Common Causes**: Network unavailability, credential expiration, source outage, DNS failure, TLS issues
+   400→   400→
+   401→   401→**Handling**: Retry with exponential backoff, circuit breaker pattern. When circuit breaker opens, adapter reports degraded health status.
+   402→   402→
+   403→   403→**Configuration**:
+   404→   404→- `CONNECTION_RETRY_INITIAL_DELAY_MS`: Initial retry delay
+   405→   405→- `CONNECTION_RETRY_MAX_DELAY_MS`: Maximum retry delay
+   406→   406→- `CONNECTION_RETRY_BACKOFF_MULTIPLIER`: Backoff multiplier
+   407→   407→- `MAX_CONNECTION_RETRIES`: Maximum retry attempts
+   408→   408→- `CIRCUIT_BREAKER_FAILURE_THRESHOLD`: Failures before opening
+   409→   409→- `CIRCUIT_BREAKER_RESET_TIMEOUT_MS`: Time before half-open
+   410→   410→
+   411→   411→**Error Propagation**: Connection errors are reported to the integration layer. See `integration-layer.md` for propagation protocols.
+   412→   412→
+   413→   413→#### Parse Errors
+   414→   414→
+   415→   415→Occur when raw input cannot be converted to internal format.
+   416→   416→
+   417→   417→**Common Causes**: Malformed syntax, encoding mismatches, unexpected schema, truncated records, corruption
+   418→   418→
+   419→   419→**Handling**: Create ParseFailure record with original input, error location, and details. Route to parse error queue while continuing processing.
+   420→   420→
+   421→   421→**ParseFailure Structure**:
+   422→   422→```
+   423→   423→ParseFailure:
+   424→   424→  raw_record: RawRecord
+   425→   425→  error_location: string      # line:column or byte offset
+   426→   426→  expected_token: string
+   427→   427→  parser_state: string
+   428→   428→  partial_result: map<string, FieldValue>
+   429→   429→  failure_timestamp: datetime
+   430→   430→  error_code: string          # e.g., "PARSE_001_INVALID_JSON"
+   431→   431→```
+   432→   432→
+   433→   433→**Metrics**:
+   434→   434→- `alpha_parse_errors_total`: Counter by error code
+   435→   435→- `alpha_parse_error_rate`: Failures per second
+   436→   436→- `alpha_parse_error_by_source`: Failures by source adapter
+   437→   437→
+   438→   438→#### Validation Errors
+   439→   439→
+   440→   440→Occur when parsed records fail validation rules.
+   441→   441→
+   442→   442→**Common Causes**: Missing required fields, type mismatches, out-of-range values, pattern failures, referential violations
+   443→   443→
+   444→   444→**Handling**: Capture in ValidationFailure records. Route based on severity:
+   445→   445→- **WARNING**: Proceed with quality flags
+   446→   446→- **ERROR**: Route to validation error queue
+   447→   447→- **CRITICAL**: Route to critical queue, generate alerts
+   448→   448→
+   449→   449→**Threshold Configuration**:
+   450→   450→- `VALIDATION_WARNING_RATE_THRESHOLD`
+   451→   451→- `VALIDATION_ERROR_RATE_THRESHOLD`
+   452→   452→- `VALIDATION_ALERT_RATE_THRESHOLD`
+   453→   453→
+   454→   454→#### Buffer Overflow Errors
+   455→   455→
+   456→   456→Occur when internal buffers reach capacity.
+   457→   457→
+   458→   458→**Common Causes**: Downstream slower than ingestion, Module Beta back-pressure, network issues, resource contention
+   459→   459→
+   460→   460→**Handling**: Trigger back-pressure signaling to source adapters. Adapters pause retrieval (Kafka consumer pause, database throttling, API rate limiting).
+   461→   461→
+   462→   462→**BackPressureEvent Structure**:
+   463→   463→```
+   464→   464→BackPressureEvent:
+   465→   465→  buffer_id: string
+   466→   466→  event_type: enum            # ACTIVATED, DEACTIVATED, THRESHOLD_WARNING
+   467→   467→  current_utilization: float  # 0.0 to 1.0
+   468→   468→  duration_active_ms: integer
+   469→   469→  affected_sources: list<string>
+   470→   470→```
+   471→   471→
+   472→   472→#### Resource Exhaustion Errors
+   473→   473→
+   474→   474→Occur when system resources are depleted.
+   475→   475→
+   476→   476→**Common Causes**: Memory leaks, file handle exhaustion, thread pool saturation, disk space exhaustion
+   477→   477→
+   478→   478→**Handling**: Graceful degradation - suspend non-critical operations, clear caches, signal unhealthy status. Severe exhaustion triggers controlled shutdown.
+   479→   479→
+   480→   480→**Degradation Procedures**:
+   481→   481→1. Clear non-essential caches
+   482→   482→2. Reduce buffer sizes
+   483→   483→3. Pause non-critical sources
+   484→   484→4. Signal unhealthy status
+   485→   485→5. Initiate graceful shutdown if recovery fails
+   486→   486→
+   487→   487→### Error Queue Management
+   488→   488→
+   489→   489→Failed records route to dedicated error queues supporting:
+   490→   490→- **Inspection**: Query failed records with diagnostics
+   491→   491→- **Replay**: Reinject corrected records
+   492→   492→- **Expiration**: Auto-purge after retention period
+   493→   493→- **Export**: External analysis/reporting
+   494→   494→
+   495→   495→**Configuration**:
+   496→   496→- `PARSE_ERROR_RETENTION_HOURS`
+   497→   497→- `VALIDATION_ERROR_RETENTION_HOURS`
+   498→   498→- `CRITICAL_ERROR_RETENTION_DAYS`
+   499→   499→
+   500→   500→### Error Logging
+   501→   501→
+   502→   502→All errors generate structured log entries:
+   503→   503→
+   504→   504→```
+   505→   505→ErrorLogEntry:
+   506→   506→  timestamp: datetime
+   507→   507→  level: enum                 # DEBUG, INFO, WARN, ERROR, CRITICAL
+   508→   508→  error_category: string
+   509→   509→  error_code: string
+   510→   510→  message: string
+   511→   511→  record_id: string
+   512→   512→  source_id: string
+   513→   513→  correlation_id: string
+   514→   514→  stack_trace: string         # Only for unexpected errors
+   515→   515→  context: map<string, string>
+   516→   516→```
+   517→   517→
+   518→   518→### Error Metrics
+   519→   519→
+   520→   520→**Counters**: `alpha_errors_total`, `alpha_retries_total`, `alpha_circuit_breaker_trips_total`
+   521→   521→
+   522→   522→**Gauges**: `alpha_error_queue_size`, `alpha_circuit_breaker_state`, `alpha_backpressure_active`
+   523→   523→
+   524→   524→**Histograms**: `alpha_error_recovery_duration_seconds`, `alpha_retry_delay_seconds`
+   525→   525→
+   526→   526→### Recovery Procedures
+   527→   527→
+   528→   528→**Connection Recovery**: Detect failure → close resources → wait → reconnect with fresh credentials → verify → resume or escalate
+   529→   529→
+   530→   530→**Parse Recovery**: Log failure → route to error queue → increment counters → continue processing → alert if threshold exceeded
+   531→   531→
+   532→   532→**Validation Recovery**: Capture failures → determine severity → route appropriately → apply defaults → emit quality score
+   533→   533→
+   534→   534→**Resource Recovery**: Detect pressure → clear caches → pause sources → wait → gradually resume
+   535→   535→
+   536→   536→**Buffer Recovery**: Detect back-pressure condition → signal upstream → drain buffer → resume when utilization below low watermark
+   537→   537→
+   538→   538→---
+   539→   539→
+   540→   540→## Configuration
+   541→   541→
+   542→   542→Module Alpha behavior is controlled through configuration parameters.
+   543→   543→
+   544→   544→### Connection Configuration
+   545→   545→
+   546→   546→#### DEFAULT_BATCH_SIZE
+   547→   547→
+   548→   548→**Type**: Integer | **Default**: 1000 | **Range**: 1-100000
+   549→   549→
+   550→   550→Records to fetch per batch operation. Larger sizes improve throughput but increase memory and latency.
+   551→   551→
+   552→   552→#### MAX_RETRY_COUNT
+   553→   553→
+   554→   554→**Type**: Integer | **Default**: 5 | **Range**: 0-100
+   555→   555→
+   556→   556→Maximum retry attempts before permanent failure. Set to 0 for fail-fast behavior.
+   557→   557→
+   558→   558→#### CONNECTION_TIMEOUT_MS
+   559→   559→
+   560→   560→**Type**: Integer | **Default**: 30000 | **Range**: 1000-300000
+   561→   561→
+   562→   562→Timeout for establishing connections. Exceeding triggers retry logic.
+   563→   563→
+   564→   564→#### CONNECTION_POOL_SIZE
+   565→   565→
+   566→   566→**Type**: Integer | **Default**: 10 | **Range**: 1-100
+   567→   567→
+   568→   568→Maximum concurrent connections per source. Connections are reused.
+   569→   569→
+   570→   570→#### CONNECTION_IDLE_TIMEOUT_MS
+   571→   571→
+   572→   572→**Type**: Integer | **Default**: 300000 | **Range**: 10000-3600000
+   573→   573→
+   574→   574→Idle time before connections are closed.
+   575→   575→
+   576→   576→### Parsing Configuration
+   577→   577→
+   578→   578→#### MAX_RECORD_SIZE_BYTES
+   579→   579→
+   580→   580→**Type**: Integer | **Default**: 10485760 | **Range**: 1024-1073741824
+   581→   581→
+   582→   582→Maximum record size. Larger records are rejected.
+   583→   583→
+   584→   584→#### PARSER_THREAD_COUNT
+   585→   585→
+   586→   586→**Type**: Integer | **Default**: 4 | **Range**: 1-64
+   587→   587→
+   588→   588→Threads for parallel parsing.
+   589→   589→
+   590→   590→#### ENCODING_FALLBACK
+   591→   591→
+   592→   592→**Type**: String | **Default**: "UTF-8" | **Values**: "UTF-8", "ISO-8859-1", "UTF-16", "ASCII"
+   593→   593→
+   594→   594→Fallback encoding when source encoding is unknown. ISO-8859-1 may be needed for systems using Latin-1 encoding.
+   595→   595→
+   596→   596→### Validation Configuration
+   597→   597→
+   598→   598→#### VALIDATION_STRICT_MODE
+   599→   599→
+   600→   600→**Type**: Boolean | **Default**: true
+   601→   601→
+   602→   602→Reject ambiguous type coercions when enabled.
+   603→   603→
+   604→   604→#### VALIDATION_PARALLEL_RULES
+   605→   605→
+   606→   606→**Type**: Boolean | **Default**: true
+   607→   607→
+   608→   608→Execute independent validation rules in parallel.
+   609→   609→
+   610→   610→#### VALIDATION_TIMEOUT_MS
+   611→   611→
+   612→   612→**Type**: Integer | **Default**: 5000 | **Range**: 100-60000
+   613→   613→
+   614→   614→Maximum validation time per record.
+   615→   615→
+   616→   616→### Buffer Configuration
+   617→   617→
+   618→   618→#### BUFFER_CAPACITY
+   619→   619→
+   620→   620→**Type**: Integer | **Default**: 10000 | **Range**: 100-1000000
+   621→   621→
+   622→   622→Maximum records in output buffer before back-pressure.
+   623→   623→
+   624→   624→#### BUFFER_HIGH_WATERMARK
+   625→   625→
+   626→   626→**Type**: Float | **Default**: 0.8 | **Range**: 0.5-0.99
+   627→   627→
+   628→   628→Utilization threshold to start back-pressure signaling.
+   629→   629→
+   630→   630→#### BUFFER_LOW_WATERMARK
+   631→   631→
+   632→   632→**Type**: Float | **Default**: 0.5 | **Range**: 0.1-0.9
+   633→   633→
+   634→   634→Utilization threshold to end back-pressure signaling.
+   635→   635→
+   636→   636→### Error Handling Configuration
+   637→   637→
+   638→   638→#### ERROR_QUEUE_CAPACITY
+   639→   639→
+   640→   640→**Type**: Integer | **Default**: 5000 | **Range**: 100-100000
+   641→   641→
+   642→   642→Maximum failed records per error queue. Oldest evicted when exceeded.
+   643→   643→
+   644→   644→#### ALERT_ON_ERROR_RATE
+   645→   645→
+   646→   646→**Type**: Float | **Default**: 0.05 | **Range**: 0.001-1.0
+   647→   647→
+   648→   648→Error rate threshold for generating alerts.
+   649→   649→
+   650→   650→### Metrics Configuration
+   651→   651→
+   652→   652→#### METRICS_ENABLED
+   653→   653→
+   654→   654→**Type**: Boolean | **Default**: true
+   655→   655→
+   656→   656→Enable metrics emission.
+   657→   657→
+   658→   658→#### METRICS_INTERVAL_MS
+   659→   659→
+   660→   660→**Type**: Integer | **Default**: 10000 | **Range**: 1000-300000
+   661→   661→
+   662→   662→Interval between metrics emission cycles.
+   663→   663→
+   664→   664→---
+   665→   665→
+   666→   666→## Integration Points
+   667→   667→
+   668→   668→Module Alpha integrates with other Data Pipeline System components through well-defined interfaces.
+   669→   669→
+   670→   670→### Module Beta Handoff
+   671→   671→
+   672→   672→Delivers validated records through the Alpha-Beta handoff protocol ensuring reliable, ordered delivery with acknowledgment.
+   673→   673→
+   674→   674→**Handoff Trigger**: Buffer reaches `DEFAULT_BATCH_SIZE` or flush timeout (`HANDOFF_FLUSH_TIMEOUT_MS`) expires.
+   675→   675→
+   676→   676→**Handoff Payload**:
+   677→   677→```
+   678→   678→AlphaBetaHandoff:
+   679→   679→  batch_id: string
+   680→   680→  records: list<ValidatedRecord>
+   681→   681→  source_metadata: map<string, string>
+   682→   682→  validation_summary: ValidationSummary
+   683→   683→  handoff_timestamp: datetime
+   684→   684→  checksum: string
+   685→   685→```
+   686→   686→
+   687→   687→**Acknowledgment**: Module Beta acknowledges receipt. Success releases buffer space; failure triggers retry per integration layer protocol.
+   688→   688→
+   689→   689→For complete handoff specification, see `integration-layer.md`.
+   690→   690→
+   691→   691→### Health Check Integration
+   692→   692→
+   693→   693→Exposes health status for orchestration systems and load balancers.
+   694→   694→
+   695→   695→**Health Status Levels**:
+   696→   696→- **HEALTHY**: Operating normally
+   697→   697→- **DEGRADED**: Reduced capacity or elevated error rates
+   698→   698→- **UNHEALTHY**: Critical failures
+   699→   699→
+   700→   700→**Component Health Checks**: Source connectivity, parser thread pool, validation engine, buffer utilization, error queue status
+   701→   701→
+   702→   702→### Monitoring Integration
+   703→   703→
+   704→   704→Emits metrics compatible with Prometheus, StatsD, and similar platforms.
+   705→   705→
+   706→   706→**Categories**: Throughput, Latency, Errors, Resources
+   707→   707→
+   708→   708→Structured logs follow pipeline format, compatible with ELK Stack, Splunk, CloudWatch Logs.
+   709→   709→
+   710→   710→---
+   711→   711→
+   712→   712→## Compliance Requirements
+   713→   713→
+   714→   714→Module Alpha implements compliance controls for audit, regulatory, and security purposes.
+   715→   715→
+   716→   716→### Audit Logging
+   717→   717→
+   718→   718→All operations are logged: record ingestion, validation decisions, error events, configuration changes.
+   719→   719→
+   720→   720→Retention and format requirements specified in `compliance-requirements.md` Section 3.
+   721→   721→
+   722→   722→### Data Lineage
+   723→   723→
+   724→   724→Initiates tracking by recording: source identification, ingestion timestamp, source-provided identifiers, transformations applied.
+   725→   725→
+   726→   726→Lineage propagates through pipeline for end-to-end traceability. Requirements in `compliance-requirements.md` Section 4.
+   727→   727→
+   728→   728→### Security Controls
+   729→   729→
+   730→   730→Implements: credential management, transport encryption, input sanitization, access control.
+   731→   731→
+   732→   732→Requirements in `compliance-requirements.md` Section 6.
+   733→   733→
+   734→   734→### Data Protection
+   735→   735→
+   736→   736→Supports: field-level encryption, tokenization, log masking, secure credential storage.
+   737→   737→
+   738→   738→Requirements in `compliance-requirements.md` Section 7.
+   739→   739→
+   740→   740→---
+   741→   741→
+   742→   742→*This document is the authoritative specification for Module Alpha. For system architecture, see `data-pipeline-overview.md`. For cross-module protocols, see `integration-layer.md`. For compliance requirements, see `compliance-requirements.md`.*
+   743→   743→
+   744→
+   745→<system-reminder>
+   746→Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+   747→</system-reminder>
+   748→
+
+<system-reminder>
+Whenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.
+</system-reminder>
