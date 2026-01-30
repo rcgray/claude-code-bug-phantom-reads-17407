@@ -162,24 +162,41 @@ Run 3 trials on build 2.1.22 to confirm it still shows 100% failure (as observed
 
 **What we learn**: Whether the current API state produces consistent results on a build with previously 100% failure.
 
-#### Step 2.3: Cross-Machine Replication (Low Priority)
+#### Step 2.3: Server-Side Behavior Verification on Build 2.1.6
 
-Run the protocol on a different machine (different IP, different user account) to test whether the discrepancy is tied to the specific test machine or user identity.
+**Replaces**: The original Step 2.3 (Cross-Machine Replication) has been removed. Phase 1 environmental analysis conclusively ruled out machine-specific factors, and Step 2.2 revealed a more urgent line of inquiry.
 
-**What we learn**: Whether API behavior is user-specific, IP-specific, or universal.
+**Motivation**: Step 2.2 revealed that build 2.1.22 went from 100% failure (Jan 28) to 100% success (Jan 29), with two new behaviors: (1) reduced/eliminated persistence, and (2) sub-agent delegation for file reads. Both behaviors appeared simultaneously across builds 2.1.20 and 2.1.22, suggesting server-side changes rather than client-side build differences. User observation on Jan 30 confirmed that build 2.1.6 — a much older build — now exhibits the Task tool delegation pattern that was absent in all prior testing.
 
-**Priority**: LOW — only pursue if Phase 1 and Steps 2.1-2.2 fail to explain the discrepancy. The preliminary analysis strongly suggests this is not an environment issue, and the 4-hour window between tests makes machine-specific factors unlikely.
+**Action**: Run Experiment-Methodology-04 on build 2.1.6 (3–5 trials) in collection `schema-13-216`. Analyze `trial_data.json` for:
+- `has_tool_results` (persistence state)
+- `has_subagents` (delegation behavior)
+- Outcome distribution
+- Structural comparison with prior 2.1.6 data (if available)
 
-### Phase 3: Theoretical Integration
+**What we learn**:
+- If 2.1.6 shows delegation + no persistence + success: **Strong confirmation** of server-side variability theory. A build from a much earlier era exhibiting new behaviors definitively rules out client-side explanations.
+- If 2.1.6 shows persistence + failure (matching prior behavior): The mitigation may be build-gated, applying only to newer builds. This would weaken the server-side theory.
+- If results are mixed: Consistent with the stochastic persistence mechanism observed in schema-13-2120.
 
-#### Step 3.1: Revise or Confirm the X+Y Model
+**Priority**: HIGH — This is the strongest available test of the server-side variability theory. Build 2.1.6 predates all the builds tested so far and would never have been designed to work with a delegation strategy. If it delegates, the server is driving the behavior.
 
-The Consolidated Theory's X+Y model assumes that for a given X and Y, the outcome is deterministic (either X+Y > T triggers phantom reads or it doesn't). The 2120 discrepancy suggests the model may need a stochastic component — something like:
+### Phase 3: Theoretical Integration and Closure Assessment
 
-- **X + Y > T_effective**, where T_effective varies due to server-side configuration
-- Or: persistence is triggered probabilistically based on factors beyond just X+Y
+#### Step 3.1: Formalize Server-Side Variability Theory
 
-Document how the discrepancy affects the X+Y model and whether the model needs revision.
+**Status**: COMPLETE — See `docs/theories/Server-Side-Variability-Theory.md`
+
+The X+Y model has been extended with an external variability dimension. The revised model is:
+
+```
+Phantom reads occur when:
+  X + Y > T_effective(server_state)
+  AND persistence is enabled for this session
+  AND the agent does not recover from <persisted-output> markers
+```
+
+Where `T_effective` and persistence enablement are server-side variables that the experiment cannot control. This explains why the same X and Y values produce different outcomes on different days.
 
 #### Step 3.2: Assess Impact on Build Scan Conclusions
 
@@ -187,6 +204,16 @@ Based on the investigation findings, determine which Build Scan conclusions rema
 - Is the "dead zone" (2.1.7-2.1.14) interpretation still sound?
 - Is build 2.1.22 reliably the best reproduction target?
 - Should any trials be re-run on specific builds?
+- **New**: Are build-specific failure rates meaningful at all, given server-side variability?
+
+#### Step 3.3: Closure Assessment
+
+Determine whether the investigation's findings — particularly the server-side mitigation observed on Jan 29 — warrant redirecting the project toward closure and reporting. Key questions:
+
+- Has Anthropic effectively mitigated phantom reads through server-side changes?
+- Is further reproduction scenario work (Easy/Medium/Hard) still necessary or relevant?
+- Should the project shift focus from investigation to documentation and public reporting?
+- What monitoring or follow-up is needed to assess the permanence of the mitigation?
 
 ---
 
@@ -208,12 +235,12 @@ The Easy/Medium/Hard scenario variants are similarly deferred. Calibrating repro
 
 This investigation succeeds when we can answer:
 
-1. **Is the 2120 discrepancy explained by identifiable structural differences in session data?** (Phase 1)
-2. **Is the original 2120 success reproducible today?** (Phase 2, Step 2.1)
-3. **Is our current test methodology stable enough to draw conclusions?** (Phase 2, Step 2.2)
-4. **Does the X+Y model need a stochastic component?** (Phase 3)
-
-If the answer to #3 is "no" (results are too variable to draw conclusions), we have a fundamental methodological problem that must be solved before any further investigation is meaningful.
+1. **Is the 2120 discrepancy explained by identifiable structural differences in session data?** (Phase 1) — **ANSWERED YES**: The persistence mechanism (`has_tool_results`) is the sole discriminator. Structural differences are limited to the presence/absence of `tool-results/` directory.
+2. **Is the original 2120 success reproducible today?** (Phase 2, Step 2.1) — **ANSWERED PARTIALLY**: Reproducible but rare (1/5 direct-read trials). Persistence is now the dominant state for direct reads, but sub-agent delegation provides an alternative success path.
+3. **Is our current test methodology stable enough to draw conclusions?** (Phase 2, Step 2.2) — **ANSWERED NO, but for an informative reason**: Build 2.1.22 went from 100% failure to 100% success in 24 hours, confirming server-side variability. The methodology is sound; the underlying system is unstable.
+4. **Does the X+Y model need a stochastic component?** (Phase 3) — **ANSWERED YES**: T_effective varies by server state. Persistence enablement is a stochastic per-session decision. See `docs/theories/Server-Side-Variability-Theory.md`.
+5. **Is the server-side variability theory supported by cross-era evidence?** (Phase 2, Step 2.3) — **ANSWERED YES**: Build 2.1.6 shows delegation (3/6 trials), persistence (3/3 direct-reads), recovery (1 trial), and identical reset bands — behaviorally indistinguishable from builds 2.1.20 and 2.1.22 tested the same day. Build version is irrelevant; server state determines behavior.
+6. **Should the project redirect toward closure?** (Phase 3, Step 3.3) — **ANSWERED YES**: The investigation has reached a natural plateau. Further experimentation yields diminishing returns because the key remaining unknown (what controls server-side persistence) is outside our observation boundary. The project should shift focus to documentation, public reporting, and lightweight monitoring.
 
 ---
 
@@ -221,25 +248,28 @@ If the answer to #3 is "no" (results are too variable to draw conclusions), we h
 
 ```
 Phase 1 (Data Analysis - No new experiments needed)
-├── Step 1.1: Pre-process barebones-2120-2                    [FIRST]
-├── Step 1.2: Compare 2120 success vs 2120-2 success          [After 1.1]
-├── Step 1.3: Compare failure profiles across collections     [After 1.1]
-└── Step 1.4: Raw JSONL deep dive                             [After 1.2/1.3]
+├── Step 1.1: Pre-process barebones-2120-2                    [COMPLETE]
+├── Step 1.2: Compare 2120 success vs 2120-2 success          [COMPLETE]
+├── Step 1.3: Compare failure profiles across collections     [COMPLETE]
+└── Step 1.4: Raw JSONL deep dive                             [COMPLETE]
 
 Phase 2 (Targeted Experiments - Based on Phase 1 findings)
-├── Step 2.1: Re-run 2.1.20 today (3-5 trials)               [After Phase 1]
-├── Step 2.2: Re-run 2.1.22 as control (3 trials)            [Parallel with 2.1]
-└── Step 2.3: Cross-machine test (only if needed)             [After 2.1/2.2]
+├── Step 2.1: Re-run 2.1.20 today (9 trials)                 [COMPLETE]
+├── Step 2.2: Re-run 2.1.22 as control (6 trials)            [COMPLETE]
+└── Step 2.3: Verify server-side behavior on 2.1.6 (6 trials) [COMPLETE]
 
-Phase 3 (Theoretical Integration)
-├── Step 3.1: Revise X+Y model if needed                      [After Phase 2]
-└── Step 3.2: Assess Build Scan validity                      [After Phase 2]
+Phase 3 (Theoretical Integration and Closure Assessment)
+├── Step 3.1: Formalize Server-Side Variability Theory        [COMPLETE]
+├── Step 3.2: Assess Build Scan validity                      [COMPLETE]
+└── Step 3.3: Closure assessment                              [COMPLETE]
 ```
 
-Phase 1 can begin immediately with no additional experiments. Phase 2 requires terminal access to the barebones test machine. Phase 3 is analytical work that follows from the earlier phases.
+Phases 1 and 2 are complete. Phase 3 Step 3.1 is complete (theory doc created). Steps 3.2–3.3 are analytical work that integrates all findings.
 
 ---
 
 ## Document History
 
 - **2026-01-29**: Initial creation based on Build Scan discrepancy analysis
+- **2026-01-30**: Step 2.3 replaced (Cross-Machine Replication → Server-Side Behavior Verification on 2.1.6). Phase 3 expanded with Step 3.3 (Closure Assessment). Success Criteria updated with answers from completed steps. Priority and Sequencing updated to reflect completion status. Motivated by Step 2.2 findings (build 2.1.22 reversal from 100% failure to 100% success) and user observation of Task tool delegation on build 2.1.6.
+- **2026-01-30**: Steps 3.2 and 3.3 completed. All phases, steps, research questions, and success criteria now complete. Investigation closed. Analysis document (`Build-Scan-Discrepancy-Analysis.md`) finalized with Executive Summary, Conclusions, and full Document History.

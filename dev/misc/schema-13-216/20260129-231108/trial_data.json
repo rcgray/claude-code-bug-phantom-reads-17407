@@ -1,0 +1,459 @@
+{
+  "schema_version": "1.3",
+  "generated_at": "2026-01-29T23:27:11.641381",
+  "metadata": {
+    "workscope_id": "20260129-231108",
+    "session_uuid": "c6256094-8a64-4005-8a73-4b4e1ef9d5db",
+    "chat_export_file": "20260129-231108.txt",
+    "session_file": "c6256094-8a64-4005-8a73-4b4e1ef9d5db.jsonl",
+    "has_subagents": true,
+    "has_tool_results": false
+  },
+  "outcome": {
+    "self_reported": "SUCCESS",
+    "affected_files": [],
+    "notes": "Agent explicitly stated: 'No, I did not experience this issue in this session.' Confirmed all reads returned inline content with no <persisted-output> redirects. 4 direct Read calls and 5 subagent reads all successful."
+  },
+  "context_metrics": {
+    "pre_operation_tokens": null,
+    "pre_operation_percent": null,
+    "post_operation_tokens": null,
+    "post_operation_percent": null,
+    "headroom_at_trigger": null,
+    "context_window_size": 200000,
+    "initial_cache_read": 15825,
+    "total_input_at_peak": 157204,
+    "peak_cache_read": 152387
+  },
+  "reset_analysis": {
+    "total_resets": 1,
+    "reset_positions_percent": [
+      85.91549295774648
+    ],
+    "pattern_classification": "SINGLE_LATE",
+    "resets": [
+      {
+        "from_tokens": 152387,
+        "to_tokens": 18898,
+        "session_line": 61,
+        "sequence_position": 61,
+        "total_events": 71,
+        "position_percent": 85.91549295774648,
+        "cache_creation_at_reset": 138303,
+        "total_input_at_reset": 157204,
+        "compaction_loss": -4814
+      }
+    ]
+  },
+  "file_reads": {
+    "total_operations": 4,
+    "successful_operations": 4,
+    "failed_operations": 0,
+    "unique_files": 4,
+    "unique_file_list": [
+      "/Users/gray/Projects/barebones-phantom-reads/docs/specs/compliance-requirements.md",
+      "/Users/gray/Projects/barebones-phantom-reads/docs/specs/data-pipeline-overview.md",
+      "/Users/gray/Projects/barebones-phantom-reads/docs/specs/integration-layer.md",
+      "/Users/gray/Projects/barebones-phantom-reads/docs/wpds/pipeline-refactor.md"
+    ],
+    "failed_reads": [],
+    "reads": [
+      {
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/wpds/pipeline-refactor.md",
+        "session_line": 36,
+        "tool_use_id": "toolu_01DjHGQWBQSefiRUeULUj4CP",
+        "batch_id": 0,
+        "success": true,
+        "sequence": 1
+      },
+      {
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/specs/data-pipeline-overview.md",
+        "session_line": 39,
+        "tool_use_id": "toolu_01818ntFyrgQYSUPygqsu23E",
+        "batch_id": 1,
+        "success": true,
+        "sequence": 2
+      },
+      {
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/specs/integration-layer.md",
+        "session_line": 40,
+        "tool_use_id": "toolu_01G4D8GGDcr4tRMeKZvftE5i",
+        "batch_id": 2,
+        "success": true,
+        "sequence": 3
+      },
+      {
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/specs/compliance-requirements.md",
+        "session_line": 41,
+        "tool_use_id": "toolu_01Josp99bWrJ6AVMoMbGyADd",
+        "batch_id": 3,
+        "success": true,
+        "sequence": 4
+      }
+    ]
+  },
+  "persistence_mapping": {
+    "persisted_tool_ids": [],
+    "persisted_count": 0,
+    "non_persisted_count": 4,
+    "persisted_reads": [],
+    "non_persisted_reads": [
+      {
+        "sequence": 1,
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/wpds/pipeline-refactor.md",
+        "tool_use_id": "toolu_01DjHGQWBQSefiRUeULUj4CP"
+      },
+      {
+        "sequence": 2,
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/specs/data-pipeline-overview.md",
+        "tool_use_id": "toolu_01818ntFyrgQYSUPygqsu23E"
+      },
+      {
+        "sequence": 3,
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/specs/integration-layer.md",
+        "tool_use_id": "toolu_01G4D8GGDcr4tRMeKZvftE5i"
+      },
+      {
+        "sequence": 4,
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/specs/compliance-requirements.md",
+        "tool_use_id": "toolu_01Josp99bWrJ6AVMoMbGyADd"
+      }
+    ],
+    "persisted_non_reads": []
+  },
+  "timeline": [
+    {
+      "sequence": 17,
+      "type": "user_input",
+      "session_line": 17,
+      "preview": "<local-command-caveat>Caveat: The messages below w",
+      "phase": null
+    },
+    {
+      "sequence": 18,
+      "type": "user_input",
+      "session_line": 18,
+      "preview": "<command-name>/context</command-name>\n            ",
+      "phase": null
+    },
+    {
+      "sequence": 19,
+      "type": "user_input",
+      "session_line": 19,
+      "preview": "<local-command-stdout>\u001b[?2026h \u001b[1mContext Usage\u001b[",
+      "phase": null
+    },
+    {
+      "sequence": 22,
+      "type": "user_input",
+      "session_line": 22,
+      "preview": "<command-message>setup-hard</command-message>\n<com",
+      "phase": null
+    },
+    {
+      "sequence": 23,
+      "type": "user_input",
+      "session_line": 23,
+      "preview": "# Get Workscope ID\n\nThis command generates a uniqu",
+      "phase": "inquiry"
+    },
+    {
+      "sequence": 30,
+      "type": "user_input",
+      "session_line": 30,
+      "preview": "<local-command-caveat>Caveat: The messages below w",
+      "phase": null
+    },
+    {
+      "sequence": 31,
+      "type": "user_input",
+      "session_line": 31,
+      "preview": "<command-name>/context</command-name>\n            ",
+      "phase": null
+    },
+    {
+      "sequence": 32,
+      "type": "user_input",
+      "session_line": 32,
+      "preview": "<local-command-stdout>\u001b[?2026h \u001b[1mContext Usage\u001b[",
+      "phase": null
+    },
+    {
+      "sequence": 34,
+      "type": "user_input",
+      "session_line": 34,
+      "preview": "<command-message>analyze-wpd</command-message>\n<co",
+      "phase": null
+    },
+    {
+      "sequence": 35,
+      "type": "user_input",
+      "session_line": 35,
+      "preview": "# Analyze Work Plan Document\n\nThis command initiat",
+      "phase": null
+    },
+    {
+      "sequence": 36,
+      "type": "tool_batch",
+      "session_line": 36,
+      "read_count": 1,
+      "files": [
+        "/Users/gray/Projects/barebones-phantom-reads/docs/wpds/pipeline-refactor.md"
+      ]
+    },
+    {
+      "sequence": 39,
+      "type": "tool_batch",
+      "session_line": 39,
+      "read_count": 1,
+      "files": [
+        "/Users/gray/Projects/barebones-phantom-reads/docs/specs/data-pipeline-overview.md"
+      ]
+    },
+    {
+      "sequence": 40,
+      "type": "tool_batch",
+      "session_line": 40,
+      "read_count": 1,
+      "files": [
+        "/Users/gray/Projects/barebones-phantom-reads/docs/specs/integration-layer.md"
+      ]
+    },
+    {
+      "sequence": 41,
+      "type": "tool_batch",
+      "session_line": 41,
+      "read_count": 1,
+      "files": [
+        "/Users/gray/Projects/barebones-phantom-reads/docs/specs/compliance-requirements.md"
+      ]
+    },
+    {
+      "sequence": 56,
+      "type": "user_input",
+      "session_line": 56,
+      "preview": "<local-command-caveat>Caveat: The messages below w",
+      "phase": null
+    },
+    {
+      "sequence": 57,
+      "type": "user_input",
+      "session_line": 57,
+      "preview": "<command-name>/context</command-name>\n            ",
+      "phase": null
+    },
+    {
+      "sequence": 58,
+      "type": "user_input",
+      "session_line": 58,
+      "preview": "<local-command-stdout>\u001b[?2026h \u001b[1mContext Usage\u001b[",
+      "phase": null
+    },
+    {
+      "sequence": 60,
+      "type": "user_input",
+      "session_line": 60,
+      "preview": "We have recently seen a number of User Agents repo",
+      "phase": "inquiry"
+    },
+    {
+      "sequence": 61,
+      "type": "context_reset",
+      "session_line": 61,
+      "from_tokens": 152387,
+      "to_tokens": 18898
+    },
+    {
+      "sequence": 65,
+      "type": "user_input",
+      "session_line": 65,
+      "preview": "<local-command-caveat>Caveat: The messages below w",
+      "phase": null
+    },
+    {
+      "sequence": 66,
+      "type": "user_input",
+      "session_line": 66,
+      "preview": "<command-name>/export</command-name>\n            <",
+      "phase": null
+    },
+    {
+      "sequence": 67,
+      "type": "user_input",
+      "session_line": 67,
+      "preview": "<local-command-stdout>Conversation exported to: ..",
+      "phase": null
+    },
+    {
+      "sequence": 69,
+      "type": "user_input",
+      "session_line": 69,
+      "preview": "<local-command-caveat>Caveat: The messages below w",
+      "phase": null
+    },
+    {
+      "sequence": 70,
+      "type": "user_input",
+      "session_line": 70,
+      "preview": "<command-name>/exit</command-name>\n            <co",
+      "phase": null
+    },
+    {
+      "sequence": 71,
+      "type": "user_input",
+      "session_line": 71,
+      "preview": "<local-command-stdout>Catch you later!</local-comm",
+      "phase": null
+    }
+  ],
+  "token_progression": [
+    {
+      "sequence": 1,
+      "cache_read_tokens": 15825,
+      "cache_creation_tokens": 99843,
+      "input_tokens": 2,
+      "output_tokens": 92,
+      "total_input": 115670,
+      "session_line": 26
+    },
+    {
+      "sequence": 2,
+      "cache_read_tokens": 115668,
+      "cache_creation_tokens": 114,
+      "input_tokens": 1,
+      "output_tokens": 20,
+      "total_input": 115783,
+      "session_line": 28
+    },
+    {
+      "sequence": 3,
+      "cache_read_tokens": 115800,
+      "cache_creation_tokens": 2128,
+      "input_tokens": 2,
+      "output_tokens": 101,
+      "total_input": 117930,
+      "session_line": 36
+    },
+    {
+      "sequence": 4,
+      "cache_read_tokens": 117928,
+      "cache_creation_tokens": 7359,
+      "input_tokens": 1,
+      "output_tokens": 1,
+      "total_input": 125288,
+      "session_line": 38
+    },
+    {
+      "sequence": 5,
+      "cache_read_tokens": 117928,
+      "cache_creation_tokens": 7359,
+      "input_tokens": 1,
+      "output_tokens": 1,
+      "total_input": 125288,
+      "session_line": 39
+    },
+    {
+      "sequence": 6,
+      "cache_read_tokens": 117928,
+      "cache_creation_tokens": 7359,
+      "input_tokens": 1,
+      "output_tokens": 1,
+      "total_input": 125288,
+      "session_line": 40
+    },
+    {
+      "sequence": 7,
+      "cache_read_tokens": 117928,
+      "cache_creation_tokens": 7359,
+      "input_tokens": 1,
+      "output_tokens": 209,
+      "total_input": 125288,
+      "session_line": 41
+    },
+    {
+      "sequence": 8,
+      "cache_read_tokens": 125287,
+      "cache_creation_tokens": 8600,
+      "input_tokens": 13079,
+      "output_tokens": 1,
+      "total_input": 146966,
+      "session_line": 45
+    },
+    {
+      "sequence": 9,
+      "cache_read_tokens": 125287,
+      "cache_creation_tokens": 8600,
+      "input_tokens": 13079,
+      "output_tokens": 344,
+      "total_input": 146966,
+      "session_line": 46
+    },
+    {
+      "sequence": 10,
+      "cache_read_tokens": 133887,
+      "cache_creation_tokens": 18500,
+      "input_tokens": 1,
+      "output_tokens": 1,
+      "total_input": 152388,
+      "session_line": 48
+    },
+    {
+      "sequence": 11,
+      "cache_read_tokens": 133887,
+      "cache_creation_tokens": 18500,
+      "input_tokens": 1,
+      "output_tokens": 126,
+      "total_input": 152388,
+      "session_line": 49
+    },
+    {
+      "sequence": 12,
+      "cache_read_tokens": 152387,
+      "cache_creation_tokens": 165,
+      "input_tokens": 1,
+      "output_tokens": 1,
+      "total_input": 152553,
+      "session_line": 51
+    },
+    {
+      "sequence": 13,
+      "cache_read_tokens": 152387,
+      "cache_creation_tokens": 165,
+      "input_tokens": 1,
+      "output_tokens": 2842,
+      "total_input": 152553,
+      "session_line": 52
+    },
+    {
+      "sequence": 14,
+      "cache_read_tokens": 18898,
+      "cache_creation_tokens": 138303,
+      "input_tokens": 3,
+      "output_tokens": 9,
+      "total_input": 157204,
+      "session_line": 61
+    },
+    {
+      "sequence": 15,
+      "cache_read_tokens": 18898,
+      "cache_creation_tokens": 138303,
+      "input_tokens": 3,
+      "output_tokens": 9,
+      "total_input": 157204,
+      "session_line": 62
+    },
+    {
+      "sequence": 16,
+      "cache_read_tokens": 18898,
+      "cache_creation_tokens": 138303,
+      "input_tokens": 3,
+      "output_tokens": 686,
+      "total_input": 157204,
+      "session_line": 63
+    }
+  ],
+  "token_analysis": {
+    "available": false,
+    "token_counts_file": null
+  }
+}

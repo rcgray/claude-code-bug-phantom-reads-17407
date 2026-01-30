@@ -38,7 +38,17 @@ Note: Project-level configuration only protects the main session. Slash commands
 
 ## Investigation Status
 
-The investigation is ongoing. For a unified explanation of our findings, see the **[Consolidated Theory](docs/theories/Consolidated-Theory.md)**, which introduces the **X + Y threshold overflow model**: phantom reads occur when pre-operation context (X) plus operation files (Y) exceeds the context threshold (T). This model explains how our various theories—reset timing, headroom, reset count—fit together as parts of a causal chain.
+**Update (Jan 30, 2026)**: The investigation has reached a major milestone. Across 55+ controlled trials spanning builds 2.1.6 through 2.1.22, we have identified the **root cause mechanism** and discovered that **phantom read behavior is governed by server-side state, not client build version.** The same build can show 100% failure one day and 100% success the next. See the **[Server-Side Variability Theory](docs/theories/Server-Side-Variability-Theory.md)** for the complete findings.
+
+Key discoveries from the Build Scan Discrepancy Investigation (Jan 28-30):
+
+- **Root cause mapped**: The Claude Code harness persists tool results to disk and replaces them with `<persisted-output>` markers. The model ignores these markers and proceeds as if it read the files -- this is the phantom read.
+- **Server-side control**: Whether persistence is enabled is controlled by Anthropic's API infrastructure, not the client build. Build 2.1.22 went from 100% failure (Jan 28) to 100% success (Jan 29) with no changes to the test environment.
+- **Build version is irrelevant**: Build 2.1.6 (oldest tested) is behaviorally indistinguishable from builds 2.1.20 and 2.1.22 when tested on the same day.
+- **Partial mitigation observed**: On Jan 29, two server-side changes appeared -- reduced persistence frequency and a new model tendency to delegate file reads to sub-agents. However, persistence was still observed in 80-100% of direct-read sessions, so phantom reads are **mitigated but not fixed.**
+- **The MCP Filesystem workaround remains the only reliable mitigation** (see below).
+
+The earlier **[Consolidated Theory](docs/theories/Consolidated-Theory.md)** introduced the X + Y threshold overflow model, which remains valid within a single session -- but the threshold T is now known to be externally variable (`T_effective(server_state)`).
 
 Detailed experimental history is documented in the **[Investigation Journal](docs/core/Investigation-Journal.md)**, with a summary available in the **[Project Timeline](docs/core/Timeline.md)**.
 
@@ -53,11 +63,12 @@ The investigation has evolved through several phases:
 5. **Theory Development (Jan 14-21)**: Developed Reset Timing Theory, Headroom Theory, then the X+Y Model
 6. **Methodology Refinement (Jan 22-24)**: Built controlled experiments, discovered hoisting limits and
 methodology issues
-7. **Current State (Jan 26-27)**: Refined understanding with completed experiments 04A, 04D, 04K, 04L
+7. **Controlled Experiments (Jan 26-27)**: Refined understanding with completed experiments 04A, 04D, 04K, 04L
+8. **Build Scan & Root Cause (Jan 28-30)**: Scanned 16 builds (2.1.6-2.1.22); discovered same build reverses from 100% failure to 100% success overnight; traced root cause to server-controlled persistence mechanism; formalized Server-Side Variability Theory
 
-### Current Theoretical Understanding: The "Danger Zone" Model
+### Theoretical Evolution: From "Danger Zone" to Server-Side Variability
 
-The investigation has converged on an X + Y interaction model:
+The investigation initially converged on an X + Y interaction model (Jan 22-27):
 
 - X = Pre-operation context consumption (baseline + hoisted content)
 - Y = Operation context requirement (files read by agent during task)
@@ -73,8 +84,21 @@ Key Finding: Simple X + Y > T is NOT the trigger. The interaction is more comple
 | High X, moderate Y | 120K | 42K | 162K | SUCCESS (Method-03) |
 
 Critical Insight: The lower total (130K) fails while the higher total (162K) succeeds. This proves the
-interaction is NOT additive—both X and Y must exceed some threshold simultaneously to trigger phantom
+interaction is NOT additive -- both X and Y must exceed some threshold simultaneously to trigger phantom
 reads.
+
+**Update (Jan 28-30): The Server-Side Variability Discovery**
+
+The Build Scan Discrepancy Investigation revealed that the X+Y model's threshold T is not fixed -- it is controlled by Anthropic's server-side infrastructure and varies over time. The complete root cause chain:
+
+1. The Claude Code harness decides (per-session, server-controlled) whether to persist tool results to disk
+2. When persistence is active, file read results are saved to `tool-results/` files and replaced with `<persisted-output>` markers in the model's context
+3. The model receives markers instead of file content and proceeds without following up
+4. The model confabulates analysis for files it never actually read
+
+Evidence: Build 2.1.22 showed 100% persistence/failure on Jan 28 and 0% persistence/100% success on Jan 29 -- same build, same files, same protocol. Build 2.1.6 (oldest tested) behaves identically to newer builds on the same day. The `has_tool_results` field in session data is a near-perfect outcome discriminator: `false` = 100% success (14/14 trials), `true` = 85% failure (17/20 trials, with 2 recoveries).
+
+See the **[Server-Side Variability Theory](docs/theories/Server-Side-Variability-Theory.md)** and **[Build Scan Discrepancy Analysis](docs/experiments/results/Build-Scan-Discrepancy-Analysis.md)** for the full investigation.
 
 ### What's Been Confirmed
 
@@ -93,34 +117,17 @@ on model capacity
 2. Hoisting - Pre-load files via @ notation to move them from Y to X
 3. 1M Model - Use larger context window (confirmed to work but out of scope)
 
-### Open Questions and Next Steps
+### Open Questions
 
-Key Remaining Questions:
-- What is the exact X threshold above which Y=57K becomes dangerous? (somewhere between 0 and 73K)
-- Is the trigger file count, token count, or both? (04F planned)
-- What internally triggers a context reset? (still unknown)
+The investigation has answered its core research questions. The key remaining unknowns are:
 
-Next Experiments:
-- 04M: X Boundary Exploration - test intermediate X values (e.g., ~50K) with Y=57K
-- 04B/04C/04F: File count vs token count testing (requires surgical edits to remove cross-references)
-- 04G: Sequential vs parallel read patterns
+- **What controls the server-side persistence decision?** We can observe the effects but not the cause. This is outside our observation boundary -- only Anthropic can answer this.
+- **Is the Jan 29 mitigation permanent?** We have observed server-side improvement that may be intentional (targeted fix), incidental (side effect of other changes), or transient (like the Jan 27 improvement that reverted on Jan 28).
+- **Can the model's recovery from `<persisted-output>` markers be made reliable?** Currently ~10% of persistence sessions show successful agent recovery. Understanding what enables recovery could lead to a model-level fix.
 
-### Research Questions Catalog Status
+Previously planned experiments (04M, 04F, 04C, Easy/Medium/Hard scenarios) have been **superseded** by the Server-Side Variability findings -- their design assumptions (stable thresholds, deterministic input-output relationships) are invalidated by the discovery that server state varies the baseline from 0% to 100% failure.
 
-See **[Research Questions](docs/core/Research-Questions.md)** document for details.
-
-| Category                | Total | Open | Answered | Hypothesis    |
-| ----------------------- | ----- | ---- | -------- | ------------- |
-| A: Core Mechanism       | 5     | 2    | 1        | 2             |
-| B: Threshold Behavior   | 8     | 3    | 4        | 1             |
-| C: Hoisting Behavior    | 4     | 0    | 3        | 1             |
-| D: Reset Timing         | 3     | 1    | 0        | 2             |
-| E: Read Patterns        | 6     | 3    | 0        | 3             |
-| F: Measurement          | 5     | 4    | 1        | 0             |
-| G: Cross-Version/Model  | 5     | 3    | 1        | 1             |
-| H: Persisted Output     | 3     | 3    | 0        | 0             |
-| I: Discovered Behaviors | 8     | -    | -        | 7 (confirmed) |
-| TOTAL                   | 47    | 19   | 10       | 10            |
+See **[Research Questions](docs/core/Research-Questions.md)** for the complete catalog.
 
 ## Original Experiment
 
@@ -148,13 +155,15 @@ If you've experienced any of these, phantom reads may be the cause:
 
 ## How to Reproduce
 
-We have achieved the first successful phantom read reproduction in a controlled scenario. The key factors:
+Phantom reads can be reproduced using [Experiment-Methodology-04](docs/experiments/methodologies/Experiment-Methodology-04.md), which triggers multi-file read operations in a controlled test repository. The key factors:
 
 - **High pre-operation context consumption** (>50% of context window before triggering multi-file reads)
 - **Multiple file reads during onboarding** (inflates baseline context)
 - **Aggressive multi-file read operations** (triggers mid-session resets)
 
-A reliable, user-friendly reproduction protocol is in development. Current methodology documented in [docs/experiments/methodologies/Experiment-Methodology-04.md](docs/experiments/methodologies/Experiment-Methodology-04.md).
+**Important caveat**: Reproduction success depends on **server-side conditions at the time of testing**. Under conditions where the harness persistence mechanism is active (observed in 80-100% of direct-read sessions as of Jan 29, 2026), the protocol reliably triggers phantom reads. Under conditions where persistence is disabled (as observed on Jan 27 and partially on Jan 29), the same protocol will succeed. You cannot control this variable -- check for the presence of a `tool-results/` directory in the session data to determine whether persistence was active in your trial.
+
+See the **[Build Scan Discrepancy Analysis](docs/experiments/results/Build-Scan-Discrepancy-Analysis.md)** for the complete analysis of how server-side variability affects reproduction.
 
 ## Contributing
 
@@ -168,7 +177,9 @@ If you've experienced phantom reads:
 ## References
 
 - **GitHub Issue**: [anthropics/claude-code#17407](https://github.com/anthropics/claude-code/issues/17407)
-- **Consolidated Theory**: [docs/theories/Consolidated-Theory.md](docs/theories/Consolidated-Theory.md) — Unified theoretical framework (X + Y model)
+- **Server-Side Variability Theory**: [docs/theories/Server-Side-Variability-Theory.md](docs/theories/Server-Side-Variability-Theory.md) — Latest theoretical framework explaining phantom read behavior as server-controlled
+- **Build Scan Discrepancy Analysis**: [docs/experiments/results/Build-Scan-Discrepancy-Analysis.md](docs/experiments/results/Build-Scan-Discrepancy-Analysis.md) — Comprehensive 55+ trial analysis (the core investigation document)
+- **Consolidated Theory**: [docs/theories/Consolidated-Theory.md](docs/theories/Consolidated-Theory.md) — Earlier unified framework (X + Y model), still valid within sessions
 - **Timeline**: [docs/core/Timeline.md](docs/core/Timeline.md) — Concise chronological record of experiments and findings
 - **Investigation Journal**: [docs/core/Investigation-Journal.md](docs/core/Investigation-Journal.md) — Detailed narrative discovery log
 - **Research Questions**: [docs/core/Research-Questions.md](docs/core/Research-Questions.md) — Catalog of known and unknown information

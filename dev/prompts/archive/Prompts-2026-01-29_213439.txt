@@ -1,0 +1,237 @@
+## Models:
+## `opus` : claude-opus-4-5-20251101
+## `sonnet` : claude-sonnet-4-5-20250929
+## `sonnet[1m]` : claude-sonnet-4-5-20250929[1m]
+## `haiku` : claude-haiku-4-5-20251001
+
+## New Session: Claude Code v2.1.22: `opus` (locked, 2.1.26 current)
+
+---
+
+/wsd:init --custom
+
+---
+
+We're going to be performing analysis on a recent collection of Trials for the BuildScan experiment (multiple collections).  The primary document guiding your investigation is `docs/experiments/planning/Build-Scan-Discrepancy-Investigation.md` ( @docs/experiments/planning/Build-Scan-Discrepancy-Investigation.md ), and you will be writing all of your findings and results to `docs/experiments/results/Build-Scan-Discrepancy-Analysis.md` ( @docs/experiments/results/Build-Scan-Discrepancy-Analysis.md ).  You can see that the document has already been prepared, and we update it as we go, as this analysis will take several sessions to complete.
+
+For general Trial analysis, please read `docs/experiments/guides/Trial-Analysis-Guide.md` ( @docs/experiments/guides/Trial-Analysis-Guide.md ).
+
+The way we are conducting our analysis is by addressing each of the steps one-at-a-time, updating the Analysis document with our findings, and then discussing. We are currently on `Step 2.1`. The appropriate experiment has been completed for the corresponding collection. If you have any questions, let me know. Otherwise, give it a look and tell me what you find.
+
+---
+
+Yes, please write all of these discoveries into our analysis document.
+
+---
+
+## New Session: Claude Code v2.1.6: `opus` (locked, 2.1.26 current)
+## Running schema-13-216
+## Using Barebones repository - repeat of Method-04 (expecting all failures)
+
+---
+
+/context
+
+---
+
+/setup-hard
+
+---
+
+/context
+
+---
+
+/analyze-wpd docs/wpds/pipeline-refactor.md
+
+---
+
+/context
+
+---
+
+We have recently seen a number of User Agents reporting issues reading files like the following:
+
+<session-agent-response>
+Looking back at my history, you're right. My first Read call for the file returned:
+
+  <persisted-output>Tool result saved to: /Users/gray/.claude/projects/-Users-gray-Projects-workscope/dadf32a6-c83d-462d-b678-fbe7f191f42f/tool-results/toolu_019Nqx8qLWvdFSjvMsy5xFkM.txt
+
+  Use Read to view</persisted-output>
+
+  I did not follow up with a Read call to view that persisted output. I proceeded with my "investigation" without ever having actually read the file contents. I was operating completely blind, making assumptions about a document I never saw.
+
+  The same thing happened with several other files at the start - WSD-Runtime-Metadata-Schema.md, WSD-Manifest-Schema.md, Manifest-Driven-Pipeline-Overview.md all returned <persisted-output> messages that I never followed up on
+</session-agent-response>
+
+I am debugging this recurring issue and I am checking to see if this particular session is a reproduction of this issue. Did you experience this during your execution of the command?
+
+---
+
+/export ../cc-exports/[workscope_id].txt
+
+---
+
+# 2.1.6:
+## 20260129-230228 - Failure
+## 20260129-230236 - Success (Task agent)
+## 20260129-230244 - Success (Followed up on <persisted-output>)
+## 20260129-231053 - Success (Task agent)
+## 20260129-231100 - Failure
+## 20260129-231108 - Success (Task agent)
+
+---
+
+## In `barbones-phantom-read` project:
+## mkdir '../claude-code-bug-phantom-reads-17407/dev/misc/schema-13-216'
+## ./src/collect_trials.py -e '../cc-exports/' -d '../claude-code-bug-phantom-reads-17407/dev/misc/schema-13-216' -v
+
+```
+(🐍)gray@charon:~/Projects/barebones-phantom-reads (🧪main)$ ./src/collect_trials.py -e '../cc-exports/' -d '../claude-code-bug-phantom-reads-17407/dev/misc/schema-13-216' -v
+Collecting 20260129-231053 (from 20260129-231053.txt)
+  Copied: 20260129-231053.txt (chat export)
+  Copied: 323d9c4c-64ab-4305-8aa2-19bc1195f4b5.jsonl
+  Copied: 323d9c4c-64ab-4305-8aa2-19bc1195f4b5/ (directory)
+Collecting 20260129-231108 (from 20260129-231108.txt)
+  Copied: 20260129-231108.txt (chat export)
+  Copied: c6256094-8a64-4005-8a73-4b4e1ef9d5db.jsonl
+  Copied: c6256094-8a64-4005-8a73-4b4e1ef9d5db/ (directory)
+Collecting 20260129-230228 (from 20260129-230228.txt)
+  Copied: 20260129-230228.txt (chat export)
+  Copied: e74cb27e-9956-4d4f-ba44-f9bcce38e732.jsonl
+  Copied: e74cb27e-9956-4d4f-ba44-f9bcce38e732/ (directory)
+Collecting 20260129-230236 (from 20260129-230236.txt)
+  Copied: 20260129-230236.txt (chat export)
+  Copied: b6099bc1-6a37-494a-b345-9e01a15a13b3.jsonl
+  Copied: b6099bc1-6a37-494a-b345-9e01a15a13b3/ (directory)
+Collecting 20260129-231100 (from 20260129-231100.txt)
+  Copied: 20260129-231100.txt (chat export)
+  Copied: 8b7e97df-2493-45ed-bac4-b05c90ad1c54.jsonl
+  Copied: 8b7e97df-2493-45ed-bac4-b05c90ad1c54/ (directory)
+Collecting 20260129-230244 (from 20260129-230244.txt)
+  Copied: 20260129-230244.txt (chat export)
+  Copied: 0cf27f15-7be0-4756-832a-e2c818d6f406.jsonl
+  Copied: 0cf27f15-7be0-4756-832a-e2c818d6f406/ (directory)
+
+==================================================
+Collection Summary
+==================================================
+Total trials processed: 6
+Total files collected:  18
+
+Collected:              6
+Skipped (exists):       0
+Skipped (no ID):        0
+Failed:                 0
+
+Output directory:       ../claude-code-bug-phantom-reads-17407/dev/misc/schema-13-216
+(🐍)gray@charon:~/Projects/barebones-phantom-reads (🧪main)$
+```
+---
+
+## New Session: Claude Code v2.1.6: `opus` (locked, 2.1.26 current)
+# Re-ran pre-processing for schema-13-216
+
+---
+
+/wsd:init --custom
+
+---
+
+## 2.1.6: `dev/misc/schema-13-216`
+/update-trial-data dev/misc/schema-13-216/20260129-230228
+/update-trial-data dev/misc/schema-13-216/20260129-230236
+/update-trial-data dev/misc/schema-13-216/20260129-230244
+/update-trial-data dev/misc/schema-13-216/20260129-231053
+/update-trial-data dev/misc/schema-13-216/20260129-231100
+/update-trial-data dev/misc/schema-13-216/20260129-231108
+
+---
+
+## New Session: Claude Code v2.1.22: `opus` (locked, 2.1.26 current)
+
+---
+
+/wsd:init --custom
+
+---
+
+We're going to be performing analysis on a recent collection of Trials for the BuildScan experiment (multiple collections).  The primary document guiding your investigation is `docs/experiments/planning/Build-Scan-Discrepancy-Investigation.md` ( @docs/experiments/planning/Build-Scan-Discrepancy-Investigation.md ), and you will be writing all of your findings and results to `docs/experiments/results/Build-Scan-Discrepancy-Analysis.md` ( @docs/experiments/results/Build-Scan-Discrepancy-Analysis.md ).  You can see that the document has already been prepared, and we update it as we go, as this analysis will take several sessions to complete.
+
+For general Trial analysis, please read `docs/experiments/guides/Trial-Analysis-Guide.md` ( @docs/experiments/guides/Trial-Analysis-Guide.md ).
+
+The way we are conducting our analysis is by addressing each of the steps one-at-a-time, updating the Analysis document with our findings, and then discussing. We are currently on `Step 2.2`. The appropriate experiment has been completed for the corresponding collection. If you have any questions, let me know. Otherwise, give it a look and tell me what you find.
+
+---
+
+Yes, I think that something substantially changed not between _builds_ but between the days of Jan 27 & 28, supporting a previously mentioned theory that the results we're seeing are heavily influenced by changes to the _server_ and not to the published _client_ builds.  Unfortunately, we only have the capability of testing among different clients and have no control over the server.
+
+It also appears that the server has considerable control over client behavior - for instance, the introduction of the sub-agent Task protocol for reading tasks works now (on Jan 28) even with older builds that would not have been built to programmatically interface with that server strategy.  A way to test this might be to re-run even 2.1.6 builds now (on Jan 28) to see if the protocol manifests.
+
+Does this all make sense?  And is there any detail or nuance I might be missing in this interpretation?  This has DRASTIC impact on our investigation, where this might qualify as a "fix" and redirect us toward closure and reporting.
+
+Think on this and let me know your thoughts. After that, there are two documentation updates I would like to make. The first is the creation of a new theory doc in our `docs/theories/` folder.  The second update would be a change to the `docs/experiments/planning/Build-Scan-Discrepancy-Investigation.md` plan (with corresponding changes to `docs/experiments/results/Build-Scan-Discrepancy-Analysis.md`) that redirect our investigation following Step 2.2 (where everything up through that point is already completed).
+
+---
+
+No, I think you're spot on. And that makes sense.  My intuition matches your explanation, but I explained it poorly.  This is a mitigation, not necessarily a fix, and in a non-determinstic process involving a model's discretion, it may never be a 100% fix.  However, it's worth noting that Anthropic has released four more builds in the past day (up to 2.1.26 now), and such a rapid release schedule is rare.  I am suspecting that the fact 2.1.22 showed such solid success and it was only 2.1.20 that showed inconsistency, that the harness has been further tuned to this new strategy moving up to 2.1.26.
+
+But your explanation is great, go forward with what you've explained into our new theory doc.  I can already confirm that I've seen 2.1.6 now show the same "Task" tool use just now, where it has never shown it in the many weeks we've spent investigating, so a formal analysis is probably a good next step for 2.3 (we can get rid of the "Cross-Machine Replication" at this point).
+
+Go for it. Engage!
+
+---
+
+## New Session: Claude Code v2.1.22: `opus` (locked, 2.1.26 current)
+
+---
+
+/wsd:init --custom
+
+---
+
+We're going to be performing analysis on a recent collection of Trials for the BuildScan experiment (multiple collections).  The primary document guiding your investigation is `docs/experiments/planning/Build-Scan-Discrepancy-Investigation.md` ( @docs/experiments/planning/Build-Scan-Discrepancy-Investigation.md ), and you will be writing all of your findings and results to `docs/experiments/results/Build-Scan-Discrepancy-Analysis.md` ( @docs/experiments/results/Build-Scan-Discrepancy-Analysis.md ).  You can see that the document has already been prepared, and we update it as we go, as this analysis will take several sessions to complete.
+
+For general Trial analysis, please read `docs/experiments/guides/Trial-Analysis-Guide.md` ( @docs/experiments/guides/Trial-Analysis-Guide.md ).
+
+The way we are conducting our analysis is by addressing each of the steps one-at-a-time, updating the Analysis document with our findings, and then discussing. We are currently on `Step 2.2`. The appropriate experiment has been completed for the corresponding collection. If you have any questions, let me know. Otherwise, give it a look and tell me what you find.
+
+---
+
+Yes, please update the Analysis document.
+
+After that, you made mention of the new theory we have going: `docs/theories/Server-Side-Variability-Theory.md` ( @docs/theories/Server-Side-Variability-Theory.md ). How does this influence that theory (obviously strengthening it), and are there any updates we should make to this document in light of these findings?
+
+---
+
+## New Session: Claude Code v2.1.22: `opus` (locked, 2.1.26 current)
+
+---
+
+/wsd:init --custom
+
+---
+
+We're going to be performing analysis on a recent collection of Trials for the BuildScan experiment (multiple collections).  The primary document guiding your investigation is `docs/experiments/planning/Build-Scan-Discrepancy-Investigation.md` ( @docs/experiments/planning/Build-Scan-Discrepancy-Investigation.md ), and you will be writing all of your findings and results to `docs/experiments/results/Build-Scan-Discrepancy-Analysis.md` ( @docs/experiments/results/Build-Scan-Discrepancy-Analysis.md ).  You can see that the document has already been prepared, and we update it as we go, as this analysis will take several sessions to complete.
+
+The Server-Side Variability Theory has largely been confirmed at this point. I would like to know what is left for us to investigate in the Build-Scan-Discrepancy investigation (i.e., if the remaining steps are still relevant), or if we should move to consolidating and reporting.
+
+---
+
+Yes, let's proceed with Step 3.2. You can use the guide (`docs/experiments/guides/Trial-Analysis-Guide.md`) if you need to look at the `trial_data.json` files.
+
+---
+
+Yes, let's proceed with the Closure Assessment.
+
+---
+
+I'm about to post an update to GitHub, and in light of these critical discoveries we may want to alter the `README.md` file a bit for anyone following the investigation. Could you propose some edits that would bring a viewer (or harness maintainer) up to speed?  There may be some older information on the README that we should retire, though I don't want to lose too much - I would like for the README to still properly reflect the substantial amount of work that has gone into this investigation.
+
+---
+
+This is a great update.  I also want to post to the original GitHub ticket on Anthropic's project, updating my original, and long-outdated post.  This is a considerable challenge, but could you draft a summary of the investigation and note the current understanding for the sake of the maintainers?  I figure that this is time-sensitive, since their mitigation effects were largely put into place in the last 12-24 hours.
+
+For the eyes that may be watching this ticket (as it has been posted on Twitter, etc.), and for those who have not seen updates since this investigation repo was started at the initial discovery on Jan 9 (three weeks ago), what's the message we could present?  Phantom reads are not the same concern they have been - they're not gone now, but they are substantially affected by the changes of the last day.
+
+---

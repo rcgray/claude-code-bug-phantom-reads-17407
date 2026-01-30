@@ -7,6 +7,15 @@
 - Evaluate test coverage
 - Audit developer/test infrastructure
 
+Finish Build-Scan Discrepancy Analysis
+Explore current mix of possible results - delegation, phantom read, deferred reads followed, inline, etc.
+Determine the extent to which phantom reads still exist, even if mitigated by Task()
+Add barebones-phantom-reads repo
+Test on 2.1.26
+Update all journal/timeline via prompt scanning
+Write conclusion and present state
+Update GitHub ticket
+
 ## BUGS
 
 Going back to 1.0.60 again, it's now returning `[Old tool result content cleared]` instead of `<persisted-output>`. This seems to have changed to the <persisted-output> around then.

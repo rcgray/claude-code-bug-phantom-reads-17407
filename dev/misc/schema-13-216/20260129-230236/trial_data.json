@@ -1,0 +1,336 @@
+{
+  "schema_version": "1.3",
+  "generated_at": "2026-01-29T23:22:49.934825",
+  "metadata": {
+    "workscope_id": "20260129-230236",
+    "session_uuid": "b6099bc1-6a37-494a-b345-9e01a15a13b3",
+    "chat_export_file": "20260129-230236.txt",
+    "session_file": "b6099bc1-6a37-494a-b345-9e01a15a13b3.jsonl",
+    "has_subagents": true,
+    "has_tool_results": false
+  },
+  "outcome": {
+    "self_reported": "SUCCESS",
+    "affected_files": [],
+    "notes": "Agent explicitly stated: 'No, I did not experience that issue in this session.' All four @-referenced spec files were delivered inline as <system-reminder> blocks, the WPD was read inline (452 lines), and sub-agent reads returned substantive summaries with exact field names and section numbers. Agent concluded: 'This session does not appear to be a reproduction of the reported issue.'"
+  },
+  "context_metrics": {
+    "pre_operation_tokens": null,
+    "pre_operation_percent": null,
+    "post_operation_tokens": null,
+    "post_operation_percent": null,
+    "headroom_at_trigger": null,
+    "context_window_size": 200000,
+    "initial_cache_read": 15825,
+    "total_input_at_peak": 145671,
+    "peak_cache_read": 140978
+  },
+  "reset_analysis": {
+    "total_resets": 1,
+    "reset_positions_percent": [
+      81.81818181818183
+    ],
+    "pattern_classification": "SINGLE_LATE",
+    "resets": [
+      {
+        "from_tokens": 140978,
+        "to_tokens": 18897,
+        "session_line": 36,
+        "sequence_position": 36,
+        "total_events": 44,
+        "position_percent": 81.81818181818183,
+        "cache_creation_at_reset": 126771,
+        "total_input_at_reset": 145671,
+        "compaction_loss": -4690
+      }
+    ]
+  },
+  "file_reads": {
+    "total_operations": 1,
+    "successful_operations": 1,
+    "failed_operations": 0,
+    "unique_files": 1,
+    "unique_file_list": [
+      "/Users/gray/Projects/barebones-phantom-reads/docs/wpds/pipeline-refactor.md"
+    ],
+    "failed_reads": [],
+    "reads": [
+      {
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/wpds/pipeline-refactor.md",
+        "session_line": 19,
+        "tool_use_id": "toolu_01T1H4xBWPxtWwREePHi9BGf",
+        "batch_id": 0,
+        "success": true,
+        "sequence": 1
+      }
+    ]
+  },
+  "persistence_mapping": {
+    "persisted_tool_ids": [],
+    "persisted_count": 0,
+    "non_persisted_count": 1,
+    "persisted_reads": [],
+    "non_persisted_reads": [
+      {
+        "sequence": 1,
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/wpds/pipeline-refactor.md",
+        "tool_use_id": "toolu_01T1H4xBWPxtWwREePHi9BGf"
+      }
+    ],
+    "persisted_non_reads": []
+  },
+  "timeline": [
+    {
+      "sequence": 2,
+      "type": "user_input",
+      "session_line": 2,
+      "preview": "<local-command-caveat>Caveat: The messages below w",
+      "phase": null
+    },
+    {
+      "sequence": 3,
+      "type": "user_input",
+      "session_line": 3,
+      "preview": "<command-name>/context</command-name>\n            ",
+      "phase": null
+    },
+    {
+      "sequence": 4,
+      "type": "user_input",
+      "session_line": 4,
+      "preview": "<local-command-stdout>\u001b[?2026h \u001b[1mContext Usage\u001b[",
+      "phase": null
+    },
+    {
+      "sequence": 6,
+      "type": "user_input",
+      "session_line": 6,
+      "preview": "<command-message>setup-hard</command-message>\n<com",
+      "phase": null
+    },
+    {
+      "sequence": 7,
+      "type": "user_input",
+      "session_line": 7,
+      "preview": "# Get Workscope ID\n\nThis command generates a uniqu",
+      "phase": "inquiry"
+    },
+    {
+      "sequence": 12,
+      "type": "user_input",
+      "session_line": 12,
+      "preview": "<local-command-caveat>Caveat: The messages below w",
+      "phase": null
+    },
+    {
+      "sequence": 13,
+      "type": "user_input",
+      "session_line": 13,
+      "preview": "<command-name>/context</command-name>\n            ",
+      "phase": null
+    },
+    {
+      "sequence": 14,
+      "type": "user_input",
+      "session_line": 14,
+      "preview": "<local-command-stdout>\u001b[?2026h \u001b[1mContext Usage\u001b[",
+      "phase": null
+    },
+    {
+      "sequence": 16,
+      "type": "user_input",
+      "session_line": 16,
+      "preview": "<command-message>analyze-wpd</command-message>\n<co",
+      "phase": null
+    },
+    {
+      "sequence": 17,
+      "type": "user_input",
+      "session_line": 17,
+      "preview": "# Analyze Work Plan Document\n\nThis command initiat",
+      "phase": null
+    },
+    {
+      "sequence": 19,
+      "type": "tool_batch",
+      "session_line": 19,
+      "read_count": 1,
+      "files": [
+        "/Users/gray/Projects/barebones-phantom-reads/docs/wpds/pipeline-refactor.md"
+      ]
+    },
+    {
+      "sequence": 30,
+      "type": "user_input",
+      "session_line": 30,
+      "preview": "<local-command-caveat>Caveat: The messages below w",
+      "phase": null
+    },
+    {
+      "sequence": 31,
+      "type": "user_input",
+      "session_line": 31,
+      "preview": "<command-name>/context</command-name>\n            ",
+      "phase": null
+    },
+    {
+      "sequence": 32,
+      "type": "user_input",
+      "session_line": 32,
+      "preview": "<local-command-stdout>\u001b[?2026h \u001b[1mContext Usage\u001b[",
+      "phase": null
+    },
+    {
+      "sequence": 34,
+      "type": "user_input",
+      "session_line": 34,
+      "preview": "We have recently seen a number of User Agents repo",
+      "phase": "inquiry"
+    },
+    {
+      "sequence": 36,
+      "type": "context_reset",
+      "session_line": 36,
+      "from_tokens": 140978,
+      "to_tokens": 18897
+    },
+    {
+      "sequence": 38,
+      "type": "user_input",
+      "session_line": 38,
+      "preview": "<local-command-caveat>Caveat: The messages below w",
+      "phase": null
+    },
+    {
+      "sequence": 39,
+      "type": "user_input",
+      "session_line": 39,
+      "preview": "<command-name>/export</command-name>\n            <",
+      "phase": null
+    },
+    {
+      "sequence": 40,
+      "type": "user_input",
+      "session_line": 40,
+      "preview": "<local-command-stdout>Conversation exported to: ..",
+      "phase": null
+    },
+    {
+      "sequence": 42,
+      "type": "user_input",
+      "session_line": 42,
+      "preview": "<local-command-caveat>Caveat: The messages below w",
+      "phase": null
+    },
+    {
+      "sequence": 43,
+      "type": "user_input",
+      "session_line": 43,
+      "preview": "<command-name>/exit</command-name>\n            <co",
+      "phase": null
+    },
+    {
+      "sequence": 44,
+      "type": "user_input",
+      "session_line": 44,
+      "preview": "<local-command-stdout>See ya!</local-command-stdou",
+      "phase": null
+    }
+  ],
+  "token_progression": [
+    {
+      "sequence": 1,
+      "cache_read_tokens": 15825,
+      "cache_creation_tokens": 99842,
+      "input_tokens": 2,
+      "output_tokens": 27,
+      "total_input": 115669,
+      "session_line": 8
+    },
+    {
+      "sequence": 2,
+      "cache_read_tokens": 115667,
+      "cache_creation_tokens": 114,
+      "input_tokens": 1,
+      "output_tokens": 1,
+      "total_input": 115782,
+      "session_line": 10
+    },
+    {
+      "sequence": 3,
+      "cache_read_tokens": 115799,
+      "cache_creation_tokens": 2128,
+      "input_tokens": 2,
+      "output_tokens": 2,
+      "total_input": 117929,
+      "session_line": 18
+    },
+    {
+      "sequence": 4,
+      "cache_read_tokens": 115799,
+      "cache_creation_tokens": 2128,
+      "input_tokens": 2,
+      "output_tokens": 101,
+      "total_input": 117929,
+      "session_line": 19
+    },
+    {
+      "sequence": 5,
+      "cache_read_tokens": 117927,
+      "cache_creation_tokens": 7359,
+      "input_tokens": 1,
+      "output_tokens": 1,
+      "total_input": 125287,
+      "session_line": 21
+    },
+    {
+      "sequence": 6,
+      "cache_read_tokens": 117927,
+      "cache_creation_tokens": 7359,
+      "input_tokens": 1,
+      "output_tokens": 488,
+      "total_input": 125287,
+      "session_line": 22
+    },
+    {
+      "sequence": 7,
+      "cache_read_tokens": 125286,
+      "cache_creation_tokens": 15692,
+      "input_tokens": 1,
+      "output_tokens": 3,
+      "total_input": 140979,
+      "session_line": 24
+    },
+    {
+      "sequence": 8,
+      "cache_read_tokens": 125286,
+      "cache_creation_tokens": 15692,
+      "input_tokens": 1,
+      "output_tokens": 178,
+      "total_input": 140979,
+      "session_line": 25
+    },
+    {
+      "sequence": 9,
+      "cache_read_tokens": 140978,
+      "cache_creation_tokens": 215,
+      "input_tokens": 1,
+      "output_tokens": 2702,
+      "total_input": 141194,
+      "session_line": 27
+    },
+    {
+      "sequence": 10,
+      "cache_read_tokens": 18897,
+      "cache_creation_tokens": 126771,
+      "input_tokens": 3,
+      "output_tokens": 667,
+      "total_input": 145671,
+      "session_line": 36
+    }
+  ],
+  "token_analysis": {
+    "available": false,
+    "token_counts_file": null
+  }
+}
