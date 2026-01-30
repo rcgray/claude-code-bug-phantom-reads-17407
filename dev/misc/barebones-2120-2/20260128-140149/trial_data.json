@@ -1,6 +1,6 @@
 {
-  "schema_version": "1.2",
-  "generated_at": "2026-01-29T11:49:26.771040",
+  "schema_version": "1.3",
+  "generated_at": "2026-01-29T19:15:10.456397",
   "metadata": {
     "workscope_id": "20260128-140149",
     "session_uuid": "f53d1dfd-722b-485d-a859-91557b79d506",
@@ -17,7 +17,7 @@
       "/Users/gray/Projects/barebones-phantom-reads/docs/specs/module-beta.md",
       "/Users/gray/Projects/barebones-phantom-reads/docs/specs/module-gamma.md"
     ],
-    "notes": "Agent reported partial phantom reads. First Read of pipeline-refactor.md returned <persisted-output> but agent correctly followed up. Parallel reads of data-pipeline-overview.md, module-alpha.md, module-beta.md, module-gamma.md returned <persisted-output> and agent did NOT follow up. Agent stated: 'I failed to recognize that <persisted-output> requires a follow-up Read call, and proceeded to make claims about files I never actually read.' Agent extrapolated from WPD content and preloaded files rather than actual spec content."
+    "notes": "Agent explicitly stated: 'Yes, I experienced a partial version of this issue.' Reads for data-pipeline-overview.md, module-alpha.md, module-beta.md, and module-gamma.md returned <persisted-output> messages that were NOT followed up on. Agent proceeded to make claims about file contents (e.g., 'Looking at module-alpha.md, the ValidatedRecord structure is well-defined') without having read those files. The WPD read (pipeline-refactor.md) was also persisted but the agent DID correctly follow up on that one."
   },
   "context_metrics": {
     "pre_operation_tokens": null,
@@ -25,7 +25,10 @@
     "post_operation_tokens": null,
     "post_operation_percent": null,
     "headroom_at_trigger": null,
-    "context_window_size": 200000
+    "context_window_size": 200000,
+    "initial_cache_read": 15490,
+    "total_input_at_peak": 164196,
+    "peak_cache_read": 138641
   },
   "reset_analysis": {
     "total_resets": 2,
@@ -41,7 +44,10 @@
         "session_line": 51,
         "sequence_position": 51,
         "total_events": 73,
-        "position_percent": 69.86301369863014
+        "position_percent": 69.86301369863014,
+        "cache_creation_at_reset": 120621,
+        "total_input_at_reset": 151720,
+        "compaction_loss": -15527
       },
       {
         "from_tokens": 138641,
@@ -49,7 +55,10 @@
         "session_line": 63,
         "sequence_position": 63,
         "total_events": 73,
-        "position_percent": 86.3013698630137
+        "position_percent": 86.3013698630137,
+        "cache_creation_at_reset": 146166,
+        "total_input_at_reset": 164196,
+        "compaction_loss": -25545
       }
     ]
   },
@@ -152,6 +161,75 @@
         "success": true,
         "sequence": 10
       }
+    ]
+  },
+  "persistence_mapping": {
+    "persisted_tool_ids": [
+      "toolu_014ZrNxx2qgGEtqeJFb6rgwH",
+      "toolu_0155Dzc4vhgunRvwoKepuFSd",
+      "toolu_016HqR7QFg4ETqrcv5G2tLGM",
+      "toolu_01AUGPfUCPqgtF2XBaxPjTis",
+      "toolu_01J9Riwm6BAoCfWwBXzbb8Uf",
+      "toolu_01SqsCVuX93pLyHGjueorUWJ"
+    ],
+    "persisted_count": 6,
+    "non_persisted_count": 5,
+    "persisted_reads": [
+      {
+        "sequence": 1,
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/wpds/pipeline-refactor.md",
+        "tool_use_id": "toolu_0155Dzc4vhgunRvwoKepuFSd"
+      },
+      {
+        "sequence": 5,
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/specs/module-gamma.md",
+        "tool_use_id": "toolu_016HqR7QFg4ETqrcv5G2tLGM"
+      },
+      {
+        "sequence": 2,
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/specs/data-pipeline-overview.md",
+        "tool_use_id": "toolu_01AUGPfUCPqgtF2XBaxPjTis"
+      },
+      {
+        "sequence": 4,
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/specs/module-beta.md",
+        "tool_use_id": "toolu_01J9Riwm6BAoCfWwBXzbb8Uf"
+      },
+      {
+        "sequence": 3,
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/specs/module-alpha.md",
+        "tool_use_id": "toolu_01SqsCVuX93pLyHGjueorUWJ"
+      }
+    ],
+    "non_persisted_reads": [
+      {
+        "sequence": 6,
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/specs/module-epsilon.md",
+        "tool_use_id": "toolu_01GWyiNNUU5vBitaLMd45Z9C"
+      },
+      {
+        "sequence": 7,
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/specs/module-phi.md",
+        "tool_use_id": "toolu_01E3KHhTcbp9JX42UDJF2fLD"
+      },
+      {
+        "sequence": 8,
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/specs/integration-layer.md",
+        "tool_use_id": "toolu_01CDHKWJUUwHLtgKwgAJYEuQ"
+      },
+      {
+        "sequence": 9,
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/specs/compliance-requirements.md",
+        "tool_use_id": "toolu_01GLFZxfBGrDHvuEVVsNPefz"
+      },
+      {
+        "sequence": 10,
+        "file_path": "/Users/gray/.claude/projects/-Users-gray-Projects-barebones-phantom-reads/f53d1dfd-722b-485d-a859-91557b79d506/tool-results/toolu_0155Dzc4vhgunRvwoKepuFSd.txt",
+        "tool_use_id": "toolu_01BmL8HrcQMYSbcY1Kb9QMbc"
+      }
+    ],
+    "persisted_non_reads": [
+      "toolu_014ZrNxx2qgGEtqeJFb6rgwH"
     ]
   },
   "timeline": [
@@ -404,96 +482,172 @@
     {
       "sequence": 1,
       "cache_read_tokens": 15490,
+      "cache_creation_tokens": 98605,
+      "input_tokens": 2,
+      "output_tokens": 5,
+      "total_input": 114097,
       "session_line": 8
     },
     {
       "sequence": 2,
       "cache_read_tokens": 114095,
+      "cache_creation_tokens": 115,
+      "input_tokens": 0,
+      "output_tokens": 1,
+      "total_input": 114210,
       "session_line": 11
     },
     {
       "sequence": 3,
       "cache_read_tokens": 114210,
+      "cache_creation_tokens": 1537,
+      "input_tokens": 1,
+      "output_tokens": 8,
+      "total_input": 115748,
       "session_line": 19
     },
     {
       "sequence": 4,
       "cache_read_tokens": 114210,
+      "cache_creation_tokens": 1537,
+      "input_tokens": 1,
+      "output_tokens": 8,
+      "total_input": 115748,
       "session_line": 20
     },
     {
       "sequence": 5,
       "cache_read_tokens": 115747,
+      "cache_creation_tokens": 7367,
+      "input_tokens": 0,
+      "output_tokens": 1,
+      "total_input": 123114,
       "session_line": 23
     },
     {
       "sequence": 6,
       "cache_read_tokens": 115747,
+      "cache_creation_tokens": 7367,
+      "input_tokens": 0,
+      "output_tokens": 1,
+      "total_input": 123114,
       "session_line": 24
     },
     {
       "sequence": 7,
       "cache_read_tokens": 115747,
+      "cache_creation_tokens": 7367,
+      "input_tokens": 0,
+      "output_tokens": 1,
+      "total_input": 123114,
       "session_line": 25
     },
     {
       "sequence": 8,
       "cache_read_tokens": 115747,
+      "cache_creation_tokens": 7367,
+      "input_tokens": 0,
+      "output_tokens": 1,
+      "total_input": 123114,
       "session_line": 26
     },
     {
       "sequence": 9,
       "cache_read_tokens": 115747,
+      "cache_creation_tokens": 7367,
+      "input_tokens": 0,
+      "output_tokens": 1,
+      "total_input": 123114,
       "session_line": 27
     },
     {
       "sequence": 10,
       "cache_read_tokens": 123114,
+      "cache_creation_tokens": 36613,
+      "input_tokens": 0,
+      "output_tokens": 1,
+      "total_input": 159727,
       "session_line": 37
     },
     {
       "sequence": 11,
       "cache_read_tokens": 123114,
+      "cache_creation_tokens": 36613,
+      "input_tokens": 0,
+      "output_tokens": 1,
+      "total_input": 159727,
       "session_line": 38
     },
     {
       "sequence": 12,
       "cache_read_tokens": 123114,
+      "cache_creation_tokens": 36613,
+      "input_tokens": 0,
+      "output_tokens": 1,
+      "total_input": 159727,
       "session_line": 39
     },
     {
       "sequence": 13,
       "cache_read_tokens": 123114,
+      "cache_creation_tokens": 36613,
+      "input_tokens": 0,
+      "output_tokens": 1,
+      "total_input": 159727,
       "session_line": 40
     },
     {
       "sequence": 14,
       "cache_read_tokens": 123114,
+      "cache_creation_tokens": 36613,
+      "input_tokens": 0,
+      "output_tokens": 1,
+      "total_input": 159727,
       "session_line": 41
     },
     {
       "sequence": 15,
       "cache_read_tokens": 18020,
+      "cache_creation_tokens": 120621,
+      "input_tokens": 13079,
+      "output_tokens": 1,
+      "total_input": 151720,
       "session_line": 51
     },
     {
       "sequence": 16,
       "cache_read_tokens": 18020,
+      "cache_creation_tokens": 120621,
+      "input_tokens": 13079,
+      "output_tokens": 1,
+      "total_input": 151720,
       "session_line": 52
     },
     {
       "sequence": 17,
       "cache_read_tokens": 138641,
+      "cache_creation_tokens": 21927,
+      "input_tokens": 1,
+      "output_tokens": 1,
+      "total_input": 160569,
       "session_line": 55
     },
     {
       "sequence": 18,
       "cache_read_tokens": 18020,
+      "cache_creation_tokens": 146166,
+      "input_tokens": 10,
+      "output_tokens": 7,
+      "total_input": 164196,
       "session_line": 63
     },
     {
       "sequence": 19,
       "cache_read_tokens": 18020,
+      "cache_creation_tokens": 146166,
+      "input_tokens": 10,
+      "output_tokens": 7,
+      "total_input": 164196,
       "session_line": 64
     }
   ],

@@ -1,6 +1,6 @@
 {
-  "schema_version": "1.2",
-  "generated_at": "2026-01-27T11:15:16.400954",
+  "schema_version": "1.3",
+  "generated_at": "2026-01-29T19:05:32.632792",
   "metadata": {
     "workscope_id": "20260127-100944",
     "session_uuid": "545d1fd0-6fd0-44b7-9187-7dbe41b64248",
@@ -12,7 +12,7 @@
   "outcome": {
     "self_reported": "SUCCESS",
     "affected_files": [],
-    "notes": "Agent explicitly stated: 'No, I did not experience that issue in this session.' All 9 Read calls returned full file contents inline. Agent confirmed no <persisted-output> messages were encountered."
+    "notes": "Agent explicitly stated: 'No, I did not experience that issue in this session.' All 9 Read calls returned full file contents inline with no <persisted-output> messages. Single late reset at 85% did not affect file reads."
   },
   "context_metrics": {
     "pre_operation_tokens": null,
@@ -20,7 +20,10 @@
     "post_operation_tokens": null,
     "post_operation_percent": null,
     "headroom_at_trigger": null,
-    "context_window_size": 200000
+    "context_window_size": 200000,
+    "initial_cache_read": 15490,
+    "total_input_at_peak": 197973,
+    "peak_cache_read": 173000
   },
   "reset_analysis": {
     "total_resets": 1,
@@ -35,7 +38,10 @@
         "session_line": 58,
         "sequence_position": 58,
         "total_events": 68,
-        "position_percent": 85.29411764705883
+        "position_percent": 85.29411764705883,
+        "cache_creation_at_reset": 180022,
+        "total_input_at_reset": 197973,
+        "compaction_loss": -24963
       }
     ]
   },
@@ -131,6 +137,60 @@
       }
     ]
   },
+  "persistence_mapping": {
+    "persisted_tool_ids": [],
+    "persisted_count": 0,
+    "non_persisted_count": 9,
+    "persisted_reads": [],
+    "non_persisted_reads": [
+      {
+        "sequence": 1,
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/wpds/pipeline-refactor.md",
+        "tool_use_id": "toolu_013GvjMnN9VS5mAj8cdWa7e5"
+      },
+      {
+        "sequence": 2,
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/specs/data-pipeline-overview.md",
+        "tool_use_id": "toolu_01B729N6UbFv737AqxsWS5T1"
+      },
+      {
+        "sequence": 3,
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/specs/integration-layer.md",
+        "tool_use_id": "toolu_019ZCkuG36rfGBqHCYi2gsCR"
+      },
+      {
+        "sequence": 4,
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/specs/compliance-requirements.md",
+        "tool_use_id": "toolu_0123bLNGK9vShoF51Deu8GGz"
+      },
+      {
+        "sequence": 5,
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/specs/module-alpha.md",
+        "tool_use_id": "toolu_01ByBktt6taipceS1vRm2mr1"
+      },
+      {
+        "sequence": 6,
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/specs/module-beta.md",
+        "tool_use_id": "toolu_01N21kCiwipqPWHmw6CgY76P"
+      },
+      {
+        "sequence": 7,
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/specs/module-gamma.md",
+        "tool_use_id": "toolu_01RjfTMyYAvQWNg6osc16sXq"
+      },
+      {
+        "sequence": 8,
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/specs/module-epsilon.md",
+        "tool_use_id": "toolu_019P1YTvU2f726QzggHpTLhe"
+      },
+      {
+        "sequence": 9,
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/specs/module-phi.md",
+        "tool_use_id": "toolu_01MMPwpTdpMquVx9UzYEJpmU"
+      }
+    ],
+    "persisted_non_reads": []
+  },
   "timeline": [
     {
       "sequence": 2,
@@ -150,7 +210,7 @@
       "sequence": 4,
       "type": "user_input",
       "session_line": 4,
-      "preview": "<local-command-stdout> Context Usage\n⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁",
+      "preview": "<local-command-stdout> Context Usage\n\u26c1 \u26c1 \u26c1 \u26c1 \u26c1 \u26c1 \u26c1",
       "phase": null
     },
     {
@@ -185,7 +245,7 @@
       "sequence": 14,
       "type": "user_input",
       "session_line": 14,
-      "preview": "<local-command-stdout> Context Usage\n⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁",
+      "preview": "<local-command-stdout> Context Usage\n\u26c1 \u26c1 \u26c1 \u26c1 \u26c1 \u26c1 \u26c1",
       "phase": null
     },
     {
@@ -301,7 +361,7 @@
       "sequence": 55,
       "type": "user_input",
       "session_line": 55,
-      "preview": "<local-command-stdout> Context Usage\n⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁",
+      "preview": "<local-command-stdout> Context Usage\n\u26c1 \u26c1 \u26c1 \u26c1 \u26c1 \u26c1 \u26c1",
       "phase": null
     },
     {
@@ -365,91 +425,163 @@
     {
       "sequence": 1,
       "cache_read_tokens": 15490,
+      "cache_creation_tokens": 98526,
+      "input_tokens": 2,
+      "output_tokens": 5,
+      "total_input": 114018,
       "session_line": 8
     },
     {
       "sequence": 2,
       "cache_read_tokens": 114016,
+      "cache_creation_tokens": 115,
+      "input_tokens": 0,
+      "output_tokens": 1,
+      "total_input": 114131,
       "session_line": 10
     },
     {
       "sequence": 3,
       "cache_read_tokens": 114147,
+      "cache_creation_tokens": 1521,
+      "input_tokens": 1,
+      "output_tokens": 8,
+      "total_input": 115669,
       "session_line": 18
     },
     {
       "sequence": 4,
       "cache_read_tokens": 114147,
+      "cache_creation_tokens": 1521,
+      "input_tokens": 1,
+      "output_tokens": 8,
+      "total_input": 115669,
       "session_line": 19
     },
     {
       "sequence": 5,
       "cache_read_tokens": 115668,
+      "cache_creation_tokens": 7364,
+      "input_tokens": 0,
+      "output_tokens": 1,
+      "total_input": 123032,
       "session_line": 22
     },
     {
       "sequence": 6,
       "cache_read_tokens": 115668,
+      "cache_creation_tokens": 7364,
+      "input_tokens": 0,
+      "output_tokens": 1,
+      "total_input": 123032,
       "session_line": 23
     },
     {
       "sequence": 7,
       "cache_read_tokens": 115668,
+      "cache_creation_tokens": 7364,
+      "input_tokens": 0,
+      "output_tokens": 1,
+      "total_input": 123032,
       "session_line": 24
     },
     {
       "sequence": 8,
       "cache_read_tokens": 115668,
+      "cache_creation_tokens": 7364,
+      "input_tokens": 0,
+      "output_tokens": 1,
+      "total_input": 123032,
       "session_line": 25
     },
     {
       "sequence": 9,
       "cache_read_tokens": 123032,
+      "cache_creation_tokens": 8620,
+      "input_tokens": 13078,
+      "output_tokens": 4,
+      "total_input": 144730,
       "session_line": 32
     },
     {
       "sequence": 10,
       "cache_read_tokens": 123032,
+      "cache_creation_tokens": 8620,
+      "input_tokens": 13078,
+      "output_tokens": 4,
+      "total_input": 144730,
       "session_line": 33
     },
     {
       "sequence": 11,
       "cache_read_tokens": 123032,
+      "cache_creation_tokens": 8620,
+      "input_tokens": 13078,
+      "output_tokens": 4,
+      "total_input": 144730,
       "session_line": 34
     },
     {
       "sequence": 12,
       "cache_read_tokens": 123032,
+      "cache_creation_tokens": 8620,
+      "input_tokens": 13078,
+      "output_tokens": 4,
+      "total_input": 144730,
       "session_line": 35
     },
     {
       "sequence": 13,
       "cache_read_tokens": 131652,
+      "cache_creation_tokens": 41348,
+      "input_tokens": 0,
+      "output_tokens": 1,
+      "total_input": 173000,
       "session_line": 42
     },
     {
       "sequence": 14,
       "cache_read_tokens": 131652,
+      "cache_creation_tokens": 41348,
+      "input_tokens": 0,
+      "output_tokens": 1,
+      "total_input": 173000,
       "session_line": 43
     },
     {
       "sequence": 15,
       "cache_read_tokens": 131652,
+      "cache_creation_tokens": 41348,
+      "input_tokens": 0,
+      "output_tokens": 1,
+      "total_input": 173000,
       "session_line": 44
     },
     {
       "sequence": 16,
       "cache_read_tokens": 173000,
+      "cache_creation_tokens": 21602,
+      "input_tokens": 0,
+      "output_tokens": 2,
+      "total_input": 194602,
       "session_line": 50
     },
     {
       "sequence": 17,
       "cache_read_tokens": 17941,
+      "cache_creation_tokens": 180022,
+      "input_tokens": 10,
+      "output_tokens": 4,
+      "total_input": 197973,
       "session_line": 58
     },
     {
       "sequence": 18,
       "cache_read_tokens": 17941,
+      "cache_creation_tokens": 180022,
+      "input_tokens": 10,
+      "output_tokens": 4,
+      "total_input": 197973,
       "session_line": 59
     }
   ],

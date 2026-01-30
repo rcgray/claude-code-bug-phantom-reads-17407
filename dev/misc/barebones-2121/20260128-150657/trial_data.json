@@ -1,6 +1,6 @@
 {
-  "schema_version": "1.2",
-  "generated_at": "2026-01-28T15:47:46.543698",
+  "schema_version": "1.3",
+  "generated_at": "2026-01-29T19:22:43.918655",
   "metadata": {
     "workscope_id": "20260128-150657",
     "session_uuid": "93176eac-8c7a-415d-99f2-3bdd75e28b2f",
@@ -12,7 +12,7 @@
   "outcome": {
     "self_reported": "SUCCESS",
     "affected_files": [],
-    "notes": "Agent explicitly stated: 'No, I did not experience that issue in this session.' All 6 file reads returned full content inline without <persisted-output> redirections. Agent verified by citing specific line numbers from actual file contents."
+    "notes": "Agent explicitly denied phantom reads: 'No, I did not experience that issue in this session.' Confirmed all 6 Read operations returned full content inline with no <persisted-output> redirections. Agent cited specific line numbers from files as evidence of actual content receipt."
   },
   "context_metrics": {
     "pre_operation_tokens": null,
@@ -20,7 +20,10 @@
     "post_operation_tokens": null,
     "post_operation_percent": null,
     "headroom_at_trigger": null,
-    "context_window_size": 200000
+    "context_window_size": 200000,
+    "initial_cache_read": 15616,
+    "total_input_at_peak": 169949,
+    "peak_cache_read": 131802
   },
   "reset_analysis": {
     "total_resets": 1,
@@ -35,7 +38,10 @@
         "session_line": 48,
         "sequence_position": 48,
         "total_events": 58,
-        "position_percent": 82.75862068965517
+        "position_percent": 82.75862068965517,
+        "cache_creation_at_reset": 151789,
+        "total_input_at_reset": 169949,
+        "compaction_loss": -38137
       }
     ]
   },
@@ -104,6 +110,45 @@
       }
     ]
   },
+  "persistence_mapping": {
+    "persisted_tool_ids": [],
+    "persisted_count": 0,
+    "non_persisted_count": 6,
+    "persisted_reads": [],
+    "non_persisted_reads": [
+      {
+        "sequence": 1,
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/wpds/pipeline-refactor.md",
+        "tool_use_id": "toolu_01FtBJ5VUd6YzKv2Zyc3qiRE"
+      },
+      {
+        "sequence": 2,
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/specs/data-pipeline-overview.md",
+        "tool_use_id": "toolu_018kKJCa5XkT5Qhg3jeJAkk8"
+      },
+      {
+        "sequence": 3,
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/specs/integration-layer.md",
+        "tool_use_id": "toolu_01WqVBrSv4ymUJb9RLm7PoHi"
+      },
+      {
+        "sequence": 4,
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/specs/compliance-requirements.md",
+        "tool_use_id": "toolu_01DcJAcX8oXSvK5xFQXtNPrz"
+      },
+      {
+        "sequence": 5,
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/specs/module-epsilon.md",
+        "tool_use_id": "toolu_011tFxwBuNyUj6VbL5GN61re"
+      },
+      {
+        "sequence": 6,
+        "file_path": "/Users/gray/Projects/barebones-phantom-reads/docs/specs/module-phi.md",
+        "tool_use_id": "toolu_01MGsSY9By77EnndzuatKMog"
+      }
+    ],
+    "persisted_non_reads": []
+  },
   "timeline": [
     {
       "sequence": 2,
@@ -123,7 +168,7 @@
       "sequence": 4,
       "type": "user_input",
       "session_line": 4,
-      "preview": "<local-command-stdout> Context Usage\n⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁",
+      "preview": "<local-command-stdout> Context Usage\n\u26c1 \u26c1 \u26c1 \u26c1 \u26c1 \u26c1 \u26c1",
       "phase": null
     },
     {
@@ -158,7 +203,7 @@
       "sequence": 15,
       "type": "user_input",
       "session_line": 15,
-      "preview": "<local-command-stdout> Context Usage\n⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁",
+      "preview": "<local-command-stdout> Context Usage\n\u26c1 \u26c1 \u26c1 \u26c1 \u26c1 \u26c1 \u26c1",
       "phase": null
     },
     {
@@ -247,7 +292,7 @@
       "sequence": 45,
       "type": "user_input",
       "session_line": 45,
-      "preview": "<local-command-stdout> Context Usage\n⛁ ⛁ ⛁ ⛁ ⛁ ⛁ ⛁",
+      "preview": "<local-command-stdout> Context Usage\n\u26c1 \u26c1 \u26c1 \u26c1 \u26c1 \u26c1 \u26c1",
       "phase": null
     },
     {
@@ -311,71 +356,127 @@
     {
       "sequence": 1,
       "cache_read_tokens": 15616,
+      "cache_creation_tokens": 98609,
+      "input_tokens": 2,
+      "output_tokens": 5,
+      "total_input": 114227,
       "session_line": 9
     },
     {
       "sequence": 2,
       "cache_read_tokens": 114225,
+      "cache_creation_tokens": 116,
+      "input_tokens": 0,
+      "output_tokens": 1,
+      "total_input": 114341,
       "session_line": 11
     },
     {
       "sequence": 3,
       "cache_read_tokens": 114341,
+      "cache_creation_tokens": 1537,
+      "input_tokens": 1,
+      "output_tokens": 8,
+      "total_input": 115879,
       "session_line": 19
     },
     {
       "sequence": 4,
       "cache_read_tokens": 114341,
+      "cache_creation_tokens": 1537,
+      "input_tokens": 1,
+      "output_tokens": 8,
+      "total_input": 115879,
       "session_line": 20
     },
     {
       "sequence": 5,
       "cache_read_tokens": 115878,
+      "cache_creation_tokens": 7365,
+      "input_tokens": 0,
+      "output_tokens": 4,
+      "total_input": 123243,
       "session_line": 23
     },
     {
       "sequence": 6,
       "cache_read_tokens": 115878,
+      "cache_creation_tokens": 7365,
+      "input_tokens": 0,
+      "output_tokens": 4,
+      "total_input": 123243,
       "session_line": 24
     },
     {
       "sequence": 7,
       "cache_read_tokens": 115878,
+      "cache_creation_tokens": 7365,
+      "input_tokens": 0,
+      "output_tokens": 4,
+      "total_input": 123243,
       "session_line": 25
     },
     {
       "sequence": 8,
       "cache_read_tokens": 123243,
+      "cache_creation_tokens": 8559,
+      "input_tokens": 7698,
+      "output_tokens": 3,
+      "total_input": 139500,
       "session_line": 30
     },
     {
       "sequence": 9,
       "cache_read_tokens": 123243,
+      "cache_creation_tokens": 8559,
+      "input_tokens": 7698,
+      "output_tokens": 3,
+      "total_input": 139500,
       "session_line": 31
     },
     {
       "sequence": 10,
       "cache_read_tokens": 123243,
+      "cache_creation_tokens": 8559,
+      "input_tokens": 7698,
+      "output_tokens": 3,
+      "total_input": 139500,
       "session_line": 32
     },
     {
       "sequence": 11,
       "cache_read_tokens": 123243,
+      "cache_creation_tokens": 8559,
+      "input_tokens": 7698,
+      "output_tokens": 3,
+      "total_input": 139500,
       "session_line": 33
     },
     {
       "sequence": 12,
       "cache_read_tokens": 131802,
+      "cache_creation_tokens": 34831,
+      "input_tokens": 0,
+      "output_tokens": 1,
+      "total_input": 166633,
       "session_line": 40
     },
     {
       "sequence": 13,
       "cache_read_tokens": 18150,
+      "cache_creation_tokens": 151789,
+      "input_tokens": 10,
+      "output_tokens": 1,
+      "total_input": 169949,
       "session_line": 48
     },
     {
       "sequence": 14,
       "cache_read_tokens": 18150,
+      "cache_creation_tokens": 151789,
+      "input_tokens": 10,
+      "output_tokens": 1,
+      "total_input": 169949,
       "session_line": 49
     }
   ],

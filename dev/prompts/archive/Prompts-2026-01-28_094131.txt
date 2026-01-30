@@ -418,22 +418,11 @@ Output directory:       ../claude-code-bug-phantom-reads-17407/dev/misc/barebone
 ## /update-trial-data dev/misc/barebones-2120-2/20260128-143105
 
 ## 2.1.21:
-## 20260128-150640 - Failure (phantom reads self-reported)
-## 20260128-150657 - Success (no phantom reads self-reported)
-## 20260128-150706 - Failure (phantom reads self-reported)
 /update-trial-data dev/misc/barebones-2121/20260128-150640
 /update-trial-data dev/misc/barebones-2121/20260128-150657
 /update-trial-data dev/misc/barebones-2121/20260128-150706
 
--------------------------
-
 ## 2.1.22:
-## 20260128-152044 - Failure (phantom reads self-reported)
-## 20260128-152157 - Failure (phantom reads self-reported)
-## 20260128-152056 - Failure (phantom reads self-reported)
-## 20260128-152658 - Failure (phantom reads self-reported)
-## 20260128-152707 - Failure (phantom reads self-reported)
-## 20260128-152715 - Failure (phantom reads self-reported)
 /update-trial-data dev/misc/barebones-2122/20260128-152044
 /update-trial-data dev/misc/barebones-2122/20260128-152056
 /update-trial-data dev/misc/barebones-2122/20260128-152157

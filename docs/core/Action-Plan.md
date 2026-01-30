@@ -13,6 +13,7 @@ The following are the steps for implementing the project, where the full list is
 - [x] **0.1** - Remove mentions of `/start-trial` command (see `docs/tickets/closed/update-session-analysis-spec-use-workscope-id.md`)
 - [x] **0.2** - Investigate reads of missing files in our pre-processing of trials (see `docs/tickets/closed/investigate-trial-data-failed-read-recording.md`)
 - [x] **0.3** - Add NLP assessment to trial analysis in `/update-json-data` (see `docs/tickets/closed/add-nlp-outcome-detection-to-trial-data-extraction.md`)
+- [x] **0.4** - Update `trial_data.json` to Schema 1.3 (see `docs/tickets/closed/upgrade-trial-data-schema-1-3.md`)
 
 ## Phase 1: Open-Ended Investigation
 

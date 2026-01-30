@@ -14,7 +14,7 @@ packages = ["src"]
 
 # WSD Configuration (REQUIRED)
 [tool.wsd]
-check_dirs = ["src", "tests"]
+check_dirs = ["src", "tests", "dev/karpathy"]
 
 [dependency-groups]
 dev = [
