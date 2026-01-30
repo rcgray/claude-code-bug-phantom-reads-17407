@@ -63,7 +63,8 @@ The investigation has evolved through several phases:
 5. **Theory Development (Jan 14-21)**: Developed Reset Timing Theory, Headroom Theory, then the X+Y Model
 6. **Methodology Refinement (Jan 22-24)**: Built controlled experiments, discovered hoisting limits and
 methodology issues
-7. **Controlled Experiments (Jan 26-27)**: Refined understanding with completed experiments 04A, 04D, 04K, 04L
+7. **Controlled Experiments (Jan 26-27)**: Refined understanding with completed experiments 04A, 04D, 04K, 04L;
+Barebones-216 confirmed phantom reads are NOT WSD-specific (100% failure in minimal 20-file repo)
 8. **Build Scan & Root Cause (Jan 28-30)**: Scanned 16 builds (2.1.6-2.1.22); discovered same build reverses from 100% failure to 100% success overnight; traced root cause to server-controlled persistence mechanism; formalized Server-Side Variability Theory
 
 ### Theoretical Evolution: From "Danger Zone" to Server-Side Variability
@@ -105,11 +106,13 @@ See the **[Server-Side Variability Theory](docs/theories/Server-Side-Variability
 1. **Hoisting is safe** - Content loaded via @ notation becomes <system-reminder> blocks (part of system
 message, immune to context management)
 2. **MCP Filesystem works** - 100% success rate, bypasses the bug entirely
-3. **1M model avoids the issue** - Same protocols that fail on 200K model succeed on 1M model (but this is
+3. **Not framework-specific** - Barebones-216 confirmed phantom reads in a minimal 20-file repo with no WSD
+framework, hooks, or investigation infrastructure (100% failure rate, 4/4 valid trials)
+4. **1M model avoids the issue** - Same protocols that fail on 200K model succeed on 1M model (but this is
 out of scope)
-4. **Reset timing correlates but isn't causal** - The same reset patterns produce opposite outcomes depending
+5. **Reset timing correlates but isn't causal** - The same reset patterns produce opposite outcomes depending
 on model capacity
-5. **T (context window) matters** - The 200K model has limitations the 1M model doesn't share
+6. **T (context window) matters** - The 200K model has limitations the 1M model doesn't share
 
 ### Confirmed Mitigations
 
@@ -158,8 +161,8 @@ If you've experienced any of these, phantom reads may be the cause:
 Phantom reads can be reproduced using [Experiment-Methodology-04](docs/experiments/methodologies/Experiment-Methodology-04.md), which triggers multi-file read operations in a controlled test repository. The key factors:
 
 - **High pre-operation context consumption** (>50% of context window before triggering multi-file reads)
-- **Multiple file reads during onboarding** (inflates baseline context)
-- **Aggressive multi-file read operations** (triggers mid-session resets)
+- **Hoisted file preloading** (scenario-specific `/setup-*` commands load specification files via `@` notation, inflating baseline context without triggering phantom reads)
+- **Aggressive multi-file read operations** (the `/analyze-wpd` command triggers agent-initiated reads of 9 specification files, totaling ~57K tokens)
 
 **Important caveat**: Reproduction success depends on **server-side conditions at the time of testing**. Under conditions where the harness persistence mechanism is active (observed in 80-100% of direct-read sessions as of Jan 29, 2026), the protocol reliably triggers phantom reads. Under conditions where persistence is disabled (as observed on Jan 27 and partially on Jan 29), the same protocol will succeed. You cannot control this variable -- check for the presence of a `tool-results/` directory in the session data to determine whether persistence was active in your trial.
 

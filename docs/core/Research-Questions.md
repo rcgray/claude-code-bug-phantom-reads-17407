@@ -47,6 +47,7 @@ Questions about the fundamental mechanism that causes phantom reads.
 **Evidence**:
 - Analysis shows resets occur after both small (<1K) and large (>10K) files
 - Earlier reads in a batch operation are more likely to be cleared
+- **Per-file mapping of 2.1.6-bad session** (documented in `docs/experiments/results/Example-Session-Analysis.md`, Question 4): All 11 reads in session lines 20-50 were persisted to `tool-results/`; all 7 reads in lines 64-87 returned inline. This temporal boundary provides the strongest direct evidence that persistence targets earlier reads in a session
 
 **Related Experiments**: 04J (examine persisted files)
 
@@ -63,6 +64,8 @@ Questions about the fundamental mechanism that causes phantom reads.
 **Evidence**:
 - Phantom read markers appear NOWHERE in session files except in conversation text where agents discuss them
 - 2.0.58-bad session shows full content logged but agent confirms seeing cleared markers
+- Persisted and inline reads are **structurally identical** in the `.jsonl` — both have `toolUseResult.type: "text"` with `toolUseResult.file` metadata and actual content in `message.content[].content`. No field or format distinguishes them (see `docs/experiments/results/Example-Session-Analysis.md`, Question 4)
+- The `tool-results/` directory (present in hybrid and hierarchical session structures) contains the persisted output files, confirming content IS written to disk, but the `.jsonl` records the content as if it were delivered inline
 
 **Related Experiments**: 04J (examine persisted output files)
 
@@ -483,14 +486,18 @@ Questions about how different read patterns affect phantom read risk.
 
 **Status**: OBSERVED BUT NOT SYSTEMATIZED
 
-**Background**: In repro-attempts-02, a failure was recovered when the agent recognized `<persisted-output>` markers and re-read files.
+**Background**: Recovery from phantom reads has been observed in multiple contexts where agents followed up on persisted output markers.
 
-**Evidence**: Trial 20260121-202919 showed successful recovery
+**Evidence**:
+- **2.1.6-bad example session** (Jan 12-13, documented in `docs/experiments/results/Example-Session-Analysis.md`): Line 87 of the session shows the agent successfully reading a persisted `.txt` file from the `tool-results/` directory — the earliest documented instance of agent recovery from a `<persisted-output>` marker
+- **Trial 20260121-202919** (repro-attempts-02): A failure was recovered when the agent recognized `<persisted-output>` markers and re-read files
+- **Build-Scan Discrepancy Analysis** (Jan 29-30): ~10% of direct-read sessions with persistence showed successful agent recovery
 
 **Questions**:
 - Can this be systematized as a mitigation strategy?
 - Does recovery work consistently?
 - What prevents agents from recognizing markers in the first place?
+- Why do some agents follow up on markers while most ignore them?
 
 **Related Experiments**: None planned; would require behavior-level investigation
 
@@ -652,7 +659,7 @@ Questions about how behavior varies across Claude Code versions and model varian
 | 2.1.20        | Mixed (failures + successes + context limits) | Transitional build                                |
 | 2.1.21–2.1.22 | Phantom read failures; no context limits      | Context limits eliminated, phantom reads persist  |
 
-**Key finding**: The Barebones-2120 result (0% failure) was a **small-sample artifact**. The larger 11-trial study on v2.1.20 shows 5 failures, 1 success, and 5 context limits. Phantom reads ARE still present on 2.1.20.
+**Key finding**: The Barebones-2120 result (0% failure) was a **small-sample artifact**. The larger 11-trial study on v2.1.20 shows 6 failures, 1 success, and 4 context limits. Phantom reads ARE still present on 2.1.20.
 
 **Revised Understanding**: Our findings are NOT as version-specific as initially feared. The phantom read mechanism persists across ALL tested builds (2.1.6 through 2.1.22). What varies is the context management behavior:
 - 2.1.7–2.1.14: Overly aggressive (session dies)
@@ -709,7 +716,7 @@ Questions about how behavior varies across Claude Code versions and model varian
 - **2.1.13**: Does not exist (version skipped)
 - **2.1.14**: Still context overflow, but beginning to recover
 - **2.1.15**: First post-2.1.6 build where Method-04 executes — phantom reads present
-- **2.1.20**: Revised — NOT 0% failure. 11-trial study shows 5 failures, 1 success, 5 context limits
+- **2.1.20**: Revised — NOT 0% failure. 11-trial study shows 6 failures, 1 success, 4 context limits
 - **2.1.21+**: Context limit errors eliminated; phantom reads persist
 - **2.1.22**: 100% failure (6/6), same as 2.1.6
 
@@ -749,25 +756,31 @@ Phantom reads **DO occur on v2.1.20** with the existing protocol — no payload 
 
 ### RQ-G10: Why did the Barebones-2120 and build-scan 2.1.20 results differ when run within the same ~4-hour window?
 
-**Status**: NEW — OPEN (PRIORITY)
+**Status**: ANSWERED (Build-Scan Discrepancy Investigation, 2026-01-30)
 
 **Discovery Date**: 2026-01-29
 
-**Background**: The original Barebones-2120 study (`dev/misc/repro-attempts-04-2120`) produced 5/5 SUCCESS on v2.1.20. The build-scan trials (`dev/misc/barebones-2120-2`), run approximately 1 hour later with the same protocol, same repository, and same CC build, produced 5 failures, 1 success, and 5 context limit errors.
+**Background**: The original Barebones-2120 study (`dev/misc/repro-attempts-04-2120`) produced 5/5 SUCCESS on v2.1.20. The build-scan trials (`dev/misc/barebones-2120-2`), run approximately 1 hour later with the same protocol, same repository, and same CC build, produced 6 failures, 1 success, and 4 context limit errors.
 
-**Significance**: If test results can vary dramatically within hours using identical methodology and environment, this has major implications for the reliability of ALL our experimental conclusions. Understanding the source of this variability is a prerequisite for trusting any threshold or boundary analysis.
+**Answer**: The discrepancy is fully explained by **server-side variability in the persistence mechanism**. On Jan 27, the server did not enable persistence for any session on build 2.1.20 — all 5 trials read files inline and succeeded (`has_tool_results: false` in all 5). On Jan 28, the server enabled persistence for all sessions across all builds — 100% of direct-read trials had `has_tool_results: true` and phantom reads occurred. The test environment, protocol, and build were identical; the server-side persistence decision was the sole variable.
 
-**Possible Explanations**:
-1. **Server-side changes**: Anthropic may have deployed server-side changes (model weights, context management parameters, inference settings) during the testing window
-2. **Small-sample artifact**: The original 5-trial study may have been statistically lucky — the true failure rate on 2.1.20 may be moderate (around 45%), and 5 consecutive successes is possible at that rate (~5% probability)
-3. **Test environment drift**: Something changed in the local test environment between runs (though no deliberate changes were made)
-4. **Session state effects**: Running many trials in sequence on the same machine may accumulate state that affects later trials
+**Evidence**:
+- Build 2.1.22 reversal: 100% failure (Jan 28) → 100% success (Jan 29) with zero environment changes — proves the variable is temporal/server-side
+- Build 2.1.6 tested Jan 29: behaviorally indistinguishable from builds 2.1.20 and 2.1.22 on the same day — proves build version is irrelevant
+- Within-window stochastic behavior: Jan 29 schema-13-2120 showed 80% persistence among direct-read trials in a 20-minute window — confirms probabilistic per-session mechanism
+- The `has_tool_results` field is a near-perfect per-session discriminator: `false` = 100% success (14/14), `true` = 85% failure (17/20 non-overload)
+
+**Original Hypotheses (resolved)**:
+1. ✅ **Server-side changes**: CONFIRMED — the primary explanation. Server-side persistence control varies over time.
+2. ✅ **Small-sample artifact**: PARTIALLY CONFIRMED — the 5/5 success was consistent with a low persistence probability on Jan 27, not proof of a fix.
+3. ❌ **Test environment drift**: RULED OUT — environmental fingerprints were identical (baselines within ~80 tokens).
+4. ❌ **Session state effects**: RULED OUT — mixed persistence within same time window rules out cumulative state.
 
 **Investigation Plan**: Documented in `docs/experiments/planning/Build-Scan-Discrepancy-Investigation.md`
 
-**Analysis**: `docs/experiments/results/Build-Scan-Discrepancy-Analysis.md` (progressive multi-session analysis)
+**Analysis**: `docs/experiments/results/Build-Scan-Discrepancy-Analysis.md` (completed — full root cause chain mapped)
 
-**Related Experiments**: Build Scan (completed 2026-01-28), Barebones-2120 (completed 2026-01-27)
+**Related Experiments**: Build Scan (completed 2026-01-28), Barebones-2120 (completed 2026-01-27), Schema-13 experiments (completed 2026-01-29–30)
 
 ---
 
@@ -887,13 +900,19 @@ Questions specific to the Era 2 `<persisted-output>` behavior.
 
 ### RQ-H1: Is content actually written to persisted-output files?
 
-**Status**: OPEN
+**Status**: ~~OPEN~~ → **ANSWERED: YES**
 
-**Background**: When phantom reads occur via `<persisted-output>` markers, we assume content is written to disk but the agent doesn't follow up. We haven't verified this.
+**Background**: When phantom reads occur via `<persisted-output>` markers, we assume content is written to disk but the agent doesn't follow up. We hadn't verified this.
 
-**Test Approach**: Examine `tool-results/` directories in trial data
+**Answer**: YES. Content is written to disk in the `tool-results/` directory.
 
-**Related Experiments**: 04J (Examine Persisted Files)
+**Evidence** (from `docs/experiments/results/Example-Session-Analysis.md`, Questions 3-4):
+- The 2.1.6-bad session's `tool-results/` directory contains files named by tool_use_id (e.g., `toolu_0162qTLwBAPom8tHQpddvAev.txt`, 26KB — the actual content of `stage_release.py`)
+- All 11 persisted reads in the session have corresponding `.txt` files in `tool-results/`
+- The 2.1.6-good session has **no `tool-results/` directory** at all — only `subagents/`
+- Presence or absence of the `tool-results/` directory is a reliable indicator of whether persistence occurred during the session
+
+**Related Experiments**: 04J (Examine Persisted Files) — partially addressed by the Example-Session-Analysis findings
 
 ---
 
@@ -1166,13 +1185,38 @@ Note: `.claude/settings.json` (without `.local`) is NOT a valid project config p
 **Evidence**: Observed across two collections:
 - `schema-13-2120` (v2.1.20): 4/9 trials used delegation — all 4 succeeded. Of 5 direct-read trials: 3 failures, 1 success, 1 recovery.
 - `schema-13-2122` (v2.1.22): 5/6 trials used delegation — all 5 succeeded. The 1 direct-read trial also succeeded.
-- Build 2.1.22 had shown 100% failure (6/6) on Jan 28 (`barebones-2122`). The Jan 29 reversal to 100% success is explained by the shift to delegation behavior, not a server-side change.
+- Build 2.1.22 had shown 100% failure (6/6) on Jan 28 (`barebones-2122`). The Jan 29 reversal to 100% success is explained by **both** the shift to delegation behavior **and** server-side persistence changes. Trial 211109 — a direct-read trial (no delegation) — succeeded at 198K total input tokens with zero persistence, proving the server-side persistence mechanism itself had changed (see `docs/theories/Server-Side-Variability-Theory.md`).
 
 **Significance**: This is a major confounding variable in trial outcomes. Aggregate success/failure rates that mix direct-read and delegation trials are misleading. The delegation pattern explains apparent contradictions in cross-day results (e.g., 2.1.22 going from 100% failure to 100% success) without requiring server-side variability as an explanation.
 
 **Implication**: Future trial analysis must classify trials as "direct-read" vs. "delegation" before drawing conclusions about phantom read rates. Methodology may need to be updated to either control for this variable or to deliberately test whether delegation is a reliable mitigation.
 
 **Related RQs**: RQ-G11, RQ-G10, RQ-E4
+
+---
+
+### DB-I15: Phantom reads are NOT WSD-specific — confirmed via barebones environment
+
+**Status**: CONFIRMED
+
+**Discovery Date**: 2026-01-27
+
+**Description**: The Barebones-216 experiment tested whether phantom reads occur in a minimal environment stripped of all non-essential project infrastructure. A repository containing only 20 files across 7 directories (no WSD framework, no hooks, no investigation documentation, no MCP configuration) reproduced phantom reads at 100% (4/4 valid trials) — identical to the full investigation repository's rate (8/8 with Method-04).
+
+**Evidence**:
+
+| Environment | Framework | Failure Rate |
+| --- | --- | --- |
+| Full investigation repo (Method-04) | Full WSD + hooks | 100% (8/8) |
+| **Barebones repo (Barebones-216)** | **None** | **100% (4/4)** |
+| WSD Development project | Full WSD | 77% (17/22) |
+
+One additional trial (092331) was initially recorded as a "success" but was reclassified as INVALID due to a protocol violation — the agent skipped 3 of 8 required files, reducing Y below the danger threshold.
+
+**Significance**: This definitively rules out the WSD framework, the `protect_files.py` hook system, investigation documentation, and project complexity as contributing factors. The bug exists at the Claude Code harness level and affects any user who triggers multi-file read operations under context pressure.
+
+**Related RQs**: RQ-A5, RQ-C3
+**Analysis**: `docs/experiments/results/Barebones-216-Analysis.md`
 
 ---
 
@@ -1186,10 +1230,10 @@ Note: `.claude/settings.json` (without `.local`) is NOT a valid project config p
 | D: Reset Timing         | 3      | 1      | 0        | 2          | -         |
 | E: Read Patterns        | 6      | 3      | 0        | 3          | -         |
 | F: Measurement          | 5      | 4      | 1        | 0          | -         |
-| G: Cross-Version/Model  | 11     | 7      | 2        | 1          | -         |
-| H: Persisted Output     | 3      | 3      | 0        | 0          | -         |
-| I: Discovered Behaviors | 14     | -      | -        | -          | 13        |
-| **TOTAL**               | **59** | **23** | **11**   | **10**     | **13**    |
+| G: Cross-Version/Model  | 11     | 6      | 3        | 1          | -         |
+| H: Persisted Output     | 3      | 2      | 1        | 0          | -         |
+| I: Discovered Behaviors | 15     | -      | -        | -          | 14        |
+| **TOTAL**               | **60** | **21** | **13**   | **10**     | **14**    |
 
 ---
 
@@ -1278,6 +1322,12 @@ SAFE CONDITIONS:
   - Added DB-I14 (Session Agents delegate Read operations to Task sub-agents)
   - Updated summary statistics
 - **2026-01-30**: Processed prompt log `dev/todo/Prompts-2026-01-29_213439.txt` — no new RQs or DBs identified; all discoveries from this log (Server-Side Variability Theory, schema-13-216, Build-Scan Discrepancy closure, investigation redirect to documentation/reporting) were already captured in prior processing sessions
+- **2026-01-30**: Added DB-I15 (phantom reads are NOT WSD-specific) from Barebones-216 Analysis cross-reference review
+  - Updated summary statistics (14 → 15 Discovered Behaviors, 59 → 60 total)
+- **2026-01-30**: Cross-reference review against `docs/experiments/results/Build-Scan-Discrepancy-Analysis.md`
+  - Updated RQ-G10 status from OPEN to ANSWERED — Build-Scan Discrepancy investigation fully resolved this question via Server-Side Variability Theory
+  - Corrected DB-I14 last bullet: the 2.1.22 reversal is explained by both delegation AND server-side persistence changes (not delegation alone); trial 211109 (direct-read, zero persistence, 198K tokens) was the key evidence
+  - Updated summary statistics (G: 6 open/3 answered; Total: 21 open/13 answered)
 - **Source Documents**:
   - `docs/core/Investigation-Journal.md`
   - `docs/experiments/planning/Post-Experiment-04-Ideas.md`

@@ -56,10 +56,14 @@ A concise chronological record of the Phantom Reads investigation. For detailed 
 - Result: **100% success rate** in testing
 - Documentation: [WORKAROUND.md](../../WORKAROUND.md)
 
-**Session File Analysis**
-- Discovery: Session `.jsonl` files do NOT capture phantom read markers
+**Session File Analysis** (see `docs/experiments/results/Example-Session-Analysis.md`)
+- Cataloged three session file structures: **Flat** (2.0.58, 2.0.59), **Hybrid** (some 2.0.60), **Hierarchical** (2.1.3+)
+- Designed unified collection algorithm that handles all three structures without structure detection
+- Discovery: Session `.jsonl` files do NOT capture phantom read markers — persisted and inline reads are structurally identical in the log
 - Hypothesis: Context management transforms content AFTER logging, BEFORE model receives it
 - Found correlation: Context resets (via `cache_read_input_tokens` drops) predict phantom reads
+- Per-file mapping of 2.1.6-bad session revealed temporal pattern: early reads persisted, later reads inline
+- Documented first observed successful follow-up read of a persisted `.txt` file (agent recovery)
 
 ---
 
@@ -178,6 +182,7 @@ A concise chronological record of the Phantom Reads investigation. For detailed 
 - Reset Timing Theory: **31/31 (100%) prediction accuracy**
 - Reset Count correlation strengthened: 2 resets = safe, 4+ = failure
 - New theory: Mid-Session Reset Accumulation (2+ mid-session resets = failure)
+- New theory: Sustained Processing Gap (~25-30% uninterrupted window required for success)
 
 ---
 
@@ -259,28 +264,31 @@ A concise chronological record of the Phantom Reads investigation. For detailed 
 - Result: **100% SUCCESS**
 - **Disproved absolute Y threshold** - Y=57K is safe when X is low
 
-**Experiment-04D Completed** (Max X, Minimal Y)
-- Trials with X=150K (maxload), Y=6K (1 file)
-- Result: **100% SUCCESS**
-- Confirmed high X is safe when Y is minimal
-- Confirmed hoisting does NOT cause phantom reads
-
 **Experiment-04K Completed** (1M Context Model)
-- 6 trials using `claude-sonnet-4-20250514` with 1M context
+- 6 trials using `claude-sonnet-4-5-20250929[1m]` with 1M context
 - Same protocol as Method-04 that caused 100% failure
 - Result: **100% SUCCESS**
 - **Confirmed T (context window) matters** - 1M model avoids phantom reads
 - Trial 20260125-211544 reached 202K tokens and succeeded
 - Note: 1M model declared OUT OF SCOPE for further investigation
 
-**Experiment-04L Completed** (Hoisting Redundancy)
-- Tested if harness avoids redundant reads for hoisted files
-- Result: Only 96 token difference between explicit and implicit file listing
-- **Confirmed harness is intelligent about redundant reads**
-
 ---
 
 ## 2026-01-26
+
+**Experiment-04L Completed** (Hoisting Redundancy)
+- 6 trials testing whether harness avoids redundant reads for hoisted files
+- Result: Only 96 token difference between explicit and implicit file listing
+- **Confirmed harness is intelligent about redundant reads**
+
+**Experiment-04D Completed** (Max X, Minimal Y)
+- Hard+maxload variant (X≈172K): 3 trials hit context overflow — operation could not execute, but NO phantom reads on hoisted content
+- Easy+maxload variant (X≈125K): 3/3 SUCCESS with Y=6K (WPD only)
+- Confirmed high X is safe when Y is minimal
+- Confirmed hoisting does NOT cause phantom reads, even under context saturation
+
+**Experiment-04 Preliminary Results Documented**
+- [docs/experiments/results/Experiment-04-Prelim-Results.md](../experiments/results/Experiment-04-Prelim-Results.md)
 
 **Research Questions Catalog Created**
 - `docs/core/Research-Questions.md` established
@@ -290,9 +298,6 @@ A concise chronological record of the Phantom Reads investigation. For detailed 
 **Token Accounting Clarified**
 - Documented baseline (~23K), preload, overhead (~40%), and total X
 - Updated Investigation Journal with terminology reference
-
-**Experiment-04 Preliminary Results Documented**
-- [docs/experiments/results/Experiment-04-Prelim-Results.md](../experiments/results/Experiment-04-Prelim-Results.md)
 
 **Current Understanding: "Danger Zone" Model**
 - Phantom reads on 200K model require BOTH:
@@ -378,15 +383,18 @@ A concise chronological record of the Phantom Reads investigation. For detailed 
 - Official Barebones-216 failure rate corrected to 100% (4/4 valid trials)
 - All 5 RQs answered; confirmed phantom reads are not WSD-specific, hook system is not a contributor
 
-**Barebones-2120 Analysis Completed** (RQ-BB2120-1 through RQ-BB2120-7)
+**Barebones-2120 Analysis Started** (RQ-BB2120-1 through RQ-BB2120-5 completed)
 - RQ-by-RQ analysis documented in `docs/experiments/results/Barebones-2120-Analysis.md`
-- Claude Code changelog compiled for versions 2.1.6 through 2.1.22 (workbench artifact for RQ-BB2120-7)
-- RQ-BB2120-7 answered: changelog review identified candidate changes but no single definitive fix
 - RQ-BB2120-6 and RQ-BB2120-8 remain open (require future experiments)
 
 ---
 
 ## 2026-01-28
+
+**Barebones-2120 Analysis Completed** (RQ-BB2120-7)
+- Claude Code changelog compiled for versions 2.1.6 through 2.1.22 (workbench artifact for RQ-BB2120-7)
+- RQ-BB2120-7 answered: changelog review identified candidate changes but no single definitive fix
+- Experiment plans added for RQ-BB2120-6 (threshold push test) and RQ-BB2120-8 (version boundary search)
 
 **Build Scan Experiment** (CC v2.1.6 through v2.1.22, barebones repo)
 - Tested every available build from 2.1.6 through 2.1.22 using Experiment-Methodology-04 with `/setup-hard` on the barebones repository
@@ -402,7 +410,7 @@ A concise chronological record of the Phantom Reads investigation. For detailed 
 | 2.1.14 | Context limit on all 3 trials |
 | 2.1.15 | **First build after 2.1.6 where Method-04 can execute** — 3/3 phantom read failures |
 | 2.1.16 – 2.1.19 | Phantom reads confirmed (same as 2.1.15 behavior) |
-| 2.1.20 | **Mixed**: 5 failures, 1 success, 5 context limit (11 trials) — revises prior Barebones-2120 finding of 0% failure |
+| 2.1.20 | **Mixed**: 6 failures, 1 success, 4 context limit (11 trials) — revises prior Barebones-2120 finding of 0% failure |
 | 2.1.21 | Mixed: 2 failures, 1 success (3 trials); no context limits |
 | 2.1.22 | **100% failure**: 6/6 phantom read failures; no context limits |
 
@@ -478,8 +486,9 @@ A concise chronological record of the Phantom Reads investigation. For detailed 
 
 **Schema-13 Experiments** (CC v2.1.20 and v2.1.22, barebones repo)
 - Ran additional trials on builds 2.1.20 and 2.1.22 using Method-04 with `/setup-hard`
-- Collection `schema-13-2120`: 9 trials on v2.1.20 — 3 direct successes, 3 failures, 3 successes via Task agent delegation
-- Collection `schema-13-2122`: 6 trials on v2.1.22 — ALL 6 succeeded, ALL used Task agent delegation
+- Collection `schema-13-2120`: 9 trials on v2.1.20 — 4 delegation successes, 2 direct successes (1 no-persistence, 1 recovery), 3 direct failures
+- Collection `schema-13-2122`: 6 trials on v2.1.22 — ALL 6 succeeded; 5/6 used Task agent delegation, 1 direct-read success with zero persistence (trial 211109 at 198K tokens — strongest evidence for server-side change)
+- Collection `schema-13-216`: 6 trials on v2.1.6 (collected late evening, 23:02–23:11) — 2 FAILURE (direct-read), 3 SUCCESS (delegation), 1 SUCCESS (recovery); formally analyzed Jan 30 as Step 2.3 (see Jan 30 entry)
 - Trial data collected via `collect_trials.py` and pre-processed with Schema 1.3 `/update-trial-data`
 
 **Key Discovery: Task Agent Delegation as Confounding Variable**
@@ -487,7 +496,7 @@ A concise chronological record of the Phantom Reads investigation. For detailed 
 - Delegation correlates with success: 100% of delegation trials succeeded across both builds
 - In v2.1.20: 4/9 trials used delegation (all succeeded); 5 direct-read trials showed mixed results
 - In v2.1.22: 5/6 trials used delegation (all succeeded)
-- This explains the apparent "reversal" of 2.1.22 from 100% failure (Jan 28) to 100% success (Jan 29): agent behavioral shift to delegation, not a server-side change
+- This initially appeared to explain the "reversal" of 2.1.22 from 100% failure (Jan 28) to 100% success (Jan 29) as purely behavioral; however, Jan 30 analysis (trial 211109, a direct-read success with zero persistence) proved that server-side persistence changes also contributed — see Server-Side Variability Theory
 
 **Significance:**
 - Task agent delegation is a previously unrecognized confounding variable in trial outcomes
@@ -515,7 +524,7 @@ A concise chronological record of the Phantom Reads investigation. For detailed 
 - Characterization: Anthropic's changes are a **mitigation, not a fix** — persistence still 80–100% of direct reads; root cause unaddressed
 
 **Schema-13-216 Collection** (CC v2.1.6, barebones repo)
-- 6 trials: 2 FAILURE (direct-read), 3 SUCCESS (delegation), 1 SUCCESS (recovery from `<persisted-output>`)
+- 6 trials (collected late Jan 29 evening, 23:02–23:11; analyzed Jan 30): 2 FAILURE (direct-read), 3 SUCCESS (delegation), 1 SUCCESS (recovery from `<persisted-output>`)
 - Collected via `collect_trials.py`, pre-processed with Schema 1.3
 - Strongest evidence for server-side control: oldest tested build behaves identically to newest on same day
 

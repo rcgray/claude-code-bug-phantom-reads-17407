@@ -317,6 +317,26 @@ Across both Era 1 and Era 2 "bad" sessions:
 
 **Hypothesis**: The session `.jsonl` is a log of tool execution results, NOT a representation of what the model receives in its context window. Content clearing/persistence happens AFTER the session file is written but BEFORE content is sent to the model.
 
+**Structural Identity**: Both persisted and inline reads have identical structure in the session `.jsonl` — both show `toolUseResult.type: "text"` with `toolUseResult.file` metadata and actual file content in `message.content[].content`. There is no field or format difference to distinguish reads that were persisted from those delivered inline to the model.
+
+### Session File Structure Types
+
+Analysis of example sessions revealed **three distinct session file organizations**, independent of Era (the phantom read mechanism):
+
+1. **Flat Structure** (observed in 2.0.58, 2.0.59): Main session `.jsonl` and all `agent-*.jsonl` files in the same directory. No session subdirectory.
+2. **Hybrid Structure** (observed in some 2.0.60): Main session file and agent files at root level, plus a session subdirectory containing `tool-results/` but no `subagents/`.
+3. **Hierarchical Structure** (observed in 2.1.3+, 2.1.6): Main session file at root with a session subdirectory containing `subagents/` and `tool-results/`.
+
+A **unified collection algorithm** was designed that handles all three structures without needing to detect which type: always check for a session subdirectory (copy if exists), and always scan for root-level agent files (collect any matching the session ID). This approach was later implemented in `src/collect_trials.py`.
+
+Full analysis documented in `docs/experiments/results/Example-Session-Analysis.md`.
+
+### Within-Session Persistence Pattern
+
+Detailed per-file mapping of the 2.1.6-bad session revealed a **temporal pattern**: early Read operations (session lines 20-50) were persisted to `tool-results/` files, while later Read operations (lines 64+) returned inline content. This pattern suggests persistence is not all-or-nothing within a session — it follows a temporal sequence, likely tied to when context pressure crosses a threshold.
+
+Notably, **line 87 of the session shows a successful follow-up read** where the agent read a persisted `.txt` file from the `tool-results/` directory. This is the earliest documented instance of an agent successfully recovering from a `<persisted-output>` marker by issuing a follow-up Read — demonstrating that recovery IS possible (later investigated further in RQ-E5).
+
 ### Context Reset Correlation Discovery
 
 **Quantifiable Indicator Found**: The `cache_read_input_tokens` field in assistant messages shows context resets that correlate with phantom read occurrence.
@@ -713,7 +733,9 @@ Conducted 7 initial trials using Experiment-Methodology-02 against the WSD Devel
 | 20260119-133726 | FAILURE | 43%      | 114K     | 2      | LATE CLUSTERED   |
 | 20260119-140145 | FAILURE | 41%      | 117K     | 3      | EARLY + MID/LATE |
 | 20260119-140906 | FAILURE | 48%      | 104K     | 4      | EARLY + MID/LATE |
-| 20260119-142117 | SUCCESS | 43%      | 113K     | 2      | EARLY + LATE     |
+| 20260119-142117 | SUCCESS* | 43%      | 113K     | 2      | EARLY + LATE     |
+
+*Trial 142117 showed context cleared on second `/context` call but no phantom reads were self-reported.
 
 ### Key Discovery: Reset Timing Theory
 
@@ -747,6 +769,8 @@ Full analysis documented in: `docs/experiments/results/WSD-Dev-02-Analysis-1.md`
 - **SUCCESS**: 5 (22.7%)
 - **FAILURE**: 17 (77.3%)
 
+**Data Note**: Trial 20260120-095152 has a preprocessing discrepancy — `trial_data.json` records `self_reported: "FAILURE"`, but the actual outcome (per User confirmation) was SUCCESS. This trial is notable for its exceptionally low pre-op consumption (9%) and high headroom (183K). Analysis uses User-confirmed outcomes as ground truth.
+
 ### Reset Timing Theory Strongly Validated
 
 The expanded dataset achieved **100% prediction accuracy** for the Reset Timing Theory:
@@ -777,6 +801,10 @@ Successful sessions exhibit a "clean gap" pattern:
 3. Late reset occurs only after operations complete
 
 This suggests the agent's context can "survive" resets at natural breakpoints, but cannot survive resets that interrupt active file processing.
+
+### Stochastic Variation Observed
+
+Trials with nearly identical starting conditions (pre-op ~43%, headroom ~113-115K) produced different outcomes depending on reset timing. For example, Trial 20260119-131802 (SUCCESS, EARLY_PLUS_LATE) and Trial 20260120-090830 (FAILURE, OTHER pattern) had effectively identical initial metrics. This indicates stochastic variation in when resets occur during a session — the system appears to have a reset mechanism that varies in exact timing between sessions, even under identical conditions. This observation later proved to be an early indicator of the server-side variability documented in Jan 28-30.
 
 Full analysis documented in: `docs/experiments/results/WSD-Dev-02-Analysis-2.md`
 
@@ -1539,7 +1567,7 @@ When discussing context consumption, we use the following terms consistently:
 | Experiment | X (total) | Y | Outcome | Key Finding |
 |------------|-----------|---|---------|-------------|
 | **04A** | ~23K (0 preload) | 57K (9 files) | 6/6 SUCCESS | Y=57K is safe when X is low |
-| **04D** | ~150K (maxload) | 6K (1 file) | SUCCESS | High X is safe when Y is minimal |
+| **04D** | ~125K (Easy+maxload) / ~172K (Hard+maxload) | 6K (1 file) | Easy: 3/3 SUCCESS; Hard: 3 INCOMPLETE (context overflow) | High X is safe when Y is minimal; hoisting safe even under saturation |
 | **04K** | Various | 57K (9 files) | 6/6 SUCCESS | 1M model avoids phantom reads |
 | **04L** | ~150K (maxload) | 6K (1 file) | SUCCESS | Harness avoids redundant reads |
 | **Method-04** | 73K-120K | 57K (9 files) | 8/8 FAILURE | High X + High Y = danger zone |
@@ -1596,7 +1624,7 @@ The 1M context model was formally declared OUT OF SCOPE for further investigatio
 
 ### Experiment-04D: Context Saturation Observation
 
-During the Experiment-04D trials, the Hard+maxload scenario (X=150K from hoisting + 68K from setup-hard preload) pushed context to capacity. The harness responded by **erroring out with a context saturation message**—it could not execute `/analyze-wpd` because there was insufficient remaining context. Notably, this is the *correct* harness behavior: refusing to proceed rather than silently producing phantom reads.
+During the Experiment-04D trials, the Hard+maxload scenario (X≈172K total: ~120K from setup-hard baseline + ~52K from maxload hoisting of all 8 spec files) pushed context to capacity. The harness responded by **erroring out with a context saturation message**—it could not execute `/analyze-wpd` because there was insufficient remaining context. Notably, this is the *correct* harness behavior: refusing to proceed rather than silently producing phantom reads.
 
 This observation reinforced the distinction between:
 - **Correct behavior**: Context full → explicit error → agent knows it failed
@@ -1768,7 +1796,7 @@ Each build was installed via `cc_version.py --install <version>`, and trials wer
 | 2.1.14 | 3 | 0 | 0 | 3 | Context limit on all |
 | 2.1.15 | 3 | 3 | 0 | 0 | First post-2.1.6 executable build |
 | 2.1.16–2.1.19 | (noted) | Yes | — | — | Same behavior as 2.1.15 |
-| 2.1.20 | 11 | 5 | 1 | 5 | Mixed results |
+| 2.1.20 | 11 | 6 | 1 | 4 | Mixed results |
 | 2.1.21 | 3 | 2 | 1 | 0 | Mixed; no context limits |
 | 2.1.22 | 6 | 6 | 0 | 0 | 100% failure; no context limits |
 
@@ -1784,11 +1812,11 @@ The dead zone raises an important question: what changed in these intermediate b
 
 The prior Barebones-2120 study (Jan 27) found 0% failure across 5 trials on v2.1.20, leading to the conclusion that "Anthropic changed something" and our repro case no longer triggered. The larger 11-trial study in this build scan reveals a more nuanced picture:
 
-- 5 failures (phantom reads confirmed)
+- 6 failures (phantom reads confirmed)
 - 1 success
-- 5 context limit errors
+- 4 context limit errors
 
-The prior study's 5/5 success was likely a small-sample artifact. Build 2.1.20 still exhibits phantom reads — it just also frequently hits context limits, and the small prior sample happened to draw from the success/context-limit population without hitting any failures.
+The prior study's 5/5 success was likely a small-sample artifact. Build 2.1.20 still exhibits phantom reads at a high rate among valid trials (~86%). The original 5 trials all showed `has_tool_results: false` (no persistence triggered), while the build-scan trials showed persistence and failures — suggesting a server-side change between the two runs rather than pure sampling luck. (This observation later led to the Build-Scan Discrepancy Investigation and the Server-Side Variability Theory; see Jan 29-30 entries.)
 
 ### Build 2.1.22: New Reliable Failure Case
 
@@ -1837,7 +1865,7 @@ Pre-processing via `/update-trial-data` was completed for barebones-2121 and bar
 1. **Phantom reads are NOT fixed** — Build 2.1.22 (latest) shows 100% failure rate
 2. **The investigation can now target 2.1.22** — Provides a reliable, current-build failure case
 3. **The dead zone (2.1.7–2.1.14) reveals context management evolution** — Builds went through aggressive-overflow → partial-recovery → phantom-reads phases
-4. **Barebones-2120 findings are revised** — 0% failure was a sampling artifact; actual rate is ~45% failure (excluding context limits)
+4. **Barebones-2120 findings are revised** — 0% failure was a sampling artifact; actual rate is ~86% failure among valid trials (6 failures, 1 success, 4 context limits excluded)
 5. **Context limit elimination in 2.1.21+** — The harness improved at handling pressure, but phantom reads remain
 
 ---
@@ -1860,7 +1888,7 @@ This reclassification is significant because it prevents the investigation from 
 
 ### The Build-Scan Discrepancy Question
 
-The most pressing question to emerge from the build scan analysis is: **Why did the original Barebones-2120 study (`dev/misc/repro-attempts-04-2120`, 5/5 success) differ so dramatically from the build-scan 2.1.20 results (`dev/misc/barebones-2120-2`, 5 failures/1 success/5 context limits)?**
+The most pressing question to emerge from the build scan analysis is: **Why did the original Barebones-2120 study (`dev/misc/repro-attempts-04-2120`, 5/5 success) differ so dramatically from the build-scan 2.1.20 results (`dev/misc/barebones-2120-2`, 6 failures/1 success/4 context limits)?**
 
 Both test sets used the same protocol (Experiment-Methodology-04 with `/setup-hard`), the same barebones repository, and the same Claude Code build (2.1.20). The only difference was timing — the original study was run first, and the build-scan trials were run approximately 1 hour later within the same ~4-hour experimental window.
 
@@ -1883,7 +1911,7 @@ The Build-Scan Discrepancy investigation was given priority over continuing the 
 
 ### Build-Scan Discrepancy Analysis Begins
 
-The first four steps (1.1–1.4) of the Build-Scan Discrepancy investigation plan were executed against the `barebones-2120-2` trial data. The analysis proceeded session by session, with findings documented progressively in `docs/experiments/results/Build-Scan-Discrepancy-Analysis.md`. This multi-session analysis compares the `repro-attempts-04-2120` collection (5/5 success) against `barebones-2120-2` (5 failures, 1 success, 5 context limits) — both using the same CC build, protocol, and repository.
+The first four steps (1.1–1.4) of the Build-Scan Discrepancy investigation plan were executed against the `barebones-2120-2` trial data. The analysis proceeded session by session, with findings documented progressively in `docs/experiments/results/Build-Scan-Discrepancy-Analysis.md`. This multi-session analysis compares the `repro-attempts-04-2120` collection (5/5 success) against `barebones-2120-2` (6 failures, 1 success, 4 context limits) — both using the same CC build, protocol, and repository.
 
 ### Trial Data Schema 1.3 Upgrade
 
@@ -1924,10 +1952,11 @@ This ensures all trial data is on a consistent schema for the ongoing discrepanc
 
 ### Schema-13 Trial Collections
 
-Two new collections were created during the evening session:
+Three new collections were created during the evening session:
 
-- **`dev/misc/schema-13-2120`** — 9 trials on CC v2.1.20. Results: 3 direct successes, 3 failures, 3 successes attributed to Task agent delegation.
-- **`dev/misc/schema-13-2122`** — 6 trials on CC v2.1.22. Results: ALL 6 succeeded, with ALL trials using Task agent delegation.
+- **`dev/misc/schema-13-2120`** — 9 trials on CC v2.1.20. Results: 4 delegation successes, 2 direct successes (1 no-persistence, 1 recovery from `<persisted-output>`), 3 direct failures.
+- **`dev/misc/schema-13-2122`** — 6 trials on CC v2.1.22. Results: ALL 6 succeeded; 5/6 used Task agent delegation, 1 direct-read success with zero persistence (trial 211109).
+- **`dev/misc/schema-13-216`** — 6 trials on CC v2.1.6 (collected late evening, 23:02–23:11). Results: 2 FAILURE (direct-read), 3 SUCCESS (delegation), 1 SUCCESS (recovery from `<persisted-output>`). Build 2.1.6 showed 50% delegation and 100% direct-read persistence — behaviorally indistinguishable from newer builds tested the same evening. (Formally analyzed on Jan 30 as Step 2.3 of the Build-Scan Discrepancy Investigation; see Jan 30 entry.)
 
 Trial data was collected using `collect_trials.py` from the barebones repository and pre-processed via `/update-trial-data` with the newly upgraded Schema 1.3.
 
@@ -1947,9 +1976,11 @@ This behavioral pattern has profound implications for trial classification:
 
 ### 2.1.22 Success Reversal Explained
 
-The schema-13-2122 results initially appeared to contradict the Jan 28 build scan finding of 100% failure on v2.1.22 (6/6 in `barebones-2122`). However, the delegation confound resolves this apparent contradiction: the Jan 29 trials succeeded not because the bug was fixed or server-side conditions changed, but because the Session Agents adopted a different behavioral pattern (delegation) that structurally avoids the trigger conditions.
+The schema-13-2122 results initially appeared to contradict the Jan 28 build scan finding of 100% failure on v2.1.22 (6/6 in `barebones-2122`). At the time, delegation was identified as the primary explanation: Session Agents adopted a different behavioral pattern (delegation) that structurally avoids the trigger conditions.
 
-This finding was subsequently integrated into the Build-Scan Discrepancy Analysis (`docs/experiments/results/Build-Scan-Discrepancy-Analysis.md`), where it became a central component of the investigation's conclusions.
+**Note (refined by Jan 30 analysis)**: Subsequent analysis revealed that delegation was only part of the explanation. Trial 211109 — a direct-read trial (no delegation) — also succeeded, with zero tool result persistence at 198K total input tokens. This proved that server-side conditions had *also* changed between Jan 28 and Jan 29: the persistence mechanism itself was modified, not just the model's behavioral strategy. See the Jan 30 entry and `docs/theories/Server-Side-Variability-Theory.md` for the complete picture.
+
+This finding was subsequently integrated into the Build-Scan Discrepancy Analysis (`docs/experiments/results/Build-Scan-Discrepancy-Analysis.md`), where both delegation and server-side persistence changes became central components of the investigation's conclusions.
 
 ### Implications
 
@@ -1971,7 +2002,7 @@ The multi-session Build-Scan Discrepancy Analysis was completed through all plan
 
 **Step 2.2 (schema-13-2122, 6 trials on v2.1.22)**: Produced the investigation's most dramatic result — a complete reversal from 100% failure (Jan 28, `barebones-2122`) to 100% success (Jan 29). Zero trials showed tool result persistence. Sub-agent delegation appeared in 5/6 trials. Trial 211109 was especially significant: a direct-read trial that succeeded at 198K total input tokens with zero persistence — proving that even without delegation, the server-side persistence mechanism had changed. This single trial is the strongest evidence for a systemic server-side change.
 
-**Step 2.3 (schema-13-216, 6 trials on v2.1.6)**: Extended the investigation to the oldest tested build, replacing the original Cross-Machine Replication step (which Phase 1 environmental analysis had rendered unnecessary). Results: 2 FAILURE (direct-read with persistence), 3 SUCCESS (delegation), 1 SUCCESS (recovery from `<persisted-output>`). Build 2.1.6 showed 50% delegation rate (3/6 trials) and 100% persistence among direct-read trials (3/3) — behaviorally indistinguishable from builds 2.1.20 and 2.1.22 tested the same day. This is the strongest evidence for server-side control: the oldest client build, whose code predates all other tested builds, behaves identically to the newest when tested under the same server conditions.
+**Step 2.3 (schema-13-216, 6 trials on v2.1.6, collected Jan 29 evening)**: Extended the investigation to the oldest tested build, replacing the original Cross-Machine Replication step (which Phase 1 environmental analysis had rendered unnecessary). Results: 2 FAILURE (direct-read with persistence), 3 SUCCESS (delegation), 1 SUCCESS (recovery from `<persisted-output>`). Build 2.1.6 showed 50% delegation rate (3/6 trials) and 100% persistence among direct-read trials (3/3) — behaviorally indistinguishable from builds 2.1.20 and 2.1.22 tested the same day. This is the strongest evidence for server-side control: the oldest client build, whose code predates all other tested builds, behaves identically to the newest when tested under the same server conditions.
 
 ### Server-Side Variability Theory Formalized (Step 3.1)
 

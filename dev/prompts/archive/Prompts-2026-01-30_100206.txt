@@ -37,7 +37,7 @@ Please make the updates.
 
 ---
 
-Please take a look at some of our key project-level documents. We've been writing these as we go, but many of them were written over time via parsing of the prompt history (which only contains User messages and can be a little one-sided). I want to double-check them for accuracy vs. the actual relevant detail docs we've produced that correspond to their summarized content.  I will ask you to look at these monolithic global docs in detail, and then I will point you to a key detail doc (or docs).  This is a process that will be repeated over several sessions, and in each case, the detail doc should be considered the Source of Truth, where we determine if anything in the global doc needs to be added, removed, or refined:
+Please take a look at some of our key project-level documents. We've been writing these as we go, but many of them were written over time via parsing of the prompt history (which only contains User messages and can be a little one-sided). I want to double-check them for accuracy vs. the actual relevant detail docs we've produced that correspond to their summarized content.  I will ask you to look at these monolithic global docs in detail, and then I will point you to a key detail doc (or docs). Keep in mind that the Detail Docs almost certainly refer to the project during a specific time period (i.e., detail docs at certain times might contain data that conflicts with _later_ discoveries or clarifications), so these details need to be viewed with respect to the portions of the global docs that they correspond to. This is a process that will be repeated over several sessions, and in each case, the detail doc should be considered the Source of Truth, where we determine if anything in the global doc needs to be added, removed, or refined:
 
 Global Docs:
 - `docs/core/PRD.md` ( @docs/core/PRD.md )
@@ -47,10 +47,8 @@ Global Docs:
 - `README.md` ( @README.md )
 
 Detail Docs:
-- `docs/experiments/methodologies/Experiment-Methodology-01.md` ( @docs/experiments/methodologies/Experiment-Methodology-01.md )
-- `docs/experiments/methodologies/Experiment-Methodology-02.md` ( @docs/experiments/methodologies/Experiment-Methodology-02.md )
-- `docs/experiments/methodologies/Experiment-Methodology-03.md` ( @docs/experiments/methodologies/Experiment-Methodology-03.md )
-- `docs/experiments/methodologies/Experiment-Methodology-04.md` ( @docs/experiments/methodologies/Experiment-Methodology-04.md )
+- `docs/experiments/planning/Barebones-2120.md` ( @docs/experiments/planning/Barebones-2120.md )
+- `docs/experiments/results/Barebones-2120-Analysis.md` ( @docs/experiments/results/Barebones-2120-Analysis.md )
 
 You are also welcome to review any other documents that you think are relevant to that moment in our project. Feel free to make edits in place and I will review.
 
@@ -75,16 +73,16 @@ You are also welcome to review any other documents that you think are relevant t
 - `docs/experiments/results/Repro-Attempts-02-Analysis-1.md` ( @docs/experiments/results/Repro-Attempts-02-Analysis-1.md )
 
 
+- `docs/experiments/planning/Post-Experiment-04-Ideas.md` ( @docs/experiments/planning/Post-Experiment-04-Ideas.md )
+- `docs/experiments/results/Experiment-04-Prelim-Results.md` ( @docs/experiments/results/Experiment-04-Prelim-Results.md )
+
+
 - `docs/experiments/planning/Barebones-216.md` ( @docs/experiments/planning/Barebones-216.md )
 - `docs/experiments/results/Barebones-216-Analysis.md` ( @docs/experiments/results/Barebones-216-Analysis.md )
 
 
 - `docs/experiments/planning/Barebones-2120.md` ( @docs/experiments/planning/Barebones-2120.md )
 - `docs/experiments/results/Barebones-2120-Analysis.md` ( @docs/experiments/results/Barebones-2120-Analysis.md )
-
-
-- `docs/experiments/planning/Post-Experiment-04-Ideas.md` ( @docs/experiments/planning/Post-Experiment-04-Ideas.md )
-- `docs/experiments/results/Experiment-04-Prelim-Results.md` ( @docs/experiments/results/Experiment-04-Prelim-Results.md )
 
 
 - `docs/experiments/planning/Build-Scan-Discrepancy-Investigation.md` ( @docs/experiments/planning/Build-Scan-Discrepancy-Investigation.md )

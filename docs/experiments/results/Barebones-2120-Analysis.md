@@ -298,6 +298,8 @@ v2.1.20: Single reset after processing complete → All content retained → Suc
 
 **Status**: ANSWERED - No Era 3; Era 2 mechanism ELIMINATED in v2.1.20
 
+> **[UPDATE 2026-01-29]**: The original finding ("Era 2 mechanism ELIMINATED") was based on the 5 original trials where `has_tool_results: false`. The subsequent 11-trial build-scan study showed persistence returning on the same build, and later schema-13 experiments confirmed persistence is controlled server-side, not by client version. The mechanism was temporarily inactive during the original 5 trials, not eliminated. The original analysis below is preserved for reference but its conclusions are superseded.
+
 #### Background
 
 The transition from Era 1 (`[Old tool result content cleared]`) to Era 2 (`<persisted-output>`) occurred around version 2.0.60. It's possible another mechanism change occurred between 2.1.6 and 2.1.20.
@@ -681,11 +683,22 @@ Phase 1: Test v2.1.9
 
 ### Confirmed Findings
 
-*Pending completion of RQ analysis*
+> **NOTE (2026-01-29)**: The original RQ analysis (RQ-BB2120-1 through RQ-BB2120-5, completed Jan 27; RQ-BB2120-7 completed Jan 28) drew strong conclusions about a version-level fix. These conclusions were superseded by the Experiment-04 Build Scan (Jan 28) and the Build-Scan Discrepancy Investigation (Jan 29-30), which revealed that the original 5-trial success was a small-sample artifact reflecting transient server-side conditions. See `Experiment-04-BuildScan.md` and `Build-Scan-Discrepancy-Analysis.md` for the revised understanding.
+
+**From the original 5-trial analysis (valid for those specific trials)**:
+1. All 5 trials showed `has_tool_results: false` — the persistence mechanism was not active
+2. All 5 trials showed SINGLE_LATE reset patterns — consistent with known "safe" patterns
+3. Context utilization reached 97% without triggering persistence
+4. Agents received actual file content (verified via self-reports and content accuracy)
+
+**Superseded conclusions**:
+- ~~The persistence mechanism was "eliminated" in v2.1.20~~ → It was temporarily inactive due to server-side state
+- ~~The fix was categorical (version-level)~~ → The same build showed 86% failure rate hours later
+- ~~Context management was fundamentally improved~~ → Reset patterns vary with server-side conditions
 
 ### Key Takeaway
 
-*Pending completion of RQ analysis*
+The Barebones-2120 original study captured a transient window of favorable server-side conditions. Its per-trial data remains accurate, but its conclusions about version-level fixes are superseded by the Server-Side Variability Theory. The MCP Filesystem workaround remains the only reliable mitigation.
 
 ---
 
@@ -694,3 +707,4 @@ Phase 1: Test v2.1.9
 - **2026-01-27**: Initial creation (starter template for RQ-by-RQ analysis)
 - **2026-01-27**: Completed analysis for RQ-BB2120-1 through RQ-BB2120-5
 - **2026-01-28**: Completed RQ-BB2120-7 (changelog analysis); Added experiment plans for RQ-BB2120-6 and RQ-BB2120-8
+- **2026-01-30**: Added [UPDATE] marker to RQ-BB2120-4; Filled in Conclusions section with superseded findings and key takeaway; Corrections applied during global doc audit

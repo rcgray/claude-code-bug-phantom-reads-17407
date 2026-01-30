@@ -15,7 +15,7 @@ Claude Code exhibits a bug where file read operations fail silently, leaving the
 - **Era 1 (versions 2.0.59 and earlier)**: Read results are cleared from context, replaced with `[Old tool result content cleared]` messages. The agent proceeds without the content.
 - **Era 2 (versions 2.0.60 and later)**: Large read results are persisted to disk, returning `<persisted-output>` markers. The agent fails to issue follow-up reads to retrieve the persisted content.
 
-In both cases, Claude proceeds with its task, potentially confabulating information about files it never actually read. No "safe" version has been identified—all tested versions from 2.0.54 through 2.1.6 have exhibited phantom read behavior under certain conditions.
+In both cases, Claude proceeds with its task, potentially confabulating information about files it never actually read. No "safe" version has been identified—all tested versions from 2.0.54 through 2.1.22 have exhibited phantom read behavior under certain conditions. Server-side variability means even the same build can show phantom reads one day and not the next.
 
 This bug is particularly insidious because:
 
@@ -68,7 +68,7 @@ This project aims to achieve the following goals:
 
 4) Create tools for analyzing Claude Code token management behavior. This grows out of necessity of the pursuit of Aim #1, but it is a nice side effect of our investigative work that we also end up with tools that assist future investigations.
 
-Aim #2 is solved for the time being. Aim #1 progresses steadily as we collect and analyze more Trials. Aim #4 is being achieved organically through our pursuit of Aim #1. Aim #3 is our current focus, because it would help us better pursue Aim #1 without dependency on other project environments. Aim #3 is not strictly dependent on Aim #1, since we found the issue was first discovered in a project unaware of this phenomenon (77% repro case). However, our current approach is to work on Aim #3 and Aim #1 in parallel, creating tools toward Aim #4 as needs organically arise.
+**Status (Jan 30, 2026)**: Aim #2 is solved (MCP Filesystem workaround, 100% success rate). Aim #1 is substantially achieved — the root cause chain is fully mapped (persistence → marker substitution → agent ignores markers), and the Server-Side Variability Theory explains why outcomes vary across sessions. Aim #4 is achieved organically through `trial_data.json` preprocessing (Schema 1.3), `collect_trials.py`, and analysis tooling. Aim #3 (calibrated reproduction) proved infeasible under server-side variability — the server controls the persistence decision, making fixed Easy/Medium/Hard calibration impossible. The investigation has shifted from experimental work to documentation and public reporting. See the [Build-Scan Discrepancy Analysis](../experiments/results/Build-Scan-Discrepancy-Analysis.md) closure assessment for details.
 
 ## Key Features
 
@@ -85,21 +85,24 @@ A user-facing README.md that:
 
 A structured environment designed to trigger phantom reads:
 - Inter-related documentation files that prompt multi-file read operations
-- A Work Plan Document (ticket) that serves as the target for the `/refine-plan` command
-- The `/refine-plan` custom command, which triggers deep investigation across specifications and documentation
+- A Work Plan Document (WPD) that serves as the analysis target
+- Custom commands (`/analyze-wpd`, `/setup-easy`, `/setup-medium`, `/setup-hard`) that control context consumption and trigger multi-file reads
+- Scenario-specific preloading that inflates baseline context via hoisted files
 
-The experiment leverages the Workscope-Dev (WSD) framework already present in this repository. The `/refine-plan` command naturally triggers reads across multiple files in `docs/read-only/standards/`, `docs/core/`, and related locations—the exact pattern observed to trigger phantom reads in the original investigation.
+The current methodology (Experiment-Methodology-04) uses the fictional "Data Pipeline System" specification set as the trigger payload, with scenario commands controlling pre-operation context levels. The Barebones-216 experiment validated that this reproduction works in a minimal 20-file repository without any WSD framework overhead, confirming the trigger is multi-file read operations under context pressure—not any particular project structure.
 
 ### 3. Session Analysis Tools
 
 Python scripts in `src/` that:
-- Parse Claude Code session `.jsonl` files
-- Identify Read tool invocations that returned phantom read indicators:
-  - Era 2: `<persisted-output>` responses without follow-up reads
-  - Era 1: `[Old tool result content cleared]` messages
-- Report phantom read occurrences with file paths and conversation context
+- Parse Claude Code session `.jsonl` files and associated session artifacts
+- Detect phantom read conditions using proxy indicators, since phantom read markers (`<persisted-output>`, `[Old tool result content cleared]`) are NOT recorded in session `.jsonl` files (the `.jsonl` logs tool execution results before context management transforms them):
+  - **Context reset detection**: Drops in `cache_read_input_tokens` between assistant messages correlate with phantom read occurrence
+  - **Persistence detection**: Presence of a `tool-results/` directory in session data indicates the harness persisted tool results to disk
+  - **Token timeline analysis**: Structured `trial_data.json` files track cumulative token consumption across session turns
+- Handle all three Claude Code session storage structures (flat, hybrid, hierarchical) transparently
+- Report phantom read risk indicators with file paths and conversation context
 
-These tools provide objective, programmatic detection that does not rely on the AI's self-assessment of whether it experienced phantom reads.
+These tools provide objective, programmatic evidence of phantom read conditions. Direct detection of phantom reads from session files is not possible because the `.jsonl` records actual file content even when the model received phantom read markers (see `docs/experiments/results/Example-Session-Analysis.md` for the foundational analysis).
 
 ## Technical Background
 
@@ -122,7 +125,7 @@ Testing across Claude Code versions revealed two distinct eras of phantom read b
 | Era | Versions        | Error Mechanism                     | Notes                      |
 | --- | --------------- | ----------------------------------- | -------------------------- |
 | 1   | 2.0.54 - 2.0.59 | `[Old tool result content cleared]` | Context clearing mechanism |
-| 2   | 2.0.60 - 2.1.6+ | `<persisted-output>`                | Disk persistence mechanism |
+| 2   | 2.0.60 - 2.1.22+ | `<persisted-output>`                | Disk persistence mechanism (server-controlled) |
 
 **Important**: The original investigation incorrectly concluded that versions 2.0.58 and earlier were unaffected. Subsequent testing confirmed that ALL tested versions can exhibit phantom reads—the mechanism simply differs between eras.
 
@@ -130,46 +133,66 @@ The transition from Era 1 to Era 2 occurs at the 2.0.59/2.0.60 boundary, suggest
 
 ### Trigger Conditions
 
-Based on 22 controlled trials, we have identified **reset timing** as the dominant predictor of phantom reads:
+Based on 55+ controlled trials across multiple collections (WSD-Dev-02, repro-attempts-02, Barebones-216, Barebones-2120, build scan collections, and schema-13 experiments), the investigation has identified **tool result persistence** (`has_tool_results`) as the primary outcome discriminator: sessions where the harness persists tool results to disk produce phantom reads; sessions where it does not persist are safe. Whether persistence is enabled is controlled by server-side state that varies over time (see [Server-Side-Variability-Theory.md](../theories/Server-Side-Variability-Theory.md)).
+
+Within sessions where persistence is active, **reset timing** was identified as a secondary predictor. Early analysis of 31 trials (22 WSD-Dev-02 + 9 repro-attempts-02) established the patterns below:
 
 | Pattern      | Description                                 | Outcome      |
 | ------------ | ------------------------------------------- | ------------ |
-| EARLY + LATE | First reset <50%, last >95%, no mid-session | 100% SUCCESS |
-| SINGLE_LATE  | Single reset >95%                           | 100% SUCCESS |
-| MID-SESSION  | Any reset between 50-90% of session         | 100% FAILURE |
+| EARLY + LATE | First reset early, last reset late (after work), no mid-session resets | 100% SUCCESS |
+| SINGLE_LATE  | Single reset late in session (after work)   | 100% SUCCESS |
+| MID-SESSION  | Multiple resets during active file processing (50-90% of session) | 100% FAILURE |
+
+**Boundary note**: The original 22-trial WSD-Dev-02 dataset had clean separations (success first resets <50%, last resets >95%). The 9-trial repro-attempts-02 dataset revealed that boundaries are approximate: success trials showed first resets at 49-64% and last resets at 88-90%. A single borderline mid-session reset (50-65%) appears survivable; the critical failure condition is **multiple mid-session resets** (the sole repro-02 failure had 3 consecutive resets at 57%, 72%, 84%).
 
 **Key findings:**
 
 1. **Reset timing is critical**: When context resets occur matters more than how many occur or total context consumed
-2. **Mid-session resets predict failure**: Any reset during active file processing (50-90% of session) predicts phantom reads with near-perfect accuracy
-3. **The "Clean Gap" pattern**: Successful sessions show early resets (before main work) and late resets (after work completes), with uninterrupted file reading in between
+2. **Multiple mid-session resets predict failure**: Resets during active file processing (50-90% of session) predict phantom reads, especially when multiple resets cluster mid-session. A single borderline reset (~50-65%) may be survivable, but 2+ mid-session resets correlate with guaranteed failure
+3. **The "Clean Gap" pattern**: Successful sessions show early resets (before main work) and late resets (after work completes), with uninterrupted file reading in between. Success requires a sustained processing gap of approximately 25-30% of session duration
 4. **No fixed token threshold**: Resets occur at widely varying cumulative token counts (82K-383K), ruling out a simple threshold model
 5. **Accumulation rate matters**: Rapid batch reads without processing pauses appear to trigger mid-session resets more readily
 
 **Contributing factors** (from original investigation, still relevant):
-- Multi-file operations triggered by custom commands (e.g., `/refine-plan`)
+- Multi-file operations triggered by custom commands (e.g., `/refine-plan`, `/analyze-wpd`)
 - Large file sets requiring numerous related document reads
+
+**Revised understanding (Jan 30, 2026)**: The Build-Scan Discrepancy Investigation revealed that the reset timing patterns above are valid only within sessions where tool result persistence is active. The actual outcome discriminator is the `has_tool_results` field in trial data: `false` = 100% success (14/14 trials), `true` = 85% failure (17/20 non-overload trials). Reset timing predictions were systematically violated in Experiment-04, where SINGLE_LATE patterns (previously 100% SUCCESS) produced FAILURE when Y was increased to 57K tokens. Additionally, server-side variability means the same build, protocol, and files can produce opposite outcomes on different days — build 2.1.22 showed 100% failure on Jan 28 and 100% success on Jan 29. Task agent delegation (where the Session Agent delegates file reads to sub-agents) emerged as an additional confounding variable that structurally avoids the persistence trigger. See [Server-Side-Variability-Theory.md](../theories/Server-Side-Variability-Theory.md) and [Build-Scan-Discrepancy-Analysis.md](../experiments/results/Build-Scan-Discrepancy-Analysis.md).
+
+**Environment independence**: The Barebones-216 experiment (Jan 27) confirmed that phantom reads are a Claude Code harness issue, not specific to any particular project framework. A stripped-down repository containing only 20 files (no WSD framework, no hooks, no investigation infrastructure) reproduced phantom reads at 100% (4/4 valid trials), matching the full investigation repository's failure rate. This rules out WSD framework interactions, hook systems, and project complexity as contributing factors.
 
 ## Experiment Methodology
 
 ### Current Methodology
 
-The investigation has evolved through multiple methodology iterations:
+The investigation has evolved through four methodology iterations:
 
 **[Experiment-Methodology-01.md](../experiments/methodologies/Experiment-Methodology-01.md)** - Original version-boundary testing (historical)
-**[Experiment-Methodology-02.md](../experiments/methodologies/Experiment-Methodology-02.md)** - Controlled trial protocol for systematic data collection
+**[Experiment-Methodology-02.md](../experiments/methodologies/Experiment-Methodology-02.md)** - Controlled trial protocol with `/context` measurements (historical)
+**[Experiment-Methodology-03.md](../experiments/methodologies/Experiment-Methodology-03.md)** - Scenario-targeted commands with hoisted preloading (historical, never produced valid trials)
+**[Experiment-Methodology-04.md](../experiments/methodologies/Experiment-Methodology-04.md)** - Current methodology: separated setup/analysis commands with explicit user context measurements
 
 ### Methodology Evolution
 
-**Phase 1: Self-Report Protocol**
+**Phase 1: Self-Report Protocol (Methodology 01)**
 The original investigation used self-report methodology: trigger multi-file read operations via `/wsd:init --custom` followed by `/refine-plan`, then prompt the agent to report phantom reads.
 
-**Phase 2: Controlled Trial Collection**
-The current methodology uses:
+**Phase 2: Controlled Trial Collection (Methodology 02)**
+Enhanced methodology adding `/context` measurements and artifact collection via `collect_trials.py`:
 1. Fresh Claude Code sessions with `/wsd:init --custom`
 2. Trigger via `/refine-plan` against WSD documentation
 3. Session data extraction via `/update-trial-data` preprocessing tool
 4. Programmatic analysis of `trial_data.json` files across trials
+
+**Phase 3: Scenario-Targeted Commands (Methodology 03, superseded)**
+Replaced `/wsd:init --custom` with `/wsd:getid` and introduced scenario commands (`/analyze-light`, `/analyze-standard`, `/analyze-thorough`). All 9 trials succeeded due to discovery that hoisted files exceeding ~25K tokens are silently ignored and that `/context` cannot be called by agents.
+
+**Phase 4: Separated Setup/Analysis (Methodology 04, current)**
+Restructured around the discoveries from Methodology 03:
+1. Scenario-specific initialization commands (`/setup-easy`, `/setup-medium`, `/setup-hard`) preload context via hoisted files
+2. Explicit user `/context` calls at baseline, post-preload, and post-analysis
+3. Unified `/analyze-wpd` command triggers multi-file read operations
+4. Session data extraction via `/update-trial-data` preprocessing tool
 
 ### Key Findings Evolution
 
@@ -182,12 +205,12 @@ The current methodology uses:
 - Era 1 (2.0.59 and earlier): `[Old tool result content cleared]` mechanism
 - Era 2 (2.0.60 and later): `<persisted-output>` mechanism
 
-**Current understanding** (22-trial analysis):
+**Current understanding** (31-trial analysis):
 - Reset Timing Theory validated with 100% prediction accuracy
 - Mid-session resets (50-90%) are the critical failure condition
 - No fixed token threshold exists (82K-383K range observed)
 
-For ongoing investigation notes, see `Investigation-Journal.md`. For detailed analysis, see `docs/experiments/results/WSD-Dev-02-Analysis-1.md`, `docs/experiments/results/WSD-Dev-02-Analysis-2.md`, and `docs/experiments/results/WSD-Dev-02-Analysis-3.md`.
+For ongoing investigation notes, see `Investigation-Journal.md`. For detailed analysis, see `docs/experiments/results/WSD-Dev-02-Analysis-1.md`, `docs/experiments/results/WSD-Dev-02-Analysis-2.md`, `docs/experiments/results/WSD-Dev-02-Analysis-3.md`, and `docs/experiments/results/Repro-Attempts-02-Analysis-1.md`.
 
 ### Limitations
 
@@ -235,9 +258,9 @@ The self-report methodology has inherent limitations (model incentives, introspe
 
 ### Key Components
 
-**Trigger Mechanism**: The `/refine-plan` command executed against a ticket in `docs/tickets/open/`. This command prompts deep investigation across multiple documentation files, creating the multi-file read pattern associated with phantom reads.
+**Trigger Mechanism**: Multi-file read operations that push context consumption into the danger zone. Originally discovered via the `/refine-plan` command against WSD tickets, the current methodology uses `/analyze-wpd` against a WPD in `docs/wpds/`, preceded by scenario-specific `/setup-*` commands that control pre-operation context levels via hoisted files.
 
-**Detection Mechanism**: Python scripts that parse `.jsonl` session files from `~/.claude/projects/`, identifying both Era 1 (`[Old tool result content cleared]`) and Era 2 (`<persisted-output>`) phantom read indicators.
+**Detection Mechanism**: Python scripts that parse `.jsonl` session files and associated artifacts from `~/.claude/projects/`. Phantom read markers are not recorded in `.jsonl` files (the session log captures tool execution before context management transforms results), so detection relies on proxy indicators: context reset patterns (`cache_read_input_tokens` drops), `tool-results/` directory presence, and structured `trial_data.json` analysis.
 
 **Documentation**: README.md serves as the public-facing explanation; PRD.md and related docs/ files serve internal development purposes.
 
@@ -256,11 +279,11 @@ These concerns are kept separate:
 
 ### Hawthorne Effect Consideration
 
-A noted concern is whether a User Agent operating in a project explicitly dedicated to detecting phantom reads might behave differently (be less likely to exhibit phantom reads). This is documented as a concern to investigate if reproduction results differ significantly from the original investigation. The working hypothesis is that the bug is at the harness/infrastructure level, not influenced by project content.
+A noted concern is whether a User Agent operating in a project explicitly dedicated to detecting phantom reads might behave differently (be less likely to exhibit phantom reads). The Barebones-216 experiment (Jan 27) provided strong evidence against this concern: a minimal repository with no investigation-related content reproduced phantom reads at 100% (4/4 valid trials), matching the full investigation repository. This supports the working hypothesis that the bug is at the harness/infrastructure level, not influenced by project content.
 
 ### Minimal Viable Reproduction
 
-The initial approach uses the existing WSD documentation as the multi-file read trigger. If this proves insufficient to reliably trigger phantom reads, the design allows for adding a "dummy project" (simple CLI tool or similar) to provide additional file complexity.
+The initial approach used the existing WSD documentation as the multi-file read trigger. This was later supplemented by a fictional "Data Pipeline System" specification set (6 interconnected spec files plus 1 analysis target WPD = 7 Y-files, later expanded to 9 total with the addition of module-epsilon and module-phi specifications), and the Barebones-216 experiment confirmed that a minimal 20-file repository (without WSD framework) reproduces phantom reads at the same rate as the full project.
 
 ## Success Metrics
 
@@ -287,12 +310,19 @@ The following objectives from the original vision have been accomplished:
 3. ✅ **Mitigation strategy found**: MCP Filesystem bypass provides 100% success rate (see `WORKAROUND.md`)
 4. ✅ **Quantitative analysis**: Token-based analysis across 22 trials with structured `trial_data.json` files
 
-### Current Investigation Priorities
+### Current Investigation Status
 
-1. **Test "Intentional Early Reset" mitigation**: Force early context consumption to trigger reset, then execute multi-file operations in the protected gap
-2. **Test "Session Batching" mitigation**: Break reads into smaller batches with processing pauses between them
-3. **Validate rate-based threshold theory**: Calculate tokens-per-turn accumulation rates to test Dynamic Context Pressure hypothesis
-4. **Cross-version testing**: Confirm Reset Timing Theory findings aren't version-specific
+The investigation reached a major milestone on Jan 30, 2026 with the formalization of the Server-Side Variability Theory. Previously planned experiments (04M, 04B, 04F, 04G, 04C — see `docs/experiments/planning/Post-Experiment-04-Ideas.md`) have been **deprioritized** because server-side variability undermines the threshold analysis they were designed to perform. The investigation has shifted from experimental work to documentation and public reporting.
+
+Completed experiment phases (Jan 25-26):
+1. **Y Threshold Independence** (04A): Confirmed Y=57K succeeds when X≈0 — no absolute Y threshold
+2. **Hoisting Behavior** (04L, 04D): Confirmed harness avoids redundant reads; hoisting is safe even under context saturation
+3. **Context Window Relevance** (04K): Confirmed 1M model avoids phantom reads (diagnostic only, out of scope)
+
+Key remaining unknowns (outside our observation boundary):
+- What controls the server-side persistence decision?
+- Is Anthropic's Jan 29 mitigation permanent or transient?
+- Can agent recovery from `<persisted-output>` markers be made reliable?
 
 ### Out of Scope
 

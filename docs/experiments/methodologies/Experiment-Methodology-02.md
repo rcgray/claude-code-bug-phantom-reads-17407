@@ -282,8 +282,8 @@ Trials conducted on the phantom-read-clone repository using `docs/wpds/` test WP
 
 | Trial    | WPD                | Pre-Op Tokens | Post-Op Tokens | Result  |
 | -------- | ------------------ | ------------- | -------------- | ------- |
-| easy-1   | refactor-easy.md   | 74K (37%)     | ~100K          | SUCCESS |
-| medium-1 | refactor-medium.md | 80K (40%)     | ~130K          | SUCCESS |
+| easy-1   | refactor-easy.md   | 74K (37%)     | 94K (47%)      | SUCCESS |
+| medium-1 | refactor-medium.md | 80K (40%)     | 123K (62%)     | SUCCESS |
 | hard-1   | refactor-hard.md   | 95K (48%)     | 149K (75%)     | SUCCESS |
 
 All three trials succeeded (no phantom reads), despite `refactor-hard.md` being designed to reliably trigger phantom reads.
