@@ -1,0 +1,214 @@
+## Models:
+## `opus` : claude-opus-4-5-20251101
+## `sonnet` : claude-sonnet-4-5-20250929
+## `sonnet[1m]` : claude-sonnet-4-5-20250929[1m]
+## `haiku` : claude-haiku-4-5-20251001
+
+## New Session: Claude Code v2.1.22: `opus` (locked, 2.1.26 current)
+## Running schema-13-2120, schema-13-2122
+## Using Barebones repository - repeat of Method-04 (expecting all failures)
+
+---
+
+/context
+
+---
+
+/setup-hard
+
+---
+
+/context
+
+---
+
+/analyze-wpd docs/wpds/pipeline-refactor.md
+
+---
+
+/context
+
+---
+
+We have recently seen a number of User Agents reporting issues reading files like the following:
+
+<session-agent-response>
+Looking back at my history, you're right. My first Read call for the file returned:
+
+  <persisted-output>Tool result saved to: /Users/gray/.claude/projects/-Users-gray-Projects-workscope/dadf32a6-c83d-462d-b678-fbe7f191f42f/tool-results/toolu_019Nqx8qLWvdFSjvMsy5xFkM.txt
+
+  Use Read to view</persisted-output>
+
+  I did not follow up with a Read call to view that persisted output. I proceeded with my "investigation" without ever having actually read the file contents. I was operating completely blind, making assumptions about a document I never saw.
+
+  The same thing happened with several other files at the start - WSD-Runtime-Metadata-Schema.md, WSD-Manifest-Schema.md, Manifest-Driven-Pipeline-Overview.md all returned <persisted-output> messages that I never followed up on
+</session-agent-response>
+
+I am debugging this recurring issue and I am checking to see if this particular session is a reproduction of this issue. Did you experience this during your execution of the command?
+
+---
+
+/export ../cc-exports/[workscope_id].txt
+
+---
+
+# 2.1.20:
+## 20260129-202633 - Success
+## 20260129-202641 - Failure
+## 20260129-203017 - Success (Task agents)
+## 20260129-203726 - Success
+## 20260129-203737 - Failure
+## 20260129-203749 - Failure
+## 20260129-204305 - Success (Task agents)
+## 20260129-204311 - Failure
+## 20260129-204316 - Success (Task agents)
+
+## 2.1.22:
+## 20260129-210131 - Success (Task agents)
+## 20260129-210142 - Success (Task agents)
+## 20260129-210155 - Success (Task agents)
+## 20260129-211057 - Success (Task agents)
+## 20260129-211105 - Success (Task agents)
+## 20260129-211109 - Success (Task agents)
+
+---
+
+## In `barbones-phantom-read` project:
+## mkdir '../claude-code-bug-phantom-reads-17407/dev/misc/schema-13-2120'
+## ./src/collect_trials.py -e '../cc-exports/' -d '../claude-code-bug-phantom-reads-17407/dev/misc/schema-13-2120' -v
+
+```
+(🐍)gray@charon:~/Projects/barebones-phantom-reads (🧪main)$ ./src/collect_trials.py -e '../cc-exports/' -d '../claude-code-bug-phantom-reads-17407/dev/misc/schema-13-2120' -v
+Collecting 20260129-203726 (from 20260129-203726.txt)
+  Copied: 20260129-203726.txt (chat export)
+  Copied: 243c81e1-ac67-4e3b-b564-176a73179477.jsonl
+  Copied: 243c81e1-ac67-4e3b-b564-176a73179477/ (directory)
+Collecting 20260129-204316 (from 20260129-204316.txt)
+  Copied: 20260129-204316.txt (chat export)
+  Copied: 9f1cd49f-8cda-4be2-8e8b-48e8cbc75eb0.jsonl
+  Copied: 9f1cd49f-8cda-4be2-8e8b-48e8cbc75eb0/ (directory)
+Collecting 20260129-204305 (from 20260129-204305.txt)
+  Copied: 20260129-204305.txt (chat export)
+  Copied: 800d0f7b-eaa5-4c23-9a5c-3db4294bc504.jsonl
+  Copied: 800d0f7b-eaa5-4c23-9a5c-3db4294bc504/ (directory)
+Collecting 20260129-204311 (from 20260129-204311.txt)
+  Copied: 20260129-204311.txt (chat export)
+  Copied: 50e71e63-0edc-458c-9e3a-5162516ac415.jsonl
+  Copied: 50e71e63-0edc-458c-9e3a-5162516ac415/ (directory)
+Collecting 20260129-203737 (from 20260129-203737.txt)
+  Copied: 20260129-203737.txt (chat export)
+  Copied: 2d189917-b089-421c-bfa1-918cb40fcc8a.jsonl
+  Copied: 2d189917-b089-421c-bfa1-918cb40fcc8a/ (directory)
+Collecting 20260129-203017 (from 20260129-203017.txt)
+  Copied: 20260129-203017.txt (chat export)
+  Copied: 74189da9-2788-4059-ba9d-74c4e8cff094.jsonl
+  Copied: 74189da9-2788-4059-ba9d-74c4e8cff094/ (directory)
+Collecting 20260129-202641 (from 20260129-202641.txt)
+  Copied: 20260129-202641.txt (chat export)
+  Copied: 58c4ae0b-7366-4711-81c0-28442f46bf65.jsonl
+  Copied: 58c4ae0b-7366-4711-81c0-28442f46bf65/ (directory)
+Collecting 20260129-203749 (from 20260129-203749.txt)
+  Copied: 20260129-203749.txt (chat export)
+  Copied: 3c7699ee-2a50-45b1-8ebe-101f7caabb2f.jsonl
+  Copied: 3c7699ee-2a50-45b1-8ebe-101f7caabb2f/ (directory)
+Collecting 20260129-202633 (from 20260129-202633.txt)
+  Copied: 20260129-202633.txt (chat export)
+  Copied: 57de4fd4-b555-476e-8377-85b3a8881a5a.jsonl
+
+==================================================
+Collection Summary
+==================================================
+Total trials processed: 9
+Total files collected:  26
+
+Collected:              9
+Skipped (exists):       0
+Skipped (no ID):        0
+Failed:                 0
+
+Output directory:       ../claude-code-bug-phantom-reads-17407/dev/misc/schema-13-2120
+(🐍)gray@charon:~/Projects/barebones-phantom-reads (🧪main)$
+```
+
+---
+
+## In `barbones-phantom-read` project:
+## mkdir '../claude-code-bug-phantom-reads-17407/dev/misc/schema-13-2122'
+## ./src/collect_trials.py -e '../cc-exports/' -d '../claude-code-bug-phantom-reads-17407/dev/misc/schema-13-2122' -v
+
+```
+(🐍)gray@charon:~/Projects/barebones-phantom-reads (🧪main)$ ./src/collect_trials.py -e '../cc-exports/' -d '../claude-code-bug-phantom-reads-17407/dev/misc/schema-13-2122' -v
+Collecting 20260129-211109 (from 20260129-211109.txt)
+  Copied: 20260129-211109.txt (chat export)
+  Copied: 731a9a41-5d84-45c4-a3f6-1e615475dee2.jsonl
+Collecting 20260129-211057 (from 20260129-211057.txt)
+  Copied: 20260129-211057.txt (chat export)
+  Copied: f1cb36b6-56d6-4a79-93a3-82a3a7971181.jsonl
+  Copied: f1cb36b6-56d6-4a79-93a3-82a3a7971181/ (directory)
+Collecting 20260129-210131 (from 20260129-210131.txt)
+  Copied: 20260129-210131.txt (chat export)
+  Copied: 4d1f6f50-beba-4cbf-8f0c-6936629d0e11.jsonl
+  Copied: 4d1f6f50-beba-4cbf-8f0c-6936629d0e11/ (directory)
+Collecting 20260129-210155 (from 20260129-210155.txt)
+  Copied: 20260129-210155.txt (chat export)
+  Copied: b348f2f5-2909-4823-b725-cdbe3740ca5f.jsonl
+  Copied: b348f2f5-2909-4823-b725-cdbe3740ca5f/ (directory)
+Collecting 20260129-210142 (from 20260129-210142.txt)
+  Copied: 20260129-210142.txt (chat export)
+  Copied: 88524689-db3e-4225-9eba-e2caf0223b82.jsonl
+  Copied: 88524689-db3e-4225-9eba-e2caf0223b82/ (directory)
+Collecting 20260129-211105 (from 20260129-211105.txt)
+  Copied: 20260129-211105.txt (chat export)
+  Copied: 4bab6d5a-5f19-4d65-b56c-174c66bd1b7a.jsonl
+  Copied: 4bab6d5a-5f19-4d65-b56c-174c66bd1b7a/ (directory)
+
+==================================================
+Collection Summary
+==================================================
+Total trials processed: 6
+Total files collected:  17
+
+Collected:              6
+Skipped (exists):       0
+Skipped (no ID):        0
+Failed:                 0
+
+Output directory:       ../claude-code-bug-phantom-reads-17407/dev/misc/schema-13-2122
+(🐍)gray@charon:~/Projects/barebones-phantom-reads (🧪main)$
+```
+---
+
+## Notes:
+
+  - Agents report delegating Read operations to "Task" agents in some (all?) successes in 2.1.20
+  - ALL Trials delegated to "Task" agents in 2.1.22 (and therefore succeeded)
+
+---
+
+## New Session: Claude Code v2.1.22: `opus` (locked, 2.1.26 current)
+# Re-ran pre-processing for schema-13-2120, schema-13-2122
+
+---
+
+/wsd:init --custom
+
+---
+
+## 2.1.20: `dev/misc/schema-13-2120`
+/update-trial-data dev/misc/schema-13-2120/20260129-202633
+/update-trial-data dev/misc/schema-13-2120/20260129-202641
+/update-trial-data dev/misc/schema-13-2120/20260129-203017
+/update-trial-data dev/misc/schema-13-2120/20260129-203726
+/update-trial-data dev/misc/schema-13-2120/20260129-203737
+/update-trial-data dev/misc/schema-13-2120/20260129-203749
+/update-trial-data dev/misc/schema-13-2120/20260129-204305
+/update-trial-data dev/misc/schema-13-2120/20260129-204311
+/update-trial-data dev/misc/schema-13-2120/20260129-204316
+
+## 2.1.22: `dev/misc/schema-13-2122`
+/update-trial-data dev/misc/schema-13-2122/20260129-210131
+/update-trial-data dev/misc/schema-13-2122/20260129-210142
+/update-trial-data dev/misc/schema-13-2122/20260129-210155
+/update-trial-data dev/misc/schema-13-2122/20260129-211057
+/update-trial-data dev/misc/schema-13-2122/20260129-211105
+/update-trial-data dev/misc/schema-13-2122/20260129-211109

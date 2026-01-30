@@ -24,13 +24,13 @@ An initial comparison of pre-processed `trial_data.json` files across `repro-att
 
 Structural fingerprints are nearly identical across both collections:
 
-| Metric | repro-04-2120 (Jan 27) | barebones-2121 (Jan 28) |
-|--------|------------------------|-------------------------|
-| File paths | `/Users/gray/Projects/barebones-phantom-reads/docs/specs/*` | Same |
-| Files targeted | 9 spec files + WPD | Same 9 files |
-| Protocol sequence | `/context` → `/setup-hard` → `/context` → `/analyze-wpd` → inquiry → `/export` | Same |
-| Post-setup tokens | 114,017–114,018 | 114,223–114,226 |
-| Baseline tokens | 15,490 (trials 2–5) | 15,616 |
+| Metric            | repro-04-2120 (Jan 27)                                                         | barebones-2121 (Jan 28) |
+| ----------------- | ------------------------------------------------------------------------------ | ----------------------- |
+| File paths        | `/Users/gray/Projects/barebones-phantom-reads/docs/specs/*`                    | Same                    |
+| Files targeted    | 9 spec files + WPD                                                             | Same 9 files            |
+| Protocol sequence | `/context` → `/setup-hard` → `/context` → `/analyze-wpd` → inquiry → `/export` | Same                    |
+| Post-setup tokens | 114,017–114,018                                                                | 114,223–114,226         |
+| Baseline tokens   | 15,490 (trials 2–5)                                                            | 15,616                  |
 
 The ~200-token difference in post-setup is negligible and consistent with minor version differences in system prompt or tool definitions between builds 2.1.20 and 2.1.21. This rules out environmental drift (modified files, changed commands, repository alterations) as the cause of the discrepancy.
 
@@ -38,14 +38,14 @@ The ~200-token difference in post-setup is negligible and consistent with minor 
 
 The critical difference between SUCCESS and FAILURE trials is whether the Claude Code harness persisted tool results to disk:
 
-| Collection | Trial | Outcome | Files Read | Peak Tokens | has_tool_results |
-|---|---|---|---|---|---|
-| repro-04-2120 | 095002 | SUCCESS | 9 | 159,633 | **false** |
-| repro-04-2120 | 100209 | SUCCESS | 9 | 172,990 | **false** |
-| repro-04-2120 | 100944 | SUCCESS | 9 | 173,000 | **false** |
-| barebones-2121 | 150640 | FAILURE | 9 | 159,840 | **true** |
-| barebones-2121 | 150657 | SUCCESS | **6** | **131,802** | **false** |
-| barebones-2121 | 150706 | FAILURE | 9 | 159,856 | **true** |
+| Collection     | Trial  | Outcome | Files Read | Peak Tokens | has_tool_results |
+| -------------- | ------ | ------- | ---------- | ----------- | ---------------- |
+| repro-04-2120  | 095002 | SUCCESS | 9          | 159,633     | **false**        |
+| repro-04-2120  | 100209 | SUCCESS | 9          | 172,990     | **false**        |
+| repro-04-2120  | 100944 | SUCCESS | 9          | 173,000     | **false**        |
+| barebones-2121 | 150640 | FAILURE | 9          | 159,840     | **true**         |
+| barebones-2121 | 150657 | SUCCESS | **6**      | **131,802** | **false**        |
+| barebones-2121 | 150706 | FAILURE | 9          | 159,856     | **true**         |
 
 The same 9 files, similar peak token counts (~160K), but the harness made different persistence decisions. When it persisted (`has_tool_results: true`), phantom reads occurred. When it did not (`has_tool_results: false`), reads succeeded.
 
@@ -144,6 +144,7 @@ Select one SUCCESS trial from `repro-attempts-04-2120` and one FAILURE trial fro
 Based on Phase 1 findings, run focused experiments to test specific hypotheses.
 
 #### Step 2.1: Replication Attempt on Build 2.1.20 (RQ-BSD-3)
+Collection: `schema-13-2120`
 
 Re-run the exact Experiment-Methodology-04 protocol on build 2.1.20 (3-5 trials).
 
@@ -155,6 +156,7 @@ Re-run the exact Experiment-Methodology-04 protocol on build 2.1.20 (3-5 trials)
 **Preparation**: None — use existing protocol and `cc_version.py` to install 2.1.20.
 
 #### Step 2.2: Replication on Build 2.1.22 as Control
+Collection: `schema-13-2122`
 
 Run 3 trials on build 2.1.22 to confirm it still shows 100% failure (as observed in the build scan). This serves as a control — if 2.1.22 also suddenly shows successes, we know something systemic changed.
 

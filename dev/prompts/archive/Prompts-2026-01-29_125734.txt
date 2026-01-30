@@ -151,7 +151,7 @@ Yes, proceed with this plan for all fixes.
 
 ---
 
-## New Session: Claude Code v2.1.22: `opus`
+## New Session: Claude Code v2.1.22: `opus` (locked, 2.1.23 current)
 # Re-ran pre-processing for  barebones-2120-2, dev/misc/barebones-2122
 
 ---

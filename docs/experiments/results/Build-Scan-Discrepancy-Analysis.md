@@ -32,26 +32,26 @@ These findings were established during initial triage before the formal investig
 
 Structural fingerprints are nearly identical across both collections:
 
-| Metric | repro-04-2120 (Jan 27) | barebones-2121 (Jan 28) |
-|--------|------------------------|-------------------------|
-| File paths | `/Users/gray/Projects/barebones-phantom-reads/docs/specs/*` | Same |
-| Files targeted | 9 spec files + WPD | Same 9 files |
-| Protocol sequence | `/context` → `/setup-hard` → `/context` → `/analyze-wpd` → inquiry → `/export` | Same |
-| Post-setup tokens | 114,017–114,018 | 114,223–114,226 |
-| Baseline tokens | 15,490 (trials 2–5) | 15,616 |
+| Metric            | repro-04-2120 (Jan 27)                                                         | barebones-2121 (Jan 28) |
+| ----------------- | ------------------------------------------------------------------------------ | ----------------------- |
+| File paths        | `/Users/gray/Projects/barebones-phantom-reads/docs/specs/*`                    | Same                    |
+| Files targeted    | 9 spec files + WPD                                                             | Same 9 files            |
+| Protocol sequence | `/context` → `/setup-hard` → `/context` → `/analyze-wpd` → inquiry → `/export` | Same                    |
+| Post-setup tokens | 114,017–114,018                                                                | 114,223–114,226         |
+| Baseline tokens   | 15,490 (trials 2–5)                                                            | 15,616                  |
 
 The ~200-token difference in post-setup is negligible. This rules out environmental drift as the cause.
 
 ### Finding 2: `has_tool_results` Is the Discriminator
 
-| Collection | Trial | Outcome | Files Read | Peak Tokens | has_tool_results |
-|---|---|---|---|---|---|
-| repro-04-2120 | 095002 | SUCCESS | 9 | 159,633 | **false** |
-| repro-04-2120 | 100209 | SUCCESS | 9 | 172,990 | **false** |
-| repro-04-2120 | 100944 | SUCCESS | 9 | 173,000 | **false** |
-| barebones-2121 | 150640 | FAILURE | 9 | 159,840 | **true** |
-| barebones-2121 | 150657 | SUCCESS | **6** | **131,802** | **false** |
-| barebones-2121 | 150706 | FAILURE | 9 | 159,856 | **true** |
+| Collection     | Trial  | Outcome | Files Read | Peak Tokens | has_tool_results |
+| -------------- | ------ | ------- | ---------- | ----------- | ---------------- |
+| repro-04-2120  | 095002 | SUCCESS | 9          | 159,633     | **false**        |
+| repro-04-2120  | 100209 | SUCCESS | 9          | 172,990     | **false**        |
+| repro-04-2120  | 100944 | SUCCESS | 9          | 173,000     | **false**        |
+| barebones-2121 | 150640 | FAILURE | 9          | 159,840     | **true**         |
+| barebones-2121 | 150657 | SUCCESS | **6**      | **131,802** | **false**        |
+| barebones-2121 | 150706 | FAILURE | 9          | 159,856     | **true**         |
 
 When the harness persisted tool results (`has_tool_results: true`), phantom reads occurred. When it did not, reads succeeded.
 
@@ -73,37 +73,37 @@ Trial 150657 read only 6 files instead of 9, skipping `module-alpha.md`, `module
 
 #### Complete Trial Data Table
 
-| Trial ID | Outcome | has_tool_results | Reads | Unique Files | Resets | Pattern | Peak Tokens | 1st Reset From | 2nd Reset From | Baseline |
-|----------|---------|-----------------|-------|-------------|--------|---------|-------------|---------------|---------------|----------|
-| 134716 | UNKNOWN | **true** | 19 | 19 | 1 | SINGLE_LATE | 123,111 | 123,111 | — | 114,095 |
-| 134724 | FAILURE | **true** | 10 | 10 | 2 | OTHER | 157,853 | 131,724 | 157,853 | 114,095 |
-| 140143 | SUCCESS | **false** | **6** | **6** | 1 | SINGLE_LATE | 166,511 | 166,511 | — | 114,098 |
-| 140149 | FAILURE | **true** | 10 | 10 | 2 | OTHER | 138,641 | 123,114 | 138,641 | 114,095 |
-| 140157 | FAILURE | **true** | 10 | 10 | 2 | OTHER | 151,788 | 131,733 | 151,788 | 114,099 |
-| 142506 | UNKNOWN | **true** | 14 | 14 | 1 | SINGLE_LATE | 151,778 | 131,722 | — | 114,102 |
-| 142515 | UNKNOWN | **true** | 14 | 14 | 1 | SINGLE_LATE | 151,732 | 123,111 | — | 114,100 |
-| 142526 | FAILURE | **true** | 10 | 10 | 2 | OTHER | 151,763 | 131,722 | 151,763 | 114,099 |
-| 143045 | UNKNOWN | **true** | 14 | 14 | 1 | SINGLE_LATE | 151,711 | 123,114 | — | 114,097 |
-| 143056 | FAILURE | **true** | 10 | 10 | 2 | OTHER | 151,719 | 123,114 | 151,719 | 114,094 |
-| 143105 | FAILURE | **true** | 10 | 10 | 2 | OTHER | 151,724 | 123,105 | 151,724 | 114,099 |
+| Trial ID | Outcome | has_tool_results | Reads | Unique Files | Resets | Pattern     | Peak Tokens | 1st Reset From | 2nd Reset From | Baseline |
+| -------- | ------- | ---------------- | ----- | ------------ | ------ | ----------- | ----------- | -------------- | -------------- | -------- |
+| 134716   | UNKNOWN | **true**         | 19    | 19           | 1      | SINGLE_LATE | 123,111     | 123,111        | —              | 114,095  |
+| 134724   | FAILURE | **true**         | 10    | 10           | 2      | OTHER       | 157,853     | 131,724        | 157,853        | 114,095  |
+| 140143   | SUCCESS | **false**        | **6** | **6**        | 1      | SINGLE_LATE | 166,511     | 166,511        | —              | 114,098  |
+| 140149   | FAILURE | **true**         | 10    | 10           | 2      | OTHER       | 138,641     | 123,114        | 138,641        | 114,095  |
+| 140157   | FAILURE | **true**         | 10    | 10           | 2      | OTHER       | 151,788     | 131,733        | 151,788        | 114,099  |
+| 142506   | UNKNOWN | **true**         | 14    | 14           | 1      | SINGLE_LATE | 151,778     | 131,722        | —              | 114,102  |
+| 142515   | UNKNOWN | **true**         | 14    | 14           | 1      | SINGLE_LATE | 151,732     | 123,111        | —              | 114,100  |
+| 142526   | FAILURE | **true**         | 10    | 10           | 2      | OTHER       | 151,763     | 131,722        | 151,763        | 114,099  |
+| 143045   | UNKNOWN | **true**         | 14    | 14           | 1      | SINGLE_LATE | 151,711     | 123,114        | —              | 114,097  |
+| 143056   | FAILURE | **true**         | 10    | 10           | 2      | OTHER       | 151,719     | 123,114        | 151,719        | 114,094  |
+| 143105   | FAILURE | **true**         | 10    | 10           | 2      | OTHER       | 151,724     | 123,105        | 151,724        | 114,099  |
 
 #### Comparison: Original 2120 Collection (repro-attempts-04-2120)
 
-| Trial ID | Outcome | has_tool_results | Reads | Unique Files | Resets | Pattern | Peak Tokens | Reset From | Baseline |
-|----------|---------|-----------------|-------|-------------|--------|---------|-------------|------------|----------|
-| 095002 | SUCCESS | **false** | 9 | 9 | 1 | SINGLE_LATE | 159,633 | 159,633 | 114,017 |
-| 100209 | SUCCESS | **false** | 9 | 9 | 1 | SINGLE_LATE | 172,990 | 172,990 | 114,018 |
-| 100701 | SUCCESS | **false** | 9 | 9 | 1 | SINGLE_LATE | 172,999 | 172,999 | 114,023 |
-| 100944 | SUCCESS | **false** | 9 | 9 | 1 | SINGLE_LATE | 173,000 | 173,000 | 114,016 |
-| 101305 | SUCCESS | **false** | 9 | 9 | 1 | SINGLE_LATE | 159,921 | 159,921 | 114,017 |
+| Trial ID | Outcome | has_tool_results | Reads | Unique Files | Resets | Pattern     | Peak Tokens | Reset From | Baseline |
+| -------- | ------- | ---------------- | ----- | ------------ | ------ | ----------- | ----------- | ---------- | -------- |
+| 095002   | SUCCESS | **false**        | 9     | 9            | 1      | SINGLE_LATE | 159,633     | 159,633    | 114,017  |
+| 100209   | SUCCESS | **false**        | 9     | 9            | 1      | SINGLE_LATE | 172,990     | 172,990    | 114,018  |
+| 100701   | SUCCESS | **false**        | 9     | 9            | 1      | SINGLE_LATE | 172,999     | 172,999    | 114,023  |
+| 100944   | SUCCESS | **false**        | 9     | 9            | 1      | SINGLE_LATE | 173,000     | 173,000    | 114,016  |
+| 101305   | SUCCESS | **false**        | 9     | 9            | 1      | SINGLE_LATE | 159,921     | 159,921    | 114,017  |
 
 #### Outcome Distribution
 
-| Category | Count | Details |
-|----------|-------|---------|
-| FAILURE (confirmed phantom reads) | 6 | Trials 134724, 140149, 140157, 142526, 143056, 143105 |
-| UNKNOWN (context overload) | 4 | Trials 134716, 142506, 142515, 143045 |
-| SUCCESS | 1 | Trial 140143 (protocol violation — only 6 files read) |
+| Category                          | Count | Details                                               |
+| --------------------------------- | ----- | ----------------------------------------------------- |
+| FAILURE (confirmed phantom reads) | 6     | Trials 134724, 140149, 140157, 142526, 143056, 143105 |
+| UNKNOWN (context overload)        | 4     | Trials 134716, 142506, 142515, 143045                 |
+| SUCCESS                           | 1     | Trial 140143 (protocol violation — only 6 files read) |
 
 #### Key Observations
 
@@ -122,10 +122,10 @@ Trial 140143 read only 6 files: `pipeline-refactor.md` (WPD), `data-pipeline-ove
 
 The 10 trials with persistence enabled split into two clear groups:
 
-| Profile | Trials | Outcome | Resets | Reads | Behavior |
-|---------|--------|---------|--------|-------|----------|
-| **FAILURE** | 6 | Confirmed phantom reads | 2 (at ~69-71% and ~86-87%) | 10 | Agent ignored `<persisted-output>` markers |
-| **UNKNOWN** | 4 | Session ended prematurely | 1 (at ~51-62%) | 14-19 | Agent detected and attempted follow-up on `<persisted-output>` markers |
+| Profile     | Trials | Outcome                   | Resets                     | Reads | Behavior                                                               |
+| ----------- | ------ | ------------------------- | -------------------------- | ----- | ---------------------------------------------------------------------- |
+| **FAILURE** | 6      | Confirmed phantom reads   | 2 (at ~69-71% and ~86-87%) | 10    | Agent ignored `<persisted-output>` markers                             |
+| **UNKNOWN** | 4      | Session ended prematurely | 1 (at ~51-62%)             | 14-19 | Agent detected and attempted follow-up on `<persisted-output>` markers |
 
 The UNKNOWN trials show agents that **correctly** detected `<persisted-output>` markers and attempted to re-read content from the `tool-results/` directory. However, this recovery attempt consumed additional context, and all 4 sessions hit context limits before the phantom read inquiry could be conducted. These 4 trials correspond to the "4 context overloads" reported in the investigation's problem statement.
 
@@ -133,27 +133,27 @@ The key distinction: FAILURE agents ignored deferred reads; UNKNOWN agents attem
 
 **Observation 4: First reset thresholds cluster into two bands.**
 
-| Reset Band | Token Range | Trials |
-|------------|-------------|--------|
-| ~123K | 123,105–123,114 | 134716, 140149, 142515, 143045, 143056, 143105 |
-| ~131K | 131,722–131,733 | 134724, 140157, 142506, 142526 |
+| Reset Band | Token Range     | Trials                                         |
+| ---------- | --------------- | ---------------------------------------------- |
+| ~123K      | 123,105–123,114 | 134716, 140149, 142515, 143045, 143056, 143105 |
+| ~131K      | 131,722–131,733 | 134724, 140157, 142506, 142526                 |
 
 All first resets drop to ~18,020–18,027 tokens (the base level). The two bands may reflect different read orderings or batch sizes triggering the threshold at slightly different cumulative points. Note that trial 140143 (SUCCESS, no persistence) reset at 166,511 — dramatically higher, because it accumulated all file content inline without persistence intercepting.
 
 **Observation 5: The original 2120 collection resets at dramatically different thresholds.**
 
-| Collection | First Reset Range | Interpretation |
-|------------|------------------|----------------|
-| repro-04-2120 (Jan 27) | 159,633–173,000 | Reset after all 9 files read inline — too late to cause phantom reads |
-| barebones-2120-2 (Jan 28) | 123,105–131,733 | Reset during file processing — triggers persistence, causes phantom reads |
+| Collection                | First Reset Range | Interpretation                                                            |
+| ------------------------- | ----------------- | ------------------------------------------------------------------------- |
+| repro-04-2120 (Jan 27)    | 159,633–173,000   | Reset after all 9 files read inline — too late to cause phantom reads     |
+| barebones-2120-2 (Jan 28) | 123,105–131,733   | Reset during file processing — triggers persistence, causes phantom reads |
 
 This is the most striking structural difference. When persistence is disabled (`has_tool_results: false`), the agent reads all files inline to 160-173K tokens, then a single late reset occurs harmlessly. When persistence is enabled (`has_tool_results: true`), the harness intercepts tool results at a lower threshold (~123-132K), persisting them to disk. This interception itself changes the session dynamics: the agent receives `<persisted-output>` markers instead of content, leading to phantom reads when the agent fails to follow up.
 
 **Observation 6: Baselines are nearly identical, confirming environmental stability.**
 
-| Collection | Baseline Range | Mean |
-|------------|---------------|------|
-| repro-04-2120 (Jan 27) | 114,016–114,023 | 114,018 |
+| Collection                | Baseline Range  | Mean    |
+| ------------------------- | --------------- | ------- |
+| repro-04-2120 (Jan 27)    | 114,016–114,023 | 114,018 |
 | barebones-2120-2 (Jan 28) | 114,094–114,102 | 114,098 |
 
 The ~80-token difference is negligible. The test environment (files, protocol, repository state) did not change between the two sessions.
@@ -178,30 +178,30 @@ These are the files that received `<persisted-output>` markers that the agent fa
 
 **Key Comparisons**:
 
-| Metric | repro-04-2120 SUCCESS trials (n=5) | barebones-2120-2 SUCCESS trial (140143) |
-|--------|------------------------------|-----------------------------------|
-| `has_tool_results` | **false** (all 5) | **false** |
-| Peak token count | 159,633–173,000 | 166,511 |
-| Files read (count) | **9** (all 5 trials) | **6** |
-| Post-setup baseline | 114,016–114,023 | 114,098 |
-| Reset count | 1 (all 5 trials) | 1 |
-| Reset pattern | SINGLE_LATE (all 5) | SINGLE_LATE |
-| Reset threshold | 159,633–173,000 | 166,511 |
-| Protocol compliance | **FULL** | **VIOLATION** — skipped 3 files |
+| Metric              | repro-04-2120 SUCCESS trials (n=5) | barebones-2120-2 SUCCESS trial (140143) |
+| ------------------- | ---------------------------------- | --------------------------------------- |
+| `has_tool_results`  | **false** (all 5)                  | **false**                               |
+| Peak token count    | 159,633–173,000                    | 166,511                                 |
+| Files read (count)  | **9** (all 5 trials)               | **6**                                   |
+| Post-setup baseline | 114,016–114,023                    | 114,098                                 |
+| Reset count         | 1 (all 5 trials)                   | 1                                       |
+| Reset pattern       | SINGLE_LATE (all 5)                | SINGLE_LATE                             |
+| Reset threshold     | 159,633–173,000                    | 166,511                                 |
+| Protocol compliance | **FULL**                           | **VIOLATION** — skipped 3 files         |
 
 **Files read in trial 140143** (6 of 9):
 
-| # | File | Read? |
-|---|------|-------|
-| 1 | pipeline-refactor.md (WPD) | Yes |
-| 2 | data-pipeline-overview.md | Yes |
-| 3 | integration-layer.md | Yes |
-| 4 | compliance-requirements.md | Yes |
-| 5 | module-alpha.md | **SKIPPED** |
-| 6 | module-beta.md | **SKIPPED** |
-| 7 | module-gamma.md | **SKIPPED** |
-| 8 | module-epsilon.md | Yes |
-| 9 | module-phi.md | Yes |
+| #   | File                       | Read?       |
+| --- | -------------------------- | ----------- |
+| 1   | pipeline-refactor.md (WPD) | Yes         |
+| 2   | data-pipeline-overview.md  | Yes         |
+| 3   | integration-layer.md       | Yes         |
+| 4   | compliance-requirements.md | Yes         |
+| 5   | module-alpha.md            | **SKIPPED** |
+| 6   | module-beta.md             | **SKIPPED** |
+| 7   | module-gamma.md            | **SKIPPED** |
+| 8   | module-epsilon.md          | Yes         |
+| 9   | module-phi.md              | Yes         |
 
 **Findings**:
 
@@ -225,14 +225,14 @@ This means **there are zero valid SUCCESS trials in the 2120-2 collection**. Eve
 
 **Cross-Collection Failure Comparison**:
 
-| Metric | 2120-2 (n=6) | 2121 (n=2) | 2122 (n=6) | repro-04-barebones (n=4) |
-|--------|-------------|------------|------------|-------------------------|
-| `has_tool_results` | **true** (6/6) | **true** (2/2) | **true** (6/6) | **true** (4/4) |
-| Affected file count | 4 (5/6 trials), 4 (1/6 different set) | 5 (2/2) | 4–5 (varies) | 3–9 (varies widely) |
-| Peak tokens | 138K–158K | ~160K | 132K–160K | 133K–165K |
-| Reset count | 2 (all 6) | 1 (both) | 1–2 (mixed) | 2–3 (mixed) |
-| 1st reset range | 123K–132K | ~160K | 132K–160K | 125K–134K |
-| Reset pattern | OTHER (all 6) | SINGLE_LATE (both) | Mixed | OTHER / EARLY_PLUS_MID_LATE |
+| Metric              | 2120-2 (n=6)                          | 2121 (n=2)         | 2122 (n=6)     | repro-04-barebones (n=4)    |
+| ------------------- | ------------------------------------- | ------------------ | -------------- | --------------------------- |
+| `has_tool_results`  | **true** (6/6)                        | **true** (2/2)     | **true** (6/6) | **true** (4/4)              |
+| Affected file count | 4 (5/6 trials), 4 (1/6 different set) | 5 (2/2)            | 4–5 (varies)   | 3–9 (varies widely)         |
+| Peak tokens         | 138K–158K                             | ~160K              | 132K–160K      | 133K–165K                   |
+| Reset count         | 2 (all 6)                             | 1 (both)           | 1–2 (mixed)    | 2–3 (mixed)                 |
+| 1st reset range     | 123K–132K                             | ~160K              | 132K–160K      | 125K–134K                   |
+| Reset pattern       | OTHER (all 6)                         | SINGLE_LATE (both) | Mixed          | OTHER / EARLY_PLUS_MID_LATE |
 
 #### Universal Finding: `has_tool_results` Is Absolute
 
@@ -242,17 +242,17 @@ Across all 18 FAILURE trials spanning 4 collections and at least 3 builds, `has_
 
 The affected files vary between trials, even within the same collection. Frequency across all 18 failures:
 
-| File | Affected | % | Role |
-|------|----------|---|------|
-| module-alpha.md | 18/18 | 100% | Always affected |
-| module-beta.md | 15/18 | 83% | Usually affected |
-| module-gamma.md | 14/18 | 78% | Usually affected |
-| data-pipeline-overview.md | 14/18 | 78% | Usually affected |
-| pipeline-refactor.md (WPD) | 7/18 | 39% | Sometimes affected |
-| integration-layer.md | 5/18 | 28% | Occasionally affected |
-| compliance-requirements.md | 5/18 | 28% | Occasionally affected |
-| module-epsilon.md | 1/18 | 6% | Rarely affected |
-| module-phi.md | 1/18 | 6% | Rarely affected |
+| File                       | Affected | %    | Role                  |
+| -------------------------- | -------- | ---- | --------------------- |
+| module-alpha.md            | 18/18    | 100% | Always affected       |
+| module-beta.md             | 15/18    | 83%  | Usually affected      |
+| module-gamma.md            | 14/18    | 78%  | Usually affected      |
+| data-pipeline-overview.md  | 14/18    | 78%  | Usually affected      |
+| pipeline-refactor.md (WPD) | 7/18     | 39%  | Sometimes affected    |
+| integration-layer.md       | 5/18     | 28%  | Occasionally affected |
+| compliance-requirements.md | 5/18     | 28%  | Occasionally affected |
+| module-epsilon.md          | 1/18     | 6%   | Rarely affected       |
+| module-phi.md              | 1/18     | 6%   | Rarely affected       |
 
 The variation is explained by **read order**. Agents read the 9 spec files in different sequences across trials. Files read after the persistence threshold is reached get `<persisted-output>` markers; files read before it receive inline content. `module-alpha.md` appears in every failure because it is consistently read early in the batch that crosses the threshold. `module-epsilon.md` and `module-phi.md` are almost never affected because they are typically read in positions that receive inline content.
 
@@ -310,29 +310,29 @@ These trials were selected for their near-identical peak token counts (~160K), a
 
 **Comparison Areas**:
 
-| Area | SUCCESS Trial | FAILURE Trial | Difference |
-|------|--------------|---------------|------------|
-| Tool result format | Full inline content, 10 results | Full inline content, 10 results | **Identical** — no `<persisted-output>` markers in either JSONL |
-| System message content | 1 system message | 1 system message | Structurally identical |
-| Harness behavior markers | No `tool-results/` directory | `tool-results/` directory with 6 files | **Critical** — only external artifact |
-| API response metadata | Model: claude-opus-4-5-20251101 | Model: claude-opus-4-5-20251101 | Same model |
-| Token accounting | Post-reset total_input: 197,740 | Post-reset total_input: 155,715 | **42,025 token gap** |
+| Area                     | SUCCESS Trial                   | FAILURE Trial                          | Difference                                                      |
+| ------------------------ | ------------------------------- | -------------------------------------- | --------------------------------------------------------------- |
+| Tool result format       | Full inline content, 10 results | Full inline content, 10 results        | **Identical** — no `<persisted-output>` markers in either JSONL |
+| System message content   | 1 system message                | 1 system message                       | Structurally identical                                          |
+| Harness behavior markers | No `tool-results/` directory    | `tool-results/` directory with 6 files | **Critical** — only external artifact                           |
+| API response metadata    | Model: claude-opus-4-5-20251101 | Model: claude-opus-4-5-20251101        | Same model                                                      |
+| Token accounting         | Post-reset total_input: 197,740 | Post-reset total_input: 155,715        | **42,025 token gap**                                            |
 
 #### Finding 1: The JSONL Records Identical Content — No `<persisted-output>` Markers Anywhere
 
 Every tool result in both sessions contains the **full file content**. Content lengths are byte-for-byte identical across all 9 file reads:
 
-| File | SUCCESS Length | FAILURE Length | Match |
-|------|--------------|---------------|-------|
-| pipeline-refactor.md | 28,371 | 28,371 | ✓ |
-| module-alpha.md | 29,348 | 29,348 | ✓ |
-| module-beta.md | 30,441 | 30,441 | ✓ |
-| data-pipeline-overview.md | 35,896 | 35,896 | ✓ |
-| module-gamma.md | 37,745 | 37,745 | ✓ |
-| integration-layer.md | 26,353 | 26,353 | ✓ |
-| compliance-requirements.md | 21,779 | 21,779 | ✓ |
-| module-epsilon.md | 36,196 | 36,196 | ✓ |
-| module-phi.md | 38,734 | 38,734 | ✓ |
+| File                       | SUCCESS Length | FAILURE Length | Match |
+| -------------------------- | -------------- | -------------- | ----- |
+| pipeline-refactor.md       | 28,371         | 28,371         | ✓     |
+| module-alpha.md            | 29,348         | 29,348         | ✓     |
+| module-beta.md             | 30,441         | 30,441         | ✓     |
+| data-pipeline-overview.md  | 35,896         | 35,896         | ✓     |
+| module-gamma.md            | 37,745         | 37,745         | ✓     |
+| integration-layer.md       | 26,353         | 26,353         | ✓     |
+| compliance-requirements.md | 21,779         | 21,779         | ✓     |
+| module-epsilon.md          | 36,196         | 36,196         | ✓     |
+| module-phi.md              | 38,734         | 38,734         | ✓     |
 
 The `<persisted-output>` markers that the FAILURE agent experienced are **not recorded in the session JSONL**. This definitively confirms the Trial Analysis Guide's hypothesis: the session `.jsonl` is a log of tool execution results, not a representation of what the model receives in its context window. Content persistence/substitution happens in a layer between JSONL logging and the API call to the model.
 
@@ -342,18 +342,18 @@ The FAILURE trial has a session subdirectory containing `tool-results/` with 6 p
 
 **Persistence mapping (FAILURE trial)**:
 
-| # | JSONL Line | Tool | File | Size | Persisted? |
-|---|-----------|------|------|------|-----------|
-| 1 | 8 | Bash | `date` command | 21 B | **YES** |
-| 2 | 21 | Read | pipeline-refactor.md | 28.59 KB | **YES** |
-| 3 | 25 | Read | data-pipeline-overview.md | 39.12 KB | **YES** |
-| 4 | 26 | Read | module-alpha.md | 31.14 KB | **YES** |
-| 5 | 27 | Read | module-beta.md | 32.27 KB | **YES** |
-| 6 | 28 | Read | module-gamma.md | 39.47 KB | **YES** |
-| 7 | 38 | Read | integration-layer.md | 26.35 KB | no |
-| 8 | 39 | Read | compliance-requirements.md | 21.78 KB | no |
-| 9 | 40 | Read | module-epsilon.md | 36.20 KB | no |
-| 10 | 41 | Read | module-phi.md | 38.73 KB | no |
+| #   | JSONL Line | Tool | File                       | Size     | Persisted? |
+| --- | ---------- | ---- | -------------------------- | -------- | ---------- |
+| 1   | 8          | Bash | `date` command             | 21 B     | **YES**    |
+| 2   | 21         | Read | pipeline-refactor.md       | 28.59 KB | **YES**    |
+| 3   | 25         | Read | data-pipeline-overview.md  | 39.12 KB | **YES**    |
+| 4   | 26         | Read | module-alpha.md            | 31.14 KB | **YES**    |
+| 5   | 27         | Read | module-beta.md             | 32.27 KB | **YES**    |
+| 6   | 28         | Read | module-gamma.md            | 39.47 KB | **YES**    |
+| 7   | 38         | Read | integration-layer.md       | 26.35 KB | no         |
+| 8   | 39         | Read | compliance-requirements.md | 21.78 KB | no         |
+| 9   | 40         | Read | module-epsilon.md          | 36.20 KB | no         |
+| 10  | 41         | Read | module-phi.md              | 38.73 KB | no         |
 
 The persistence boundary falls cleanly between the first batch of reads (lines 8–28, all persisted) and the second batch (lines 38–41, none persisted). This is a **chronological** split, not a size-based one.
 
@@ -367,12 +367,12 @@ The persisted results are the **earliest 6 tool results** in the session. The no
 
 The most significant finding from the JSONL that `trial_data.json` does not capture is the **post-reset cache creation difference**:
 
-| Metric | SUCCESS (L56) | FAILURE (L58) | Difference |
-|--------|--------------|---------------|------------|
-| Pre-reset `cache_read` | 159,633 | 159,840 | +207 |
-| Post-reset `cache_read` | 17,942 | 18,148 | +206 |
-| Post-reset `cache_creation` | **179,788** | **137,557** | **−42,231** |
-| Post-reset `total_input` | **197,740** | **155,715** | **−42,025** |
+| Metric                      | SUCCESS (L56) | FAILURE (L58) | Difference  |
+| --------------------------- | ------------- | ------------- | ----------- |
+| Pre-reset `cache_read`      | 159,633       | 159,840       | +207        |
+| Post-reset `cache_read`     | 17,942        | 18,148        | +206        |
+| Post-reset `cache_creation` | **179,788**   | **137,557**   | **−42,231** |
+| Post-reset `total_input`    | **197,740**   | **155,715**   | **−42,025** |
 
 After the context reset, the SUCCESS trial re-cached 179,788 tokens — nearly the full conversation. The FAILURE trial re-cached only 137,557 tokens, a **42,025 token deficit**. This deficit represents the content of persisted tool results that was replaced by compact `<persisted-output>` markers during context reconstruction.
 
@@ -382,10 +382,10 @@ The 42K token gap corresponds well to the 5 persisted file reads. Total persiste
 
 #### Finding 5: The FAILURE Agent Produced Longer Analysis Despite Less Content
 
-| Trial | Analysis text length (chars) | Actual content available |
-|-------|---------------------------|------------------------|
-| SUCCESS (L48) | 7,560 | Full content of all 9 files |
-| FAILURE (L50) | 10,375 | Content of 4 files + markers for 5 |
+| Trial         | Analysis text length (chars) | Actual content available           |
+| ------------- | ---------------------------- | ---------------------------------- |
+| SUCCESS (L48) | 7,560                        | Full content of all 9 files        |
+| FAILURE (L50) | 10,375                       | Content of 4 files + markers for 5 |
 
 The FAILURE agent produced a 37% longer analysis despite having access to significantly less actual file content. This is consistent with confabulation — the agent generated plausible-sounding analysis for files it never actually read, resulting in more verbose (and fabricated) output. The agent later confirmed: its analysis was "fabricated" based on files never actually read.
 
@@ -414,15 +414,15 @@ The only structural difference is 2 extra lines in the FAILURE JSONL (68 vs 66 t
 
 #### Finding 7: Usage Patterns Track Within ~200 Tokens Until the Reset
 
-| Sequence | SUCCESS `cache_read` | FAILURE `cache_read` | Difference |
-|----------|---------------------|---------------------|------------|
-| 1 (initial) | 10,330 | 15,616 | +5,286 |
-| 2 (post-setup) | 114,017 | 114,223 | +206 |
-| 3-4 (pre-reads) | 114,148 | 114,337 | +189 |
-| 5-9 (first batch) | 115,669 | 115,874 | +205 |
-| 10-14 (second batch) | 123,029 | 123,237 | +208 |
-| 15 (pre-reset) | 159,633 | 159,840 | +207 |
-| 16 (post-reset) | 17,942 | 18,148 | +206 |
+| Sequence             | SUCCESS `cache_read` | FAILURE `cache_read` | Difference |
+| -------------------- | -------------------- | -------------------- | ---------- |
+| 1 (initial)          | 10,330               | 15,616               | +5,286     |
+| 2 (post-setup)       | 114,017              | 114,223              | +206       |
+| 3-4 (pre-reads)      | 114,148              | 114,337              | +189       |
+| 5-9 (first batch)    | 115,669              | 115,874              | +205       |
+| 10-14 (second batch) | 123,029              | 123,237              | +208       |
+| 15 (pre-reset)       | 159,633              | 159,840              | +207       |
+| 16 (post-reset)      | 17,942               | 18,148               | +206       |
 
 The ~200-token offset is consistent throughout (except the initial 5,286 gap, which is likely a build version difference in system prompt size between 2.1.20 and 2.1.21). This near-perfect tracking confirms the two sessions are structurally equivalent from the API's perspective — the divergence occurs entirely in the harness layer between the JSONL log and the model.
 
@@ -492,15 +492,15 @@ This reframing shifts the investigation from "what changed in the experiment" (n
 
 **Objective**: Re-run Experiment-Methodology-04 on build 2.1.20 (3–5 trials) to test whether the original success pattern is reproducible.
 
-**Status**: _Not started_
+**Status**: Collection `schema-13-2120`
 
 **Trial Results**:
 
-| Trial ID | Outcome | Files Read | Peak Tokens | has_tool_results | Reset Positions |
-|----------|---------|------------|-------------|------------------|-----------------|
-| _Placeholder_ | _Placeholder_ | _Placeholder_ | _Placeholder_ | _Placeholder_ | _Placeholder_ |
-| _Placeholder_ | _Placeholder_ | _Placeholder_ | _Placeholder_ | _Placeholder_ | _Placeholder_ |
-| _Placeholder_ | _Placeholder_ | _Placeholder_ | _Placeholder_ | _Placeholder_ | _Placeholder_ |
+| Trial ID      | Outcome       | Files Read    | Peak Tokens   | has_tool_results | Reset Positions |
+| ------------- | ------------- | ------------- | ------------- | ---------------- | --------------- |
+| _Placeholder_ | _Placeholder_ | _Placeholder_ | _Placeholder_ | _Placeholder_    | _Placeholder_   |
+| _Placeholder_ | _Placeholder_ | _Placeholder_ | _Placeholder_ | _Placeholder_    | _Placeholder_   |
+| _Placeholder_ | _Placeholder_ | _Placeholder_ | _Placeholder_ | _Placeholder_    | _Placeholder_   |
 
 **Interpretation**:
 - _If all SUCCESS_: _Placeholder_
@@ -513,15 +513,15 @@ This reframing shifts the investigation from "what changed in the experiment" (n
 
 **Objective**: Run 3 trials on build 2.1.22 to confirm it still shows 100% failure. Serves as a control for API stability.
 
-**Status**: _Not started_
+**Status**: Collection `schema-13-2120`
 
 **Trial Results**:
 
-| Trial ID | Outcome | Files Read | Peak Tokens | has_tool_results | Reset Positions |
-|----------|---------|------------|-------------|------------------|-----------------|
-| _Placeholder_ | _Placeholder_ | _Placeholder_ | _Placeholder_ | _Placeholder_ | _Placeholder_ |
-| _Placeholder_ | _Placeholder_ | _Placeholder_ | _Placeholder_ | _Placeholder_ | _Placeholder_ |
-| _Placeholder_ | _Placeholder_ | _Placeholder_ | _Placeholder_ | _Placeholder_ | _Placeholder_ |
+| Trial ID      | Outcome       | Files Read    | Peak Tokens   | has_tool_results | Reset Positions |
+| ------------- | ------------- | ------------- | ------------- | ---------------- | --------------- |
+| _Placeholder_ | _Placeholder_ | _Placeholder_ | _Placeholder_ | _Placeholder_    | _Placeholder_   |
+| _Placeholder_ | _Placeholder_ | _Placeholder_ | _Placeholder_ | _Placeholder_    | _Placeholder_   |
+| _Placeholder_ | _Placeholder_ | _Placeholder_ | _Placeholder_ | _Placeholder_    | _Placeholder_   |
 
 **Interpretation**:
 
@@ -581,13 +581,13 @@ _Placeholder — If the model needs a stochastic component, describe it here._
 
 **Build Scan Conclusions Under Review**:
 
-| Conclusion | Original Assessment | Revised Assessment |
-|------------|--------------------|--------------------|
-| "Dead zone" builds 2.1.7–2.1.14 | Context overload renders protocol inoperable | _Placeholder_ |
-| Build 2.1.22 as best reproduction target | 100% failure rate (6/6) | _Placeholder_ |
-| Build 2.1.20 as potential "fix" | Contradicted by 2120-2 data | _Placeholder_ |
-| Builds 2.1.15–2.1.19 consistently reproduce | 100% failure in scan | _Placeholder_ |
-| No context overloads in 2.1.21+ | 0/18 runs showed overload | _Placeholder_ |
+| Conclusion                                  | Original Assessment                          | Revised Assessment |
+| ------------------------------------------- | -------------------------------------------- | ------------------ |
+| "Dead zone" builds 2.1.7–2.1.14             | Context overload renders protocol inoperable | _Placeholder_      |
+| Build 2.1.22 as best reproduction target    | 100% failure rate (6/6)                      | _Placeholder_      |
+| Build 2.1.20 as potential "fix"             | Contradicted by 2120-2 data                  | _Placeholder_      |
+| Builds 2.1.15–2.1.19 consistently reproduce | 100% failure in scan                         | _Placeholder_      |
+| No context overloads in 2.1.21+             | 0/18 runs showed overload                    | _Placeholder_      |
 
 **Revised Conclusions**:
 
