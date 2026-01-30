@@ -633,13 +633,33 @@ Questions about how behavior varies across Claude Code versions and model varian
 
 ### RQ-G1: Are our findings version-specific?
 
-**Status**: OPEN
+**Status**: OPEN — EXTENSIVE NEW EVIDENCE FROM BUILD SCAN
 
 **Background**: Most trials use version 2.1.6. We don't know if findings (especially the danger zone hypothesis) apply to other versions.
 
 **Concern**: If findings are version-specific, our reproduction scenarios won't work across versions.
 
-**Related Experiments**: Cross-version testing (not yet designed)
+**Evidence (2026-01-27)**:
+- **Barebones-2120**: Same protocol that produces 100% failure on v2.1.6 (4/4 valid trials) initially appeared to produce **0% failure on v2.1.20** (5/5 SUCCESS)
+
+**Evidence (2026-01-28 — Build Scan)**: Comprehensive testing of every build from 2.1.6 through 2.1.22 reveals three distinct behavioral eras:
+
+| Build Range   | Behavior                                      | Interpretation                                    |
+| ------------- | --------------------------------------------- | ------------------------------------------------- |
+| 2.1.6         | 100% phantom read failure                     | Our tuned scenario triggers reliably              |
+| 2.1.7–2.1.14  | Context overflow (cannot execute)             | Context management too aggressive — kills session |
+| 2.1.15–2.1.19 | Phantom read failures                         | Returns to 2.1.6-like behavior                    |
+| 2.1.20        | Mixed (failures + successes + context limits) | Transitional build                                |
+| 2.1.21–2.1.22 | Phantom read failures; no context limits      | Context limits eliminated, phantom reads persist  |
+
+**Key finding**: The Barebones-2120 result (0% failure) was a **small-sample artifact**. The larger 11-trial study on v2.1.20 shows 5 failures, 1 success, and 5 context limits. Phantom reads ARE still present on 2.1.20.
+
+**Revised Understanding**: Our findings are NOT as version-specific as initially feared. The phantom read mechanism persists across ALL tested builds (2.1.6 through 2.1.22). What varies is the context management behavior:
+- 2.1.7–2.1.14: Overly aggressive (session dies)
+- 2.1.15+: Returns to phantom-read-producing behavior
+- 2.1.21+: Context limits eliminated, clean phantom read signal
+
+**Related Experiments**: Barebones-216, Barebones-2120, Build Scan (completed 2026-01-28)
 
 ---
 
@@ -657,13 +677,161 @@ Questions about how behavior varies across Claude Code versions and model varian
 
 ### RQ-G3: Is there a "safe" Claude Code version?
 
-**Status**: ANSWERED: NO
+**Status**: PARTIALLY REOPENED
 
 **Background**: Original investigation incorrectly concluded pre-2.0.59 versions were safe.
 
-**Conclusion**: ALL tested versions (2.0.54 through 2.1.6) can exhibit phantom reads. The mechanism differs by era, but no safe version exists.
+**Previous Conclusion**: ALL tested versions (2.0.54 through 2.1.6) can exhibit phantom reads. The mechanism differs by era, but no safe version exists.
 
-**Evidence**: 2.0.58-bad session demonstrates Era 1 phantom reads
+**New Evidence (2026-01-27)**: CC v2.1.20 shows **0% failure rate** on our reliable repro case (Barebones-2120: 5/5 SUCCESS + additional unrecorded successes). This does NOT mean 2.1.20 is "safe" — our specific scenario may simply no longer trigger the bug. We cannot rule out that phantom reads still occur under different conditions.
+
+**Revised Conclusion**: No version prior to 2.1.20 is safe. Version 2.1.20 may be safe for our specific repro case but requires broader testing before declaring it generally safe.
+
+**Evidence**: 2.0.58-bad session demonstrates Era 1 phantom reads; Barebones-2120 shows 0% failure on v2.1.20
+
+---
+
+### RQ-G6: What changed between CC v2.1.6 and v2.1.20?
+
+**Status**: PARTIALLY ANSWERED (Build Scan 2026-01-28)
+
+**Background**: Barebones-216 (v2.1.6) shows 100% failure rate among valid trials (4/4); Barebones-2120 (v2.1.20) initially appeared to show 0% failure rate (5/5). Same protocol, same repository, same files — only the Claude Code version differs.
+
+**Possible Explanations** (original):
+1. ~~**Bug Fix**: Anthropic fixed the phantom reads issue entirely~~ — **RULED OUT** (2.1.22 shows 100% failure)
+2. **Threshold Shift**: Read overhead reduced via optimization, shifting our scenario below the danger zone — possible but less likely given 2.1.22 failure
+3. **Mechanism Change**: Deferred read handling changed again (potential "Era 3") — possible
+4. ~~**Optimization Side-Effect**: Unrelated optimization incidentally prevents our trigger conditions~~ — **RULED OUT** (phantom reads persist on later builds)
+
+**Build Scan Evidence (2026-01-28)**: The comprehensive build scan revealed the transition is NOT a simple boundary but a complex evolution:
+
+- **2.1.7–2.1.12**: Context management became MORE aggressive (context overflow, session dies)
+- **2.1.13**: Does not exist (version skipped)
+- **2.1.14**: Still context overflow, but beginning to recover
+- **2.1.15**: First post-2.1.6 build where Method-04 executes — phantom reads present
+- **2.1.20**: Revised — NOT 0% failure. 11-trial study shows 5 failures, 1 success, 5 context limits
+- **2.1.21+**: Context limit errors eliminated; phantom reads persist
+- **2.1.22**: 100% failure (6/6), same as 2.1.6
+
+**Revised Understanding**: There was no single "fix" or "shift." Instead, context management went through three phases:
+1. **2.1.6**: Phantom reads via deferred content clearing
+2. **2.1.7–2.1.14**: Overly aggressive context management (refuses to proceed)
+3. **2.1.15+**: Returns to phantom-read-producing behavior; context limits gradually eliminated by 2.1.21
+
+The Barebones-2120 "0% failure" was a small-sample artifact, not evidence of a fix.
+
+**Remaining Question**: What specifically changed in 2.1.7 to make context management so aggressive, and what changed in 2.1.15 to relax it?
+
+**Related Experiments**: Build Scan (completed 2026-01-28), Barebones-216 analysis, Barebones-2120 analysis
+
+---
+
+### RQ-G7: Can we re-establish a failure repro case on CC v2.1.20?
+
+**Status**: ANSWERED: YES (Build Scan 2026-01-28)
+
+**Background**: Our carefully tuned Method-04 + `/setup-hard` protocol initially appeared to no longer trigger phantom reads on v2.1.20 (5/5 success in Barebones-2120 study).
+
+**Answer**: The premise was based on a small-sample artifact. The larger 11-trial study on v2.1.20 (conducted 2026-01-28) revealed:
+- 5 phantom read failures
+- 1 success
+- 5 context limit errors
+
+Phantom reads **DO occur on v2.1.20** with the existing protocol — no payload increase was needed. The original 5-trial study was simply lucky.
+
+**Additional Finding**: Build 2.1.22 provides an even more reliable failure case (6/6, 100% failure, no context limits), making it the preferred target build for future experiments.
+
+**Note (2026-01-29)**: The single "success" in `dev/misc/barebones-2121` was subsequently identified as a protocol violation (invalid trial), not a genuine success. This reinforces the conclusion that phantom reads are consistent on 2.1.21+.
+
+**Related Experiments**: Build Scan (completed 2026-01-28)
+
+---
+
+### RQ-G10: Why did the Barebones-2120 and build-scan 2.1.20 results differ when run within the same ~4-hour window?
+
+**Status**: NEW — OPEN (PRIORITY)
+
+**Discovery Date**: 2026-01-29
+
+**Background**: The original Barebones-2120 study (`dev/misc/repro-attempts-04-2120`) produced 5/5 SUCCESS on v2.1.20. The build-scan trials (`dev/misc/barebones-2120-2`), run approximately 1 hour later with the same protocol, same repository, and same CC build, produced 5 failures, 1 success, and 5 context limit errors.
+
+**Significance**: If test results can vary dramatically within hours using identical methodology and environment, this has major implications for the reliability of ALL our experimental conclusions. Understanding the source of this variability is a prerequisite for trusting any threshold or boundary analysis.
+
+**Possible Explanations**:
+1. **Server-side changes**: Anthropic may have deployed server-side changes (model weights, context management parameters, inference settings) during the testing window
+2. **Small-sample artifact**: The original 5-trial study may have been statistically lucky — the true failure rate on 2.1.20 may be moderate (around 45%), and 5 consecutive successes is possible at that rate (~5% probability)
+3. **Test environment drift**: Something changed in the local test environment between runs (though no deliberate changes were made)
+4. **Session state effects**: Running many trials in sequence on the same machine may accumulate state that affects later trials
+
+**Investigation Plan**: Documented in `docs/experiments/planning/Build-Scan-Discrepancy-Investigation.md`
+
+**Analysis**: `docs/experiments/results/Build-Scan-Discrepancy-Analysis.md` (progressive multi-session analysis)
+
+**Related Experiments**: Build Scan (completed 2026-01-28), Barebones-2120 (completed 2026-01-27)
+
+---
+
+### RQ-G8: Why do builds 2.1.7 through 2.1.14 cause context overflow instead of phantom reads?
+
+**Status**: NEW — OPEN
+
+**Discovery Date**: 2026-01-28 (Build Scan)
+
+**Background**: Builds 2.1.7 through 2.1.12 consistently hit context overflow during `/analyze-wpd`, killing the session before the trigger operation completes. Build 2.1.14 shows the same behavior. Build 2.1.6 produces phantom reads; build 2.1.15 returns to phantom-read behavior.
+
+**Significance**: This "dead zone" suggests that context management went through a phase of being overly aggressive — instead of silently clearing/persisting content (producing phantom reads), the system refused to proceed at all. This is arguably the *correct* behavior (fail loudly), and it was later relaxed back to the phantom-read-producing behavior.
+
+**Questions**:
+- What change in 2.1.7 made context management more aggressive?
+- What change in 2.1.15 relaxed it back?
+- Is the dead zone behavior related to the same underlying mechanism as phantom reads?
+- Did Anthropic intentionally change context management behavior, or was this a side effect?
+
+**Related Experiments**: Build Scan (completed 2026-01-28)
+
+---
+
+### RQ-G9: What eliminated context limit errors between builds 2.1.20 and 2.1.21?
+
+**Status**: NEW — OPEN
+
+**Discovery Date**: 2026-01-28 (Build Scan)
+
+**Background**: Build 2.1.20 shows 5/11 trials hitting context limits. Builds 2.1.21 and 2.1.22 show 0/18 context limits across all trials. Something changed between 2.1.20 and 2.1.21 that eliminated context overflow errors entirely.
+
+**Significance**: The context limit errors disappeared, but phantom reads persisted (and increased — 2.1.22 shows 100% failure). This suggests the "fix" addressed the overflow behavior without addressing the underlying phantom read mechanism. The system learned to handle context pressure without crashing, but still silently defers/clears reads.
+
+**Related Experiments**: Build Scan (completed 2026-01-28)
+
+---
+
+### RQ-G11: Are Task sub-agent reads structurally immune to phantom reads?
+
+**Status**: NEW — OPEN (HYPOTHESIS: YES)
+
+**Discovery Date**: 2026-01-29 (evening)
+
+**Background**: During schema-13 experiments, Session Agents that delegated Read operations to Task sub-agents consistently succeeded, even on builds (like 2.1.22) that showed 100% failure for direct-read trials. Each sub-agent operates in a fresh, small context window.
+
+**Hypothesis**: Task sub-agent reads are structurally immune to phantom reads because:
+1. Each sub-agent starts with a fresh context (~23K baseline)
+2. A sub-agent reading 1–4 files stays well below the danger zone thresholds
+3. The main session only receives the sub-agent's summary, not the full file content
+4. This is functionally equivalent to the MCP workaround — reads happen outside the main session's context management
+
+**Evidence**:
+- schema-13-2120: 4/4 delegation trials SUCCESS vs. 3/5 direct-read trials FAILURE
+- schema-13-2122: 5/5 delegation trials SUCCESS; build previously showed 6/6 FAILURE (direct-read, Jan 28)
+- Delegation trials in Build-Scan Discrepancy Analysis show consistent success across builds
+
+**Questions**:
+- What determines whether a Session Agent delegates vs. reads directly?
+- Is delegation behavior controllable (e.g., via prompt design)?
+- Does the main session still receive full file content from sub-agents, or only summaries?
+- Could delegation be used as a deliberate mitigation strategy?
+
+**Related Experiments**: None yet; would require controlled comparison of delegation vs. direct-read
+**Related DB**: DB-I14
 
 ---
 
@@ -902,6 +1070,112 @@ Note: `.claude/settings.json` (without `.local`) is NOT a valid project config p
 
 ---
 
+### DB-I9: Builds 2.1.7 through 2.1.14 cannot execute Experiment-Methodology-04
+
+**Status**: CONFIRMED
+
+**Discovery Date**: 2026-01-28
+
+**Description**: Claude Code builds 2.1.7 through 2.1.12 (and 2.1.14) consistently hit a context overflow error during the `/analyze-wpd` command when using Experiment-Methodology-04 with `/setup-hard`. The session dies with a "0% memory" / "context full" message before the trigger operation completes. This means our primary experiment methodology cannot execute on these builds.
+
+**Evidence**: Comprehensive build scan testing every build from 2.1.6 through 2.1.22. All trials on builds 2.1.7–2.1.12 and 2.1.14 resulted in context overflow. Build 2.1.6 and 2.1.15+ execute normally.
+
+**Implication**: Any cross-version analysis must account for this "dead zone." These builds cannot be used for phantom read experiments with our current methodology. The dead zone also suggests that context management behavior changed significantly between 2.1.6 and 2.1.15, with an intermediate period of overly aggressive management.
+
+**Related RQs**: RQ-G1, RQ-G6, RQ-G8
+
+---
+
+### DB-I10: `/context` command behavior varies significantly across builds
+
+**Status**: CONFIRMED
+
+**Discovery Date**: 2026-01-28
+
+**Description**: The `/context` command (Claude Code built-in for displaying token consumption) exhibits different behaviors across builds:
+
+| Build Range   | Behavior                                                                                                       |
+| ------------- | -------------------------------------------------------------------------------------------------------------- |
+| ≤2.1.8        | Prints to session chat normally                                                                                |
+| 2.1.9         | Changed to an interstitial dialog; does not persist in chat log; described as "very buggy" with display issues |
+| 2.1.10–2.1.13 | Unclear (builds in dead zone; limited testing)                                                                 |
+| 2.1.14        | Restored to original behavior (prints to session chat)                                                         |
+| 2.1.15–2.1.19 | **Double-print bug**: context output is printed twice to the session chat                                      |
+| 2.1.20+       | Double-print bug fixed; normal behavior restored                                                               |
+
+**Evidence**: Observed during comprehensive build scan (2026-01-28) across all tested builds.
+
+**Implication**: Our experiment methodology relies on `/context` output captured in chat exports to measure token consumption. The interstitial behavior in 2.1.9 would make measurements impossible (data not captured in exports). The double-print bug in 2.1.15–2.1.19 is a nuisance but doesn't prevent data capture. Any future cross-version analysis must account for these variations.
+
+**Related RQs**: RQ-G1, DB-I5
+
+---
+
+### DB-I11: Claude Code version 2.1.13 does not exist
+
+**Status**: CONFIRMED
+
+**Discovery Date**: 2026-01-28
+
+**Description**: There is no Claude Code build numbered 2.1.13. The version numbering skips from 2.1.12 directly to 2.1.14.
+
+**Evidence**: Attempted installation during comprehensive build scan. Version 2.1.13 is not available in the npm registry.
+
+**Implication**: Minor — this is a version numbering gap with no impact on the investigation beyond noting the gap when documenting version ranges.
+
+---
+
+### DB-I12: Build 2.1.15 introduced npm-to-native installer transition warning
+
+**Status**: CONFIRMED
+
+**Discovery Date**: 2026-01-28
+
+**Description**: Starting with build 2.1.15, Claude Code began issuing a warning during startup when installed via npm: "Claude Code has switched from npm to native installer. Run `claude install` or see https://docs.anthropic.com/en/docs/claude-code/getting-started for more options."
+
+**Evidence**: Observed during build scan when installing via `cc_version.py --install 2.1.15` and later builds. The warning appears but does not prevent operation.
+
+**Implication**: Our `cc_version.py` script installs via npm, which is now the legacy installation mechanism. The warning does not affect CC operation or our experiments, but future versions may eventually drop npm support entirely.
+
+---
+
+### DB-I13: Barebones-2121 "success" was a protocol violation (invalid trial)
+
+**Status**: CONFIRMED
+
+**Discovery Date**: 2026-01-29
+
+**Description**: The single "success" trial in `dev/misc/barebones-2121` (build 2.1.21) was identified as an invalid trial due to a protocol violation — the Session Agent did not follow the experiment protocol correctly. This follows the same pattern as Barebones-216 trial 092331, where an agent skipped required files, reducing Y below the danger threshold and producing a false "success."
+
+**Evidence**: Review of the build scan data during the Jan 29 documentation session identified the protocol violation.
+
+**Implication**: The 2.1.21 collection should be treated as 2/2 failures (100% failure rate among valid trials), not 2/3 failures with 1 success. This eliminates a potential red herring where the 2.1.21 success might have suggested some protective behavior that was lost in 2.1.22. It also reinforces the importance of rigorous protocol validation for all trials — "success" trials must be verified as protocol-compliant before being accepted as valid data points.
+
+**Related RQs**: RQ-G7, RQ-G1
+
+---
+
+### DB-I14: Session Agents sometimes delegate Read operations to Task sub-agents
+
+**Status**: CONFIRMED
+
+**Discovery Date**: 2026-01-29 (evening)
+
+**Description**: During Method-04 trials on CC v2.1.20 and v2.1.22, Session Agents were observed delegating file Read operations to Task sub-agents instead of reading files directly in the main session context. When delegation occurs, each sub-agent operates in its own fresh context window, reading only a subset of the required files. This structurally avoids the context pressure conditions that trigger phantom reads.
+
+**Evidence**: Observed across two collections:
+- `schema-13-2120` (v2.1.20): 4/9 trials used delegation — all 4 succeeded. Of 5 direct-read trials: 3 failures, 1 success, 1 recovery.
+- `schema-13-2122` (v2.1.22): 5/6 trials used delegation — all 5 succeeded. The 1 direct-read trial also succeeded.
+- Build 2.1.22 had shown 100% failure (6/6) on Jan 28 (`barebones-2122`). The Jan 29 reversal to 100% success is explained by the shift to delegation behavior, not a server-side change.
+
+**Significance**: This is a major confounding variable in trial outcomes. Aggregate success/failure rates that mix direct-read and delegation trials are misleading. The delegation pattern explains apparent contradictions in cross-day results (e.g., 2.1.22 going from 100% failure to 100% success) without requiring server-side variability as an explanation.
+
+**Implication**: Future trial analysis must classify trials as "direct-read" vs. "delegation" before drawing conclusions about phantom read rates. Methodology may need to be updated to either control for this variable or to deliberately test whether delegation is a reliable mitigation.
+
+**Related RQs**: RQ-G11, RQ-G10, RQ-E4
+
+---
+
 ## Summary Statistics
 
 | Category                | Total  | Open   | Answered | Hypothesis | Confirmed |
@@ -912,10 +1186,10 @@ Note: `.claude/settings.json` (without `.local`) is NOT a valid project config p
 | D: Reset Timing         | 3      | 1      | 0        | 2          | -         |
 | E: Read Patterns        | 6      | 3      | 0        | 3          | -         |
 | F: Measurement          | 5      | 4      | 1        | 0          | -         |
-| G: Cross-Version/Model  | 5      | 3      | 1        | 1          | -         |
+| G: Cross-Version/Model  | 11     | 7      | 2        | 1          | -         |
 | H: Persisted Output     | 3      | 3      | 0        | 0          | -         |
-| I: Discovered Behaviors | 8      | -      | -        | -          | 7         |
-| **TOTAL**               | **47** | **19** | **10**   | **10**     | **7**     |
+| I: Discovered Behaviors | 14     | -      | -        | -          | 13        |
+| **TOTAL**               | **59** | **23** | **11**   | **10**     | **13**    |
 
 ---
 
@@ -983,12 +1257,29 @@ SAFE CONDITIONS:
 - **2026-01-26**: Added DB-I6 (agent cross-reference file discovery) from prompt log analysis (`Prompts-2026-01-25_185205.txt`)
 - **2026-01-27**: Added RQ-F5 (transient UI warning as reset indicator) and DB-I7 (observational data about "0% remaining" warning) from Barebones experiment observations
 - **2026-01-27**: Added DB-I8 (hoisted files as system-reminder blocks) from agent self-reflection; updated RQ-A5 and RQ-C3 status to MECHANISM IDENTIFIED
+- **2026-01-30**: Added Build Scan findings from prompt log analysis (`dev/todo/Prompts-2026-01-28_094131.txt`)
+  - Updated RQ-G1 with extensive build scan evidence (three behavioral eras across 2.1.6–2.1.22)
+  - Updated RQ-G6 status to PARTIALLY ANSWERED (ruled out bug fix and optimization side-effect explanations)
+  - Updated RQ-G7 status to ANSWERED: YES (v2.1.20 failures confirmed in larger study)
+  - Added RQ-G8 (dead zone: why builds 2.1.7–2.1.14 cause context overflow)
+  - Added RQ-G9 (context limit elimination between 2.1.20 and 2.1.21)
+  - Added DB-I9 (builds 2.1.7–2.1.14 cannot execute Method-04)
+  - Added DB-I10 (`/context` command behavior varies by build)
+  - Added DB-I11 (version 2.1.13 does not exist)
+  - Added DB-I12 (npm-to-native installer warning from 2.1.15)
+  - Updated summary statistics
+- **2026-01-30**: Added Jan 29 findings from prompt log analysis (`dev/todo/Prompts-2026-01-29_082142.txt`)
+  - Added RQ-G10 (Build-Scan Discrepancy: why did Barebones-2120 and build-scan 2.1.20 differ?)
+  - Added note to RQ-G7 about barebones-2121 success being a protocol violation
+  - Added DB-I13 (barebones-2121 success was a protocol violation)
+  - Updated summary statistics
+- **2026-01-30**: Added Jan 29 evening findings from prompt log analysis (`dev/todo/Prompts-2026-01-29_201458.txt`)
+  - Added RQ-G11 (Task sub-agent reads structural immunity to phantom reads)
+  - Added DB-I14 (Session Agents delegate Read operations to Task sub-agents)
+  - Updated summary statistics
+- **2026-01-30**: Processed prompt log `dev/todo/Prompts-2026-01-29_213439.txt` — no new RQs or DBs identified; all discoveries from this log (Server-Side Variability Theory, schema-13-216, Build-Scan Discrepancy closure, investigation redirect to documentation/reporting) were already captured in prior processing sessions
 - **Source Documents**:
   - `docs/core/Investigation-Journal.md`
   - `docs/experiments/planning/Post-Experiment-04-Ideas.md`
   - `docs/experiments/results/Experiment-04-Prelim-Results.md`
   - `docs/theories/Consolidated-Theory.md`
-  - `dev/todo/Prompts-2026-01-13_140924.txt` (prompt log analysis)
-  - `dev/todo/Prompts-2026-01-14_120425.txt` (prompt log analysis)
-  - `dev/todo/Prompts-2026-01-23_100643.txt` (prompt log analysis)
-  - `dev/todo/Prompts-2026-01-25_185205.txt` (prompt log analysis)

@@ -303,8 +303,231 @@ A concise chronological record of the Phantom Reads investigation. For detailed 
   - Y minimal (~6K) → any tested X succeeds
   - 1M model → any tested combination succeeds
 
+**Documentation Reorganization**
+- Restructured `docs/` directory: moved experiment-related docs from `docs/core/` to dedicated subdirectories
+- Created `docs/experiments/` (methodologies, results, planning, guides), `docs/theories/`, `docs/mitigations/`
+- `docs/core/` narrowed to true core documents: PRD, Action-Plan, Investigation-Journal, Research-Questions, Design-Decisions, Timeline
+- Updated PRD.md with directory structure guidance for future agents
+
+**`/process-prompt-log` Command Created**
+- New karpathy script for extracting discoveries from historical prompt logs into core documentation
+- Targets: Timeline.md, Investigation-Journal.md, Research-Questions.md
+- Designed to process the ~30 prompt log files accumulated over the project's lifetime
+
+**X+Y Interaction Model Refined**
+- User explicitly clarified that X and Y are *dependent on each other* with respect to T—not independent thresholds
+- Anti-"magic number" framing established: the goal is to understand the interaction surface, not find isolated thresholds
+- Updated RQ-B8 with research caution against hunting for independent threshold values
+- 1M model formally declared OUT OF SCOPE (diagnostic only; investigation stays on 200K model)
+
+**Experiment-04M Designed**
+- X Boundary Exploration: test intermediate X values between `/setup-none` (X≈23K) and `/setup-easy` (X≈73K)
+- Prescribed `/setup-mid` using `operations-manual-standard.md` for X≈50K
+- Git branch approach proposed for 04B/04C/04F (restore pre-epsilon/phi state instead of surgical edits)
+
 **Timeline Document Created**
 - This document established for quick reference
+
+---
+
+## 2026-01-27
+
+**Barebones-216 Experiment** (CC v2.1.6, barebones repo)
+- Created stripped-down repository with only essential files (20 files, no WSD framework, no hooks)
+- Ran 5 trials using Experiment-Methodology-04 with `/setup-hard`
+- Results: 4 FAILURE, 1 INVALID (protocol violation) → **100% failure rate among valid trials**
+- **Confirmed phantom reads are NOT WSD-specific** — bug reproduces without WSD framework or hooks
+- Trial 092331 initially categorized as success; later reclassified as invalid (agent skipped 3 required files)
+- Collection: `dev/misc/repro-attempts-04-barebones/`
+
+**Barebones-2120 Experiment** (CC v2.1.20, barebones repo)
+- Upgraded from locked v2.1.6 to current v2.1.20
+- Same barebones repository as Barebones-216
+- Ran 5 trials using Experiment-Methodology-04 with `/setup-hard`
+- Results: 5 SUCCESS, 0 FAILURE (0% failure rate)
+- **Anthropic changed something between 2.1.6 and 2.1.20** — our reliable repro case no longer triggers phantom reads
+- Additional unrecorded trials also showed unanimous success
+- Collection: `dev/misc/repro-attempts-04-2120/`
+
+**Trial Data Pre-Processing**
+- Ran `/update-trial-data` on all 10 trials across both collections
+- Created `trial_data.json` for each trial
+
+**Analysis Planning**
+- Created `docs/experiments/planning/Barebones-216.md` — analysis plan for the barebones v2.1.6 results
+- Created `docs/experiments/planning/Barebones-2120.md` — analysis plan for the v2.1.20 results
+
+**Discovered Behavior: Hoisted File Injection Mechanism**
+- Agent self-reflection confirmed `@`-referenced files appear as full content in `<system-reminder>` blocks
+- Explains why hoisting is immune to phantom reads: system messages are not subject to context management
+- Documented as DB-I8 in Research-Questions.md
+
+**Observation: Transient "0% remaining" UI Warning**
+- Status bar occasionally flashes "0% remaining" during operations, then disappears
+- May signal context reset in progress; not captured in session logs
+- Documented as DB-I7 and RQ-F5 in Research-Questions.md
+
+**New Investigation Goal**
+- Re-establish a failure repro case on CC v2.1.20 (our current repro case no longer triggers)
+- Perform "build search" between 2.1.6 and 2.1.20 to find where the change occurred
+- Examine whether this is a fix, a threshold shift, or an optimization that invalidates our tuned scenario
+
+**Barebones-216 Analysis Completed**
+- RQ-by-RQ analysis (RQ-BB216-1 through RQ-BB216-5) documented in `docs/experiments/results/Barebones-216-Analysis.md`
+- Trial 092331 reclassified from "success" to INVALID (protocol violation — agent skipped 3 of 8 required files)
+- Official Barebones-216 failure rate corrected to 100% (4/4 valid trials)
+- All 5 RQs answered; confirmed phantom reads are not WSD-specific, hook system is not a contributor
+
+**Barebones-2120 Analysis Completed** (RQ-BB2120-1 through RQ-BB2120-7)
+- RQ-by-RQ analysis documented in `docs/experiments/results/Barebones-2120-Analysis.md`
+- Claude Code changelog compiled for versions 2.1.6 through 2.1.22 (workbench artifact for RQ-BB2120-7)
+- RQ-BB2120-7 answered: changelog review identified candidate changes but no single definitive fix
+- RQ-BB2120-6 and RQ-BB2120-8 remain open (require future experiments)
+
+---
+
+## 2026-01-28
+
+**Build Scan Experiment** (CC v2.1.6 through v2.1.22, barebones repo)
+- Tested every available build from 2.1.6 through 2.1.22 using Experiment-Methodology-04 with `/setup-hard` on the barebones repository
+- Executed the planned "Build Search" experiment across the full version range
+
+**Key Findings:**
+
+| Build Range | Behavior |
+| ----------- | -------- |
+| 2.1.6 | Phantom reads (known from prior experiments) |
+| 2.1.7 – 2.1.12 | **Method-04 cannot execute** — context overflow kills session during `/analyze-wpd` |
+| 2.1.13 | Does not exist (version number skipped) |
+| 2.1.14 | Context limit on all 3 trials |
+| 2.1.15 | **First build after 2.1.6 where Method-04 can execute** — 3/3 phantom read failures |
+| 2.1.16 – 2.1.19 | Phantom reads confirmed (same as 2.1.15 behavior) |
+| 2.1.20 | **Mixed**: 5 failures, 1 success, 5 context limit (11 trials) — revises prior Barebones-2120 finding of 0% failure |
+| 2.1.21 | Mixed: 2 failures, 1 success (3 trials); no context limits |
+| 2.1.22 | **100% failure**: 6/6 phantom read failures; no context limits |
+
+**Build-Specific Behaviors Discovered:**
+- Build 2.1.9: `/context` command changed to interstitial dialog (doesn't print to chat)
+- Build 2.1.14: `/context` restored to original behavior
+- Build 2.1.15: `/context` double-prints output (persists through 2.1.19, fixed in 2.1.20)
+- Build 2.1.15: First npm-to-native installer transition warning
+- No context overload errors observed in 2.1.21+ (18 total runs)
+
+**Trial Collections Created:**
+- `dev/misc/barebones-219` (3 trials, v2.1.9)
+- `dev/misc/barebones-2114` (3 trials, v2.1.14)
+- `dev/misc/barebones-2115` (3 trials, v2.1.15)
+- `dev/misc/barebones-2120-2` (11 trials, v2.1.20)
+- `dev/misc/barebones-2121` (3 trials, v2.1.21)
+- `dev/misc/barebones-2122` (6 trials, v2.1.22)
+
+**Pre-processing:** Ran `/update-trial-data` on barebones-2121 and barebones-2122 trials
+
+**Significance:**
+- Builds 2.1.7–2.1.14 represent a "dead zone" where our methodology cannot execute
+- The prior Barebones-2120 study (5/5 success) is revised by the larger 11-trial study showing mixed results
+- Build 2.1.22 provides a new reliable 100% failure case on a recent build
+- Build 2.1.15 (Jan 21) is the earliest post-2.1.6 build where phantom reads can be studied
+
+---
+
+## 2026-01-29
+
+**Build Scan Results Documentation**
+- Created `docs/experiments/results/Experiment-04-BuildScan.md` — formal documentation of the build-by-build timeline and results from the Jan 28 scan
+- Updated `docs/experiments/results/Barebones-2120-Analysis.md` with revised findings from the larger 11-trial study (revising the original 5-trial conclusions)
+
+**Key Finding: Barebones-2121 Success Was a Protocol Violation**
+- The single "success" in `dev/misc/barebones-2121` was identified as an invalid trial (agent violated protocol), NOT a genuine deviation from the failure pattern
+- This prevents pursuit of red herrings when analyzing 2.1.21 results
+
+**Build-Scan Discrepancy Investigation**
+- Identified key open question: Why did the original Barebones-2120 study (`dev/misc/repro-attempts-04-2120`, 5/5 success) differ from the build-scan 2.1.20 results (`dev/misc/barebones-2120-2`, mixed) when run within the same ~4-hour window?
+- Created investigation plan: `docs/experiments/planning/Build-Scan-Discrepancy-Investigation.md`
+- Created analysis placeholder: `docs/experiments/results/Build-Scan-Discrepancy-Analysis.md` (for progressive multi-session analysis)
+
+**Pre-Processing**
+- Ran `/update-trial-data` on all 11 trials in `dev/misc/barebones-2120-2/` (previously unprocessed)
+
+**Build-Scan Discrepancy Analysis (Steps 1.1–1.4)**
+- Began multi-session analysis of the `barebones-2120-2` vs `repro-attempts-04-2120` discrepancy
+- Completed Steps 1.1 through 1.4 of the investigation plan against `barebones-2120-2` trial data
+- Results documented progressively in `docs/experiments/results/Build-Scan-Discrepancy-Analysis.md`
+
+**Trial Data Schema Upgrade (1.2 → 1.3)**
+- Analysis needs prompted design of Schema 1.3 improvements to `trial_data.json`
+- Created ticket: `docs/tickets/open/upgrade-trial-data-schema-1-3.md`
+- Refined via `/refine-plan` with 10-point design discussion
+- Executed all phases via full WSD lifecycle (`/wsd:init`, `/wsd:prepare`, `/wsd:execute`, `/wsd:close`)
+- Updated `dev/karpathy/extract_trial_data.py` and `.claude/commands/update-trial-data.md`
+
+**Health Check Cleanup**
+- Resolved 10 type checking errors, 6 doc completeness warnings, 22 linting issues (including 4 complex fixes)
+- All health checks passing after cleanup
+
+**Mass Re-Processing with Schema 1.3**
+- Re-ran `/update-trial-data` on all build scan collections with the new Schema 1.3:
+  - `dev/misc/repro-attempts-04-2120/` (5 trials)
+  - `dev/misc/barebones-2120-2/` (11 trials)
+  - `dev/misc/barebones-2121/` (3 trials)
+  - `dev/misc/barebones-2122/` (6 trials)
+
+---
+
+## 2026-01-29 (Evening)
+
+**Schema-13 Experiments** (CC v2.1.20 and v2.1.22, barebones repo)
+- Ran additional trials on builds 2.1.20 and 2.1.22 using Method-04 with `/setup-hard`
+- Collection `schema-13-2120`: 9 trials on v2.1.20 — 3 direct successes, 3 failures, 3 successes via Task agent delegation
+- Collection `schema-13-2122`: 6 trials on v2.1.22 — ALL 6 succeeded, ALL used Task agent delegation
+- Trial data collected via `collect_trials.py` and pre-processed with Schema 1.3 `/update-trial-data`
+
+**Key Discovery: Task Agent Delegation as Confounding Variable**
+- Session Agents in some trials delegated Read operations to Task sub-agents instead of reading files directly
+- Delegation correlates with success: 100% of delegation trials succeeded across both builds
+- In v2.1.20: 4/9 trials used delegation (all succeeded); 5 direct-read trials showed mixed results
+- In v2.1.22: 5/6 trials used delegation (all succeeded)
+- This explains the apparent "reversal" of 2.1.22 from 100% failure (Jan 28) to 100% success (Jan 29): agent behavioral shift to delegation, not a server-side change
+
+**Significance:**
+- Task agent delegation is a previously unrecognized confounding variable in trial outcomes
+- Sub-agent reads may bypass the main session's context management, structurally avoiding phantom reads
+- Future methodology must account for delegation vs. direct-read trial classification
+
+---
+
+## 2026-01-30
+
+**Build-Scan Discrepancy Investigation Completed**
+- Completed all remaining steps of the Build-Scan Discrepancy investigation (Steps 2.1–2.3, 3.1–3.3)
+- Step 2.1: Analyzed schema-13-2120 (9 trials, v2.1.20) — confirmed persistence is non-deterministic within same time window; delegation identified as confound
+- Step 2.2: Analyzed schema-13-2122 (6 trials, v2.1.22) — complete reversal from 100% failure (Jan 28) to 100% success (Jan 29); 0% persistence; confirms systemic server-side change
+- Step 2.3: Analyzed schema-13-216 (6 trials, v2.1.6) — delegation confirmed on oldest tested build (3/6 trials); persistence 100% among direct-read trials; 2.1.6 behaviorally indistinguishable from newer builds on same day
+- Step 3.1: Server-Side Variability Theory formalized
+- Step 3.2: Build Scan conclusions revised (2.1.22 as reproduction target invalidated; 2.1.20 "fix" resolved as server-state variability)
+- Step 3.3: Closure assessment completed — investigation shifts from experimentation to documentation/reporting
+
+**Server-Side Variability Theory Formalized**
+- Created [Server-Side-Variability-Theory.md](../theories/Server-Side-Variability-Theory.md)
+- Core claim: Phantom read occurrence is primarily determined by server-side state, not client build version
+- Evidence: Build 2.1.22 reversed from 100% failure (Jan 28) to 100% success (Jan 29) with zero environment changes
+- Two distinct server-side changes identified: reduced persistence frequency + model behavioral shift to sub-agent delegation
+- Characterization: Anthropic's changes are a **mitigation, not a fix** — persistence still 80–100% of direct reads; root cause unaddressed
+
+**Schema-13-216 Collection** (CC v2.1.6, barebones repo)
+- 6 trials: 2 FAILURE (direct-read), 3 SUCCESS (delegation), 1 SUCCESS (recovery from `<persisted-output>`)
+- Collected via `collect_trials.py`, pre-processed with Schema 1.3
+- Strongest evidence for server-side control: oldest tested build behaves identically to newest on same day
+
+**Investigation Closure Recommended**
+- Easy/Medium/Hard calibration (Aim #3) deemed infeasible under server-side variability
+- Remaining planned experiments (04M, 04B, 04F, etc.) deprioritized — server-side variability undermines threshold analysis
+- Project direction: shift to documentation, public reporting, and consolidation
+
+**Public Communication Prepared**
+- README.md update proposed to reflect latest findings for public viewers
+- GitHub Issue #17407 update drafted summarizing three weeks of investigation for Anthropic maintainers
+- Time-sensitive: mitigation effects observed in last 12–24 hours
 
 ---
 
@@ -312,11 +535,14 @@ A concise chronological record of the Phantom Reads investigation. For detailed 
 
 | Experiment | Description                                         | Status  |
 | ---------- | --------------------------------------------------- | ------- |
-| **04M**    | X Boundary Exploration - test intermediate X values | Planned |
-| **04B**    | 8-File Y Threshold - narrow Y threshold range       | Planned |
-| **04F**    | File Count vs Tokens - what triggers the threshold? | Planned |
-| **04G**    | Sequential vs Parallel Reads - accumulation rate    | Planned |
-| **04C**    | Sanity Check - restore pre-epsilon/phi state        | Planned |
+| **04M**    | X Boundary Exploration - test intermediate X values | Deprioritized (server-side variability) |
+| **04B**    | 8-File Y Threshold - narrow Y threshold range       | Deprioritized (server-side variability) |
+| **04F**    | File Count vs Tokens - what triggers the threshold? | Deprioritized (server-side variability) |
+| **04G**    | Sequential vs Parallel Reads - accumulation rate    | Deprioritized (server-side variability) |
+| **04C**    | Sanity Check - restore pre-epsilon/phi state        | Deprioritized (server-side variability) |
+| **Build Search** | Build scan 2.1.6→2.1.22 for behavior change | ✅ Completed (2026-01-28) |
+| **2120 Repro** | Re-establish failure case on v2.1.20             | ✅ Resolved — server-state variability (2026-01-30) |
+| **Build-Scan Discrepancy** | Investigate 2.1.20 result variability | ✅ Completed (2026-01-30) |
 
 ---
 
@@ -325,14 +551,19 @@ A concise chronological record of the Phantom Reads investigation. For detailed 
 | Topic                 | Document                                                                                  |
 | --------------------- | ----------------------------------------------------------------------------------------- |
 | Unified theory        | [Consolidated-Theory.md](../theories/Consolidated-Theory.md)                              |
+| Server-side variability | [Server-Side-Variability-Theory.md](../theories/Server-Side-Variability-Theory.md)       |
 | Detailed narrative    | [Investigation-Journal.md](Investigation-Journal.md)                                      |
 | Research questions    | [Research-Questions.md](Research-Questions.md)                                            |
 | 22-trial analysis     | [WSD-Dev-02-Analysis-3.md](../experiments/results/WSD-Dev-02-Analysis-3.md)               |
 | First reproduction    | [Repro-Attempts-02-Analysis-1.md](../experiments/results/Repro-Attempts-02-Analysis-1.md) |
 | Experiment-04 results | [Experiment-04-Prelim-Results.md](../experiments/results/Experiment-04-Prelim-Results.md) |
+| Barebones-216 analysis | [Barebones-216-Analysis.md](../experiments/results/Barebones-216-Analysis.md)             |
+| Barebones-2120 analysis | [Barebones-2120-Analysis.md](../experiments/results/Barebones-2120-Analysis.md)           |
+| Build scan results    | [Experiment-04-BuildScan.md](../experiments/results/Experiment-04-BuildScan.md)            |
+| Build scan discrepancy | [Build-Scan-Discrepancy-Analysis.md](../experiments/results/Build-Scan-Discrepancy-Analysis.md) |
 | Current methodology   | [Experiment-Methodology-04.md](../experiments/methodologies/Experiment-Methodology-04.md) |
 | Workaround            | [WORKAROUND.md](../../WORKAROUND.md)                                                      |
 
 ---
 
-*Last updated: 2026-01-26*
+*Last updated: 2026-01-30*

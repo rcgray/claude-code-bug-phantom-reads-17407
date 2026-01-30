@@ -1,0 +1,93 @@
+## Models:
+## `opus` : claude-opus-4-5-20251101
+## `sonnet` : claude-sonnet-4-5-20250929
+## `sonnet[1m]` : claude-sonnet-4-5-20250929[1m]
+## `haiku` : claude-haiku-4-5-20251001
+
+## New Session: Claude Code v2.1.22: `opus` (locked, 2.1.26 current)
+
+---
+
+/wsd:init --custom
+
+---
+
+/process-prompt-log dev/todo/Prompts-2026-01-26_113511.txt
+/process-prompt-log dev/todo/Prompts-2026-01-27_091136.txt
+/process-prompt-log dev/todo/Prompts-2026-01-27_130643.txt
+/process-prompt-log dev/todo/Prompts-2026-01-28_094131.txt
+/process-prompt-log dev/todo/Prompts-2026-01-29_082142.txt
+/process-prompt-log dev/todo/Prompts-2026-01-29_125734.txt
+/process-prompt-log dev/todo/Prompts-2026-01-29_201458.txt
+/process-prompt-log dev/todo/Prompts-2026-01-29_213439.txt
+
+---
+
+Yes, the last time we performed this kind of journaling/timeline update was before our "maintenance" push on the project that shifted toward better organization and cleaning up some loose ends. it involved restructuring our documentation, switching to a more isolated "barebones" repository for our Trials, and upgrading to the latest version of Claude Code (2.1.20 at the time, and we had been stuck on 2.1.6). It was meant to be a round of regular maintenance operations we would perform periodically (putting a pause on our current investiagtion threads), but this actually cracked open some significant findings.  We chased those findings to a conclusion (at least for now), and so now I want to go back and document that journey through these calls to `/process-prompt-log` on the prompts that were performed during that time. Therefore, I would not consider these minor updates, as these are the start of the final chapter in our journey.
+
+Please make the updates.
+
+---
+
+## New Session: Claude Code v2.1.22: `opus` (locked, 2.1.26 current)
+
+---
+
+/wsd:init --custom
+
+---
+
+Please take a look at some of our key project-level documents. We've been writing these as we go, but many of them were written over time via parsing of the prompt history (which only contains User messages and can be a little one-sided). I want to double-check them for accuracy vs. the actual relevant detail docs we've produced that correspond to their summarized content.  I will ask you to look at these monolithic global docs in detail, and then I will point you to a key detail doc (or docs).  This is a process that will be repeated over several sessions, and in each case, the detail doc should be considered the Source of Truth, where we determine if anything in the global doc needs to be added, removed, or refined:
+
+Global Docs:
+- `docs/core/PRD.md` ( @docs/core/PRD.md )
+- `docs/core/Timeline.md` ( @docs/core/Timeline.md )
+- `docs/core/Investigation-Journal.md` ( @docs/core/Investigation-Journal.md )
+- `docs/core/Research-Questions.md` ( @docs/core/Research-Questions.md )
+- `README.md` ( @README.md )
+
+Detail Docs:
+- `docs/experiments/methodologies/Experiment-Methodology-01.md` ( @docs/experiments/methodologies/Experiment-Methodology-01.md )
+- `docs/experiments/methodologies/Experiment-Methodology-02.md` ( @docs/experiments/methodologies/Experiment-Methodology-02.md )
+- `docs/experiments/methodologies/Experiment-Methodology-03.md` ( @docs/experiments/methodologies/Experiment-Methodology-03.md )
+- `docs/experiments/methodologies/Experiment-Methodology-04.md` ( @docs/experiments/methodologies/Experiment-Methodology-04.md )
+
+You are also welcome to review any other documents that you think are relevant to that moment in our project. Feel free to make edits in place and I will review.
+
+---
+
+## Detail Doc groupings:
+
+- `docs/experiments/methodologies/Experiment-Methodology-01.md` ( @docs/experiments/methodologies/Experiment-Methodology-01.md )
+- `docs/experiments/methodologies/Experiment-Methodology-02.md` ( @docs/experiments/methodologies/Experiment-Methodology-02.md )
+- `docs/experiments/methodologies/Experiment-Methodology-03.md` ( @docs/experiments/methodologies/Experiment-Methodology-03.md )
+- `docs/experiments/methodologies/Experiment-Methodology-04.md` ( @docs/experiments/methodologies/Experiment-Methodology-04.md )
+
+
+- `docs/experiments/results/Example-Session-Analysis.md` ( @docs/experiments/results/Example-Session-Analysis.md )
+
+
+- `docs/experiments/results/WSD-Dev-02-Analysis-1.md` ( @docs/experiments/results/WSD-Dev-02-Analysis-1.md )
+- `docs/experiments/results/WSD-Dev-02-Analysis-2.md` ( @docs/experiments/results/WSD-Dev-02-Analysis-2.md )
+- `docs/experiments/results/WSD-Dev-02-Analysis-3.md` ( @docs/experiments/results/WSD-Dev-02-Analysis-3.md )
+
+
+- `docs/experiments/results/Repro-Attempts-02-Analysis-1.md` ( @docs/experiments/results/Repro-Attempts-02-Analysis-1.md )
+
+
+- `docs/experiments/planning/Barebones-216.md` ( @docs/experiments/planning/Barebones-216.md )
+- `docs/experiments/results/Barebones-216-Analysis.md` ( @docs/experiments/results/Barebones-216-Analysis.md )
+
+
+- `docs/experiments/planning/Barebones-2120.md` ( @docs/experiments/planning/Barebones-2120.md )
+- `docs/experiments/results/Barebones-2120-Analysis.md` ( @docs/experiments/results/Barebones-2120-Analysis.md )
+
+
+- `docs/experiments/planning/Post-Experiment-04-Ideas.md` ( @docs/experiments/planning/Post-Experiment-04-Ideas.md )
+- `docs/experiments/results/Experiment-04-Prelim-Results.md` ( @docs/experiments/results/Experiment-04-Prelim-Results.md )
+
+
+- `docs/experiments/planning/Build-Scan-Discrepancy-Investigation.md` ( @docs/experiments/planning/Build-Scan-Discrepancy-Investigation.md )
+- `docs/experiments/results/Build-Scan-Discrepancy-Analysis.md` ( @docs/experiments/results/Build-Scan-Discrepancy-Analysis.md )
+
+
