@@ -67,3 +67,21 @@ The root cause appears to be in the layer that reconstructs context after persis
 ---
 
 *This investigation was conducted entirely using Claude Code itself (with the MCP Filesystem workaround to prevent phantom reads during the investigation). The repository documents every prompt, every trial, and every analytical step.*
+
+---
+
+## Update: Reproduction Environment Available + Investigation Pause
+
+Since my last update, the server-side improvements I noted (reduced persistence frequency and the  model's new tendency to delegate file reads to Task sub-agents) have continued to hold. Phantom reads are substantially less frequent than they were a week ago, but the underlying mechanism is unchanged — when the harness does persist tool results, the model still ignores <persisted-output> markers and proceeds blind. The MCP Filesystem workaround remains the only guaranteed protection.
+
+**New: Self-contained reproduction environment.** I've added a [repro project](https://github.com/rcgray/claude-code-bug-phantom-reads-17407/tree/main/repro) to the investigation repository containing a minimal 20-file project that reliably triggers phantom reads (when server-side persistence is active). A step-by-step guide is provided at [REPRODUCTION.md](https://github.com/rcgray/claude-code-bug-phantom-reads-17407/blob/main/REPRODUCTION.md). No framework knowledge required — copy the directory, start Claude Code, and follow the protocol. This was validated across 55+ controlled trials spanning builds 2.1.6 through 2.1.22.
+
+I'm pausing active experimentation for now, as the server-side variability makes further threshold analysis impractical from the outside. The investigation project documents everything we've found — root cause chain, theoretical framework, trial data, and analysis tools.
+
+Happy to help with anything; feel free to reach out here or on X (https://x.com/AcademicGamer).
+
+---
+
+*Update (Jan 30, 2026): This investigation has evolved significantly since the original filing. Key corrections: phantom reads affect all tested versions (2.0.54 through 2.1.22), not just 2.0.59+. The 2.0.58 boundary was a small-sample artifact — Era 1 versions use a different mechanism ([Old tool result content cleared]) but are equally affected. Most importantly, phantom read behavior is governed by server-side state, not client build version — the same build can show 100% failure one day and 100% success the next. See later messages and investigation repo for current findings, reproduction steps, and a validated workaround.*
+
+---

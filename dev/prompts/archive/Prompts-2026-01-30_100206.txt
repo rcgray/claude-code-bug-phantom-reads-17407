@@ -61,31 +61,62 @@ You are also welcome to review any other documents that you think are relevant t
 - `docs/experiments/methodologies/Experiment-Methodology-03.md` ( @docs/experiments/methodologies/Experiment-Methodology-03.md )
 - `docs/experiments/methodologies/Experiment-Methodology-04.md` ( @docs/experiments/methodologies/Experiment-Methodology-04.md )
 
-
 - `docs/experiments/results/Example-Session-Analysis.md` ( @docs/experiments/results/Example-Session-Analysis.md )
-
 
 - `docs/experiments/results/WSD-Dev-02-Analysis-1.md` ( @docs/experiments/results/WSD-Dev-02-Analysis-1.md )
 - `docs/experiments/results/WSD-Dev-02-Analysis-2.md` ( @docs/experiments/results/WSD-Dev-02-Analysis-2.md )
 - `docs/experiments/results/WSD-Dev-02-Analysis-3.md` ( @docs/experiments/results/WSD-Dev-02-Analysis-3.md )
 
-
 - `docs/experiments/results/Repro-Attempts-02-Analysis-1.md` ( @docs/experiments/results/Repro-Attempts-02-Analysis-1.md )
-
 
 - `docs/experiments/planning/Post-Experiment-04-Ideas.md` ( @docs/experiments/planning/Post-Experiment-04-Ideas.md )
 - `docs/experiments/results/Experiment-04-Prelim-Results.md` ( @docs/experiments/results/Experiment-04-Prelim-Results.md )
 
-
 - `docs/experiments/planning/Barebones-216.md` ( @docs/experiments/planning/Barebones-216.md )
 - `docs/experiments/results/Barebones-216-Analysis.md` ( @docs/experiments/results/Barebones-216-Analysis.md )
-
 
 - `docs/experiments/planning/Barebones-2120.md` ( @docs/experiments/planning/Barebones-2120.md )
 - `docs/experiments/results/Barebones-2120-Analysis.md` ( @docs/experiments/results/Barebones-2120-Analysis.md )
 
-
 - `docs/experiments/planning/Build-Scan-Discrepancy-Investigation.md` ( @docs/experiments/planning/Build-Scan-Discrepancy-Investigation.md )
 - `docs/experiments/results/Build-Scan-Discrepancy-Analysis.md` ( @docs/experiments/results/Build-Scan-Discrepancy-Analysis.md )
 
+---
 
+## New Session: Claude Code v2.1.22: `opus` (locked, 2.1.26 current)
+
+---
+
+/wsd:init --custom
+
+---
+
+We have the "barebones repository" from which we've conducted all of our recent experiments. It currently lives at `../barebones-phantom-reads` and is its own git repository.  It seems like this would be useful in providing to other researchers who are interested in replicating our results precisely, but I don't want to create a whole separate repo on my GitHub account for it - it makes more sense to wrap it up in this project. I know I could do a sub-repo, but is that advised?  How convenient would that be, with consideration for the fact that there would then be duplicates of the files (since they also exist in their native directories in this project). It would be nice to create a "repro guide" to add to anyone wishing to check this phenomenon in future builds of Claude Code going forward - how would you suggest we set this up? Give me a few ideas.
+
+---
+
+Yeah, option 1 is the way to go. Could you copy those files over to an appropriate `repro/` directory, remove/ignore the `.git` in its current location, and let's draft a `REPRODUCTION.md` file.
+
+---
+
+Quick question - is Step 1 necessary?  Earlier you promoted a simple "cd repro", "claude" and go.  It should just work that way, wouldn't it?  Or, on trying it I think I'm seeing that the `.claude` directory from the _parent_ (this project root) is also getting loaded, so WSD commands are showing up.  Is this expected behavior, then, and it _is required_ that investigators copy the directory outside this project? Are there other concerns I'm overlooking for why you added this step, or was that the main one?
+
+---
+
+We should add a reference to this new `REPRODUCTION.md` file prominently to the `README.md`
+
+---
+
+While we're updating `README.md`, there was previously a section on our `docs/Research-Questions.md` file. This file has been a pretty important part of our investigation, and it would be nice to add it back with some summary information.  It doesn't need to be prominent, but consider how it may still be valuable to surface this information to this highest level report (`README.md`).
+
+---
+
+Finally, as we're going to pause the investigation for now (in light of the recent server changes), help me craft an update note for the GitHub ticket on the claude code project for the maintainers. I would like to note a very quick summary of the state of phantom reads (still an issue but greatly helped by recent server-side changes to the model opting to defer to Task reads). We should inform that we've added the repro steps project and REPRODUCTION.md instructions. End it with an appropriate note that I'm available to chat or help with anything they need (My Twitter/X handle is @AcademicGamer).
+
+---
+
+Since you have access to the github ticket (I saw you fetched it from the web), are there any edits you would suggest that I make to the original filing?  Something about noting that the investigation evolved significantly since the original posting on Jan 9?  Or is it better to just "leave it as it is" as a historical record, given my updates since then?
+
+---
+
+Last question: Do you see anything inaccurate in my latest post ("Root Cause Identified") that should be corrected?  We recently did an overhaul on our core documentation to cross-check and reconcile it for accuracy.

@@ -21,6 +21,12 @@ This repository serves three purposes:
 2. **Reproduction**: Provide an environment to trigger and observe phantom reads
 3. **Analysis**: Build tools to programmatically detect phantom reads in session logs
 
+## Reproduce It Yourself
+
+This repository includes a self-contained reproduction environment in the [`repro/`](repro/) directory — a minimal 20-file project that reliably triggers phantom reads under the right conditions. No special framework knowledge is required.
+
+**See [REPRODUCTION.md](REPRODUCTION.md) for the step-by-step guide.**
+
 ## Temporary Workaround Available
 
 A working mitigation exists using the official Anthropic Filesystem MCP server. This workaround bypasses Claude Code's native `Read` tool entirely, preventing phantom reads through an architecturally different code path.
@@ -130,7 +136,23 @@ The investigation has answered its core research questions. The key remaining un
 
 Previously planned experiments (04M, 04F, 04C, Easy/Medium/Hard scenarios) have been **superseded** by the Server-Side Variability findings -- their design assumptions (stable thresholds, deterministic input-output relationships) are invalidated by the discovery that server state varies the baseline from 0% to 100% failure.
 
-See **[Research Questions](docs/core/Research-Questions.md)** for the complete catalog.
+### Research Questions Catalog
+
+The investigation has systematically tracked 60 research questions and discovered behaviors across 9 categories in the **[Research Questions Catalog](docs/core/Research-Questions.md)**:
+
+| Category | Questions | Focus |
+|----------|-----------|-------|
+| Core Mechanism | 5 | What causes phantom reads at the harness level |
+| Threshold Behavior | 8 | How X (pre-op context) and Y (operation size) interact |
+| Hoisting Behavior | 4 | Why `@`-hoisted content is immune (answered: system message injection) |
+| Reset Timing | 3 | Relationship between context resets and phantom reads |
+| Read Patterns & Mitigation | 6 | MCP, batching, sequential reads, agent recovery |
+| Measurement & Accounting | 5 | Token overhead, programmatic detection, UI signals |
+| Cross-Version & Cross-Model | 11 | Build scan findings, 1M model immunity, server-side variability |
+| Persisted Output Mechanism | 3 | Era 2 `<persisted-output>` behavior specifics |
+| Discovered Behaviors | 15 | Confirmed facts about Claude Code (hoisting limits, config paths, etc.) |
+
+Of the 45 research questions, 13 have been definitively answered, 10 have strong hypotheses, and 21 remain open (most requiring access to Claude Code internals that only Anthropic has). The 15 discovered behaviors document confirmed facts useful for anyone building on or debugging Claude Code.
 
 ## Original Experiment
 
@@ -158,7 +180,9 @@ If you've experienced any of these, phantom reads may be the cause:
 
 ## How to Reproduce
 
-Phantom reads can be reproduced using [Experiment-Methodology-04](docs/experiments/methodologies/Experiment-Methodology-04.md), which triggers multi-file read operations in a controlled test repository. The key factors:
+**For a step-by-step walkthrough, see [REPRODUCTION.md](REPRODUCTION.md).** The `repro/` directory contains everything you need.
+
+The reproduction works by triggering multi-file read operations under context pressure. The key factors:
 
 - **High pre-operation context consumption** (>50% of context window before triggering multi-file reads)
 - **Hoisted file preloading** (scenario-specific `/setup-*` commands load specification files via `@` notation, inflating baseline context without triggering phantom reads)
@@ -166,7 +190,7 @@ Phantom reads can be reproduced using [Experiment-Methodology-04](docs/experimen
 
 **Important caveat**: Reproduction success depends on **server-side conditions at the time of testing**. Under conditions where the harness persistence mechanism is active (observed in 80-100% of direct-read sessions as of Jan 29, 2026), the protocol reliably triggers phantom reads. Under conditions where persistence is disabled (as observed on Jan 27 and partially on Jan 29), the same protocol will succeed. You cannot control this variable -- check for the presence of a `tool-results/` directory in the session data to determine whether persistence was active in your trial.
 
-See the **[Build Scan Discrepancy Analysis](docs/experiments/results/Build-Scan-Discrepancy-Analysis.md)** for the complete analysis of how server-side variability affects reproduction.
+For the full experimental protocol and methodology details, see [Experiment-Methodology-04](docs/experiments/methodologies/Experiment-Methodology-04.md). For the complete analysis of how server-side variability affects reproduction, see the **[Build Scan Discrepancy Analysis](docs/experiments/results/Build-Scan-Discrepancy-Analysis.md)**.
 
 ## Contributing
 
@@ -186,6 +210,7 @@ If you've experienced phantom reads:
 - **Timeline**: [docs/core/Timeline.md](docs/core/Timeline.md) — Concise chronological record of experiments and findings
 - **Investigation Journal**: [docs/core/Investigation-Journal.md](docs/core/Investigation-Journal.md) — Detailed narrative discovery log
 - **Research Questions**: [docs/core/Research-Questions.md](docs/core/Research-Questions.md) — Catalog of known and unknown information
+- **Reproduction Guide**: [REPRODUCTION.md](REPRODUCTION.md) — Step-by-step instructions to reproduce phantom reads
 - **Experiment Methodology**: [docs/experiments/methodologies/Experiment-Methodology-04.md](docs/experiments/methodologies/Experiment-Methodology-04.md)
 - **Workaround Guide**: [WORKAROUND.md](WORKAROUND.md)
 - **Prompt Logs**: [dev/prompts/archive](dev/prompts/archive/) - A record of every prompt used in this project
