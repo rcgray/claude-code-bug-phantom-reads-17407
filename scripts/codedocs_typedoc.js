@@ -3,19 +3,21 @@
  *
  * This script orchestrates TypeDoc documentation generation:
  * 1. Detects project language (skips JavaScript-only projects)
- * 2. Validates typedoc script availability in package.json
- * 3. Runs TypeDoc via the detected package manager to generate native HTML documentation
+ * 2. Checks if TypeDoc is installed (skips gracefully if not)
+ * 3. Validates typedoc script availability in package.json
+ * 4. Runs TypeDoc via the detected package manager to generate native HTML documentation
  *
  * Uses shared utilities from wsd_utils.js for:
  * - Language detection (detectProjectLanguages)
  * - Package manager detection (detectPackageManager)
+ * - Tool availability checking (isToolAvailable)
  * - Script availability checking (isScriptAvailable)
  * - Directory configuration (getCheckDirs)
  *
  * Configuration:
  * - Output location: dev/reports/typedoc-api-docs/ (HTML directory)
  * - TypeDoc configuration: typedoc.json in project root
- * - Source directories: wsd.checkDirs from package.json (falls back to 'src')
+ * - Source directories: wsd.checkDirs from package.json (null if not configured)
  * - TypeDoc's cleanOutputDir option handles cleanup of stale files
  *
  * For JavaScript-only projects, the script detects the project language and exits
@@ -33,13 +35,12 @@ const {
   detectPackageManager,
   getCheckDirs,
   isScriptAvailable,
+  isToolAvailable,
+  findPackageJsonRoot,
 } = require('./wsd_utils.js');
 
-// Resolve project root from script location to ensure consistent path resolution
-// regardless of the current working directory when the script is invoked.
-// This pattern handles both direct execution and require() scenarios.
-const __dirname_custom = path.dirname(require.main.filename || __filename);
-const PROJECT_ROOT = path.resolve(__dirname_custom, '..');
+// Resolve project root via shared utility function
+const PROJECT_ROOT = findPackageJsonRoot();
 const REPORTS_DIR = path.join(PROJECT_ROOT, 'dev', 'reports');
 const OUTPUT_DIR = path.join(REPORTS_DIR, 'typedoc-api-docs');
 
@@ -84,28 +85,44 @@ function runCommand(cmd, options = {}) {
 /**
  * Generate TypeDoc API documentation.
  *
- * Validates that the 'typedoc' script is available in package.json, then runs
- * TypeDoc via the detected package manager to generate native HTML documentation.
- * TypeDoc's cleanOutputDir option handles cleanup of stale files automatically.
+ * Performs a two-tier availability check before running TypeDoc:
+ * 1. Is TypeDoc installed? If not, skip gracefully (tool not wanted).
+ * 2. Is the typedoc script configured in package.json? If not, hard-fail with
+ *    setup instructions (tool wanted but misconfigured).
  *
- * Uses shared utilities from wsd_utils.js for package manager detection and
- * script availability checking to ensure consistent behavior across WSD tools.
+ * When both checks pass, runs TypeDoc via the detected package manager to
+ * generate native HTML documentation. TypeDoc's cleanOutputDir option handles
+ * cleanup of stale files automatically.
  * @param {string[]} [checkDirs] - Directories to document (optional, reads from config if not provided)
- * @returns {boolean} True if documentation generated successfully, false on any error
+ * @returns {boolean} True if documentation generated successfully, false on any error.
+ *   Calls process.exit(2) for graceful skips (tool not installed, no checkDirs).
  */
 function generateTypedocDocs(checkDirs) {
   // If checkDirs not provided as parameter, read from configuration
   if (!checkDirs) {
     checkDirs = getCheckDirs();
-    if (checkDirs.length === 0) {
+    if (checkDirs === null) {
+      console.error(
+        'Warning: wsd.checkDirs is not configured in package.json. WSD setup may be incomplete.'
+      );
+    }
+    if (checkDirs === null || checkDirs.length === 0) {
       console.log('Skipping TypeDoc documentation: no source directories configured.');
-      return true; // Return true to indicate graceful skip, not an error
+      process.exit(2);
     }
   }
 
   console.log('Generating TypeDoc API documentation...');
 
-  // Check if typedoc script is available in package.json
+  // Skip gracefully when TypeDoc is not installed — the project does not use it
+  if (!isToolAvailable('typedoc')) {
+    console.log('');
+    console.log('TypeDoc is not installed. Skipping TypeDoc documentation generation.');
+    console.log('');
+    process.exit(2);
+  }
+
+  // TypeDoc is installed — verify the package.json script is configured
   if (!isScriptAvailable('typedoc')) {
     console.error('');
     console.error('Error: "typedoc" script not found in package.json.');
@@ -172,9 +189,14 @@ function generateTypedocDocs(checkDirs) {
 function main() {
   // Check for configured source directories first
   const checkDirs = getCheckDirs();
-  if (checkDirs.length === 0) {
+  if (checkDirs === null) {
+    console.error(
+      'Warning: wsd.checkDirs is not configured in package.json. WSD setup may be incomplete.'
+    );
+  }
+  if (checkDirs === null || checkDirs.length === 0) {
     console.log('Skipping TypeDoc documentation: no source directories configured.');
-    return;
+    process.exit(2);
   }
 
   // Detect project languages - TypeDoc requires TypeScript
@@ -197,7 +219,7 @@ function main() {
       console.log('Detected: No package.json found or unable to determine project type.');
     }
     console.log('');
-    return;
+    process.exit(2);
   }
 
   if (!generateTypedocDocs(checkDirs)) {

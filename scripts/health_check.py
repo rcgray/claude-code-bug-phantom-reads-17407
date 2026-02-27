@@ -41,13 +41,15 @@ import subprocess
 import sys
 from pathlib import Path
 
+
 # Add scripts directory to path for wsd_utils import
 _scripts_dir = Path(__file__).parent
 sys.path.insert(0, str(_scripts_dir))
-from wsd_utils import get_check_dirs  # noqa: E402
+from wsd_utils import _find_python_project_root, get_check_dirs, is_tool_available  # noqa: E402
 
-# Get the project root directory (this script is in scripts/ subdirectory)
-project_root = Path(__file__).parent.parent.resolve()
+
+# Get the project root directory via tree-walking utility
+project_root = _find_python_project_root()
 
 
 def _validate_dataclass_docstring(
@@ -362,7 +364,7 @@ def test_pydoc_generation() -> tuple[bool, str]:
     try:
         import tomllib  # type: ignore[import-not-found]  # noqa: PLC0415
     except ModuleNotFoundError:
-        import tomli as tomllib  # noqa: PLC0415
+        import tomli as tomllib  # type: ignore[import-not-found]  # noqa: PLC0415
 
     try:
         # First try to add src to path to find project module
@@ -596,33 +598,24 @@ def _scan_security(dirs: list[str]) -> tuple[bool, list[tuple[str, str, str]]]:
     """
     print("\n" + "-" * 40)
 
-    # First check if bandit is available
-    try:
-        subprocess.run(
-            ["uv", "run", "bandit", "--version"],
-            capture_output=True,
-            check=True,
-            cwd=project_root,
-        )
-
-        # Use first directory for bandit scan
-        success, stdout, _ = run_command(
-            ["bandit", "-r", f"{dirs[0]}/", "-f", "screen", "-ll"],
-            "Security scanning (bandit)",
-            allow_failure=True,
-        )
-
-        if not success:
-            print("\nSecurity issues detected. Please review.")
-            # Count security issues
-            issue_count = stdout.count("Issue:")
-            return (False, [("Security Scan", "❌ FAILED", f"{issue_count} issues")])
-        return (True, [("Security Scan", "✅ PASSED", "")])
-
-    except (subprocess.CalledProcessError, FileNotFoundError):
+    if not is_tool_available("bandit"):
         print("Skipping bandit security scan (not installed).")
         print("To enable, add 'bandit' to dev dependencies.")
         return (True, [("Security Scan", "⏭️  SKIPPED", "bandit not installed")])
+
+    # Use first directory for bandit scan
+    success, stdout, _ = run_command(
+        ["bandit", "-r", f"{dirs[0]}/", "-f", "screen", "-ll"],
+        "Security scanning (bandit)",
+        allow_failure=True,
+    )
+
+    if not success:
+        print("\nSecurity issues detected. Please review.")
+        # Count security issues
+        issue_count = stdout.count("Issue:")
+        return (False, [("Security Scan", "❌ FAILED", f"{issue_count} issues")])
+    return (True, [("Security Scan", "✅ PASSED", "")])
 
 
 def _check_types_with_mypy(
@@ -724,85 +717,80 @@ def _run_dependency_audit() -> tuple[bool, list[tuple[str, str, str]]]:
     """
     print("\n" + "-" * 40)
 
-    # Check if pip-audit is available
-    try:
-        subprocess.run(
-            ["uv", "run", "pip-audit", "--version"],
-            capture_output=True,
-            check=True,
-            cwd=project_root,
-        )
-
-        success, stdout, _stderr = run_command(
-            ["pip-audit"], "Dependency security audit (pip-audit)", allow_failure=True
-        )
-
-        if not success:
-            print("\nVulnerable dependencies detected. Please review.")
-            # Count vulnerabilities with robust parsing and multiple fallbacks
-            # Try multiple patterns to match vulnerability counts
-            vuln_count = 0
-            parsing_method = "unknown"
-
-            # Primary pattern: handles singular/plural forms correctly
-            vuln_match = re.search(r"Found (\d+) known vulnerabilit(y|ies)", stdout)
-            if vuln_match:
-                vuln_count = int(vuln_match.group(1))
-                parsing_method = "primary pattern"
-            else:
-                # Secondary pattern: alternative phrasing
-                vuln_match = re.search(
-                    r"(\d+) known vulnerabilit(y|ies) found", stdout, re.IGNORECASE
-                )
-                if vuln_match:
-                    vuln_count = int(vuln_match.group(1))
-                    parsing_method = "secondary pattern"
-                else:
-                    # Tertiary pattern: package-focused phrasing
-                    vuln_match = re.search(
-                        r"(\d+) package\(s\)? with known vulnerabilities", stdout, re.IGNORECASE
-                    )
-                    if vuln_match:
-                        vuln_count = int(vuln_match.group(1))
-                        parsing_method = "tertiary pattern"
-                    else:
-                        # Final fallback: count GHSA/PYSEC IDs
-                        ghsa_count = len(re.findall(r"GHSA-\w+-\w+-\w+", stdout))
-                        pysec_count = len(re.findall(r"PYSEC-\d{4}-\d+", stdout))
-                        vuln_count = ghsa_count + pysec_count
-                        parsing_method = f"ID counting (GHSA: {ghsa_count}, PYSEC: {pysec_count})"
-
-            # Self-validation: detect contradictory output
-            if vuln_count == 0 and (
-                "vulnerability" in stdout.lower() or "vulnerabilities" in stdout.lower()
-            ):
-                # Log warning about potential parsing issue
-                print(
-                    f"⚠️  Warning: Detected vulnerability text but count is 0 "
-                    f"(parsing method: {parsing_method})"
-                )
-                # Try to extract any number near "vulnerability" as last resort
-                numbers_near_vuln = re.findall(r"(\d+)[^0-9]*vulnerabilit", stdout, re.IGNORECASE)
-                if numbers_near_vuln:
-                    vuln_count = int(numbers_near_vuln[0])
-                    parsing_method = "proximity extraction"
-
-            return (
-                False,
-                [
-                    (
-                        "Dependency Audit",
-                        "❌ FAILED",
-                        f"{vuln_count} {'vulnerability' if vuln_count == 1 else 'vulnerabilities'}",
-                    )
-                ],
-            )
-        return (True, [("Dependency Audit", "✅ PASSED", "")])
-
-    except (subprocess.CalledProcessError, FileNotFoundError):
+    if not is_tool_available("pip_audit"):
         print("Skipping pip-audit dependency scan (not installed).")
         print("To enable, add 'pip-audit' to dev dependencies.")
         return (True, [("Dependency Audit", "⏭️  SKIPPED", "pip-audit not installed")])
+
+    success, stdout, _stderr = run_command(
+        [
+            "pip-audit",
+            "--ignore-vuln",
+            "GHSA-6vgw-5pg2-w6jp",  # pip path traversal (low severity, transitive via pip-api)
+        ],
+        "Dependency security audit (pip-audit)",
+        allow_failure=True,
+    )
+
+    if not success:
+        print("\nVulnerable dependencies detected. Please review.")
+        # Count vulnerabilities with robust parsing and multiple fallbacks
+        # Try multiple patterns to match vulnerability counts
+        vuln_count = 0
+        parsing_method = "unknown"
+
+        # Primary pattern: handles singular/plural forms correctly
+        vuln_match = re.search(r"Found (\d+) known vulnerabilit(y|ies)", stdout)
+        if vuln_match:
+            vuln_count = int(vuln_match.group(1))
+            parsing_method = "primary pattern"
+        else:
+            # Secondary pattern: alternative phrasing
+            vuln_match = re.search(r"(\d+) known vulnerabilit(y|ies) found", stdout, re.IGNORECASE)
+            if vuln_match:
+                vuln_count = int(vuln_match.group(1))
+                parsing_method = "secondary pattern"
+            else:
+                # Tertiary pattern: package-focused phrasing
+                vuln_match = re.search(
+                    r"(\d+) package\(s\)? with known vulnerabilities", stdout, re.IGNORECASE
+                )
+                if vuln_match:
+                    vuln_count = int(vuln_match.group(1))
+                    parsing_method = "tertiary pattern"
+                else:
+                    # Final fallback: count GHSA/PYSEC IDs
+                    ghsa_count = len(re.findall(r"GHSA-\w+-\w+-\w+", stdout))
+                    pysec_count = len(re.findall(r"PYSEC-\d{4}-\d+", stdout))
+                    vuln_count = ghsa_count + pysec_count
+                    parsing_method = f"ID counting (GHSA: {ghsa_count}, PYSEC: {pysec_count})"
+
+        # Self-validation: detect contradictory output
+        if vuln_count == 0 and (
+            "vulnerability" in stdout.lower() or "vulnerabilities" in stdout.lower()
+        ):
+            # Log warning about potential parsing issue
+            print(
+                f"⚠️  Warning: Detected vulnerability text but count is 0 "
+                f"(parsing method: {parsing_method})"
+            )
+            # Try to extract any number near "vulnerability" as last resort
+            numbers_near_vuln = re.findall(r"(\d+)[^0-9]*vulnerabilit", stdout, re.IGNORECASE)
+            if numbers_near_vuln:
+                vuln_count = int(numbers_near_vuln[0])
+                parsing_method = "proximity extraction"
+
+        return (
+            False,
+            [
+                (
+                    "Dependency Audit",
+                    "❌ FAILED",
+                    f"{vuln_count} {'vulnerability' if vuln_count == 1 else 'vulnerabilities'}",
+                )
+            ],
+        )
+    return (True, [("Dependency Audit", "✅ PASSED", "")])
 
 
 def _check_enhanced_documentation(dirs: list[str]) -> tuple[str, str, str]:
@@ -1050,14 +1038,16 @@ def _generate_summary(check_results: list[tuple[str, str, str]]) -> None:
     print("=" * 60)
 
 
-def _parse_arguments_and_setup() -> tuple[argparse.Namespace, list[str]]:
+def _parse_arguments_and_setup() -> tuple[argparse.Namespace, list[str] | None]:
     """Parse command-line arguments and load configuration.
 
     Args:
         None
 
     Returns:
-        Tuple of (parsed_arguments, check_directories)
+        Tuple of (parsed_arguments, check_directories). check_directories is
+        None when configuration is not found, or a list (possibly empty) when
+        configured.
 
     Raises:
         SystemExit: If --commands flag is set (exits after displaying commands)
@@ -1102,7 +1092,13 @@ Requires [tool.wsd] section with check_dirs defined.
         )
         sys.exit(1)
 
-    dirs = get_check_dirs()
+    dirs = get_check_dirs(project_root)
+
+    if dirs is None:
+        print(
+            "Warning: [tool.wsd].check_dirs is not configured in pyproject.toml. "
+            "WSD setup may be incomplete."
+        )
 
     # Check for --commands flag
     if args.commands:
@@ -1142,7 +1138,7 @@ def main() -> None:
     check_results: list[tuple[str, str, str]] = []
 
     # Determine if directory-dependent checks should run
-    dirs_configured = len(dirs) > 0
+    dirs_configured = dirs is not None and len(dirs) > 0
 
     # 1. Build/Package Check
     build_passed, build_results = _validate_build()
@@ -1152,21 +1148,23 @@ def main() -> None:
 
     # 2. Type Checking - requires check_dirs
     if dirs_configured:
+        assert dirs is not None  # Type narrowing for mypy
         type_check_passed, type_check_results = _check_types_with_mypy(dirs, clean=args.clean)
         if not type_check_passed:
             all_passed = False
         check_results.extend(type_check_results)
     else:
-        check_results.append(("Type Checking", "⏭️  SKIPPED", "no check_dirs configured"))
+        check_results.append(("Type Checking", "⏭️  SKIPPED", "No check_dirs configured"))
 
     # 3. Security Scanning - requires check_dirs
     if dirs_configured:
+        assert dirs is not None  # Type narrowing for mypy
         security_passed, security_results = _scan_security(dirs)
         if not security_passed:
             all_passed = False
         check_results.extend(security_results)
     else:
-        check_results.append(("Security Scan", "⏭️  SKIPPED", "no check_dirs configured"))
+        check_results.append(("Security Scan", "⏭️  SKIPPED", "No check_dirs configured"))
 
     # 4. Dependency Security Audit
     audit_passed, audit_results = _run_dependency_audit()
@@ -1176,30 +1174,33 @@ def main() -> None:
 
     # 5. Documentation Completeness Check - requires check_dirs
     if dirs_configured:
+        assert dirs is not None  # Type narrowing for mypy
         docs_passed, docs_results = _check_documentation(dirs)
         if not docs_passed:
             all_passed = False
         check_results.extend(docs_results)
     else:
-        check_results.append(("Doc Completeness", "⏭️  SKIPPED", "no check_dirs configured"))
+        check_results.append(("Doc Completeness", "⏭️  SKIPPED", "No check_dirs configured"))
 
     # 6. Linting Check with auto-fix - requires check_dirs
     if dirs_configured:
+        assert dirs is not None  # Type narrowing for mypy
         lint_passed, lint_results = _check_linting(dirs, args.aggressive)
         if not lint_passed:
             all_passed = False
         check_results.extend(lint_results)
     else:
-        check_results.append(("Linting", "⏭️  SKIPPED", "no check_dirs configured"))
+        check_results.append(("Linting", "⏭️  SKIPPED", "No check_dirs configured"))
 
     # 7. Code Formatting Check - requires check_dirs
     if dirs_configured:
+        assert dirs is not None  # Type narrowing for mypy
         format_passed, format_results = _check_formatting(dirs)
         if not format_passed:
             all_passed = False
         check_results.extend(format_results)
     else:
-        check_results.append(("Code Formatting", "⏭️  SKIPPED", "no check_dirs configured"))
+        check_results.append(("Code Formatting", "⏭️  SKIPPED", "No check_dirs configured"))
 
     # Print summary table
     _generate_summary(check_results)

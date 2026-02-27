@@ -7,12 +7,14 @@ behavior appropriately for each project type.
 
 Public Functions:
     calculate_file_hash: Calculate SHA-256 content hash for a file
+    find_package_json_root: Find directory containing project-root package.json
     get_check_dirs: Read configured check directories from pyproject.toml (for Python)
     get_node_check_dirs: Read configured check directories from package.json (for Node.js)
     has_typescript_files: Scan directories for .ts files
     collect_python_files: Collect all documentable Python files from check directories
     detect_project_languages: Detect all programming languages present in a project
     detect_package_manager: Detect which Node.js package manager is in use
+    detect_test_runner: Detect which test runner is configured in package.json
     is_tool_available: Check if a Python package is available for import
     is_script_available: Check if a script is defined in package.json
     collect_wsd_files: Validate and collect WSD Runtime files from a directory
@@ -21,7 +23,6 @@ Public Classes:
     WsdCollectionError: Exception raised when WSD file collection encounters invalid content
 
 Internal Functions (private):
-    _find_package_json_root: Find directory containing package.json for Node.js detection
     _find_python_project_root: Find directory containing pyproject.toml for Python detection
     _is_python_project: Determine if project is Python vs just having WSD installed
     _detect_node_language: Determine if project is TypeScript or JavaScript
@@ -63,29 +64,34 @@ def calculate_file_hash(file_path: Path) -> str:
     return f"sha256:{hasher.hexdigest()}"
 
 
-def get_check_dirs(project_root: Path | None = None) -> list[str]:
+def get_check_dirs(project_root: Path | None = None) -> list[str] | None:
     """Read check directories from pyproject.toml [tool.wsd].check_dirs configuration.
 
     Reads the configured directories that WSD tools should check for source files.
     This is the primary function for Python scripts to retrieve directory configuration.
 
-    The function searches for pyproject.toml starting from the current working directory
-    (or provided project_root) and walking up the directory tree. If found, it reads
-    the [tool.wsd].check_dirs configuration. If the configuration is missing or not
-    found, returns an empty list.
+    The function searches for pyproject.toml using the provided project_root or by
+    walking up the directory tree via _find_python_project_root(). If found, it reads
+    the [tool.wsd].check_dirs configuration.
+
+    Returns ``None`` when configuration is not found (no pyproject.toml, no
+    ``[tool.wsd]`` section, no ``check_dirs`` key, or parse failure). Returns an
+    empty list when ``check_dirs = []`` is explicitly configured, which is valid
+    for projects where tools manage their own paths via tool-specific config files.
 
     Args:
-        project_root: Root directory of the project. If None, searches from
-            current working directory up the tree for pyproject.toml.
+        project_root: Root directory of the project. If None, uses
+            _find_python_project_root() to locate pyproject.toml.
 
     Returns:
-        List of directory paths relative to project root, or empty list if not configured.
+        List of directory paths relative to project root when configured (may be
+        empty if ``check_dirs = []``), or ``None`` if configuration is not found.
     """
     # Import tomllib conditionally for Python 3.10 compatibility
     try:
         import tomllib  # type: ignore[import-not-found]  # noqa: PLC0415
     except ModuleNotFoundError:
-        import tomli as tomllib  # noqa: PLC0415
+        import tomli as tomllib  # type: ignore[import-not-found]  # noqa: PLC0415
 
     # Find project root by searching for pyproject.toml
     pyproject_path: Path | None = None
@@ -94,27 +100,24 @@ def get_check_dirs(project_root: Path | None = None) -> list[str]:
         if candidate.exists():
             pyproject_path = candidate
     else:
-        current_dir = Path.cwd()
-        while current_dir != current_dir.parent:
-            candidate = current_dir / "pyproject.toml"
-            if candidate.exists():
-                pyproject_path = candidate
-                break
-            current_dir = current_dir.parent
+        found_root = _find_python_project_root()
+        candidate = found_root / "pyproject.toml"
+        if candidate.exists():
+            pyproject_path = candidate
 
     if pyproject_path is None:
         print(
             "Note: [tool.wsd].check_dirs not configured. Code quality tools will be skipped.",
             file=sys.stderr,
         )
-        return []
+        return None
 
     try:
         with pyproject_path.open("rb") as f:
             config = tomllib.load(f)
     except Exception as e:
         print(f"Warning: Failed to parse pyproject.toml: {e}", file=sys.stderr)
-        return []
+        return None
 
     wsd_config = config.get("tool", {}).get("wsd", {})
     check_dirs = wsd_config.get("check_dirs")
@@ -124,25 +127,17 @@ def get_check_dirs(project_root: Path | None = None) -> list[str]:
             "Note: [tool.wsd].check_dirs not configured. Code quality tools will be skipped.",
             file=sys.stderr,
         )
-        return []
+        return None
 
     if not isinstance(check_dirs, list):
         print(
             "Warning: [tool.wsd].check_dirs must be a list in pyproject.toml.",
             file=sys.stderr,
         )
-        return []
+        return None
 
-    # Filter and validate entries
-    valid_dirs = [str(d) for d in check_dirs if isinstance(d, str)]
-    if not valid_dirs:
-        print(
-            "Note: [tool.wsd].check_dirs not configured. Code quality tools will be skipped.",
-            file=sys.stderr,
-        )
-        return []
-
-    return valid_dirs
+    # Filter and validate entries — empty list is valid (tools use own config)
+    return [str(d) for d in check_dirs if isinstance(d, str)]
 
 
 def _print_node_config_help() -> None:
@@ -161,7 +156,7 @@ def _print_node_config_help() -> None:
     )
 
 
-def get_node_check_dirs(project_root: Path | None = None) -> list[str]:
+def get_node_check_dirs(project_root: Path | None = None) -> list[str] | None:
     """Read check directories from package.json wsd.checkDirs configuration.
 
     Reads the configured directories that WSD tools should check for source files
@@ -170,15 +165,20 @@ def get_node_check_dirs(project_root: Path | None = None) -> list[str]:
 
     The function searches for package.json starting from the current working directory
     (or provided project_root) and walking up the directory tree. If found, it reads
-    the wsd.checkDirs configuration. If the configuration is missing or not found,
-    returns an empty list.
+    the wsd.checkDirs configuration.
+
+    Returns ``None`` when configuration is not found (no package.json, no
+    ``wsd`` section, no ``checkDirs`` key, or parse failure). Returns an
+    empty list when ``checkDirs: []`` is explicitly configured, which is valid
+    for projects where tools manage their own paths via tool-specific config files.
 
     Args:
         project_root: Root directory of the project. If None, searches from
             current working directory up the tree for package.json.
 
     Returns:
-        List of directory paths relative to project root, or empty list if not configured.
+        List of directory paths relative to project root when configured (may be
+        empty if ``checkDirs: []``), or ``None`` if configuration is not found.
     """
     # Find project root by searching for package.json
     package_json_path: Path | None = None
@@ -187,7 +187,7 @@ def get_node_check_dirs(project_root: Path | None = None) -> list[str]:
         if candidate.exists():
             package_json_path = candidate
     else:
-        search_root = _find_package_json_root()
+        search_root = find_package_json_root(Path.cwd())
         candidate = search_root / "package.json"
         if candidate.exists():
             package_json_path = candidate
@@ -197,7 +197,7 @@ def get_node_check_dirs(project_root: Path | None = None) -> list[str]:
             "Note: wsd.checkDirs not configured. Code quality tools will be skipped.",
             file=sys.stderr,
         )
-        return []
+        return None
 
     # Try to parse package.json
     try:
@@ -205,7 +205,7 @@ def get_node_check_dirs(project_root: Path | None = None) -> list[str]:
             package_json = json.load(f)
     except (json.JSONDecodeError, OSError) as e:
         print(f"Warning: Failed to read/parse package.json: {e}", file=sys.stderr)
-        return []
+        return None
 
     # Validate wsd config structure and extract checkDirs
     wsd_config = package_json.get("wsd", {})
@@ -214,44 +214,57 @@ def get_node_check_dirs(project_root: Path | None = None) -> list[str]:
             "Warning: wsd field in package.json must be an object.",
             file=sys.stderr,
         )
-        return []
+        return None
 
     check_dirs = wsd_config.get("checkDirs")
     if check_dirs is None:
         _print_node_config_help()
-        return []
+        return None
 
     if not isinstance(check_dirs, list):
         print(
             "Warning: wsd.checkDirs must be an array in package.json.",
             file=sys.stderr,
         )
-        return []
+        return None
 
-    # Filter and validate entries - return valid strings or empty list with help
-    valid_dirs = [str(d) for d in check_dirs if isinstance(d, str)]
-    if not valid_dirs:
-        _print_node_config_help()
-    return valid_dirs
+    # Filter and validate entries — empty list is valid (tools use own config)
+    return [str(d) for d in check_dirs if isinstance(d, str)]
 
 
-def _find_package_json_root() -> Path:
-    """Find the directory containing package.json for Node.js language detection.
+def find_package_json_root(start_dir: Path | None = None) -> Path:
+    """Find the directory containing the project-root package.json.
 
-    Internal helper function used by Node.js detection functions to locate
-    the package.json file. Walks up the directory tree from the current
-    working directory until it finds a directory containing package.json.
+    Walks up the directory tree from the starting directory until it finds a
+    directory containing a package.json with a "name" field, which distinguishes
+    project-root files from module-boundary files (e.g., ``{"type": "commonjs"}``
+    placed in subdirectories to control module resolution).
 
     This function specifically searches for package.json, not the general
     project root (which could be indicated by pyproject.toml for Python).
 
+    Starting from the script's directory makes this function robust against
+    working directory variations.
+
+    Args:
+        start_dir: Directory to start search from. If None, uses the directory
+            containing this script file.
+
     Returns:
-        Path to directory containing package.json, or current directory if not found.
+        Path to directory containing the project-root package.json,
+        or current directory if not found.
     """
-    current_dir = Path.cwd()
+    current_dir = start_dir if start_dir is not None else Path(__file__).parent
     while current_dir != current_dir.parent:
-        if (current_dir / "package.json").exists():
-            return current_dir
+        candidate = current_dir / "package.json"
+        if candidate.exists():
+            try:
+                with candidate.open(encoding="utf-8") as f:
+                    content = json.load(f)
+                if content.get("name"):
+                    return current_dir
+            except (json.JSONDecodeError, OSError):
+                pass  # Malformed JSON — skip this candidate
         current_dir = current_dir.parent
     # Fallback: return current working directory
     return Path.cwd()
@@ -286,7 +299,7 @@ def _has_files_with_extension(directory: Path, extension: str, exclude_dirs: set
     return False
 
 
-def has_typescript_files(check_dirs: list[str]) -> bool:
+def has_typescript_files(check_dirs: list[str], project_root: Path | None = None) -> bool:
     """Scan directories for TypeScript files (.ts).
 
     Recursively scans the provided directories looking for any .ts files.
@@ -295,11 +308,14 @@ def has_typescript_files(check_dirs: list[str]) -> bool:
 
     Args:
         check_dirs: Directories to scan (relative to project root).
+        project_root: Root directory of the project. If None, searches from
+            the script's directory up the tree for package.json.
 
     Returns:
         True if any .ts files found, False otherwise.
     """
-    project_root = _find_package_json_root()
+    if project_root is None:
+        project_root = find_package_json_root(Path.cwd())
     exclude_dirs = {"node_modules", "dist"}
 
     for dir_name in check_dirs:
@@ -331,7 +347,7 @@ def collect_python_files(
         alphabetically by path for deterministic ordering.
     """
     if project_root is None:
-        project_root = _find_python_project_root()
+        project_root = _find_python_project_root(Path.cwd())
 
     # Directories to exclude from scanning
     exclude_dirs = {
@@ -399,17 +415,24 @@ def collect_python_files(
     return sorted(python_files)
 
 
-def _find_python_project_root() -> Path:
+def _find_python_project_root(start_dir: Path | None = None) -> Path:
     """Find the directory containing pyproject.toml for Python project detection.
 
     Internal helper function used by Python detection functions to locate
-    the pyproject.toml file. Walks up the directory tree from the current
-    working directory until it finds a directory containing pyproject.toml.
+    the pyproject.toml file. Walks up the directory tree from the starting
+    directory until it finds a directory containing pyproject.toml.
+
+    Starting from the script's directory makes this function robust against
+    working directory variations.
+
+    Args:
+        start_dir: Directory to start search from. If None, uses the directory
+            containing this script file.
 
     Returns:
         Path to directory containing pyproject.toml, or current directory if not found.
     """
-    current_dir = Path.cwd()
+    current_dir = start_dir if start_dir is not None else Path(__file__).parent
     while current_dir != current_dir.parent:
         if (current_dir / "pyproject.toml").exists():
             return current_dir
@@ -433,14 +456,14 @@ def _detect_node_language(project_root: Path | None = None) -> str | None:
     directories. Otherwise, it is classified as JavaScript.
 
     Args:
-        project_root: Root directory of the project. If None, uses _find_package_json_root()
+        project_root: Root directory of the project. If None, uses find_package_json_root()
             to locate the directory containing package.json.
 
     Returns:
         'typescript', 'javascript', or None if no package.json exists.
     """
     if project_root is None:
-        project_root = _find_package_json_root()
+        project_root = find_package_json_root(Path.cwd())
     package_json_path = project_root / "package.json"
 
     if not package_json_path.exists():
@@ -459,7 +482,7 @@ def _detect_node_language(project_root: Path | None = None) -> str | None:
         pass
 
     # Scan for TypeScript files in configured directories only
-    if has_typescript_files(check_dirs):
+    if has_typescript_files(check_dirs, project_root):
         return "typescript"
 
     return "javascript"
@@ -478,8 +501,8 @@ def _is_python_project(project_root: Path | None = None) -> bool:
     since WSD requires pyproject.toml for its own dependencies.
 
     Args:
-        project_root: Root directory of the project. If None, searches from
-            current working directory up the tree for pyproject.toml.
+        project_root: Root directory of the project. If None, uses
+            _find_python_project_root() to locate pyproject.toml.
 
     Returns:
         True if this is a Python project, False otherwise.
@@ -489,16 +512,13 @@ def _is_python_project(project_root: Path | None = None) -> bool:
     try:
         import tomllib  # type: ignore[import-not-found,unused-ignore]  # noqa: PLC0415
     except ModuleNotFoundError:
-        import tomli as tomllib  # noqa: PLC0415
+        import tomli as tomllib  # type: ignore[import-not-found,unused-ignore]  # noqa: PLC0415
 
     # Find project root by searching for pyproject.toml
     if project_root is None:
-        current_dir = Path.cwd()
-        while current_dir != current_dir.parent:
-            if (current_dir / "pyproject.toml").exists():
-                project_root = current_dir
-                break
-            current_dir = current_dir.parent
+        found_root = _find_python_project_root()
+        if (found_root / "pyproject.toml").exists():
+            project_root = found_root
 
     if project_root is None:
         return False
@@ -561,20 +581,25 @@ def detect_project_languages(project_root: Path | None = None) -> set[str]:
     return languages
 
 
-def detect_package_manager() -> str | None:
+def detect_package_manager(project_root: Path | None = None) -> str | None:
     """Detect which Node.js package manager is in use.
 
     Checks for lock files in this order:
     1. pnpm-lock.yaml → pnpm
     2. package-lock.json → npm
     3. yarn.lock → yarn
-    4. bun.lockb → bun
+    4. bun.lock or bun.lockb → bun
+
+    Args:
+        project_root: Root directory of the project. If None, searches from
+            the script's directory up the tree for package.json.
 
     Returns:
         Package manager command ("pnpm", "npm", "yarn", or "bun"),
         or None if no lock file is found.
     """
-    project_root = _find_package_json_root()
+    if project_root is None:
+        project_root = find_package_json_root()
 
     if (project_root / "pnpm-lock.yaml").exists():
         return "pnpm"
@@ -582,8 +607,55 @@ def detect_package_manager() -> str | None:
         return "npm"
     if (project_root / "yarn.lock").exists():
         return "yarn"
+    if (project_root / "bun.lock").exists():
+        return "bun"
     if (project_root / "bun.lockb").exists():
         return "bun"
+
+    return None
+
+
+def detect_test_runner(project_root: Path | None = None) -> str | None:
+    """Detect which test runner is configured in package.json devDependencies.
+
+    Checks the devDependencies section of package.json for known test runners
+    in priority order: vitest, jest, mocha. Returns the first match found.
+
+    Args:
+        project_root: Root directory of the project. If None, searches from
+            the current working directory up the tree for package.json.
+
+    Returns:
+        Test runner name ("vitest", "jest", or "mocha") if detected,
+        or None if no known test runner is found.
+
+    Examples:
+        >>> detect_test_runner()  # Auto-detect from current directory
+        'vitest'
+        >>> detect_test_runner(Path("/path/to/project"))
+        'jest'
+    """
+    if project_root is None:
+        project_root = find_package_json_root(Path.cwd())
+
+    package_json_path = project_root / "package.json"
+    if not package_json_path.exists():
+        return None
+
+    try:
+        with package_json_path.open(encoding="utf-8") as f:
+            package_json = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return None
+
+    dev_dependencies = package_json.get("devDependencies", {})
+    if not isinstance(dev_dependencies, dict):
+        return None
+
+    # Check for known test runners in priority order
+    for runner in ("vitest", "jest", "mocha"):
+        if runner in dev_dependencies:
+            return runner
 
     return None
 
@@ -609,7 +681,7 @@ def is_tool_available(package_name: str) -> bool:
         return False
 
 
-def is_script_available(script_name: str) -> bool:
+def is_script_available(script_name: str, project_root: Path | None = None) -> bool:
     """Check if a script is defined in the project's package.json.
 
     Examines the scripts section of package.json to determine if a specific
@@ -617,6 +689,8 @@ def is_script_available(script_name: str) -> bool:
 
     Args:
         script_name: Name of the script to check (e.g., 'build', 'test', 'typedoc').
+        project_root: Root directory of the project. If None, searches from
+            the script's directory up the tree for package.json.
 
     Returns:
         True if the script exists in package.json scripts, False otherwise.
@@ -624,7 +698,9 @@ def is_script_available(script_name: str) -> bool:
     Remarks:
         Returns False if package.json doesn't exist or cannot be parsed.
     """
-    package_json_path = _find_package_json_root() / "package.json"
+    if project_root is None:
+        project_root = find_package_json_root(Path.cwd())
+    package_json_path = project_root / "package.json"
 
     if not package_json_path.exists():
         return False

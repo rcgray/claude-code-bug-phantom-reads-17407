@@ -81,6 +81,8 @@ This script will create a new Work Journal directly in the archive location at `
 
 This file is now YOUR "Work Journal," and you will be continually adding to it over the course of YOUR session as you proceed through your workscope. Be sure to update your Work Journal after each step so this real time monitoring can take place.
 
+**CRITICAL**: `cat >> file << EOF` IS FORBIDDEN. It is an anti-pattern that will likely result in full rejection of your contributions. Do NOT use terminal commands (such as `cat` or `echo` with `>>`) to write to files. Use your standard tools (e.g., Read, Edit, etc.) to interact with files throughout your session. You will be reminded of this as **Rule 4.4** in the Agent Rules.
+
 ## Task-Master Assignment (Conditional)
 
 **IF `$1` is `--custom`:**
@@ -109,7 +111,7 @@ If you detect this error: Reject the workscope. Tell Task-Master to delete the i
 
 ## Completion Behavior
 
-Upon completing the initialization steps above, return to the User with a clear message at the END of your reply.
+Upon completing the initialization steps above, return to the User with a clear message at the END of your reply. DO NOT EXECUTE YOUR WORKSCOPE YET.
 
 MANDATORY: Put the following text at the END of your reply, verbatim:
 **"WORKSCOPE INITIALIZATION (/wsd:init) COMPLETE. To continue this work: propose changes, describe the workscope, or `/wsd:prepare`. To abandon completely, `/wsd:abort`."**

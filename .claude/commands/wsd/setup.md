@@ -41,11 +41,11 @@ Detect what platforms have tooling established in this project by checking for p
 
 Check for the following platforms (this list will expand as WSD adds support for more languages):
 
-| Platform   | Detection Files  | Additional Detection                          | Notes                                               |
-| ---------- | ---------------- | --------------------------------------------- | --------------------------------------------------- |
-| Python     | `pyproject.toml` | -                                             | Special case: Always included (WSD requires Python) |
-| TypeScript | `package.json`   | `.ts` files present in configured directories | Detected when package.json exists AND .ts files found |
-| JavaScript | `package.json`   | No `.ts` files in configured directories      | Detected when package.json exists but no .ts files  |
+| Platform   | Detection Files  | Additional Detection                                               | Notes                                                 |
+| ---------- | ---------------- | ------------------------------------------------------------------ | ----------------------------------------------------- |
+| Python     | `pyproject.toml` | `[project]` section in pyproject.toml OR `.py` files in check dirs | Special case: Always included (WSD requires Python)   |
+| TypeScript | `package.json`   | `.ts` files present in configured directories                      | Detected when package.json exists AND .ts files found |
+| JavaScript | `package.json`   | No `.ts` files in configured directories                           | Detected when package.json exists but no .ts files    |
 
 **Language Detection for Node.js Projects:**
 WSD distinguishes between TypeScript and JavaScript projects by scanning for `.ts` files in the project's configured check directories. The detection uses `wsd.checkDirs` from `package.json` if configured, falling back to conventional directories (`src`, `lib`, `source`, `tests`, `test`).
@@ -72,7 +72,7 @@ The following platforms were detected based on existing tooling:
 
 | Platform   | Status    | Detection       |
 | ---------- | --------- | --------------- |
-| Python     | [DETECTED | WILL BOOTSTRAP] | [pyproject.toml found               | No pyproject.toml - will create minimal setup] |
+| Python     | [DETECTED | WILL BOOTSTRAP] | [pyproject.toml found                   | No pyproject.toml - will create minimal setup] |
 | TypeScript | [DETECTED | NOT DETECTED]   | [package.json found + .ts files present | No package.json OR no .ts files]               |
 | JavaScript | [DETECTED | NOT DETECTED]   | [package.json found + no .ts files      | No package.json OR .ts files present]          |
 
@@ -134,8 +134,16 @@ For each confirmed platform, examine the project's current configuration and com
 For each platform:
 1. Read the project's configuration files (e.g., `pyproject.toml`, `package.json`)
 2. Compare against the requirements documented in the guides you read
-3. Identify what is missing or needs to be added
-4. Note what is already correctly configured
+3. **Check for documentation generation configuration:**
+   - **Python projects**: Verify `pyproject.toml` includes pdoc configuration (see `pyproject.toml.md` guide)
+   - **TypeScript projects**: Verify `typedoc.json` exists at project root (see `typedoc.json.md` guide)
+   - **JavaScript projects**: Verify JSDoc configuration if applicable (see `package.json.md` guide)
+4. Identify what is missing or needs to be added
+5. Note what is already correctly configured
+
+**Critical: Documentation Config as Project Protection**
+
+Documentation generation configuration is not optional and is not merely for generating docs. Without these config files, documentation tools use default output directories (typically `docs/`) that **directly conflict with WSD's documentation structure**. If an agent runs these tools without proper configuration, they will delete the entire `docs/` directory, destroying all Action Plans, specifications, tickets, and workbench artifacts. This configuration is a defensive requirement for agent-based workflows, protecting critical project infrastructure from accidental destruction.
 
 ### Special Cases
 
@@ -159,6 +167,10 @@ For TypeScript or JavaScript projects, check if `wsd.checkDirs` is configured in
 3. Adjust the directories list based on the actual project structure (e.g., if the project uses `lib/` instead of `src/`)
 
 **Why this matters:** WSD uses these directories to scan for `.ts` files when distinguishing TypeScript from JavaScript projects. Without this configuration, WSD falls back to conventional directories which may not match the project's actual structure, potentially causing incorrect language detection.
+
+**Tool Config Files:** Though Python project tooling can be controleld via the `[tool.wsd] check_dirs` variable, Node.js projects distribute their tools across config files (e.g., `.eslint.config.js`, `.prettierrc`, `.prettierignore`, `typedoc.json`). In addition to (and in the same spirit of) the `typedoc.json` defensive case mentioned above, you will need to ensure that the tools are limited to the appropriate directories. It is devastating for a rogue agent to run `bunx eslint` and completely mangle all the files in the project because it was not properly constraint. Each tool has its own methods of inclusion and exclusion, but this step is crucially important that you analyze these files (or add them if they don't exist) with proper settings that will protect our files.
+
+**CLAUDE.md:** A properly configured project will have a CLAUDE.md file (created by the `/init` command in Claude Code), which will pick up on the WSD Task Runner commands and add these when executed after the WSD integration. However, you should add a note to CLAUDE.md to prefer using the WSD Task Runner commands (e.g., `wsd lint`, `wsd format`, etc.) where possible, and also include the note that `wsd` is aliased on the user's system to use the `wsd.py` in the CWD of wherever it is launched from.
 
 ## Phase 4: Propose Changes
 

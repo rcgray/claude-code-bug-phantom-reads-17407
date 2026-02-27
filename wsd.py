@@ -9,7 +9,7 @@ the runner transparently mapping to appropriate tools.
 Core Philosophy:
 - Command homogenization: Same commands work everywhere
 - Project type auto-detection: No manual configuration needed
-- Universal coverage: 29 commands covering common development tasks
+- Universal coverage: 32 commands covering common development tasks
 - Workscope-Dev integration: Core workflow commands always available
 
 Usage:
@@ -32,8 +32,10 @@ For shell convenience, create an alias:
     alias wsd='./wsd.py'
 """
 
+import contextlib
 import datetime
 import errno
+import io
 import json
 import logging
 import os
@@ -53,9 +55,9 @@ from wsd_utils import (  # noqa: E402
     WsdCollectionError,
     _is_binary_file,
     calculate_file_hash,
-    collect_wsd_files,
     detect_package_manager,
     detect_project_languages,
+    get_check_dirs,
 )
 
 
@@ -183,16 +185,17 @@ def multi_lang_cmd(
 
 
 def execute_multi_lang_task(
-    _task_name: str, commands: list[list[str]], extra_args: list[str]
+    task_name: str, commands: list[list[str]], extra_args: list[str]
 ) -> int:
     """Execute commands for multiple languages sequentially with fail-fast behavior.
 
     Validates that all command components are strings before execution. If any
     command contains None (indicating a missing package manager), prints an error
-    with installation instructions and returns exit code 1.
+    with installation instructions and returns exit code 1. Checks for
+    package-manager-specific command compatibility before execution.
 
     Args:
-        _task_name: Name of the task being executed (reserved for future use)
+        task_name: Name of the task being executed
         commands: List of commands to execute (one per language)
         extra_args: Additional arguments to forward to each command
 
@@ -200,6 +203,10 @@ def execute_multi_lang_task(
         int: Exit code - 0 for success, 1 for missing package manager,
             or non-zero from first failing command
     """
+    # Check for package-manager-specific command compatibility
+    if task_name == "audit:fix" and PKG_MANAGER in _AUDIT_FIX_UNSUPPORTED:
+        _exit_unsupported_audit_fix()
+
     for command in commands:
         # Validate command components - check for None values indicating
         # a missing package manager (PKG_MANAGER is None for Node.js projects
@@ -221,72 +228,6 @@ def execute_multi_lang_task(
 
     # All commands succeeded
     return 0
-
-
-def get_check_dirs() -> list[str]:
-    """Read check directories from pyproject.toml [tool.wsd] configuration.
-
-    Lazy-loaded only when config-dependent commands (lint, format, type, security)
-    are executed. Uses tomllib (Python 3.11+) or tomli fallback for parsing.
-
-    Returns:
-        List of directory paths to check (e.g., ["src", "tests"]). Can be empty list.
-
-    Raises:
-        SystemExit: With code 1 if pyproject.toml or [tool.wsd] configuration is missing
-            or if check_dirs is not a list type.
-    """
-    # Lazy import - only load when config needed
-    try:
-        import tomllib  # type: ignore[import-not-found]  # noqa: PLC0415
-    except ModuleNotFoundError:
-        import tomli as tomllib  # noqa: PLC0415
-
-    pyproject_path = Path("pyproject.toml")
-
-    # Validate pyproject.toml exists
-    if not pyproject_path.exists():
-        print("❌ ERROR: pyproject.toml not found in project root.", file=sys.stderr)
-        print(
-            "\nWorkscope-Dev requires pyproject.toml with [tool.wsd] configuration.",
-            file=sys.stderr,
-        )
-        print("\nAdd this to your pyproject.toml:", file=sys.stderr)
-        print("\n[tool.wsd]", file=sys.stderr)
-        print('check_dirs = ["src", "tests"]', file=sys.stderr)
-        sys.exit(1)
-
-    # Parse TOML file
-    try:
-        with pyproject_path.open("rb") as f:
-            config = tomllib.load(f)
-    except Exception as e:
-        print(f"❌ ERROR: Failed to parse pyproject.toml: {e}", file=sys.stderr)
-        print("\nEnsure your pyproject.toml is valid TOML format.", file=sys.stderr)
-        sys.exit(1)
-
-    # Extract [tool.wsd] configuration
-    wsd_config = config.get("tool", {}).get("wsd", {})
-
-    # Validate configuration exists
-    if not wsd_config or "check_dirs" not in wsd_config:
-        print(
-            "❌ ERROR: [tool.wsd] configuration missing or incomplete in pyproject.toml.",
-            file=sys.stderr,
-        )
-        print("\nAdd this to your pyproject.toml:", file=sys.stderr)
-        print("\n[tool.wsd]", file=sys.stderr)
-        print('check_dirs = ["src", "tests"]', file=sys.stderr)
-        print("\nFor config-dependent commands (lint, format, type, security).", file=sys.stderr)
-        sys.exit(1)
-
-    # Validate check_dirs type
-    check_dirs = wsd_config["check_dirs"]
-    if not isinstance(check_dirs, list):
-        print("❌ ERROR: check_dirs must be a list in pyproject.toml", file=sys.stderr)
-        print('\nExample: check_dirs = ["src", "tests"]', file=sys.stderr)
-        sys.exit(1)
-    return check_dirs
 
 
 # Detect project context
@@ -333,8 +274,60 @@ def _exit_missing_package_manager() -> NoReturn:
     print("  pnpm install  → creates pnpm-lock.yaml", file=sys.stderr)
     print("  npm install   → creates package-lock.json", file=sys.stderr)
     print("  yarn install  → creates yarn.lock", file=sys.stderr)
-    print("  bun install   → creates bun.lockb", file=sys.stderr)
+    print("  bun install   → creates bun.lock", file=sys.stderr)
     sys.exit(1)
+
+
+# Package managers that do not support automated audit fixing
+_AUDIT_FIX_UNSUPPORTED: dict[str, str] = {
+    "bun": "bun update",
+    "yarn": "yarn upgrade",
+}
+
+
+def _exit_unsupported_audit_fix() -> NoReturn:
+    """Print error message and exit when audit:fix is unsupported by the package manager.
+
+    Called at runtime when the user runs ``audit:fix`` with a package manager
+    that has no automated fix capability (bun, yarn). Provides the recommended
+    manual alternative, following Design Decision 1 (Explicit Configuration
+    Over Implicit Defaults).
+
+    Raises:
+        SystemExit: Always exits with code 1.
+    """
+    assert PKG_MANAGER is not None  # Guaranteed by caller's guard
+    alternative = _AUDIT_FIX_UNSUPPORTED[PKG_MANAGER]
+    print(f"❌ ERROR: {PKG_MANAGER} does not support automated audit fixing.", file=sys.stderr)
+    print(file=sys.stderr)
+    print("To update vulnerable dependencies, run:", file=sys.stderr)
+    print(f"  {alternative}", file=sys.stderr)
+    sys.exit(1)
+
+
+def _audit_fix_node_cmd() -> list[str]:
+    """Return the appropriate audit:fix command for the detected Node.js package manager.
+
+    Each package manager has different syntax for automated audit fixing:
+
+    - **npm**: ``npm audit fix`` (subcommand syntax)
+    - **pnpm**: ``pnpm audit --fix`` (flag syntax)
+    - **bun/yarn**: Not supported — intercepted at runtime by
+      ``_exit_unsupported_audit_fix()`` before this command executes
+
+    When PKG_MANAGER is None (no lock file), returns a command containing
+    None which is caught by ``execute_multi_lang_task()`` at runtime.
+
+    Returns:
+        Command array for subprocess execution.
+    """
+    if PKG_MANAGER == "npm":
+        return cmd("npm", "audit", "fix")
+    if PKG_MANAGER == "pnpm":
+        return cmd("pnpm", "audit", "--fix")
+    # bun, yarn, or None — return default form; bun/yarn are intercepted
+    # at runtime by _exit_unsupported_audit_fix() in execute_multi_lang_task()
+    return cmd(PKG_MANAGER, "audit", "fix")  # type: ignore[arg-type]
 
 
 def build_config_command(task_name: str) -> list[list[str]]:
@@ -344,6 +337,13 @@ def build_config_command(task_name: str) -> list[list[str]]:
     a config-dependent command is actually being executed, not at module import time.
     Supports multi-language projects by building commands for all detected languages.
 
+    Configuration requirements vary by language:
+
+    - **Python commands** require ``check_dirs`` from ``[tool.wsd]`` in ``pyproject.toml``
+      to specify which directories to check (e.g., ruff, mypy, bandit).
+    - **Node.js commands** delegate to ``package.json`` scripts and do not need
+      ``check_dirs``.
+
     Args:
         task_name: Name of the config-dependent task (lint, format, type, security, etc.)
 
@@ -351,87 +351,108 @@ def build_config_command(task_name: str) -> list[list[str]]:
         List of command arrays to execute, one per detected language. For single-language
         projects returns single-item list. For multi-language projects returns multiple
         commands to execute sequentially.
+
+    Raises:
+        SystemExit: With code 1 if Python is the only detected language and
+            check_dirs configuration is missing or empty.
     """
-    # Lazy-load configuration only when needed
-    check_dirs = get_check_dirs()
-    # Append trailing slash for directory arguments (e.g., "src" -> "src/")
-    dir_args = [f"{d}/" for d in check_dirs]
+    has_python = "python" in PROJECT_LANGUAGES
+    has_node = "typescript" in PROJECT_LANGUAGES or "javascript" in PROJECT_LANGUAGES
+
+    # Determine Python command availability based on check_dirs.
+    # Node.js commands never need check_dirs — they delegate to package.json scripts.
+    dir_args: list[str] = []
+    python_available = False
+    if has_python:
+        check_dirs = get_check_dirs()
+        if check_dirs is None:
+            if not has_node:
+                # Python-only project without check_dirs — fail with clear error
+                print(
+                    "❌ ERROR: Python check_dirs not properly configured. "
+                    "Python tools (ruff, mypy, bandit) require explicit directories. "
+                    "Ensure pyproject.toml exists with [tool.wsd] check_dirs listing "
+                    "your project's source directories. "
+                    "See guides in dev/wsd/ for details.",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            else:
+                # Multi-language: Python detected but check_dirs missing, Node.js available.
+                # Skip Python commands and proceed with Node.js only.
+                print(
+                    "⚠️  WARNING: Python detected but check_dirs not configured. "
+                    "Skipping Python commands. Add [tool.wsd] check_dirs to pyproject.toml "
+                    "to enable Python tool execution.",
+                    file=sys.stderr,
+                )
+        else:
+            dir_args = [f"{d}/" for d in check_dirs]
+            python_available = True
 
     def node_script(script: str) -> list[str]:
         """Build Node.js command using detected package manager.
 
         Uses the PKG_MANAGER global (pnpm/npm/yarn/bun) detected from lock files.
-        If no package manager is detected (PKG_MANAGER is None), prints an error
-        with installation instructions and exits with code 1.
+        When PKG_MANAGER is None, the command array contains None which is
+        filtered by multi_lang_cmd() or caught by execute_multi_lang_task().
 
         Args:
             script: npm script name to execute (e.g., "lint", "test", "build")
 
         Returns:
             Command array like ["pnpm", "run", "lint"]
-
-        Raises:
-            SystemExit: With code 1 if no package manager is detected.
         """
-        if PKG_MANAGER is None:
-            _exit_missing_package_manager()
-        return cmd(PKG_MANAGER, "run", script)
-
-    def node_audit_cmd() -> list[str]:
-        """Build Node.js audit command using detected package manager.
-
-        Security audit commands differ slightly between package managers but all
-        support the "audit" subcommand. If no package manager is detected
-        (PKG_MANAGER is None), prints an error with installation instructions
-        and exits with code 1.
-
-        Returns:
-            Audit command array like ["pnpm", "audit"]
-
-        Raises:
-            SystemExit: With code 1 if no package manager is detected.
-        """
-        if PKG_MANAGER is None:
-            _exit_missing_package_manager()
-        return cmd(PKG_MANAGER, "audit")
+        return cmd(PKG_MANAGER, "run", script)  # type: ignore[arg-type]
 
     # Command mapping - reduces function complexity (PLR0911)
+    # Python commands are None when check_dirs is unavailable, causing
+    # multi_lang_cmd() to skip the Python side for that language.
+    py = python_available  # Short alias for readability in command_map
     command_map: dict[str, list[list[str]]] = {
         "lint": multi_lang_cmd(
-            python_cmd=cmd("uv", "run", "ruff", "check", *dir_args),
+            python_cmd=cmd("uv", "run", "ruff", "check", *dir_args) if py else None,
             node_cmd=node_script("lint"),
         ),
         "lint:fix": multi_lang_cmd(
-            python_cmd=cmd("uv", "run", "ruff", "check", "--fix", *dir_args),
+            python_cmd=cmd("uv", "run", "ruff", "check", "--fix", *dir_args) if py else None,
             node_cmd=node_script("lint:fix"),
         ),
         "lint:aggressive": multi_lang_cmd(
-            python_cmd=cmd("uv", "run", "ruff", "check", "--fix", "--unsafe-fixes", *dir_args),
+            python_cmd=cmd("uv", "run", "ruff", "check", "--fix", "--unsafe-fixes", *dir_args)
+            if py
+            else None,
             node_cmd=node_script("lint:aggressive"),
         ),
         "lint:docs": multi_lang_cmd(
-            python_cmd=cmd("uv", "run", "ruff", "check", "--select", "D", *dir_args),
+            python_cmd=cmd("uv", "run", "ruff", "check", "--select", "D", *dir_args)
+            if py
+            else None,
             node_cmd=None,
         ),
         "lint:docs:fix": multi_lang_cmd(
-            python_cmd=cmd("uv", "run", "ruff", "check", "--select", "D", "--fix", *dir_args),
+            python_cmd=cmd("uv", "run", "ruff", "check", "--select", "D", "--fix", *dir_args)
+            if py
+            else None,
             node_cmd=None,
         ),
         "format": multi_lang_cmd(
-            python_cmd=cmd("uv", "run", "ruff", "format", *dir_args),
+            python_cmd=cmd("uv", "run", "ruff", "format", *dir_args) if py else None,
             node_cmd=node_script("format"),
         ),
         "format:check": multi_lang_cmd(
-            python_cmd=cmd("uv", "run", "ruff", "format", "--check", *dir_args),
+            python_cmd=cmd("uv", "run", "ruff", "format", "--check", *dir_args) if py else None,
             node_cmd=node_script("format:check"),
         ),
         "type": multi_lang_cmd(
-            python_cmd=cmd("uv", "run", "mypy", *dir_args),
+            python_cmd=cmd("uv", "run", "mypy", *dir_args) if py else None,
             node_cmd=node_script("typecheck"),
         ),
         "security": multi_lang_cmd(
-            python_cmd=cmd("uv", "run", "bandit", "-r", *dir_args, "-f", "screen", "-ll"),
-            node_cmd=node_audit_cmd(),
+            python_cmd=cmd("uv", "run", "bandit", "-r", *dir_args, "-f", "screen", "-ll")
+            if py
+            else None,
+            node_cmd=node_script("lint:security"),
         ),
     }
 
@@ -468,7 +489,7 @@ TASKS: dict[str, Command] = {
     # Testing & Quality Assurance
     "test": multi_lang_cmd(
         python_cmd=cmd("uv", "run", "pytest"),
-        node_cmd=cmd(PKG_MANAGER, "test"),  # type: ignore[arg-type]
+        node_cmd=cmd(PKG_MANAGER, "run", "test"),  # type: ignore[arg-type]
     ),
     "test:watch": lang_cmd(
         cmd("uv", "run", "pytest-watch"),
@@ -477,6 +498,10 @@ TASKS: dict[str, Command] = {
     "test:coverage": lang_cmd(
         cmd("uv", "run", "pytest", "--cov", "--cov-report=html"),
         cmd(PKG_MANAGER, "run", "test:coverage"),  # type: ignore[arg-type]
+    ),
+    "test:e2e": multi_lang_cmd(
+        python_cmd=None,
+        node_cmd=cmd(PKG_MANAGER, "run", "test:e2e"),  # type: ignore[arg-type]
     ),
     "validate": lang_cmd(
         cmd("bash", "-c", "./wsd.py lint && ./wsd.py type && ./wsd.py format:check"),
@@ -499,8 +524,8 @@ TASKS: dict[str, Command] = {
         cmd("uv", "run", "watchmedo", "shell-command", "-R", "-p", "*.py", "-c", "pytest"),
         cmd(PKG_MANAGER, "run", "watch"),  # type: ignore[arg-type]
     ),
-    "clean": lang_cmd(
-        cmd(
+    "clean": multi_lang_cmd(
+        python_cmd=cmd(
             "rm",
             "-rf",
             "__pycache__",
@@ -510,20 +535,20 @@ TASKS: dict[str, Command] = {
             "dist",
             "*.egg-info",
         ),
-        cmd("rm", "-rf", "node_modules", "dist", ".next", ".vite", "build"),
+        node_cmd=cmd("rm", "-rf", "node_modules", "dist", ".next", ".vite", "build"),
     ),
     # Dependencies & Security
     "sync": multi_lang_cmd(
         python_cmd=cmd("uv", "sync"),
         node_cmd=cmd(PKG_MANAGER, "install"),  # type: ignore[arg-type]
     ),
-    "audit": lang_cmd(
-        cmd("uv", "run", "pip-audit"),
-        cmd(PKG_MANAGER, "audit"),  # type: ignore[arg-type]
+    "audit": multi_lang_cmd(
+        python_cmd=cmd("uv", "run", "pip-audit"),
+        node_cmd=cmd(PKG_MANAGER, "audit"),  # type: ignore[arg-type]
     ),
-    "audit:fix": lang_cmd(
-        cmd("uv", "run", "pip-audit", "--fix"),
-        cmd(PKG_MANAGER, "audit", "fix"),  # type: ignore[arg-type]
+    "audit:fix": multi_lang_cmd(
+        python_cmd=cmd("uv", "run", "pip-audit", "--fix"),
+        node_cmd=_audit_fix_node_cmd(),
     ),
 }
 
@@ -552,19 +577,27 @@ def _display_commands(task_name: str, commands: list[list[str]]) -> None:
 def _display_task_command(task_name: str) -> None:
     """Display command for a single task.
 
+    For config-dependent commands, stderr is suppressed during command building
+    so that configuration error messages don't leak into help output. The
+    SystemExit is still caught and a placeholder is displayed instead.
+
     Args:
         task_name: Name of the task to display
     """
     if task_name == "install":
-        # Special install command with flags
         print(f"  {task_name:<20} → wsd.py install [--dry-run] [--force] <target-path>")
     elif task_name == "update":
-        # Special update command with flags
         print(f"  {task_name:<20} → wsd.py update [--dry-run] <target-path>")
+    elif task_name == "uninstall":
+        flags = "[--dry-run] [--all-files] [--verbose]"
+        print(f"  {task_name:<20} → wsd.py uninstall {flags} <target-path>")
     elif task_name in CONFIG_DEPENDENT_COMMANDS:
-        # Build config command for display (may fail if config missing)
+        # Build config command for display (may fail if config missing).
+        # Suppress stderr during help display so error messages from get_check_dirs()
+        # don't leak into the help output when pyproject.toml is missing.
         try:
-            commands = build_config_command(task_name)
+            with contextlib.redirect_stderr(io.StringIO()):
+                commands = build_config_command(task_name)
             _display_commands(task_name, commands)
         except SystemExit:
             # Config missing - show placeholder
@@ -606,6 +639,7 @@ def show_help() -> None:
         "Workscope-Dev Core": [
             "install",
             "update",
+            "uninstall",
             "prompt",
             "health",
             "health:aggressive",
@@ -618,6 +652,7 @@ def show_help() -> None:
             "test",
             "test:watch",
             "test:coverage",
+            "test:e2e",
             "lint",
             "lint:fix",
             "lint:aggressive",
@@ -707,13 +742,14 @@ def main() -> None:
     task_name = sys.argv[1]
     extra_args = sys.argv[2:]
 
-    # Handle special install and update commands
-    if task_name == "install":
-        handle_install_command(extra_args)
-        return
-
-    if task_name == "update":
-        handle_update_command(extra_args)
+    # Handle special install, update, and uninstall commands
+    special_commands = {
+        "install": handle_install_command,
+        "update": handle_update_command,
+        "uninstall": handle_uninstall_command,
+    }
+    if task_name in special_commands:
+        special_commands[task_name](extra_args)
         return
 
     # Validate task exists (either in TASKS or in config-dependent commands)
@@ -803,12 +839,14 @@ class WsdMetadata:
     file_hashes: dict[str, str]
 
 
-def read_wsd_metadata(runtime_path: Path) -> WsdMetadata:
+def read_wsd_metadata(  # noqa: PLR0912
+    runtime_path: Path, *, skip_existence_check: bool = False
+) -> WsdMetadata:
     """Read and validate WSD Runtime metadata from wsd.json file.
 
     Reads the wsd.json file at the specified WSD Runtime path, validates its structure
-    and content, applies default values for optional fields, and validates that files
-    referenced in no_overwrite and executable arrays exist.
+    and content, applies default values for optional fields, and optionally validates
+    that files referenced in no_overwrite and executable arrays exist.
 
     Note: Files in installation_only are NOT validated for existence because they may
     be generated at build time (e.g., __init__.py for PyPI packages) rather than
@@ -816,6 +854,10 @@ def read_wsd_metadata(runtime_path: Path) -> WsdMetadata:
 
     Args:
         runtime_path: Path to WSD Runtime root directory containing wsd.json
+        skip_existence_check: When True, skip validation that files referenced in
+            no_overwrite and executable arrays exist on disk. Required when reading
+            metadata from a bundled package where the full WSD Runtime file tree
+            is not present.
 
     Returns:
         WsdMetadata: Parsed and validated metadata with all fields populated
@@ -824,7 +866,8 @@ def read_wsd_metadata(runtime_path: Path) -> WsdMetadata:
         FileNotFoundError: If wsd.json does not exist at runtime_path
         json.JSONDecodeError: If wsd.json is not valid JSON
         ValueError: If wsd.json validation fails (missing required fields, invalid format,
-            or files in no_overwrite/executable arrays don't exist)
+            or files in no_overwrite/executable arrays don't exist when
+            skip_existence_check is False)
     """
     wsd_json_path = runtime_path / "wsd.json"
 
@@ -884,20 +927,30 @@ def read_wsd_metadata(runtime_path: Path) -> WsdMetadata:
         error_msg = "file_hashes must be an object"
         raise ValueError(error_msg)
 
+    # Validate file_hashes is non-empty
+    if not file_hashes:
+        error_msg = (
+            "Error: wsd.json contains empty file_hashes\n"
+            "The WSD Runtime must contain at least one file.\n"
+            "Run pre_staging.py to regenerate the manifest."
+        )
+        raise ValueError(error_msg)
+
     # Validate file references exist in WSD Runtime
     # Note: installation_only is exempt because it may contain build-time generated files
     # that don't exist in the source directory but will be created during packaging
-    fields_requiring_existence = {
-        "no_overwrite": no_overwrite,
-        "executable": executable,
-    }
+    if not skip_existence_check:
+        fields_requiring_existence = {
+            "no_overwrite": no_overwrite,
+            "executable": executable,
+        }
 
-    for field_name, file_list in fields_requiring_existence.items():
-        for file_path_str in file_list:
-            file_path = runtime_path / file_path_str
-            if not file_path.exists():
-                error_msg = f"File referenced in {field_name} does not exist: {file_path_str}"
-                raise ValueError(error_msg)
+        for field_name, file_list in fields_requiring_existence.items():
+            for file_path_str in file_list:
+                file_path = runtime_path / file_path_str
+                if not file_path.exists():
+                    error_msg = f"File referenced in {field_name} does not exist: {file_path_str}"
+                    raise ValueError(error_msg)
 
     return WsdMetadata(
         version=version,
@@ -2079,7 +2132,6 @@ def validate_update_preconditions(  # noqa: PLR0912, PLR0915
 
 def categorize_update_files(
     installed_files: list[str],
-    update_source_dir: Path,
     update_metadata: WsdMetadata,
     target_dir: Path,
 ) -> FileCategorization:
@@ -2099,7 +2151,7 @@ def categorize_update_files(
     Algorithm:
     1. Read installation_only list from UPDATE's wsd.json
     2. Extract file paths from installed manifest
-    3. Collect all update files and filter out installation_only files
+    3. Get update file list from manifest (file_hashes.keys())
     4. Perform set operations (delete = installed - update)
     5. Perform set operations (add = update - installed)
     6. Identify files in both (in_both = installed ∩ update)
@@ -2113,7 +2165,6 @@ def categorize_update_files(
 
     Args:
         installed_files: List of file paths from installed manifest
-        update_source_dir: Path to WSD Runtime root directory containing update files
         update_metadata: Parsed wsd.json from update source containing protection policies
         target_dir: Path to target directory where WSD is installed (for directory checks)
 
@@ -2126,20 +2177,19 @@ def categorize_update_files(
             - to_skip_unchanged: Files to leave unchanged (content identical)
 
     Raises:
-        FileNotFoundError: If update_source_dir does not exist
-        WsdCollectionError: If invalid content found in update source
+        ValueError: If file hash missing in update_metadata.file_hashes
     """
     # Read installation_only list from UPDATE's wsd.json
     installation_only = update_metadata.installation_only
-    installation_only_set = set(installation_only)
+    set(installation_only)
 
     # Extract file paths from installed manifest
     installed_set = set(installed_files)
 
-    # Collect all update files and filter out installation_only files
-    all_update_files = collect_wsd_files(update_source_dir)
-    # Convert to strings and filter out installation_only files
-    update_files = {str(p) for p in all_update_files if str(p) not in installation_only_set}
+    # Get file list from manifest (file_hashes.keys())
+    # .wsdkeep files are not in file_hashes (handled via required_directories)
+    # installation_only files are not in file_hashes (excluded from installation)
+    update_files = set(update_metadata.file_hashes.keys())
 
     # Perform set operations (delete = installed - update)
     to_delete_set = installed_set - update_files
@@ -3870,33 +3920,30 @@ def detect_collisions(source_dir: Path, target_dir: Path) -> tuple[list[str], li
     try:
         metadata = read_wsd_metadata(source_dir)
         installation_only = metadata.installation_only
-        installation_only_set = set(installation_only)
+        set(installation_only)
         source_hashes = metadata.file_hashes
     except (FileNotFoundError, ValueError) as e:
         error_msg = f"Failed to read WSD metadata from {source_dir}: {e}"
         raise ValueError(error_msg) from e
 
-    # Collect all source files and filter out installation_only files and .wsdkeep
-    # (.wsdkeep files are structural artifacts handled via required_directories)
-    all_source_files = collect_wsd_files(source_dir)
-    source_files = [
-        p for p in all_source_files if str(p) not in installation_only_set and p.name != ".wsdkeep"
-    ]
+    # Get file list from manifest (file_hashes.keys())
+    # .wsdkeep files are not in file_hashes (handled via required_directories)
+    # installation_only files are not in file_hashes (excluded from installation)
+    source_files = list(source_hashes.keys())
 
     true_collisions: list[str] = []
     false_positives: list[str] = []
 
     # Check each source file against target directory
-    for source_file in source_files:
+    for relative_path_str in source_files:
         # Skip .wsd manifest file (indicates update scenario, not collision)
-        if source_file.name == ".wsd":
+        if Path(relative_path_str).name == ".wsd":
             continue
 
         # Check if file exists in target directory
-        target_file = target_dir / source_file
+        target_file = target_dir / relative_path_str
         if target_file.exists():
             # Path collision detected - check content hash
-            relative_path_str = str(source_file)
             source_hash = source_hashes.get(relative_path_str)
 
             if source_hash is None:
@@ -4056,29 +4103,27 @@ def validate_source_directory_exists(source_dir: Path) -> None:
         sys.exit(1)
 
 
-def calculate_required_disk_space(source_dir: Path, installation_only: list[str]) -> int:
+def calculate_required_disk_space(source_dir: Path, metadata: WsdMetadata) -> int:
     """Calculate total disk space required for installation.
 
-    Scans source directory and sums file sizes for all files that will be
-    installed (excluding installation_only files).
+    Reads file list from manifest and sums file sizes for all files that will be
+    installed (files in file_hashes, excluding installation_only files).
 
     Args:
         source_dir: Path to WSD Runtime root directory
-        installation_only: List of files to exclude from installation
+        metadata: Parsed WSD metadata containing file_hashes
 
     Returns:
         Total bytes required for installation
 
     Raises:
         OSError: If file size calculation fails
-        WsdCollectionError: If invalid content found in source directory
     """
     total_bytes = 0
-    installation_only_set = set(installation_only)
 
     try:
-        all_source_files = collect_wsd_files(source_dir)
-        source_files = [p for p in all_source_files if str(p) not in installation_only_set]
+        # Get file list from manifest
+        source_files = list(metadata.file_hashes.keys())
 
         for relative_path in source_files:
             file_path = source_dir / relative_path
@@ -4114,7 +4159,7 @@ def get_available_disk_space(path: Path) -> int:
 
 
 def validate_sufficient_disk_space(
-    source_dir: Path, target_dir: Path, installation_only: list[str]
+    source_dir: Path, target_dir: Path, metadata: WsdMetadata
 ) -> None:
     """Validate that target has sufficient disk space for installation.
 
@@ -4125,13 +4170,13 @@ def validate_sufficient_disk_space(
     Args:
         source_dir: Path to WSD Runtime root directory
         target_dir: Path to target installation directory (or its parent if not created)
-        installation_only: List of files to exclude from installation
+        metadata: Parsed WSD metadata containing file_hashes
 
     Raises:
         SystemExit: If insufficient disk space (exits with code 1)
     """
     try:
-        required_bytes = calculate_required_disk_space(source_dir, installation_only)
+        required_bytes = calculate_required_disk_space(source_dir, metadata)
 
         # Check space on target (or parent if target doesn't exist yet)
         check_path = target_dir if target_dir.exists() else target_dir.parent
@@ -4344,7 +4389,7 @@ def install_files(source_dir: Path, target_dir: Path, force: bool = False) -> li
         )
 
     # Validate sufficient disk space before any file operations
-    validate_sufficient_disk_space(source_dir, target_dir, installation_only)
+    validate_sufficient_disk_space(source_dir, target_dir, metadata)
 
     # ========================================================================
     # FILE OPERATIONS (WITH ABORT-ON-ERROR)
@@ -4367,17 +4412,11 @@ def install_files(source_dir: Path, target_dir: Path, force: bool = False) -> li
                     ["Check parent directory permissions", "Verify path is valid"],
                 )
 
-    # Get list of files to install
-    # (excluding .wsdkeep files which are handled via required_directories)
-    installation_only_set = set(installation_only)
+    # Get list of files to install from manifest (file_hashes.keys())
+    # .wsdkeep files are not in file_hashes (handled via required_directories)
+    # installation_only files are not in file_hashes (excluded from installation)
     try:
-        all_source_files = collect_wsd_files(source_dir)
-        # Filter out installation_only files AND .wsdkeep files (structural artifacts)
-        source_files = [
-            p
-            for p in all_source_files
-            if str(p) not in installation_only_set and p.name != ".wsdkeep"
-        ]
+        source_files = list(metadata.file_hashes.keys())
     except (FileNotFoundError, WsdCollectionError, OSError) as e:
         report_installation_error(
             "Failed to scan source directory",
@@ -4678,7 +4717,7 @@ def handle_install_command(args: list[str]) -> None:  # noqa: PLR0912, PLR0915
             force = True
         elif arg in {"--verbose", "-v"}:
             verbose = True
-        elif not arg.startswith("--") and arg != "-v":
+        elif not arg.startswith("-"):
             if target_path_str is not None:
                 print("Error: Multiple target paths specified", file=sys.stderr)
                 print(
@@ -4778,7 +4817,7 @@ def handle_update_command(args: list[str]) -> None:  # noqa: PLR0912, PLR0915
             dry_run = True
         elif arg in {"--verbose", "-v"}:
             verbose = True
-        elif not arg.startswith("--") and arg != "-v":
+        elif not arg.startswith("-"):
             if target_path_str is not None:
                 print("Error: Multiple target paths specified", file=sys.stderr)
                 print(
@@ -4860,7 +4899,6 @@ def handle_update_command(args: list[str]) -> None:  # noqa: PLR0912, PLR0915
     # Categorize files for update
     categorization = categorize_update_files(
         installed_files=installed_files,
-        update_source_dir=source_dir,
         update_metadata=update_metadata,
         target_dir=target_path,
     )
@@ -5071,6 +5109,485 @@ def handle_update_command(args: list[str]) -> None:  # noqa: PLR0912, PLR0915
         f"Updated: {updated_count}, Skipped: {skipped_count}"
     )
     print(summary)
+
+
+def handle_uninstall_command(args: list[str]) -> None:  # noqa: PLR0912, PLR0915
+    """Handle uninstall command with argument parsing.
+
+    Implements CLI command handling for `wsd.py uninstall [OPTIONS] <target-path>`.
+    Removes all WSD-managed files from a target project directory using the
+    `.wsd` manifest as the authoritative source for what to delete.
+
+    Command syntax:
+        wsd.py uninstall [--dry-run] [--all-files] [--verbose] <target-path>
+
+    Args:
+        args: Command-line arguments after 'uninstall' (e.g., ['--dry-run', '.'])
+
+    Raises:
+        SystemExit: On invalid arguments, missing manifest, permission errors,
+            or deletion errors
+    """
+    # Parse arguments
+    dry_run = False
+    all_files = False
+    verbose = False
+    target_path_str = None
+
+    for arg in args:
+        if arg == "--dry-run":
+            dry_run = True
+        elif arg == "--all-files":
+            all_files = True
+        elif arg in {"--verbose", "-v"}:
+            verbose = True
+        elif not arg.startswith("-"):
+            if target_path_str is not None:
+                print("Error: Multiple target paths specified", file=sys.stderr)
+                print(
+                    "\nUsage: wsd.py uninstall [--dry-run] [--all-files] [--verbose] <target-path>",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            target_path_str = arg
+        else:
+            print(f"Error: Unknown option '{arg}'", file=sys.stderr)
+            print(
+                "\nUsage: wsd.py uninstall [--dry-run] [--all-files] [--verbose] <target-path>",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+    # Enable verbose mode if requested
+    if verbose:
+        set_verbose_mode(True)
+        verbose_log("Verbose mode enabled for uninstall")
+
+    # Validate target path provided
+    if target_path_str is None:
+        print("Error: Target path required", file=sys.stderr)
+        print(
+            "\nUsage: wsd.py uninstall [--dry-run] [--all-files] [--verbose] <target-path>",
+            file=sys.stderr,
+        )
+        print("\nExamples:", file=sys.stderr)
+        print("  wsd.py uninstall .", file=sys.stderr)
+        print("  wsd.py uninstall --dry-run /path/to/project", file=sys.stderr)
+        print("  wsd.py uninstall --all-files /path/to/project", file=sys.stderr)
+        sys.exit(1)
+
+    # Resolve target path to absolute path
+    target_path = Path(target_path_str).resolve()
+
+    # Read and validate .wsd manifest from target directory
+    manifest_path = target_path / ".wsd"
+    verbose_log(f"Reading manifest from {manifest_path}")
+
+    try:
+        manifest_data = read_manifest(manifest_path)
+        validate_manifest(manifest_data)
+    except FileNotFoundError:
+        print(f"Error: No .wsd manifest found in '{target_path}'", file=sys.stderr)
+        print(
+            "\nThis directory does not appear to have WSD installed.",
+            file=sys.stderr,
+        )
+        print("Use 'wsd install <path>' to install WSD.", file=sys.stderr)
+        sys.exit(1)
+    except (json.JSONDecodeError, UnicodeDecodeError, ValueError):
+        print(f"Error: Invalid .wsd manifest in '{target_path}'", file=sys.stderr)
+        print(
+            "\nThe manifest file is corrupted or has an unexpected format.",
+            file=sys.stderr,
+        )
+        print(
+            "If you recently edited .wsd manually, restore it from git:",
+            file=sys.stderr,
+        )
+        print("  git checkout -- .wsd", file=sys.stderr)
+        sys.exit(1)
+
+    file_count = len(manifest_data["files"])
+    verbose_log(
+        f"Manifest validated: version {manifest_data['version']}, {file_count} files tracked"
+    )
+
+    # Read no_overwrite list from bundled wsd.json
+    bundled_dir = Path(__file__).parent
+    verbose_log(f"Reading bundled WSD metadata from {bundled_dir / 'wsd.json'}")
+
+    try:
+        bundled_metadata = read_wsd_metadata(bundled_dir, skip_existence_check=True)
+    except FileNotFoundError:
+        print("Error: WSD metadata file (wsd.json) is missing or corrupted.", file=sys.stderr)
+        print(
+            "\nThis indicates a problem with your WSD installation.",
+            file=sys.stderr,
+        )
+        print("Reinstall WSD to resolve:", file=sys.stderr)
+        print("  pipx reinstall workscope-dev", file=sys.stderr)
+        sys.exit(1)
+    except (json.JSONDecodeError, ValueError):
+        print("Error: WSD metadata file (wsd.json) is missing or corrupted.", file=sys.stderr)
+        print(
+            "\nThis indicates a problem with your WSD installation.",
+            file=sys.stderr,
+        )
+        print("Reinstall WSD to resolve:", file=sys.stderr)
+        print("  pipx reinstall workscope-dev", file=sys.stderr)
+        sys.exit(1)
+
+    no_overwrite_list = bundled_metadata.no_overwrite
+    verbose_log(f"Loaded {len(no_overwrite_list)} no_overwrite entries from bundled metadata")
+
+    # Build deletion plan from manifest files
+    manifest_files = manifest_data["files"]
+    no_overwrite_set = set(no_overwrite_list)
+
+    if all_files:
+        # --all-files mode: include all manifest files
+        files_to_delete = list(manifest_files)
+        preserved_files: list[str] = []
+        verbose_log("All-files mode: all manifest files included in deletion plan")
+    else:
+        # Default mode: exclude no_overwrite files
+        files_to_delete = [f for f in manifest_files if f not in no_overwrite_set]
+        preserved_files = [f for f in manifest_files if f in no_overwrite_set]
+        verbose_log(
+            f"Default mode: {len(files_to_delete)} files to delete, "
+            f"{len(preserved_files)} no_overwrite files preserved"
+        )
+
+    # Scan target directory tree for zero-byte .wsdkeep files
+    wsdkeep_files: list[str] = []
+    for dirpath, _dirnames, filenames in os.walk(target_path):
+        for filename in filenames:
+            if filename == ".wsdkeep":
+                full_path = Path(dirpath) / filename
+                try:
+                    if full_path.stat().st_size == 0:
+                        rel_path = str(full_path.relative_to(target_path))
+                        wsdkeep_files.append(rel_path)
+                        verbose_log(f"Found zero-byte .wsdkeep: {rel_path}")
+                    else:
+                        rel_path = str(full_path.relative_to(target_path))
+                        verbose_log(f"Skipping non-zero .wsdkeep: {rel_path}")
+                except OSError as e:
+                    error_msg = f"Failed to check .wsdkeep file '{full_path}': {e}"
+                    print(f"Error: {error_msg}", file=sys.stderr)
+                    sys.exit(1)
+
+    verbose_log(f"Found {len(wsdkeep_files)} zero-byte .wsdkeep files")
+
+    # Dry-run: display categorized deletion plan and exit without deleting anything
+    if dry_run:
+        print("WSD Uninstall Preview (--dry-run)")
+        print("=" * 40)
+        print()
+
+        # Manifest files to delete
+        print(f"Files to Delete ({len(files_to_delete)})")
+        print("-" * 40)
+        if files_to_delete:
+            for file_path in sorted(files_to_delete):
+                print(f"  - {file_path}")
+        else:
+            print("  (none)")
+        print()
+
+        # .wsdkeep files to delete
+        print(f".wsdkeep Files to Remove ({len(wsdkeep_files)})")
+        print("-" * 40)
+        if wsdkeep_files:
+            for file_path in sorted(wsdkeep_files):
+                print(f"  - {file_path}")
+        else:
+            print("  (none)")
+        print()
+
+        # Preserved no_overwrite files (default mode only)
+        if preserved_files:
+            print(f"Preserved Files - no_overwrite ({len(preserved_files)})")
+            print("-" * 40)
+            for file_path in sorted(preserved_files):
+                print(f"  = {file_path}")
+            print()
+            print("These files are protected by no_overwrite policy and will be retained.")
+            print("Use --all-files to include them in the deletion.")
+            print()
+
+        # .wsd manifest (always deleted last, reported separately)
+        print("Manifest File")
+        print("-" * 40)
+        print("  .wsd (deleted last)")
+        print()
+
+        # Summary
+        total_deletions = len(files_to_delete) + len(wsdkeep_files) + 1  # +1 for .wsd
+        print("Summary")
+        print("-" * 40)
+        print(f"Manifest files to delete:  {len(files_to_delete)}")
+        print(f".wsdkeep files to remove:  {len(wsdkeep_files)}")
+        print(f"Preserved (no_overwrite):  {len(preserved_files)}")
+        print("Manifest (.wsd):           1")
+        print(f"Total deletions:           {total_deletions}")
+        print()
+
+        print("To proceed with uninstall, run without --dry-run:")
+        print(f"  wsd.py uninstall {target_path}")
+        if not all_files and preserved_files:
+            print()
+            print("To remove all files including no_overwrite protected files:")
+            print(f"  wsd.py uninstall --all-files {target_path}")
+
+        sys.exit(0)
+
+    # Validate permissions for all planned deletions before any modifications
+    permission_denied_files: list[str] = []
+
+    # Check manifest files in the deletion plan
+    for relative_path in files_to_delete:
+        full_path = target_path / relative_path
+        if not full_path.exists():
+            verbose_log(f"File already absent, skipping permission check: {relative_path}")
+            continue
+        if not os.access(full_path, os.W_OK):
+            permission_denied_files.append(relative_path)
+            verbose_log(f"Permission denied: {relative_path}")
+
+    # Check .wsdkeep files
+    for relative_path in wsdkeep_files:
+        full_path = target_path / relative_path
+        if not full_path.exists():
+            verbose_log(f".wsdkeep already absent, skipping permission check: {relative_path}")
+            continue
+        if not os.access(full_path, os.W_OK):
+            permission_denied_files.append(relative_path)
+            verbose_log(f"Permission denied (.wsdkeep): {relative_path}")
+
+    # Check .wsd manifest file (deleted last, but must also pass permission check)
+    if manifest_path.exists() and not os.access(manifest_path, os.W_OK):
+        permission_denied_files.append(".wsd")
+        verbose_log("Permission denied: .wsd manifest")
+
+    # Halt with clear error if any permission checks failed
+    if permission_denied_files:
+        print("Error: Permission denied for the following files:", file=sys.stderr)
+        print(file=sys.stderr)
+        for denied_file in permission_denied_files:
+            print(f"  - {denied_file}", file=sys.stderr)
+        print(file=sys.stderr)
+        print("No files were deleted. Resolve permissions and retry:", file=sys.stderr)
+        print("  chmod u+w <file>", file=sys.stderr)
+        sys.exit(1)
+
+    verbose_log("Permission validation passed for all files")
+
+    # Confirmation prompt: require interactive terminal and explicit user confirmation
+    if not sys.stdin.isatty():
+        print(
+            "Error: Uninstall requires an interactive terminal for confirmation.",
+            file=sys.stderr,
+        )
+        print(
+            "\nRun this command in an interactive terminal, or use --dry-run to preview "
+            "the deletion plan without confirmation.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    total_deletions = len(files_to_delete) + len(wsdkeep_files) + 1  # +1 for .wsd manifest
+
+    print(file=sys.stderr)
+    print("WSD Uninstall Confirmation", file=sys.stderr)
+    print("=" * 40, file=sys.stderr)
+    print(file=sys.stderr)
+    print(f"This will delete {total_deletions} file(s) from '{target_path}'.", file=sys.stderr)
+
+    if all_files:
+        print("Mode: --all-files (including no_overwrite protected files)", file=sys.stderr)
+    elif preserved_files:
+        print(
+            f"Mode: default ({len(preserved_files)} no_overwrite file(s) will be preserved)",
+            file=sys.stderr,
+        )
+    else:
+        print("Mode: default (no no_overwrite files to preserve)", file=sys.stderr)
+
+    print(file=sys.stderr)
+    print(
+        "Recommendation: Commit any pending changes to git before proceeding.",
+        file=sys.stderr,
+    )
+    print(
+        "Git is the primary recovery mechanism if anything goes wrong.",
+        file=sys.stderr,
+    )
+    print(file=sys.stderr)
+    print(
+        "Tip: Use --dry-run to preview the full deletion plan before proceeding.",
+        file=sys.stderr,
+    )
+    if not all_files and preserved_files:
+        print(
+            "     Use --all-files to include no_overwrite protected files in the deletion.",
+            file=sys.stderr,
+        )
+    print(file=sys.stderr)
+
+    print("Proceed with uninstall? [y/N]: ", end="", file=sys.stderr)
+    sys.stderr.flush()
+
+    try:
+        response = input().strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        print(file=sys.stderr)
+        print("Uninstall aborted.", file=sys.stderr)
+        sys.exit(1)
+
+    if response not in ("y", "yes"):
+        print("Uninstall aborted.", file=sys.stderr)
+        sys.exit(1)
+
+    verbose_log("User confirmed uninstall operation")
+
+    # Execute file deletions: manifest files, then .wsdkeep files, then directory
+    # cleanup, then .wsd manifest last. Track directories that had files deleted
+    # from them for scoped empty directory cleanup.
+    deleted_count = 0
+    wsdkeep_deleted_count = 0
+    affected_directories: set[Path] = set()
+
+    def _halt_on_deletion_failure(relative_path: str, error: OSError) -> NoReturn:
+        """Report a mid-deletion failure and halt the uninstall operation.
+
+        Prints a structured error message with the failed file path, a
+        manifest-preservation guarantee, and git-based recovery guidance,
+        then exits with code 1.
+
+        Args:
+            relative_path: The relative path of the file that failed to delete
+            error: The OS error that caused the failure
+        """
+        print(
+            f"Error: Failed to delete '{relative_path}': {error}",
+            file=sys.stderr,
+        )
+        print(
+            "\nUninstall halted. Some files have been deleted.",
+            file=sys.stderr,
+        )
+        print(
+            "The .wsd manifest has NOT been deleted and still reflects the original state.",
+            file=sys.stderr,
+        )
+        print(
+            "Re-run 'wsd uninstall' after resolving the issue.",
+            file=sys.stderr,
+        )
+        print(
+            "\nIf files were partially deleted and they were committed to git, restore with:",
+            file=sys.stderr,
+        )
+        print("  git checkout .", file=sys.stderr)
+        print(
+            "\nNote: Only files committed to git can be restored this way.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    # Delete manifest files, halting immediately on any failure
+    for relative_path in files_to_delete:
+        full_path = target_path / relative_path
+        if not full_path.exists():
+            verbose_log(f"Already absent, skipping: {relative_path}")
+            deleted_count += 1
+            continue
+        try:
+            full_path.unlink()
+            deleted_count += 1
+            affected_directories.add(full_path.parent)
+            verbose_log(f"Deleted: {relative_path}")
+        except OSError as e:
+            _halt_on_deletion_failure(relative_path, e)
+
+    verbose_log(f"Manifest file deletion complete: {deleted_count} files handled")
+
+    # Delete zero-byte .wsdkeep files, halting immediately on any failure
+    for relative_path in wsdkeep_files:
+        full_path = target_path / relative_path
+        if not full_path.exists():
+            verbose_log(f".wsdkeep already absent, skipping: {relative_path}")
+            wsdkeep_deleted_count += 1
+            continue
+        try:
+            full_path.unlink()
+            wsdkeep_deleted_count += 1
+            affected_directories.add(full_path.parent)
+            verbose_log(f"Deleted .wsdkeep: {relative_path}")
+        except OSError as e:
+            _halt_on_deletion_failure(relative_path, e)
+
+    verbose_log(f".wsdkeep deletion complete: {wsdkeep_deleted_count} files handled")
+
+    # Clean up empty directories that contained deleted files, processed bottom-up.
+    # Directory removal failures are logged but do not halt the operation.
+    dirs_removed = 0
+    sorted_dirs = sorted(affected_directories, key=lambda d: len(d.parts), reverse=True)
+    for directory in sorted_dirs:
+        # Walk upward from each affected directory toward (but not including) target_path
+        current = directory
+        while current != target_path:
+            try:
+                if current.exists() and not any(current.iterdir()):
+                    current.rmdir()
+                    dirs_removed += 1
+                    verbose_log(f"Removed empty directory: {current.relative_to(target_path)}")
+                else:
+                    break
+            except OSError as e:
+                verbose_log(f"Could not remove directory '{current.relative_to(target_path)}': {e}")
+                break
+            current = current.parent
+
+    verbose_log(f"Directory cleanup complete: {dirs_removed} directories removed")
+
+    # Delete .wsd manifest as the absolute last file
+    try:
+        manifest_path.unlink()
+        verbose_log("Deleted .wsd manifest")
+    except OSError as e:
+        print(
+            f"Error: Failed to delete .wsd manifest: {e}",
+            file=sys.stderr,
+        )
+        print(
+            "\nAll other files were deleted successfully, but the manifest could not be removed.",
+            file=sys.stderr,
+        )
+        print("Manually delete the .wsd file:", file=sys.stderr)
+        print(f"  rm {manifest_path}", file=sys.stderr)
+        sys.exit(1)
+
+    # Print post-uninstall summary and guidance
+    total_files_deleted = deleted_count + wsdkeep_deleted_count + 1  # +1 for .wsd manifest
+    print(f"\n✅ WSD uninstalled successfully from {target_path}")
+    print(f"Files deleted: {total_files_deleted}, Directories removed: {dirs_removed}")
+
+    # Post-uninstall guidance notes (always shown)
+    print("\nPost-uninstall notes:")
+    print("  - CLAUDE.md may contain WSD-related content. Review or remove it,")
+    print("    or run /init to refresh it.")
+    print("  - Configuration files (pyproject.toml, ESLint config, etc.) may contain")
+    print("    settings added by /wsd:setup. Review and clean up as needed.")
+
+    # List preserved no_overwrite files (default mode only)
+    if not all_files and preserved_files:
+        print(f"\nPreserved {len(preserved_files)} no_overwrite file(s):")
+        for preserved in sorted(preserved_files):
+            print(f"  - {preserved}")
+        print("\nThese files were retained by no_overwrite policy.")
+        print("Delete them manually if no longer needed, or re-run with --all-files.")
 
 
 if __name__ == "__main__":

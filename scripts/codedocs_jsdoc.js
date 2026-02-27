@@ -3,12 +3,14 @@
  *
  * This script orchestrates JSDoc documentation generation:
  * 1. Detects project language (skips TypeScript projects)
- * 2. Validates jsdoc script availability in package.json
- * 3. Runs JSDoc via the detected package manager to generate native HTML documentation
+ * 2. Checks if JSDoc is installed (skips gracefully if not)
+ * 3. Validates jsdoc script availability in package.json
+ * 4. Runs JSDoc via the detected package manager to generate native HTML documentation
  *
  * Uses shared utilities from wsd_utils.js for:
  * - Language detection (detectProjectLanguages)
  * - Package manager detection (detectPackageManager)
+ * - Tool availability checking (isToolAvailable)
  * - Script availability checking (isScriptAvailable)
  * - Directory configuration (getCheckDirs)
  *
@@ -32,13 +34,12 @@ const {
   detectPackageManager,
   getCheckDirs,
   isScriptAvailable,
+  isToolAvailable,
+  findPackageJsonRoot,
 } = require('./wsd_utils.js');
 
-// Resolve project root from script location to ensure consistent path resolution
-// regardless of the current working directory when the script is invoked.
-// This pattern handles both direct execution and require() scenarios.
-const __dirname_custom = path.dirname(require.main.filename || __filename);
-const PROJECT_ROOT = path.resolve(__dirname_custom, '..');
+// Resolve project root via shared utility function
+const PROJECT_ROOT = findPackageJsonRoot();
 const REPORTS_DIR = path.join(PROJECT_ROOT, 'dev', 'reports');
 const OUTPUT_DIR = path.join(REPORTS_DIR, 'jsdoc-api-docs');
 
@@ -96,27 +97,43 @@ function cleanOutputDirectory() {
 /**
  * Generate JSDoc API documentation.
  *
- * Validates that the 'jsdoc' script is available in package.json, then runs
- * JSDoc via the detected package manager to generate native HTML documentation.
+ * Performs a two-tier availability check before running JSDoc:
+ * 1. Is JSDoc installed? If not, skip gracefully (tool not wanted).
+ * 2. Is the jsdoc script configured in package.json? If not, hard-fail with
+ *    setup instructions (tool wanted but misconfigured).
  *
- * Uses shared utilities from wsd_utils.js for package manager detection and
- * script availability checking to ensure consistent behavior across WSD tools.
+ * When both checks pass, runs JSDoc via the detected package manager to
+ * generate native HTML documentation.
  * @param {string[]} [checkDirs] - Directories to document (optional, reads from config if not provided)
- * @returns {boolean} True if documentation generated successfully, false on any error
+ * @returns {boolean} True if documentation generated successfully, false on any error.
+ *   Calls process.exit(2) for graceful skips (tool not installed, no checkDirs).
  */
 function generateJsdocDocs(checkDirs) {
   // If checkDirs not provided as parameter, read from configuration
   if (!checkDirs) {
     checkDirs = getCheckDirs();
-    if (checkDirs.length === 0) {
+    if (checkDirs === null) {
+      console.error(
+        'Warning: wsd.checkDirs is not configured in package.json. WSD setup may be incomplete.'
+      );
+    }
+    if (checkDirs === null || checkDirs.length === 0) {
       console.log('Skipping JSDoc documentation: no source directories configured.');
-      return true; // Return true to indicate graceful skip, not an error
+      process.exit(2);
     }
   }
 
   console.log('Generating JSDoc API documentation...');
 
-  // Check if jsdoc script is available in package.json
+  // Skip gracefully when JSDoc is not installed — the project does not use it
+  if (!isToolAvailable('jsdoc')) {
+    console.log('');
+    console.log('JSDoc is not installed. Skipping JSDoc documentation generation.');
+    console.log('');
+    process.exit(2);
+  }
+
+  // JSDoc is installed — verify the package.json script is configured
   if (!isScriptAvailable('jsdoc')) {
     console.error('');
     console.error('Error: "jsdoc" script not found in package.json.');
@@ -187,9 +204,14 @@ function generateJsdocDocs(checkDirs) {
 function main() {
   // Check for configured source directories first
   const checkDirs = getCheckDirs();
-  if (checkDirs.length === 0) {
+  if (checkDirs === null) {
+    console.error(
+      'Warning: wsd.checkDirs is not configured in package.json. WSD setup may be incomplete.'
+    );
+  }
+  if (checkDirs === null || checkDirs.length === 0) {
     console.log('Skipping JSDoc documentation: no source directories configured.');
-    return;
+    process.exit(2);
   }
 
   // Detect project languages - JSDoc is for JavaScript only
@@ -208,7 +230,7 @@ function main() {
     console.log('For TypeScript projects, use TypeDoc instead:');
     console.log('  node scripts/codedocs_typedoc.js');
     console.log('');
-    return;
+    process.exit(2);
   }
 
   if (!languages.includes('javascript')) {
@@ -217,7 +239,7 @@ function main() {
     console.log('');
     console.log('Detected: No package.json found or unable to determine project type.');
     console.log('');
-    return;
+    process.exit(2);
   }
 
   if (!generateJsdocDocs(checkDirs)) {

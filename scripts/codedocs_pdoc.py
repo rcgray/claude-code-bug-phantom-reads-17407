@@ -37,10 +37,16 @@ import subprocess
 import sys
 from pathlib import Path
 
+
 # Add scripts directory to path for wsd_utils import
 _scripts_dir = Path(__file__).parent
 sys.path.insert(0, str(_scripts_dir))
-from wsd_utils import collect_python_files, get_check_dirs, is_tool_available  # noqa: E402
+from wsd_utils import (  # noqa: E402
+    _find_python_project_root,
+    collect_python_files,
+    get_check_dirs,
+    is_tool_available,
+)
 
 
 def read_pyproject_config(project_root: Path, check_dirs: list[str]) -> tuple[str | None, str]:
@@ -66,7 +72,7 @@ def read_pyproject_config(project_root: Path, check_dirs: list[str]) -> tuple[st
     try:
         import tomllib  # type: ignore[import-not-found]  # noqa: PLC0415
     except ModuleNotFoundError:
-        import tomli as tomllib  # noqa: PLC0415
+        import tomli as tomllib  # type: ignore[import-not-found]  # noqa: PLC0415
 
     pyproject_path = project_root / "pyproject.toml"
 
@@ -282,19 +288,26 @@ def generate_python_api_docs(
         package_name: Optional name of the Python package. If None, uses file mode.
 
     Returns:
-        True if documentation generated successfully, False otherwise
+        True if documentation generated successfully, False otherwise.
+        Calls sys.exit(2) for graceful skips (tool not installed).
     """
     if not is_tool_available("pdoc"):
-        print("Error: pdoc is not installed.", file=sys.stderr)
-        print("", file=sys.stderr)
-        print("To fix this issue, install pdoc as a dev dependency:", file=sys.stderr)
-        print("  uv add --dev pdoc", file=sys.stderr)
-        sys.exit(1)
+        print("")
+        print("pdoc is not installed. Skipping pdoc documentation generation.")
+        print("")
+        sys.exit(2)
 
-    # Handle empty check_dirs - skip gracefully
+    # pdoc is installed - validate configuration
     if not check_dirs:
-        print("No Python files found to document.")
-        return True
+        print(
+            "Error: pdoc is installed but [tool.wsd].check_dirs is not configured.", file=sys.stderr
+        )
+        print("", file=sys.stderr)
+        print("To fix this issue, add check_dirs to your pyproject.toml:", file=sys.stderr)
+        print("  [tool.wsd]", file=sys.stderr)
+        print('  check_dirs = ["src", "tests"]', file=sys.stderr)
+        print("", file=sys.stderr)
+        sys.exit(1)
 
     # Determine source directory from first check_dir
     source_dir = project_root / check_dirs[0]
@@ -353,35 +366,55 @@ def main() -> None:
     Reads configuration from pyproject.toml and generates HTML documentation
     using hybrid mode (package mode if package exists, file mode otherwise).
     """
-    # Check for configured source directories first
-    check_dirs = get_check_dirs()
-    if not check_dirs:
-        print("Skipping pdoc documentation: no source directories configured.")
-        return
+    # Resolve project root via tree-walking utility
+    project_root = _find_python_project_root(Path(__file__).parent)
 
-    # Resolve paths relative to project root
-    script_dir = Path(__file__).resolve().parent
-    project_root = script_dir.parent
+    # Read configured source directories
+    check_dirs = get_check_dirs(project_root)
 
-    # Read configuration from pyproject.toml
-    package_name, source_dir_name = read_pyproject_config(project_root, check_dirs)
+    if check_dirs is None:
+        print(
+            "Warning: [tool.wsd].check_dirs is not configured in pyproject.toml. "
+            "WSD setup may be incomplete."
+        )
 
-    # Build paths
-    source_dir = project_root / source_dir_name
+    # Define output directory
     output_dir = project_root / "dev" / "reports" / "pydoc-api-docs"
 
-    # Validate source directory exists
-    if not source_dir.exists():
-        print(f"Error: Source directory '{source_dir_name}' does not exist.", file=sys.stderr)
-        sys.exit(1)
+    # Two-tier check pattern:
+    # - If check_dirs is empty, generate_python_api_docs will first check if pdoc is installed
+    #   - If pdoc NOT installed → graceful skip (tool not wanted)
+    #   - If pdoc IS installed → hard-fail with configuration instructions (misconfigured)
+    # - If check_dirs exists, proceed with normal validation and generation
 
-    # Pass to generate_python_api_docs which handles package vs file mode
-    success = generate_python_api_docs(
-        check_dirs=check_dirs,
-        output_dir=output_dir,
-        project_root=project_root,
-        package_name=package_name,
-    )
+    if check_dirs:
+        # Read configuration from pyproject.toml
+        package_name, source_dir_name = read_pyproject_config(project_root, check_dirs)
+
+        # Build paths
+        source_dir = project_root / source_dir_name
+
+        # Validate source directory exists
+        if not source_dir.exists():
+            print(f"Error: Source directory '{source_dir_name}' does not exist.", file=sys.stderr)
+            sys.exit(1)
+
+        # Pass to generate_python_api_docs which handles package vs file mode
+        success = generate_python_api_docs(
+            check_dirs=check_dirs,
+            output_dir=output_dir,
+            project_root=project_root,
+            package_name=package_name,
+        )
+    else:
+        # Pass empty check_dirs to generate_python_api_docs for two-tier validation
+        success = generate_python_api_docs(
+            check_dirs=[],
+            output_dir=output_dir,
+            project_root=project_root,
+            package_name=None,
+        )
+
     sys.exit(0 if success else 1)
 
 

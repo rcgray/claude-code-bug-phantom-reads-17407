@@ -14,23 +14,28 @@ language detection across all WSD tools. Override with --project-type flag if ne
 """
 
 import argparse
+import os
 import re
 import subprocess
 import sys
 from pathlib import Path
 from typing import Any, TypedDict
 
+
 # Add scripts directory to path for wsd_utils import
 _scripts_dir = Path(__file__).parent
 sys.path.insert(0, str(_scripts_dir))
 
 from wsd_utils import (  # noqa: E402
+    _find_python_project_root,
     detect_package_manager,
     detect_project_languages,
+    detect_test_runner,
     get_check_dirs,
     get_node_check_dirs,
     is_script_available,
 )
+
 
 # Language Configuration Registry
 # Maps language identifiers to their configuration for documentation generation.
@@ -123,9 +128,9 @@ def validate_python_config() -> list[str]:
     try:
         import tomllib  # type: ignore[import-not-found]
     except ModuleNotFoundError:
-        import tomli as tomllib
+        import tomli as tomllib  # type: ignore[import-not-found]
 
-    project_root = Path(__file__).resolve().parent.parent
+    project_root = _find_python_project_root()
     pyproject_path = project_root / "pyproject.toml"
 
     # Check for pyproject.toml existence
@@ -162,8 +167,8 @@ def validate_python_config() -> list[str]:
     return [str(d) for d in check_dirs if isinstance(d, str)]
 
 
-# Define project root based on the script's location
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+# Define project root via tree-walking utility
+PROJECT_ROOT = _find_python_project_root()
 REPORTS_DIR = PROJECT_ROOT / "docs" / "reports"
 DEV_REPORTS_DIR = PROJECT_ROOT / "dev" / "reports"
 
@@ -286,7 +291,13 @@ def get_file_list_configs(languages: set[str]) -> list[dict[str, Any]]:
         code_patterns = lang_config["code_patterns"]
         test_patterns = lang_config["test_patterns"]
         get_dirs_func = lang_config["get_source_dirs"]
-        source_dirs = get_dirs_func()
+        source_dirs = get_dirs_func(PROJECT_ROOT)
+        if source_dirs is None:
+            print(
+                f"Warning: {display_name} source directories not configured. "
+                "WSD setup may be incomplete. Skipping file list generation."
+            )
+            continue
 
         # Determine exclude patterns based on language
         core_exclude = "__pycache__" if language == "python" else "node_modules"
@@ -532,7 +543,7 @@ def _generate_merged_test_summary(
     """Generate unified Test-Summary.md combining results from all language test runners.
 
     Creates a single Test-Summary.md file with per-language sections, combining test
-    results from Python (pytest) and/or Node.js (Jest/Playwright) test runners.
+    results from Python (pytest) and/or Node.js (unit tests/Playwright) test runners.
 
     Args:
         summary_file: Path where summary markdown file should be written
@@ -577,7 +588,12 @@ def _generate_merged_test_summary(
         # Node.js section
         if "node" in test_results:
             node_result = test_results["node"]
-            jest_data = _parse_jest_output(node_result["jest_stdout"])
+            runner = node_result.get("unit_test_runner")
+            parser = TEST_RESULT_PARSERS.get(runner) if runner else None
+            if parser:
+                jest_data = parser(node_result["jest_stdout"])
+            else:
+                jest_data = _parse_jest_output(node_result["jest_stdout"])
             playwright_data = _parse_playwright_output(node_result["playwright_stdout"])
 
             # Determine language name from coverage report filename
@@ -591,8 +607,8 @@ def _generate_merged_test_summary(
 
             f.write(f"## {lang_name} Tests\n\n")
 
-            # Jest subsection
-            f.write("### Jest (Unit Tests)\n\n")
+            # Unit tests subsection
+            f.write("### Unit Tests\n\n")
             if node_result["jest_skipped"]:
                 f.write("**Status:** SKIPPED (test script not configured)\n")
             elif jest_data["total"] > 0:
@@ -603,7 +619,7 @@ def _generate_merged_test_summary(
                 if jest_data["duration"]:
                     f.write(f"- **Duration:** {jest_data['duration']}\n")
             else:
-                f.write("No Jest test results found.\n")
+                f.write("No unit test results found.\n")
             f.write("\n")
 
             # Playwright subsection
@@ -867,6 +883,9 @@ def _generate_merged_health_summary(
 def _parse_jest_output(stdout: str) -> dict[str, Any]:
     """Parse Jest test output to extract test counts and failure details.
 
+    ANSI escape codes are stripped as the first operation to ensure reliable
+    regex matching regardless of terminal color settings.
+
     Args:
         stdout: Standard output from Jest test execution
 
@@ -881,6 +900,9 @@ def _parse_jest_output(stdout: str) -> dict[str, Any]:
         - duration: Test execution duration string
         - failures: List of (test_name, reason) tuples for failed tests
     """
+    # Strip ANSI escape codes to ensure reliable regex matching
+    stdout = re.sub(r"\x1b\[[0-9;]*m", "", stdout)
+
     result: dict[str, Any] = {
         "passed": 0,
         "failed": 0,
@@ -920,7 +942,7 @@ def _parse_jest_output(stdout: str) -> dict[str, Any]:
     # Extract failed test names and reasons
     # Jest format: "FAIL path/to/test.ts" followed by test descriptions
     pattern = (
-        r"FAIL\s+(.+?\.(?:ts|js|tsx|jsx))\s*\n"
+        r"FAIL\s+(.+?\.(?:tsx|jsx|ts|js))\s*\n"
         r"(.*?)(?=\n\s*(?:PASS|FAIL|Test Suites:)|\Z)"
     )
     fail_blocks = re.findall(pattern, stdout, re.DOTALL)
@@ -983,84 +1005,96 @@ def _parse_playwright_output(stdout: str) -> dict[str, Any]:
     return result
 
 
-def _generate_node_test_summary(
-    summary_file: Path,
-    jest_stdout: str,
-    playwright_stdout: str,
-    jest_log_file: Path,
-    playwright_log_file: Path,
-) -> None:
-    """Generate markdown test summary report from Jest and Playwright outputs.
+def _parse_vitest_test_output(stdout: str) -> dict[str, Any]:
+    """Parse Vitest test output to extract test counts and failure details.
 
-    Creates a unified Test-Summary.md file combining results from both test runners,
-    matching the format used for Python test summaries.
+    Vitest v4.x uses a different output format from Jest: parenthesized totals
+    with optional pipe-separated statuses (e.g., "4 passed (4)" or
+    "3 passed | 1 failed (4)") and "Test Files" instead of "Test Suites".
+    Duration may be in seconds ("1.23s") or milliseconds ("234ms").
+
+    ANSI escape codes are stripped as the first operation to ensure reliable
+    regex matching regardless of terminal color settings.
 
     Args:
-        summary_file: Path where summary markdown file should be written
-        jest_stdout: Standard output from Jest test execution
-        playwright_stdout: Standard output from Playwright test execution
-        jest_log_file: Path to Jest raw output log file for reference linking
-        playwright_log_file: Path to Playwright raw output log file for reference linking
+        stdout: Standard output from Vitest test execution
+
+    Returns:
+        Dictionary containing:
+        - passed: Number of passed tests
+        - failed: Number of failed tests
+        - total: Total number of tests
+        - suites_passed: Number of passed test file suites
+        - suites_failed: Number of failed test file suites
+        - suites_total: Total number of test file suites
+        - duration: Test execution duration string
+        - failures: List of (test_name, reason) tuples for failed tests
     """
-    jest_results = _parse_jest_output(jest_stdout)
-    playwright_results = _parse_playwright_output(playwright_stdout)
+    # Strip ANSI escape codes to ensure reliable regex matching
+    stdout = re.sub(r"\x1b\[[0-9;]*m", "", stdout)
 
-    with summary_file.open("w") as f:
-        f.write("# Test Summary Report\n\n")
-        timestamp = subprocess.run(
-            ["date"], check=False, capture_output=True, text=True
-        ).stdout.strip()
-        f.write(f"**Generated at:** {timestamp}\n\n")
+    result: dict[str, Any] = {
+        "passed": 0,
+        "failed": 0,
+        "total": 0,
+        "suites_passed": 0,
+        "suites_failed": 0,
+        "suites_total": 0,
+        "duration": "",
+        "failures": [],
+    }
 
-        # Combined test results
-        total_passed = jest_results["passed"] + playwright_results["passed"]
-        total_failed = jest_results["failed"] + playwright_results["failed"]
-        total_tests = jest_results["total"] + playwright_results["total"]
+    # Parse test file suite summary.
+    # Vitest v4.x formats:
+    #   All-pass:  "Test Files  4 passed (4)"
+    #   Mixed:     "Test Files  3 passed | 1 failed (4)"
+    #   All-fail:  "Test Files  1 failed (1)"
+    suites_match = re.search(
+        r"Test Files\s+(?:(\d+)\s*passed\s*\|?\s*)?(?:(\d+)\s*failed\s*)?\((\d+)\)",
+        stdout,
+    )
+    if suites_match:
+        result["suites_passed"] = int(suites_match.group(1) or 0)
+        result["suites_failed"] = int(suites_match.group(2) or 0)
+        result["suites_total"] = int(suites_match.group(3) or 0)
 
-        f.write("## Test Results\n\n")
-        f.write(
-            f"**Summary:** {total_passed} passed, {total_failed} failed, {total_tests} total\n\n"
-        )
+    # Parse individual test summary.
+    # Vitest v4.x formats:
+    #   All-pass:  "Tests  42 passed (42)"
+    #   Mixed:     "Tests  40 passed | 2 failed (42)"
+    #   All-fail:  "Tests  2 failed (2)"
+    tests_match = re.search(
+        r"(?<!\w)Tests\s+(?:(\d+)\s*passed\s*\|?\s*)?(?:(\d+)\s*failed\s*)?\((\d+)\)",
+        stdout,
+    )
+    if tests_match:
+        result["passed"] = int(tests_match.group(1) or 0)
+        result["failed"] = int(tests_match.group(2) or 0)
+        result["total"] = int(tests_match.group(3) or 0)
 
-        # Jest section
-        f.write("### Jest (Unit Tests)\n\n")
-        if jest_results["total"] > 0:
-            f.write(f"- **Test Suites:** {jest_results['suites_passed']} passed, ")
-            f.write(
-                f"{jest_results['suites_failed']} failed, {jest_results['suites_total']} total\n"
-            )
-            f.write(f"- **Tests:** {jest_results['passed']} passed, ")
-            f.write(f"{jest_results['failed']} failed, {jest_results['total']} total\n")
-            if jest_results["duration"]:
-                f.write(f"- **Duration:** {jest_results['duration']}\n")
-        else:
-            f.write("No Jest test results found or tests not configured.\n")
-        f.write("\n")
+    # Parse duration: "Duration  1.23s", "Duration  234ms", or "Duration  1.23 s"
+    duration_match = re.search(r"Duration\s+([\d.]+)\s*(ms|s)", stdout)
+    if duration_match:
+        result["duration"] = f"{duration_match.group(1)}{duration_match.group(2)}"
 
-        # Playwright section
-        f.write("### Playwright (E2E Tests)\n\n")
-        if playwright_results["total"] > 0:
-            f.write(f"- **Tests:** {playwright_results['passed']} passed, ")
-            f.write(f"{playwright_results['failed']} failed, {playwright_results['total']} total\n")
-            if playwright_results["duration"]:
-                f.write(f"- **Duration:** {playwright_results['duration']}\n")
-        else:
-            f.write("No Playwright test results found or tests not configured.\n")
-        f.write("\n")
+    # Extract failed test file paths from Vitest output
+    # Vitest marks failed files with ✗ (U+2717) or \u00d7 (multiplication sign) prefix
+    fail_file_pattern = r"[✗\u00d7]\s+(.+?\.(?:tsx|jsx|ts|js))"
+    fail_files = re.findall(fail_file_pattern, stdout)
+    for file_path in fail_files:
+        result["failures"].append((file_path.strip(), "Test failed"))
 
-        # Failed tests section
-        all_failures = jest_results["failures"] + playwright_results["failures"]
-        if all_failures:
-            f.write("## Failed Tests\n\n")
-            for test, reason in all_failures:
-                f.write(f"- `{test}`\n  - {reason}\n")
-            f.write("\n")
+    return result
 
-        f.write("## Full Output\n\n")
-        jest_rel = jest_log_file.relative_to(jest_log_file.parent.parent.parent)
-        f.write(f"- Jest results: [{jest_log_file.name}](../../{jest_rel})\n")
-        pw_rel = playwright_log_file.relative_to(playwright_log_file.parent.parent.parent)
-        f.write(f"- Playwright results: [{playwright_log_file.name}](../../{pw_rel})\n")
+
+# Map test runner names to their output parser functions.
+# Each parser accepts raw stdout and returns a standardized result dictionary
+# with keys: passed, failed, total, suites_passed, suites_failed, suites_total,
+# duration, and failures.
+TEST_RESULT_PARSERS: dict[str, Any] = {
+    "jest": _parse_jest_output,
+    "vitest": _parse_vitest_test_output,
+}
 
 
 def _generate_python_coverage_report(markdown_report_file: Path, coverage_dir: Path) -> None:
@@ -1110,11 +1144,16 @@ def _generate_python_coverage_report(markdown_report_file: Path, coverage_dir: P
             print(f"Error: {cov_stderr}")
 
 
-def _parse_jest_coverage_data(coverage_data: dict[str, Any]) -> list[tuple[str, float, int, int]]:
-    """Parse Jest coverage JSON data into file coverage tuples.
+def _parse_istanbul_coverage_data(
+    coverage_data: dict[str, Any],
+) -> list[tuple[str, float, int, int]]:
+    """Parse Istanbul-format coverage JSON data into file coverage tuples.
+
+    Istanbul is the coverage format produced by both Jest and Vitest. This function
+    parses the statement coverage maps from coverage-final.json files.
 
     Args:
-        coverage_data: Parsed Jest coverage.json data
+        coverage_data: Parsed Istanbul-format coverage.json data
 
     Returns:
         List of (file_path, coverage_pct, total_stmts, missing_stmts) tuples
@@ -1209,13 +1248,13 @@ def _write_node_coverage_markdown(
 def _generate_node_coverage_report(
     coverage_json_path: Path, markdown_report_file: Path, html_report_dir: Path
 ) -> bool:
-    """Generate markdown-formatted coverage report from Jest coverage JSON.
+    """Generate markdown-formatted coverage report from Istanbul coverage JSON.
 
-    Parses the coverage JSON file generated by Jest and creates a markdown
-    coverage report matching the Python coverage report format.
+    Parses the Istanbul-format coverage JSON file (produced by both Jest and Vitest)
+    and creates a markdown coverage report matching the Python coverage report format.
 
     Args:
-        coverage_json_path: Path to Jest coverage.json file
+        coverage_json_path: Path to Istanbul-format coverage.json file
         markdown_report_file: Path where markdown coverage report should be written
         html_report_dir: Path to HTML coverage report directory for linking
 
@@ -1235,8 +1274,8 @@ def _generate_node_coverage_report(
         print(f"Warning: Could not parse coverage JSON: {e}")
         return False
 
-    # Parse coverage data from Jest/Istanbul format
-    files_coverage = _parse_jest_coverage_data(coverage_data)
+    # Parse coverage data from Istanbul format
+    files_coverage = _parse_istanbul_coverage_data(coverage_data)
 
     # Sort by coverage percentage (ascending - worst coverage first)
     files_coverage.sort(key=lambda x: x[1])
@@ -1326,14 +1365,17 @@ class NodeTestResult(TypedDict):
 
     Attributes:
         success: True if all executed tests passed (skipped tests don't affect this).
-        jest_stdout: Captured stdout from Jest execution, empty if skipped.
+        jest_stdout: Captured stdout from unit test execution, empty if skipped.
         playwright_stdout: Captured stdout from Playwright execution, empty if skipped.
-        jest_log_file: Path to Jest raw log file.
+        jest_log_file: Path to unit test raw log file.
         playwright_log_file: Path to Playwright raw log file.
         coverage_dir: Path to coverage report directory.
         coverage_report_file: Path to markdown coverage report.
         jest_skipped: True if test script was not available.
         playwright_skipped: True if test:e2e script was not available.
+        unit_test_runner: Detected test runner name (e.g., "jest", "vitest") or None
+            if no runner was detected. Used to select the appropriate output parser
+            from TEST_RESULT_PARSERS.
     """
 
     success: bool
@@ -1345,6 +1387,7 @@ class NodeTestResult(TypedDict):
     coverage_report_file: Path
     jest_skipped: bool
     playwright_skipped: bool
+    unit_test_runner: str | None
 
 
 class PythonHealthCheckResult(TypedDict):
@@ -1384,19 +1427,22 @@ class NodeHealthCheckResult(TypedDict):
 
 
 def run_node_tests(language: str) -> NodeTestResult:
-    """Run Jest and Playwright tests and save results to report files.
+    """Run unit and Playwright tests and save results to report files.
 
     Uses detected package manager (pnpm, npm, yarn, or bun) for test commands.
-    Falls back to npm if package manager detection returns None.
+    Falls back to npm if package manager detection returns None. Detects the
+    configured test runner (Jest, Vitest, etc.) to select the appropriate output
+    parser from TEST_RESULT_PARSERS. Sets NO_COLOR=1 in the test command
+    environment to suppress terminal color codes for reliable output parsing.
 
-    Checks script availability before execution: if test or test:e2e scripts
-    are not defined in package.json, the corresponding test suite is skipped with
-    a clear message rather than marking it as failed.
+    Checks script availability before execution: if test:coverage, test, or test:e2e
+    scripts are not defined in package.json, the corresponding test suite is skipped
+    with a clear message rather than marking it as failed.
 
     Generates the following reports:
-    - Raw test logs in dev/reports/ (Test-Results-Jest.log, Test-Results-Playwright.log)
+    - Raw test logs in dev/reports/ (Test-Results-Unit.log, Test-Results-Playwright.log)
     - Language-specific coverage report in docs/reports/ (e.g., Javascript-Coverage-Report.md)
-    - HTML coverage report in dev/reports/coverage-node/ (if Jest coverage is configured)
+    - HTML coverage report in dev/reports/coverage-node/ (if coverage is configured)
 
     Args:
         language: Language identifier ("typescript" or "javascript") for naming outputs
@@ -1410,13 +1456,27 @@ def run_node_tests(language: str) -> NodeTestResult:
     # Use detected package manager, fallback to npm if None
     pkg_manager = PKG_MANAGER if PKG_MANAGER is not None else "npm"
 
+    # Suppress terminal color codes in test runner output to ensure reliable parsing
+    test_env = {**os.environ, "NO_COLOR": "1"}
+
+    # Detect test runner for output parsing
+    runner = detect_test_runner()
+    if runner and runner in TEST_RESULT_PARSERS:
+        print(f"Detected test runner: {runner}")
+    elif runner:
+        print(f"Warning: Detected test runner '{runner}' has no output parser registered")
+        print("Raw test output will be logged but detailed parsing will be skipped")
+    else:
+        print("Warning: Could not detect test runner from package.json devDependencies")
+        print("Raw test output will be logged but detailed parsing will be skipped")
+
     # Language-specific output paths
     display_name = LANGUAGE_CONFIG[language]["display_name"]
     coverage_dir = DEV_REPORTS_DIR / "coverage-node"
     coverage_report_file = REPORTS_DIR / f"{display_name}-Coverage-Report.md"
 
     # Raw test logs go to dev/reports/
-    jest_log_file = DEV_REPORTS_DIR / "Test-Results-Jest.log"
+    jest_log_file = DEV_REPORTS_DIR / "Test-Results-Unit.log"
     playwright_log_file = DEV_REPORTS_DIR / "Test-Results-Playwright.log"
 
     # Track test results
@@ -1425,21 +1485,13 @@ def run_node_tests(language: str) -> NodeTestResult:
     jest_skipped = False
     playwright_skipped = False
 
-    # Check Jest (test) availability and run if available
-    if is_script_available("test"):
-        jest_cmd = [
-            pkg_manager,
-            "run",
-            "test",
-            "--",
-            "--coverage",
-            "--coverageReporters=json",
-            "--coverageReporters=html",
-            f"--coverageDirectory={coverage_dir}",
-        ]
+    # Check test script availability and run if available
+    # Prefer test:coverage (user-configured) over test (no coverage)
+    if is_script_available("test:coverage"):
+        jest_cmd = [pkg_manager, "run", "test:coverage"]
 
-        print("\nRunning jest tests...")
-        returncode, stdout, stderr = run_command(jest_cmd, capture_output=True)
+        print("\nRunning tests with coverage (via test:coverage script)...")
+        returncode, stdout, stderr = run_command(jest_cmd, capture_output=True, env=test_env)
 
         test_outputs["jest"] = stdout
 
@@ -1450,26 +1502,50 @@ def run_node_tests(language: str) -> NodeTestResult:
         with jest_log_file.open("w") as f:
             f.write(log_content)
         log_rel = jest_log_file.relative_to(PROJECT_ROOT)
-        print(f"Jest test results logged to: {log_rel}")
+        print(f"Test results logged to: {log_rel}")
 
         if returncode == 0:
-            print("Jest tests passed.")
+            print("Tests passed.")
         else:
             all_passed = False
-            print(f"Jest tests FAILED (return code: {returncode}). Check log file for details.")
+            print(f"Tests FAILED (return code: {returncode}). Check log file for details.")
+    elif is_script_available("test"):
+        jest_cmd = [pkg_manager, "run", "test"]
+
+        print("\nRunning tests without coverage (test:coverage script not configured)...")
+        returncode, stdout, stderr = run_command(jest_cmd, capture_output=True, env=test_env)
+
+        test_outputs["jest"] = stdout
+
+        log_content = f"Command: {' '.join(jest_cmd)}\n"
+        log_content += f"Return code: {returncode}\n\n"
+        log_content += f"--- STDOUT ---\n{stdout}\n--- STDERR ---\n{stderr}"
+
+        with jest_log_file.open("w") as f:
+            f.write(log_content)
+        log_rel = jest_log_file.relative_to(PROJECT_ROOT)
+        print(f"Test results logged to: {log_rel}")
+
+        if returncode == 0:
+            print("Tests passed.")
+        else:
+            all_passed = False
+            print(f"Tests FAILED (return code: {returncode}). Check log file for details.")
     else:
         jest_skipped = True
-        print("\nJest tests SKIPPED (test script not configured)")
+        print("\nTests SKIPPED (neither test:coverage nor test script configured)")
         # Write skip status to log file
         with jest_log_file.open("w") as f:
-            f.write("Jest tests SKIPPED: test script not configured in package.json\n")
+            f.write(
+                "Tests SKIPPED: neither test:coverage nor test script configured in package.json\n"
+            )
 
     # Check Playwright (test:e2e) availability and run if available
     if is_script_available("test:e2e"):
         playwright_cmd = [pkg_manager, "run", "test:e2e"]
 
         print("\nRunning playwright tests...")
-        returncode, stdout, stderr = run_command(playwright_cmd, capture_output=True)
+        returncode, stdout, stderr = run_command(playwright_cmd, capture_output=True, env=test_env)
 
         test_outputs["playwright"] = stdout
 
@@ -1504,9 +1580,11 @@ def run_node_tests(language: str) -> NodeTestResult:
         _generate_node_coverage_report(coverage_json_path, coverage_report_file, coverage_dir)
         print(f"HTML coverage: {coverage_dir.relative_to(PROJECT_ROOT)}/index.html")
     elif jest_skipped:
-        print("Note: Coverage data not generated (Jest was skipped).")
+        print("Note: Coverage data not generated (unit tests were skipped).")
     else:
-        print("Note: Coverage data not found. Ensure Jest is configured with coverage enabled.")
+        print(
+            "Note: Coverage data not found. Ensure test runner is configured with coverage enabled."
+        )
         print(f"Expected coverage JSON at: {coverage_json_path.relative_to(PROJECT_ROOT)}")
 
     # Print summary
@@ -1527,10 +1605,11 @@ def run_node_tests(language: str) -> NodeTestResult:
         coverage_report_file=coverage_report_file,
         jest_skipped=jest_skipped,
         playwright_skipped=playwright_skipped,
+        unit_test_runner=runner,
     )
 
 
-def generate_python_api_docs() -> bool:
+def generate_python_api_docs() -> bool | str:
     """Generate Python API documentation using codedocs_pdoc.
 
     Imports and calls generate_python_api_docs() from codedocs_pdoc module,
@@ -1538,11 +1617,12 @@ def generate_python_api_docs() -> bool:
     hybrid mode selection (package mode vs file mode) internally.
 
     Returns:
-        True if documentation generated successfully, False otherwise
+        True if documentation generated successfully, "skipped" if tool not
+        available (exit code 2), False otherwise.
     """
     # Get check_dirs from configuration
-    check_dirs = get_check_dirs()
-    if not check_dirs:
+    check_dirs = get_check_dirs(PROJECT_ROOT)
+    if check_dirs is None:
         print("Skipping Python API docs: no source directories configured.")
         return True
 
@@ -1556,15 +1636,22 @@ def generate_python_api_docs() -> bool:
     # Define output directory
     output_dir = DEV_REPORTS_DIR / "pydoc-api-docs"
 
-    # Call the function directly with check_dirs
-    return pdoc_generate(
-        check_dirs=check_dirs,
-        output_dir=output_dir,
-        project_root=PROJECT_ROOT,
-    )
+    # Call the function directly with check_dirs.
+    # codedocs_pdoc calls sys.exit(2) when pdoc is not installed,
+    # which raises SystemExit — catch it and return "skipped".
+    try:
+        return pdoc_generate(
+            check_dirs=check_dirs,
+            output_dir=output_dir,
+            project_root=PROJECT_ROOT,
+        )
+    except SystemExit as e:
+        if e.code == 2:
+            return "skipped"
+        raise
 
 
-def generate_node_api_docs(project_type: str) -> bool:
+def generate_node_api_docs(project_type: str) -> bool | str:
     """Generate Node.js API documentation (TypeDoc for TypeScript, JSDoc for JavaScript).
 
     Executes the appropriate documentation generation script based on project type.
@@ -1576,7 +1663,8 @@ def generate_node_api_docs(project_type: str) -> bool:
         project_type: Language type - must be "typescript" or "javascript"
 
     Returns:
-        True if documentation generated successfully, False otherwise
+        True if documentation generated successfully, "skipped" if tool not
+        available (exit code 2), False if generation failed.
 
     Raises:
         ValueError: If project_type is not "typescript" or "javascript"
@@ -1612,6 +1700,8 @@ def generate_node_api_docs(project_type: str) -> bool:
         print(f"{tool_name} generation script completed successfully.")
         print(f"Output: {output_desc}")
         return True
+    if returncode == 2:
+        return "skipped"
     print(f"{tool_name} generation script FAILED (return code: {returncode}).")
     return False
 

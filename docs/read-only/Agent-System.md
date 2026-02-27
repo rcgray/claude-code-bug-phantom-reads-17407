@@ -31,7 +31,8 @@ Our system uses several special terms. They are as follows:
 - "Action Plan" (or "Implementation Plan"): The checkboxlist (CBL) found at the end of a Work Plan Document (WPD). In the case of Feature Overviews, this is sometimes referred to as the "Feature Implementation Plan" (FIP). There is a primary root Action Plan for the project located in `docs/core/Action-Plan.md`, from which all other Action Plans attach through file references.
 - "Feature Overview": A Work Plan Document (WPD) for a feature, serving as the primary specification for a feature and residing at "docs/features/feature-name/Feature-Name-Overview.md".
 - "Ticket": A Work Plan Document (WPD) for an investigation, but fix, or other alteration that needs to be performed. Tickets are usually describing work items that are not significant enough to be designated as a "feature,", and they reside in `docs/tickets` and are organized into "closed" or "open" status.
-- "Document Promotion": A common task for the User Agent is to craft a document, such as an explanation of an architecture system or best practices for writing tests or working with a particular library. In these workflows, we will have the User Agent write its drafts to the workbench, where (after the document is complete), the User will manually "promote" the document to a permanent location (such as `docs/read-only/standards`, `docs/references/` or `docs/core/`, etc.) where it will become a fixture of the project's documentation and will be used as context for future agents.
+- "karpathy script" (or "kscript"): An alternative to traditional programming (e.g., Python), where a repeatable, software operation is designed as an agent-interpretable instruction (possibly with associated traditional scripts). These are not perfectly deterministic as a traditional script would be, due to the stochastic elements of the LLM model, but they are faster to implement and particularly well-suited for complex tasks involving NLP.
+- "document promotion": A common task for the User Agent is to craft a document, such as an explanation of an architecture system or best practices for writing tests or working with a particular library. In these workflows, we will have the User Agent write its drafts to the workbench, where (after the document is complete), the User will manually "promote" the document to a permanent location (such as `docs/read-only/standards`, `docs/references/` or `docs/core/`, etc.) where it will become a fixture of the project's documentation and will be used as context for future agents.
 - "In-Flight Failure" (IFF): A test failure or issue caused by earlier phases of the current ticket/feature that is scheduled for resolution in a later phase of the SAME ticket. IFFs are expected during mid-ticket workscopes and are NOT bugs—they are planned consequences of phased work. IFFs must be distinguished from "Pre-Existing Failures" (issues that existed BEFORE the current ticket began and are unrelated to the current work). When test failures occur, agents must categorize them as: (a) introduced by current workscope, (b) IFF from earlier phases, or (c) truly pre-existing. See Rule 3.20 in Agent-Rules.md for terminology requirements.
 
 ## Agent Types & Responsibilities
@@ -263,6 +264,8 @@ Every User Agent follows this sequential workflow:
 ## Situational Awareness
 
 User Agents are assigned specific tasks from a larger ticket or feature. A critical capability is understanding not just *what* you are doing, but *how it fits into the larger work*.
+
+You are not an individual contributor defending a personal scope — you are the current member of a relay team. When you pick up the baton, everything attached to it is yours: the work you do, the work before you in this ticket, and the state of the codebase when you hand it off. Classification of where a problem originated is useful data for debugging. It is never a justification for leaving it unfixed.
 
 **Situational Awareness** means:
 - Reading the full ticket/feature, not just extracting your assigned tasks
@@ -544,7 +547,7 @@ User Agents **must verify** that Special Agent reports contain the required evid
 **Verification Checklist:**
 1. **Task-Master**: File path provided + file exists + file readable + contents copied to Work Journal
 2. **Context-Librarian/Codebase-Surveyor**: Actual file paths listed (not summaries) + copied to Work Journal
-3. **Test-Guardian**: Test summary output included (e.g., "22 passed in 0.09s") + copied to Work Journal
+3. **Test-Guardian**: Test summary output included (e.g., "22 passed in 0.09s") + copied to Work Journal. Note that Test-Guardian must present Proof of Work for ALL TEST SUITES relevant to the project (i.e., not just for pytest results in a project that has both Python AND TypeScript).
 4. **Health-Inspector**: Health check summary table included (all checks listed) + copied to Work Journal
 
 **If Evidence Missing:**

@@ -54,11 +54,14 @@ The TypeScript health check runs these checks in sequence:
 
 ### Package Manager Support
 
-The health check automatically detects your package manager based on lock files:
+The health check automatically detects your package manager based on lock files in priority order:
 
 1. **pnpm** (highest priority) - Detected by `pnpm-lock.yaml`
-2. **yarn** (medium priority) - Detected by `yarn.lock`
-3. **npm** (default) - Used if no other lock files found
+2. **npm** - Detected by `package-lock.json`
+3. **yarn** - Detected by `yarn.lock`
+4. **bun** - Detected by `bun.lock` or `bun.lockb`
+
+If no lock file is found, the health check exits with an error. Create a lock file by running your package manager's install command (e.g., `npm install`, `pnpm install`, `yarn install`, or `bun install`).
 
 ### Safe vs Aggressive Mode
 

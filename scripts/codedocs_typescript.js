@@ -21,11 +21,10 @@ const fs = require('fs');
 const path = require('path');
 
 // Import language detection and configuration utilities
-const { detectProjectLanguages, getCheckDirs } = require('./wsd_utils.js');
+const { detectProjectLanguages, getCheckDirs, findPackageJsonRoot } = require('./wsd_utils.js');
 
-// Resolve project root from script location for consistent path resolution
-// regardless of the current working directory when the script is invoked.
-const PROJECT_ROOT = path.resolve(__dirname, '..');
+// Resolve project root via shared utility function
+const PROJECT_ROOT = findPackageJsonRoot();
 const OUTPUT_PATH = path.join(PROJECT_ROOT, 'docs', 'reports', 'TypeScript-Code-Map.md');
 const TSCONFIG_PATH = path.join(PROJECT_ROOT, 'tsconfig.json');
 const TITLE = 'TypeScript Code Map';
@@ -458,7 +457,7 @@ class CodeMapGenerator {
               .relative(this.projectBasePath, absoluteLinkTarget)
               .replace(/\\/g, '/');
             return `{@link ${newRelativePath}}`;
-          } catch (e) {
+          } catch (_e) {
             // If path resolution fails, preserve the original link
             return match;
           }
@@ -830,7 +829,12 @@ type ${typeItem.name} = ${typeItem.type};
 async function main() {
   // Check for configured source directories first
   const checkDirs = getCheckDirs();
-  if (checkDirs.length === 0) {
+  if (checkDirs === null) {
+    console.error(
+      'Warning: wsd.checkDirs is not configured in package.json. WSD setup may be incomplete.'
+    );
+  }
+  if (checkDirs === null || checkDirs.length === 0) {
     console.log('Skipping TypeScript code map: no source directories configured.');
     return;
   }

@@ -14,10 +14,11 @@ import sys
 from pathlib import Path
 from typing import Any
 
+
 # Add scripts directory to path for wsd_utils import
 _scripts_dir = Path(__file__).parent
 sys.path.insert(0, str(_scripts_dir))
-from wsd_utils import get_check_dirs  # noqa: E402
+from wsd_utils import _find_python_project_root, get_check_dirs  # noqa: E402
 
 
 def get_docstring_summary(docstring: str | None) -> str:
@@ -223,16 +224,19 @@ def main() -> None:
     Reads configuration from pyproject.toml and generates a markdown code map
     at docs/reports/Python-Code-Map.md.
     """
-    # Check for configured source directories first
-    check_dirs = get_check_dirs()
+    # Resolve project root via tree-walking utility
+    project_root = _find_python_project_root(Path(__file__).parent)
+
+    # Check for configured source directories
+    check_dirs = get_check_dirs(project_root)
+    if check_dirs is None:
+        print(
+            "Warning: [tool.wsd].check_dirs is not configured in pyproject.toml. "
+            "WSD setup may be incomplete."
+        )
     if not check_dirs:
         print("Skipping Python code map: no source directories configured.")
         return
-
-    # Resolve paths relative to project root
-    # Project root is one directory up from script location (scripts/ → project root)
-    script_dir = Path(__file__).resolve().parent
-    project_root = script_dir.parent
 
     # Get the source directory from check_dirs
     source_dir_name = check_dirs[0]

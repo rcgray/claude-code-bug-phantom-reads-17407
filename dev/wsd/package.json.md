@@ -28,26 +28,41 @@ These scripts are **required** for `./wsd.py health` to pass. The health check i
 ```
 
 **Notes:**
+- `build` is **TypeScript only** — JavaScript projects do not need this script. The health check skips build validation for JavaScript projects.
+- `lint:json` is consumed internally by `./wsd.py health` for structured ESLint output parsing. There is no standalone `./wsd.py lint:json` command — users do not invoke this script directly.
 - Use explicit file extensions (`--ext .ts,.tsx,.js,.jsx`) to prevent ESLint from scanning non-code files
 - Scope commands to your source directories (e.g., `source tests`) rather than the entire project
 - The `format:check` script is required for the health check's formatting validation
 
-### Recommended Scripts
+### Optional Scripts (Testing and Quality)
 
-These scripts enhance the development experience but are not required by the health check:
+These scripts provide testing and quality tooling via `./wsd.py`:
 
 ```json
 {
   "scripts": {
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
+    "test:coverage": "jest --coverage --coverageDirectory=dev/reports/coverage-node",
+    "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",
     "validate": "npm run lint && npm run typecheck && npm run format:check",
     "watch": "tsc --watch"
   }
 }
 ```
+
+| Script         | Purpose                                      |
+| -------------- | -------------------------------------------- |
+| `test`         | Run test suite                               |
+| `test:watch`   | Run tests in watch mode                      |
+| `test:coverage`| Run tests with coverage report               |
+| `test:e2e`     | Run end-to-end tests                         |
+| `typecheck`    | Type safety validation (TypeScript only)     |
+| `validate`     | Composite of lint + typecheck + format:check |
+| `watch`        | Watch mode compilation (TypeScript only)     |
+
+**Note:** `typecheck` and `watch` are TypeScript-specific. The health check reports type checking status when the `typecheck` script is available and gracefully skips it when absent.
 
 ### Optional Scripts (Health Check Enhancement)
 
@@ -57,7 +72,6 @@ These scripts enable additional health check features. The health check **gracef
 {
   "scripts": {
     "lint:security": "eslint --ext .ts,.tsx,.js,.jsx source tests --plugin security --format json",
-    "lint:tsdoc": "eslint --ext .ts,.tsx,.js,.jsx source tests --plugin eslint-plugin-tsdoc --format json",
     "typedoc:validate": "typedoc --validation --treatWarningsAsErrors --emit none"
   }
 }
@@ -66,10 +80,58 @@ These scripts enable additional health check features. The health check **gracef
 | Script            | Requires Package         | Purpose                              |
 |-------------------|--------------------------|--------------------------------------|
 | `lint:security`   | `eslint-plugin-security` | Security vulnerability scanning      |
-| `lint:tsdoc`      | `eslint-plugin-tsdoc`    | TSDoc comment syntax validation      |
-| `typedoc:validate`| `typedoc`                | TypeDoc generation validation        |
+| `typedoc:validate`| `typedoc`                | TypeDoc generation validation (TypeScript only) |
 
 **Note:** Each script requires both the package to be installed AND the script to be defined. If either is missing, the health check skips the corresponding check with "⏭️ SKIPPED" status.
+
+### Optional Scripts (Task Runner)
+
+These scripts provide additional task runner commands via `./wsd.py`:
+
+```json
+{
+  "scripts": {
+    "lint:aggressive": "eslint --ext .ts,.tsx,.js,.jsx source tests --fix --max-warnings 0"
+  }
+}
+```
+
+| Script            | Requires Package | Purpose                              |
+|-------------------|------------------|--------------------------------------|
+| `lint:aggressive` | `eslint`         | Auto-fix lint errors with zero-warning policy |
+
+**Note:** `lint:aggressive` combines `--fix` with `--max-warnings 0`, treating any remaining warning as an error after auto-fixes are applied. Mapped to `./wsd.py lint:aggressive`.
+
+### Optional Scripts (Documentation Generation)
+
+These scripts are consumed by WSD's codedocs scripts to generate API documentation. They are **not** used by the health check or task runner.
+
+**JavaScript projects:**
+
+```json
+{
+  "scripts": {
+    "jsdoc": "jsdoc -c jsdoc.json -d dev/reports/jsdoc-api-docs -r"
+  }
+}
+```
+
+**TypeScript projects:**
+
+```json
+{
+  "scripts": {
+    "typedoc": "typedoc"
+  }
+}
+```
+
+| Script   | Requires Package | Language   | Consumer                |
+|----------|------------------|------------|-------------------------|
+| `jsdoc`  | `jsdoc`          | JavaScript | `codedocs_jsdoc.js`     |
+| `typedoc`| `typedoc`        | TypeScript | `codedocs_typedoc.js`   |
+
+**Note:** `typedoc` is distinct from `typedoc:validate` (listed above under Health Check Enhancement). The `typedoc` script generates HTML API documentation, while `typedoc:validate` checks for documentation warnings without generating output. These scripts will fail with a clear error message if the corresponding dependency is not installed.
 
 ### Optional Scripts (Project-Type Dependent)
 
@@ -97,14 +159,16 @@ For full WSD task runner support, combine all the above categories:
     "lint": "eslint --ext .ts,.tsx,.js,.jsx source tests",
     "lint:fix": "eslint --ext .ts,.tsx,.js,.jsx source tests --fix",
     "lint:json": "eslint --ext .ts,.tsx,.js,.jsx source tests --format json",
+    "lint:aggressive": "eslint --ext .ts,.tsx,.js,.jsx source tests --fix --max-warnings 0",
     "lint:security": "eslint --ext .ts,.tsx,.js,.jsx source tests --plugin security --format json",
-    "lint:tsdoc": "eslint --ext .ts,.tsx,.js,.jsx source tests --plugin eslint-plugin-tsdoc --format json",
     "format": "prettier --write \"source/**/*.{ts,tsx,js,jsx}\" \"tests/**/*.{ts,tsx,js,jsx}\"",
     "format:check": "prettier --check \"source/**/*.{ts,tsx,js,jsx}\" \"tests/**/*.{ts,tsx,js,jsx}\"",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
+    "test:coverage": "jest --coverage --coverageDirectory=dev/reports/coverage-node",
+    "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",
+    "typedoc": "typedoc",
     "typedoc:validate": "typedoc --validation --treatWarningsAsErrors --emit none",
     "validate": "npm run lint && npm run typecheck && npm run format:check",
     "watch": "tsc --watch",
@@ -217,6 +281,45 @@ The `wsd` field can be placed anywhere in your package.json at the root level:
 
 ---
 
+## Test Coverage Output Convention
+
+WSD expects Node.js test coverage data to be output to `dev/reports/coverage-node/`. The `update_docs.py` pipeline looks for `coverage-final.json` in this directory after running your `test:coverage` script to generate coverage reports. Both Jest and Vitest produce Istanbul-format coverage data, so the same pipeline works with either test runner.
+
+Configure your `test:coverage` script to write coverage reports to this location:
+
+**Jest:**
+```json
+{
+  "scripts": {
+    "test:coverage": "jest --coverage --coverageDirectory=dev/reports/coverage-node"
+  }
+}
+```
+
+**Vitest:**
+```json
+{
+  "scripts": {
+    "test:coverage": "vitest run --coverage --coverage.reportsDirectory=dev/reports/coverage-node"
+  }
+}
+```
+
+Vitest requires `@vitest/coverage-v8` (or `@vitest/coverage-istanbul`) as a dev dependency for coverage support:
+
+```json
+{
+  "devDependencies": {
+    "vitest": "^1.0.0",
+    "@vitest/coverage-v8": "^1.0.0"
+  }
+}
+```
+
+When `test:coverage` is not defined in your `package.json`, the documentation pipeline falls back to running the `test` script without coverage. Tests still run and results are reported, but no coverage report is generated.
+
+---
+
 ## Script Mapping Reference
 
 ### Scripts Required for Health Check
@@ -225,10 +328,10 @@ The health check (`./wsd.py health`) requires these scripts:
 
 | Script         | Purpose                                      |
 | -------------- | -------------------------------------------- |
-| `build`        | TypeScript compilation and bundling          |
+| `build`        | TypeScript compilation and bundling (TypeScript only) |
 | `lint`         | Check for lint errors                        |
 | `lint:fix`     | Auto-fix lint errors (safe mode)             |
-| `lint:json`    | Lint output in JSON format for parsing       |
+| `lint:json`    | Lint output in JSON format (internal use by `./wsd.py health`) |
 | `format`       | Format code with auto-fix                    |
 | `format:check` | Check formatting without modifying files     |
 
@@ -240,8 +343,8 @@ These scripts enable additional health check features (gracefully skipped if mis
 
 | Script            | Requires Package         | Purpose                              |
 |-------------------|--------------------------|--------------------------------------|
+| `typecheck`       | `typescript`             | Type safety validation               |
 | `lint:security`   | `eslint-plugin-security` | Security vulnerability scanning      |
-| `lint:tsdoc`      | `eslint-plugin-tsdoc`    | TSDoc comment syntax validation      |
 | `typedoc:validate`| `typedoc`                | TypeDoc generation validation        |
 
 ### All WSD Command Mappings
@@ -252,13 +355,15 @@ These scripts enable additional health check features (gracefully skipped if mis
 | `./wsd.py test`       | `test`           | Run test suite                        |
 | `./wsd.py test:watch` | `test:watch`     | Run tests in watch mode               |
 | `./wsd.py test:coverage` | `test:coverage` | Run tests with coverage             |
+| `./wsd.py test:e2e`   | `test:e2e`       | Run end-to-end tests                  |
 | `./wsd.py lint`       | `lint`           | Check for lint errors                 |
 | `./wsd.py lint:fix`   | `lint:fix`       | Auto-fix lint errors                  |
+| `./wsd.py lint:aggressive` | `lint:aggressive` | Auto-fix lint errors with zero-warning policy |
 | `./wsd.py format`     | `format`         | Format code                           |
 | `./wsd.py format:check` | `format:check` | Check formatting                      |
 | `./wsd.py type`       | `typecheck`      | Type check code                       |
 | `./wsd.py validate`   | `validate`       | Lint + type + format check            |
-| `./wsd.py build`      | `build`          | Build project                         |
+| `./wsd.py build`      | `build`          | Build project (TypeScript only)       |
 | `./wsd.py dev`        | `dev`            | Start development server              |
 | `./wsd.py serve`      | `serve`          | Start preview server                  |
 | `./wsd.py watch`      | `watch`          | Watch mode compilation                |
@@ -334,15 +439,6 @@ These packages enable additional WSD features. When missing, the health check **
 {
   "devDependencies": {
     "eslint-plugin-security": "^2.0.0"
-  }
-}
-```
-
-**For TSDoc Validation (health check skips if missing):**
-```json
-{
-  "devDependencies": {
-    "eslint-plugin-tsdoc": "^0.2.0"
   }
 }
 ```
@@ -430,8 +526,7 @@ npm install --save-dev \
   jest \
   @types/jest \
   ts-jest \
-  eslint-plugin-security \
-  eslint-plugin-tsdoc
+  eslint-plugin-security
 ```
 
 ---
@@ -445,11 +540,11 @@ npm install --save-dev \
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage --coverage.reportsDirectory=dev/reports/coverage-node"
   },
   "devDependencies": {
     "vitest": "^1.0.0",
-    "@vitest/ui": "^1.0.0"
+    "@vitest/coverage-v8": "^1.0.0"
   }
 }
 ```
@@ -517,20 +612,20 @@ Here's a fully-configured package.json for a WSD TypeScript project:
     "lint": "eslint --ext .ts,.tsx,.js,.jsx src tests",
     "lint:fix": "eslint --ext .ts,.tsx,.js,.jsx src tests --fix",
     "lint:json": "eslint --ext .ts,.tsx,.js,.jsx src tests --format json",
+    "lint:aggressive": "eslint --ext .ts,.tsx,.js,.jsx src tests --fix --max-warnings 0",
     "lint:security": "eslint --ext .ts,.tsx,.js,.jsx src tests --plugin security --format json",
-    "lint:tsdoc": "eslint --ext .ts,.tsx,.js,.jsx src tests --plugin eslint-plugin-tsdoc --format json",
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx}\" \"tests/**/*.{ts,tsx,js,jsx}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx}\" \"tests/**/*.{ts,tsx,js,jsx}\"",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
+    "test:coverage": "jest --coverage --coverageDirectory=dev/reports/coverage-node",
     "typecheck": "tsc --noEmit",
+    "typedoc": "typedoc",
     "typedoc:validate": "typedoc --validation --treatWarningsAsErrors --emit none",
     "validate": "npm run lint && npm run typecheck && npm run format:check",
     "watch": "tsc --watch",
     "dev": "vite dev",
-    "serve": "vite preview",
-    "docs": "typedoc"
+    "serve": "vite preview"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",
@@ -539,7 +634,6 @@ Here's a fully-configured package.json for a WSD TypeScript project:
     "@typescript-eslint/parser": "^6.0.0",
     "eslint": "^8.56.0",
     "eslint-plugin-security": "^2.0.0",
-    "eslint-plugin-tsdoc": "^0.2.0",
     "jest": "^29.7.0",
     "prettier": "^3.1.0",
     "ts-jest": "^29.1.0",
@@ -562,10 +656,9 @@ Here's a fully-configured package.json for a WSD TypeScript project:
 | `@types/node`                      | Node.js type definitions    | **Yes**     | TypeScript compilation                  |
 | `eslint`                           | Linting                     | **Yes**     | `./wsd.py lint`, health check           |
 | `prettier`                         | Code formatting             | **Yes**     | `./wsd.py format`, health check         |
-| `@typescript-eslint/parser`        | ESLint TS support           | Recommended | ESLint for TypeScript                   |
-| `@typescript-eslint/eslint-plugin` | ESLint TS rules             | Recommended | ESLint for TypeScript                   |
+| `@typescript-eslint/parser`        | ESLint TS support           | **Yes**     | ESLint for TypeScript                   |
+| `@typescript-eslint/eslint-plugin` | ESLint TS rules             | Optional    | ESLint for TypeScript                   |
 | `eslint-plugin-security`           | Security scanning           | Optional    | Health check (skips if missing)         |
-| `eslint-plugin-tsdoc`              | TSDoc validation            | Optional    | Health check (skips if missing)         |
 | `typedoc`                          | HTML API doc generation     | Optional    | codedocs_typedoc.js (required for script) |
 | `jest`                             | Testing framework           | Optional    | `./wsd.py test`                         |
 | `@types/jest`                      | Jest type definitions       | Optional    | Jest with TypeScript                    |

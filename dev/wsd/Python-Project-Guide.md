@@ -60,11 +60,15 @@ If starting from scratch or missing dependencies, follow the complete setup belo
 
 ## Project Detection
 
-WSD automatically detects Python projects by looking for:
+WSD automatically detects Python projects based on project configuration and source files:
 
-| File             | Detection Result |
-| ---------------- | ---------------- |
-| `pyproject.toml` | Python project   |
+| Condition | Detection Result |
+| --------- | ---------------- |
+| `pyproject.toml` contains a `[project]` section | Python project |
+| `.py` files exist in configured `check_dirs` directories | Python project |
+| `pyproject.toml` exists without `[project]` section and no `.py` files in check dirs | Not a Python project (codeless) |
+
+The mere presence of `pyproject.toml` does NOT indicate a Python project. WSD requires `pyproject.toml` for its own dependencies, but a codeless project (research papers, documentation) would have this file without being a Python project.
 
 The `update_docs.py` script and task runner use this detection to run the appropriate tools.
 

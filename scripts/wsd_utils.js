@@ -7,10 +7,12 @@
  * WSD tools to adapt their behavior appropriately for each project type.
  *
  * Functions:
+ * - findPackageJsonRoot(): Find the project-root directory via package.json
  * - getCheckDirs(): Read configured check directories from package.json
  * - hasTypeScriptFiles(): Scan directories for .ts files
  * - detectProjectLanguages(): Detect all Node.js languages present in the project
  * - detectPackageManager(): Detect user's preferred package manager from lock files
+ * - detectTestRunner(): Detect which test runner is configured in package.json
  * - isScriptAvailable(): Check if a script exists in package.json
  * - isToolAvailable(): Check if a package exists in dependencies
  */
@@ -19,23 +21,33 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * Find the directory containing package.json for Node.js language detection.
+ * Find the directory containing the project-root package.json.
  *
- * Internal helper function used by Node.js detection functions to locate
- * the package.json file. Walks up the directory tree from the script
- * location until it finds a directory containing package.json.
+ * Walks up the directory tree from the script location until it finds a
+ * directory containing a package.json with a "name" field, which
+ * distinguishes project-root files from module-boundary files (e.g.,
+ * `{"type": "commonjs"}` placed in subdirectories to control module
+ * resolution).
  *
  * This function specifically searches for package.json, not the general
  * project root (which could be indicated by pyproject.toml for Python).
- * @private
- * @returns {string} Absolute path to directory containing package.json,
- *                   or parent directory of script location if not found.
+ * @returns {string} Absolute path to directory containing the project-root
+ *                   package.json, or parent directory of script location
+ *                   if not found.
  */
-function _findPackageJsonRoot() {
+function findPackageJsonRoot() {
   let currentDir = __dirname;
   while (currentDir !== path.dirname(currentDir)) {
-    if (fs.existsSync(path.join(currentDir, 'package.json'))) {
-      return currentDir;
+    const candidate = path.join(currentDir, 'package.json');
+    if (fs.existsSync(candidate)) {
+      try {
+        const content = JSON.parse(fs.readFileSync(candidate, 'utf-8'));
+        if (content.name) {
+          return currentDir;
+        }
+      } catch {
+        // Malformed JSON — skip this candidate
+      }
     }
     currentDir = path.dirname(currentDir);
   }
@@ -49,36 +61,47 @@ function _findPackageJsonRoot() {
  * Reads the "wsd.checkDirs" configuration from package.json, which specifies
  * which directories should be scanned for source files during language detection
  * and tool execution.
- * @returns {string[]} Array of directory paths relative to project root,
- *                     or empty array if not configured or package.json missing
+ *
+ * Returns `null` when configuration is not found (no package.json, no `wsd`
+ * section, no `checkDirs` key, or parse failure). Returns an empty array when
+ * `checkDirs: []` is explicitly configured, which is valid for projects where
+ * tools manage their own paths via tool-specific config files.
+ * @returns {string[] | null} Array of directory paths relative to project root
+ *                            when configured (may be empty if `checkDirs: []`),
+ *                            or `null` if configuration is not found.
  */
 function getCheckDirs() {
-  const packageJsonPath = path.join(_findPackageJsonRoot(), 'package.json');
+  const packageJsonPath = path.join(findPackageJsonRoot(), 'package.json');
 
   if (!fs.existsSync(packageJsonPath)) {
     console.error('Note: wsd.checkDirs not configured. Code quality tools will be skipped.');
-    return [];
+    return null;
   }
 
   try {
     const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
-    const wsdConfig = packageJson.wsd || {};
+    const wsdConfig = packageJson.wsd === undefined ? {} : packageJson.wsd;
 
-    if (!wsdConfig.checkDirs) {
+    if (typeof wsdConfig !== 'object' || wsdConfig === null || Array.isArray(wsdConfig)) {
+      console.error('Warning: wsd field in package.json must be an object.');
+      return null;
+    }
+
+    if (!('checkDirs' in wsdConfig)) {
       console.error(
         'Note: wsd.checkDirs not configured in package.json. Code quality tools will be skipped.'
       );
-      return [];
+      return null;
     }
 
     if (!Array.isArray(wsdConfig.checkDirs)) {
       console.error('Warning: wsd.checkDirs must be an array in package.json.');
-      return [];
+      return null;
     }
 
     return wsdConfig.checkDirs;
   } catch {
-    return [];
+    return null;
   }
 }
 
@@ -87,11 +110,11 @@ function getCheckDirs() {
  * @param {string} dir - Directory path to scan (relative to root)
  * @param {string} extension - File extension to match (e.g., '.ts')
  * @param {Set<string>} excludeDirs - Set of directory names to exclude
- * @param {string|null} root - Project root directory path. If null, resolves via _findPackageJsonRoot().
+ * @param {string|null} root - Project root directory path. If null, resolves via findPackageJsonRoot().
  * @returns {boolean} True if any matching files found
  */
 function hasFilesWithExtension(dir, extension, excludeDirs, root = null) {
-  const effectiveRoot = root || _findPackageJsonRoot();
+  const effectiveRoot = root || findPackageJsonRoot();
   const fullPath = path.join(effectiveRoot, dir);
 
   if (!fs.existsSync(fullPath)) {
@@ -129,11 +152,11 @@ function hasFilesWithExtension(dir, extension, excludeDirs, root = null) {
  * Excludes node_modules/ and dist/ directories from scanning.
  * Type declaration files (.d.ts) are included in the scan.
  * @param {string[]} checkDirs - Directories to scan (relative to root)
- * @param {string|null} root - Project root directory path. If null, resolves via _findPackageJsonRoot().
+ * @param {string|null} root - Project root directory path. If null, resolves via findPackageJsonRoot().
  * @returns {boolean} True if any .ts files found, false otherwise
  */
 function hasTypeScriptFiles(checkDirs, root = null) {
-  const effectiveRoot = root || _findPackageJsonRoot();
+  const effectiveRoot = root || findPackageJsonRoot();
   const excludeDirs = new Set(['node_modules', 'dist']);
 
   for (const dir of checkDirs) {
@@ -161,7 +184,7 @@ function hasTypeScriptFiles(checkDirs, root = null) {
  * @returns {string[]} Array of detected languages, or empty array if no Node.js project
  */
 function detectProjectLanguages(projectRoot = null) {
-  const root = projectRoot || _findPackageJsonRoot();
+  const root = projectRoot || findPackageJsonRoot();
   const packageJsonPath = path.join(root, 'package.json');
 
   if (!fs.existsSync(packageJsonPath)) {
@@ -199,10 +222,10 @@ function detectProjectLanguages(projectRoot = null) {
  * @returns {string | null} Package manager name ('pnpm', 'npm', 'yarn', 'bun'),
  *                          or null if no lock file is found.
  * @remarks Checks lock files in priority order: pnpm-lock.yaml, package-lock.json,
- *          yarn.lock, bun.lockb.
+ *          yarn.lock, bun.lock/bun.lockb.
  */
 function detectPackageManager() {
-  const root = _findPackageJsonRoot();
+  const root = findPackageJsonRoot();
   if (fs.existsSync(path.join(root, 'pnpm-lock.yaml'))) {
     return 'pnpm';
   }
@@ -212,11 +235,62 @@ function detectPackageManager() {
   if (fs.existsSync(path.join(root, 'yarn.lock'))) {
     return 'yarn';
   }
+  if (fs.existsSync(path.join(root, 'bun.lock'))) {
+    return 'bun';
+  }
   if (fs.existsSync(path.join(root, 'bun.lockb'))) {
     return 'bun';
   }
 
   return null;
+}
+
+/**
+ * Detect which test runner is configured in package.json devDependencies.
+ *
+ * Checks the devDependencies section of package.json for known test runners
+ * in priority order: vitest, jest, mocha. Returns the first match found.
+ * @param {string | null} projectRoot - Root directory of the project. If null, searches from
+ *                                       the script's directory up the tree for package.json.
+ * @returns {string | null} Test runner name ('vitest', 'jest', or 'mocha') if detected,
+ *                          or null if no known test runner is found.
+ * @example
+ * const runner = detectTestRunner();  // Auto-detect from current directory
+ * console.log(runner);  // 'vitest'
+ *
+ * const runner2 = detectTestRunner('/path/to/project');
+ * console.log(runner2);  // 'jest'
+ */
+function detectTestRunner(projectRoot = null) {
+  const root = projectRoot || findPackageJsonRoot();
+  const packageJsonPath = path.join(root, 'package.json');
+
+  if (!fs.existsSync(packageJsonPath)) {
+    return null;
+  }
+
+  try {
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+    const devDependencies = packageJson.devDependencies || {};
+
+    if (typeof devDependencies !== 'object') {
+      return null;
+    }
+
+    if ('vitest' in devDependencies) {
+      return 'vitest';
+    }
+    if ('jest' in devDependencies) {
+      return 'jest';
+    }
+    if ('mocha' in devDependencies) {
+      return 'mocha';
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -229,7 +303,7 @@ function detectPackageManager() {
  * @remarks Returns false if package.json doesn't exist or cannot be parsed.
  */
 function isScriptAvailable(scriptName) {
-  const packageJsonPath = path.join(_findPackageJsonRoot(), 'package.json');
+  const packageJsonPath = path.join(findPackageJsonRoot(), 'package.json');
 
   if (!fs.existsSync(packageJsonPath)) {
     return false;
@@ -268,10 +342,12 @@ function isToolAvailable(packageName) {
 }
 
 module.exports = {
+  findPackageJsonRoot,
   getCheckDirs,
   hasTypeScriptFiles,
   detectProjectLanguages,
   detectPackageManager,
+  detectTestRunner,
   isScriptAvailable,
   isToolAvailable,
 };

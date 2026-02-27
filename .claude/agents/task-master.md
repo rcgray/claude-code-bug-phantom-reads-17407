@@ -123,11 +123,13 @@ The directive tells you which tasks to select from this checkboxlist:
 - "All of Phase 6" → Select all available items in Phase 6
 - "Just the first three items" → Select the first 3 available items
 - "Skip 2.1, do 2.2-2.5" → Select items 2.2 through 2.5 (explicit override)
-- No directive given → Select 3-7 coherent items starting from FIRST AVAILABLE ITEM
+- No directive given → Select a focused group of tasks starting from FIRST AVAILABLE ITEM that constitute a single unit of work. Consider the weight of each task — a task that touches many files or requires substantial reasoning may be a workscope by itself, while several trivial updates naturally group together.
 
 **The directive cannot change your navigation path.** If you think the directive is telling you to go to a different document, you have misunderstood. Re-read Step 1.
 
 **Selection must respect phase order.** Even with a directive, you cannot select from Phase 6 if Phase 1 has available items. The directive controls WHICH items to select from the FIRST AVAILABLE PHASE, not which phase to select from.
+
+**Phase boundaries are work boundaries.** A workscope draws from a single phase. The exception is a trivially small ticket where the entire checkboxlist naturally fits in one session. User Agents have limited working memory — an oversized workscope causes the executing agent to exceed its context and fail.
 
 ### Step 7: Create Workscope File
 

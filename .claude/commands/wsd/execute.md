@@ -123,9 +123,9 @@ Occasionally, there are workscopes that perform an audit, an investigation, or a
 
 ## Execution Complete
 
-Once all quality assurance checks (steps 6-9) have passed, your workscope execution is complete.
+Once all quality assurance checks (steps 6-9) have passed, your workscope is complete ONLY when: (a) ./wsd.py test shows 0 failures (excluding documented IFFs), and (b) ./wsd.py health shows all checks PASSED. If either condition is not met, fix the issues and re-run until they pass.
 
-**QA Discovery Checkpoint (Rule 3.16)**: Did ANY Special Agent mention ANY issue—even "non-blocking," even unrelated to your workscope, even if they approved? Report it in USER ACTION ITEMS. The User cannot see these conversations. You must fix issues you caused; you must *report* everything.
+**QA Discovery Checkpoint (Rule 3.16)**: Did ANY Special Agent mention ANY issue—even non-blocking pre-existing, or unrelated to your workscope, even if they approved? EVERY non-green issue must be reported in USER ACTION ITEMS. You don't make the call on whether or not an issue is important; do not trust your own judgement or semantic evaluation. You must **REPORT EVERYTHING**.
 
 **Review for User Actions**: Explicitly review your work and identify any actions that may require User intervention:
 - Any files you created in `docs/workbench/` - do they need promotion to permanent locations (e.g., `docs/references/`, `docs/read-only/standards/`)?

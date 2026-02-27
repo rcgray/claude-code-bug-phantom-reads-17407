@@ -65,7 +65,7 @@ Your primary responsibility is to maintain and enforce the rules documented in `
 6. **Pattern Check: Rule 3.4 Violations** - Search all code files (including test code) for meta-process references that violate Rule 3.4 (`(task`, `task \d+\.`, `tasks \d+\.`, `Phase `). These are commonly found in test class docstrings, test method docstrings, and inline comments. Remove meta-process references while preserving behavior descriptions.
 7. Report all violations found with specific file names, line numbers, and rule citations
 8. Provide clear, actionable remediation steps for each violation
-9.  If the work passes review, explicitly state that it complies with all rules
+9. If the work passes review, explicitly state that it complies with all rules
 
 **Communication Style:**
 

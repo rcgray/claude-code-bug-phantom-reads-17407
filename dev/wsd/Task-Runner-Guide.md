@@ -129,21 +129,22 @@ The `health` command runs for both Python and Node.js languages when detected, c
 
 These commands help maintain code quality:
 
-| Command           | Multi-Lang  | Description                      | Example               |
-| ----------------- | ----------- | -------------------------------- | --------------------- |
-| `test`            | Yes         | Run test suite                   | `wsd test`            |
-| `test:watch`      | Yes         | Auto-rerun tests on changes      | `wsd test:watch`      |
-| `test:coverage`   | Yes         | Run tests with coverage          | `wsd test:coverage`   |
-| `lint`            | Yes         | Check code for issues            | `wsd lint`            |
-| `lint:fix`        | Yes         | Auto-fix linting issues          | `wsd lint:fix`        |
-| `lint:aggressive` | Yes         | Fix with unsafe transformations  | `wsd lint:aggressive` |
-| `lint:docs`       | Python-only | Check docstring compliance       | `wsd lint:docs`       |
-| `lint:docs:fix`   | Python-only | Fix docstring issues             | `wsd lint:docs:fix`   |
-| `format`          | Yes         | Format code                      | `wsd format`          |
-| `format:check`    | Yes         | Check formatting without changes | `wsd format:check`    |
-| `type`            | Yes         | Run type checker                 | `wsd type`            |
-| `validate`        | Yes         | Run lint + type + format:check   | `wsd validate`        |
-| `security`        | Yes         | Security vulnerability scan      | `wsd security`        |
+| Command           | Multi-Lang   | Description                      | Example               |
+| ----------------- | ------------ | -------------------------------- | --------------------- |
+| `test`            | Yes          | Run test suite                   | `wsd test`            |
+| `test:watch`      | Yes          | Auto-rerun tests on changes      | `wsd test:watch`      |
+| `test:coverage`   | Yes          | Run tests with coverage          | `wsd test:coverage`   |
+| `test:e2e`        | Node.js-only | Run end-to-end tests             | `wsd test:e2e`        |
+| `lint`            | Yes          | Check code for issues            | `wsd lint`            |
+| `lint:fix`        | Yes          | Auto-fix linting issues          | `wsd lint:fix`        |
+| `lint:aggressive` | Yes          | Fix with unsafe transformations  | `wsd lint:aggressive` |
+| `lint:docs`       | Python-only  | Check docstring compliance       | `wsd lint:docs`       |
+| `lint:docs:fix`   | Python-only  | Fix docstring issues             | `wsd lint:docs:fix`   |
+| `format`          | Yes          | Format code                      | `wsd format`          |
+| `format:check`    | Yes          | Check formatting without changes | `wsd format:check`    |
+| `type`            | Yes          | Run type checker                 | `wsd type`            |
+| `validate`        | Yes          | Run lint + type + format:check   | `wsd validate`        |
+| `security`        | Yes          | Security vulnerability scan      | `wsd security`        |
 
 **Multi-Language Behavior:**
 - Commands marked "Yes" run for all detected languages
@@ -160,7 +161,8 @@ These commands help maintain code quality:
 - `security` → `uv run bandit -r [directories] -f screen -ll`
 
 **Node.js (TypeScript/JavaScript):**
-- `test` → `{pm} test` (where `{pm}` is pnpm/npm/yarn/bun based on your lock file)
+- `test` → `{pm} run test` (where `{pm}` is pnpm/npm/yarn/bun based on your lock file)
+- `test:e2e` → `{pm} run test:e2e` (E2E testing with Playwright, Cypress, etc.)
 - `lint` → `{pm} run lint`
 - `format` → `{pm} run format`
 - `type` → `{pm} run typecheck`
@@ -188,13 +190,26 @@ These commands manage project dependencies:
 | `audit`     | Yes        | Check for vulnerabilities            | `wsd audit`     |
 | `audit:fix` | Yes        | Fix vulnerable dependencies          | `wsd audit:fix` |
 
+**audit:fix Per-Manager Behavior:**
+
+The `audit:fix` command adapts to each package manager's capabilities:
+
+| Package Manager | Behavior                                              | Command Run        |
+| --------------- | ----------------------------------------------------- | ------------------ |
+| npm             | Fixes vulnerabilities automatically                   | `npm audit fix`    |
+| pnpm            | Adds overrides to package.json for safe versions      | `pnpm audit --fix` |
+| yarn            | Not supported — prints guidance to use `yarn upgrade` | (exits with error) |
+| bun             | Not supported — prints guidance to use `bun update`   | (exits with error) |
+
+For package managers without automated audit fixing (yarn, bun), the task runner prints a clear error message with the recommended manual alternative rather than silently failing.
+
 **Package Manager Detection:**
 
 For Node.js projects (TypeScript and JavaScript), the task runner detects your package manager from lock files:
 - `pnpm-lock.yaml` → uses `pnpm`
 - `package-lock.json` → uses `npm`
 - `yarn.lock` → uses `yarn`
-- `bun.lockb` → uses `bun`
+- `bun.lock` or `bun.lockb` → uses `bun`
 
 A lock file is required. If no lock file exists, the task runner will prompt you to initialize your package manager by running its install command (e.g., `pnpm install`, `npm install`).
 
@@ -208,11 +223,11 @@ These commands work immediately without any setup:
 - Build commands (`build`, `dev`, `serve`, `watch`, `clean`)
 - Dependency commands (`sync`, `update`, `audit`, `audit:fix`)
 
-### Configuration-Dependent Commands
+### Configuration-Dependent Commands (Python)
 
-Some Python commands require configuration to specify which directories to check:
+Python CLI tools (ruff, mypy, bandit) require explicit directory arguments to know which files to analyze. The `check_dirs` configuration in `pyproject.toml` provides these directories. Node.js commands are unaffected — they delegate to `package.json` scripts that read their own configuration files (`tsconfig.json`, `.eslintrc`, etc.) and do not need `check_dirs`.
 
-**Commands needing configuration:**
+**Python commands needing `check_dirs`:**
 - `lint`, `lint:fix`, `lint:aggressive`
 - `lint:docs`, `lint:docs:fix`
 - `format`, `format:check`
@@ -228,23 +243,15 @@ Add a `[tool.wsd]` section to your `pyproject.toml`:
 check_dirs = ["src", "tests"]
 ```
 
-The `check_dirs` array specifies which directories these tools should analyze. Typical values:
+The `check_dirs` array specifies which directories Python tools should analyze. Typical values:
 - `["src", "tests"]` for projects with a `src/` directory
 - `["myproject", "tests"]` for projects with a package directory
 - `["source", "tests"]` (as used in the WSD Development project itself)
+- `[]` for codeless projects that use `pyproject.toml` for WSD dependency management but have no Python source code to check. An empty array is valid and causes commands to execute with no directory arguments, allowing tools to use their own configuration files (e.g., `ruff.toml`, `mypy.ini`) to determine paths.
 
 **What happens without configuration:**
 
-If you run a configuration-dependent command without `[tool.wsd]` configuration, you'll see:
-
-```
-ERROR: [tool.wsd] configuration missing or incomplete in pyproject.toml.
-
-Add this to your pyproject.toml:
-
-[tool.wsd]
-check_dirs = ["src", "tests"]
-```
+If you run a configuration-dependent command in a Python-only project without `[tool.wsd]` configuration, you'll see an error directing you to configure `check_dirs`. In multi-language projects, the Python commands are skipped with a warning while Node.js commands proceed normally. TypeScript-only and JavaScript-only projects do not need `check_dirs` at all.
 
 ### Node.js Configuration (TypeScript/JavaScript)
 
@@ -288,6 +295,18 @@ wsd test:coverage
 wsd test -k test_auth  # Python: runs pytest -k test_auth
 wsd test --verbose     # Forwards --verbose to pytest/jest
 ```
+
+### Test Runner Detection
+
+WSD detects which test runner your Node.js project uses by checking `devDependencies` in `package.json`. The following test runners are recognized, in priority order:
+
+1. **Vitest** (`vitest` in devDependencies)
+2. **Jest** (`jest` in devDependencies)
+3. **Mocha** (`mocha` in devDependencies)
+
+This detection enables WSD's documentation pipeline (`wsd docs:full`) to parse test output correctly, since each test runner produces results in a different format. The `detect_test_runner()` utility from `wsd_utils` performs this detection and is available to all WSD scripts.
+
+If your project uses a test runner that is not yet recognized, the documentation pipeline still runs your tests and captures the raw output, but detailed result parsing (test counts, failure details) is skipped.
 
 ### Linting and Formatting
 
@@ -342,8 +361,13 @@ wsd sync
 # Check for known vulnerabilities
 wsd audit
 
-# Automatically fix vulnerable dependencies
+# Automatically fix vulnerable dependencies (npm, pnpm)
 wsd audit:fix
+
+# For yarn or bun, wsd audit:fix prints guidance:
+#   ❌ ERROR: bun does not support automated audit fixing.
+#   To update vulnerable dependencies, run:
+#     bun update
 ```
 
 ## Viewing Available Commands
@@ -384,7 +408,7 @@ The help display shows:
 
 The task runner does not include built-in commands for API documentation generation (like pdoc for Python or TypeDoc for TypeScript). This is intentional - API documentation tools are project-specific and better suited for custom project scripts.
 
-**Why API documentation commands were removed:**
+**Why API documentation commands are not included:**
 
 Not all projects need API documentation. Web applications, CLI tools, and internal services often don't publish API docs. Projects that do need API docs can add their own scripts:
 
@@ -405,6 +429,41 @@ uv run pdoc src/ -o docs/api/
 ```
 
 This approach keeps the task runner focused on universal development commands while allowing each project to customize documentation generation for their specific needs.
+
+### Exit Code Convention for Documentation Scripts
+
+WSD documentation generation scripts (`codedocs_typedoc.js`, `codedocs_jsdoc.js`, `codedocs_pdoc.py`, etc.) follow a standardized exit code convention to communicate their completion status:
+
+| Exit Code | Meaning | When Used                                                              | Result in Summary |
+| --------- | ------- | ---------------------------------------------------------------------- | ----------------- |
+| **0**     | Success | Tool ran and successfully generated documentation                      | `✅ PASSED`        |
+| **1**     | Failure | Tool ran but encountered an error                                      | `❌ FAILED`        |
+| **2**     | Skipped | Tool not installed or no configured source directories (graceful skip) | `⏭️  SKIPPED`      |
+
+This convention enables automated documentation pipelines (like `update_docs.py` or `wsd docs:full`) to accurately report what happened:
+
+**Example scenario:**
+- TypeDoc is not installed in a project → `codedocs_typedoc.js` exits with code 2
+- The orchestrating script (`update_docs.py`) detects exit code 2 and reports `"⏭️  SKIPPED"` in the summary
+- Users can immediately see that TypeDoc was skipped (tool not wanted) vs. failed (tool wanted but errored)
+
+**Implementation pattern:**
+```javascript
+// In documentation generation scripts
+if (!isToolAvailable('typedoc')) {
+    console.log('TypeDoc is not installed. Skipping TypeDoc documentation generation.');
+    process.exit(2);  // Exit code 2 = skipped
+}
+```
+
+```python
+# Python equivalent
+if not is_tool_available("pdoc"):
+    print("pdoc is not installed. Skipping pdoc documentation generation.")
+    sys.exit(2)  # Exit code 2 = skipped
+```
+
+This three-state reporting (success/failure/skipped) provides clearer visibility into documentation generation pipeline results than a simple pass/fail model.
 
 ## Troubleshooting
 
@@ -438,16 +497,16 @@ npm install    # Creates package-lock.json
 # or
 yarn install   # Creates yarn.lock
 # or
-bun install    # Creates bun.lockb
+bun install    # Creates bun.lock
 ```
 
 The task runner requires an explicit lock file to determine which package manager to use. This follows the explicit configuration principle - WSD does not assume a default package manager.
 
-### Configuration Required Error
+### Configuration Required Error (Python)
 
-**Problem:** Command fails with "ERROR: [tool.wsd] configuration missing"
+**Problem:** Command fails with an error about `check_dirs` not being configured
 
-**Solution:** Add `[tool.wsd]` section to `pyproject.toml` (see Configuration section above)
+**Solution:** This error only affects Python projects. Add `[tool.wsd]` section to `pyproject.toml` (see Configuration section above). Node.js-only projects (TypeScript/JavaScript) do not require this configuration.
 
 ### Tests Failing in Multi-Language Projects
 

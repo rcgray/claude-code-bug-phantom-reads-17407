@@ -14,7 +14,7 @@ For general WSD installation instructions, see the Integration-Guide.md first, t
 - **`tsconfig.json.md`** - Authoritative reference for TypeScript compiler configuration (TypeScript projects only).
 - **`typedoc.json.md`** - Authoritative reference for TypeDoc API documentation configuration (TypeScript projects only).
 - **`jsdoc.json.md`** - Authoritative reference for JSDoc API documentation configuration (JavaScript projects only).
-- **`eslintrc.md`** - Authoritative reference for ESLint configuration. Covers TypeScript vs JavaScript parser settings, security scanning, and TSDoc validation.
+- **`eslint.config.md`** - Authoritative reference for ESLint configuration. Covers TypeScript vs JavaScript parser settings, security scanning, and TSDoc validation.
 - **`prettierrc.md`** - Authoritative reference for Prettier configuration. Covers formatting options, ignore patterns, and editor integration.
 - **Integration-Guide.md** - General WSD installation instructions
 - **Python-Project-Guide.md** - Setup guide for Python projects
@@ -99,8 +99,8 @@ npm install --save-dev eslint prettier jsdoc @babel/parser
 | ---------------------------------- | --------------------------- | ----------- | ----------------------------------------- |
 | `typescript`                       | Type checking & compilation | **Yes**     | All TS commands, codedocs_typescript.js   |
 | `@types/node`                      | Node.js type definitions    | **Yes**     | TypeScript compilation                    |
-| `@typescript-eslint/parser`        | ESLint TS support           | Recommended | ESLint for TypeScript                     |
-| `@typescript-eslint/eslint-plugin` | ESLint TS rules             | Recommended | ESLint for TypeScript                     |
+| `@typescript-eslint/parser`        | ESLint TS support           | **Yes**     | ESLint for TypeScript                     |
+| `@typescript-eslint/eslint-plugin` | ESLint TS rules             | Optional    | ESLint for TypeScript                     |
 | `eslint-plugin-tsdoc`              | TSDoc validation            | Optional    | Health check (skips if missing)           |
 | `typedoc`                          | HTML API doc generation     | Optional    | codedocs_typedoc.js (required for script) |
 | `@types/jest`                      | Jest type definitions       | Optional    | Jest with TypeScript                      |
@@ -158,7 +158,7 @@ These scripts are required for JavaScript projects:
 
 ### TypeScript Projects
 
-> **TypeScript projects only**: These scripts include build and type-checking, which are not applicable to JavaScript projects.
+> **TypeScript projects only**: These scripts include build, which is not applicable to JavaScript projects.
 
 ```json
 {
@@ -166,8 +166,7 @@ These scripts are required for JavaScript projects:
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "build": "tsc",
-    "typecheck": "tsc --noEmit"
+    "build": "tsc"
   }
 }
 ```
@@ -178,6 +177,7 @@ These scripts are required for JavaScript projects:
 {
   "scripts": {
     "test": "jest",
+    "test:e2e": "playwright test",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "lint:json": "eslint . --format json",
@@ -439,6 +439,7 @@ WSD's task runner (`wsd.py`) provides these commands for TypeScript projects:
 | `./wsd.py test`          | `npm run test`          | Run test suite                  |
 | `./wsd.py test:watch`    | `npm run test:watch`    | Run tests in watch mode         |
 | `./wsd.py test:coverage` | `npm run test:coverage` | Run tests with coverage         |
+| `./wsd.py test:e2e`      | `npm run test:e2e`      | Run end-to-end tests            |
 | `./wsd.py lint`          | `npm run lint`          | Check for lint errors           |
 | `./wsd.py lint:fix`      | `npm run lint:fix`      | Auto-fix lint errors            |
 | `./wsd.py format`        | `npm run format`        | Format code                     |
@@ -449,7 +450,7 @@ WSD's task runner (`wsd.py`) provides these commands for TypeScript projects:
 | `./wsd.py sync`          | `npm install`           | Install dependencies            |
 | `./wsd.py audit`         | `npm audit`             | Audit dependencies              |
 
-**Note:** Replace `npm` with `pnpm` or `yarn` based on your lock file. WSD auto-detects your package manager.
+**Note:** Replace `npm` with `pnpm`, `yarn`, or `bun` based on your lock file. WSD auto-detects your package manager.
 
 ### Health Check (`./wsd.py health`)
 
@@ -786,8 +787,9 @@ npm install --save-dev typescript
 
 **Solution:** WSD detects package manager from lock files. Ensure only one exists:
 - `pnpm-lock.yaml` → pnpm
-- `yarn.lock` → yarn
 - `package-lock.json` → npm
+- `yarn.lock` → yarn
+- `bun.lock` or `bun.lockb` → bun
 
 Delete extra lock files if needed.
 

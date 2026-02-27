@@ -109,11 +109,10 @@ When you start, the first thing you do before anything else is read the followin
 
    **If you believe you need to modify repository state to run tests** (e.g., "I need to stash uncommitted changes to get a clean working tree"), this indicates a test environment issue - escalate to the User rather than attempting any state-modifying command.
 
-8. **Test Summary in Response**: Your final response to the User Agent must include a snippet of your final execution of the testing script (i.e., `./wsd.py test`), which looks something like this in Python (though TypeScript or another language may be different):
-```
-=========== 998 passed, 7 skipped in 74.16s (0:01:14) ===========
-```
-You are not permitted to fabricate this text - it must be selected from the results of _actually running the test suite_.
+8. **Test Summary in Response**: Your final response to the User Agent must include a snippet of your final execution of the testing script (i.e., `./wsd.py test`).
+
+- You are not permitted to fabricate this text - it must be selected from the results of _actually running the test suite_.
+- You must present the results of ALL TESTS that were run - in the case of a multi-language project, this may include a suite of Python tests (e.g., pytest) AND a suite of JavaScript or TypeScript tests (via vitest or jest). Do NOT simply report one of them.
 
 **Your Operating Principles:**
 

@@ -5,11 +5,19 @@ Prompts-Current.md and Prompts-Previous.md are symlinks pointing to archive file
 """
 
 import shutil
+import sys
 from datetime import datetime
 from pathlib import Path
 
+
+# Add scripts directory to path for wsd_utils import
+_scripts_dir = Path(__file__).parent
+sys.path.insert(0, str(_scripts_dir))
+from wsd_utils import _find_python_project_root  # noqa: E402
+
+
 # Define paths relative to project root
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = _find_python_project_root()
 PROMPTS_DIR = PROJECT_ROOT / "dev" / "prompts"
 ARCHIVE_DIR = PROMPTS_DIR / "archive"
 TEMPLATE_FILE = PROMPTS_DIR / "Prompts-Template.md"
